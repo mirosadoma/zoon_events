@@ -1,0 +1,96 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "zonetec/foundation",
+    "type": "project",
+    "description": "Zonetec Phase 0 foundation modular monolith.",
+    "keywords": ["laravel", "zonetec", "foundation", "multi-tenant"],
+    "license": "proprietary",
+    "require": {
+        "php": "^8.3",
+        "inertiajs/inertia-laravel": "^2.0",
+        "laravel/fortify": "^1.27",
+        "laravel/framework": "^13.0",
+        "laravel/sanctum": "^4.0",
+        "laravel/tinker": "^3.0"
+    },
+    "require-dev": {
+        "fakerphp/faker": "^1.23",
+        "laravel/pint": "^1.27",
+        "mockery/mockery": "^1.6",
+        "nunomaduro/collision": "^8.6",
+        "phpunit/phpunit": "^12.5.12"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "App\\Modules\\": "app/Modules/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "setup": [
+            "composer install",
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
+            "@php artisan key:generate --ansi",
+            "npm install"
+        ],
+        "dev": [
+            "Composer\\Config::disableProcessTimeout",
+            "npx concurrently -c \"#2b6cb0,#be123c\" \"php artisan serve\" \"npm run dev\" --names=server,vite --kill-others"
+        ],
+        "dev:queue": [
+            "@php artisan queue:work --queue=foundation --tries=3"
+        ],
+        "dev:logs": [
+            "powershell -Command \"Get-Content storage/logs/laravel.log -Wait\""
+        ],
+        "test": [
+            "@php artisan config:clear --ansi",
+            "@php artisan test"
+        ],
+        "lint": [
+            "vendor/bin/pint --test"
+        ],
+        "quality": [
+            "@composer lint",
+            "@composer test",
+            "@php scripts/sync-openapi.php --check",
+            "@php artisan zonetec:docs:check",
+            "@php artisan zonetec:phase-boundary:check"
+        ],
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
+        ],
+        "post-update-cmd": [
+            "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
+        ],
+        "post-root-package-install": [
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+        ],
+        "pre-package-uninstall": [
+            "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
+        ]
+    },
+    "extra": {
+        "laravel": {
+            "dont-discover": []
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

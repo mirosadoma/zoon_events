@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+  --surface: #f8fafc;
+  --surface-elevated: rgba(255, 255, 255, 0.82);
+  --ink: #0f172a;
+  --muted: #475569;
+  --border: rgba(148, 163, 184, 0.28);
+  --brand: #0f766e;
+  --accent: #2563eb;
+  --focus-ring: #0369a1;
+}
+
+.dark {
+  color-scheme: dark;
+  --surface: #020617;
+  --surface-elevated: rgba(15, 23, 42, 0.9);
+  --ink: #f8fafc;
+  --muted: #cbd5e1;
+  --border: rgba(100, 116, 139, 0.5);
+  --focus-ring: #7dd3fc;
+}
+
+.control {
+  @apply min-h-10 rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-950 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50;
+}
+
+.button-primary {
+  @apply min-h-10 rounded-lg bg-sky-700 px-4 py-2 font-semibold text-white hover:bg-sky-800 disabled:opacity-50;
+}
+
+.button-secondary {
+  @apply min-h-10 rounded-lg border border-slate-300 px-4 py-2 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800;
+}
+
+.state-panel {
+  @apply rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900;
+}
+
+.skip-link {
+  @apply fixed start-3 top-3 z-50 -translate-y-20 rounded-md bg-slate-950 px-3 py-2 text-white focus:translate-y-0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top, rgba(37, 99, 235, 0.08), transparent 42%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+  color: var(--ink);
+  font-family: "Instrument Sans", "Segoe UI", sans-serif;
+}

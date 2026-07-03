@@ -1,0 +1,1379 @@
+openapi: 3.1.0
+info:
+  title: Zonetec Phase 1 Registration and Ticketing API
+  version: 1.0.0-draft
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+  description: >
+    Review contract for Phase 1. During implementation these operations are
+    merged into the authoritative versioned product OpenAPI document.
+servers:
+  - url: https://{host}/api/v1
+    variables:
+      host:
+        default: example.test
+tags:
+  - name: Public Registration
+    description: Attendee event discovery, registration, checkout, and order status.
+  - name: Events
+    description: Tenant event setup and lifecycle.
+  - name: Registration Forms
+    description: Versioned event registration form management.
+  - name: Ticketing
+    description: Ticket types, inventory, and scheduled pricing.
+  - name: Orders
+    description: Organizer order review and refund operations.
+  - name: Attendees
+    description: Tenant-scoped attendee review and correction.
+  - name: Credentials
+    description: Signed credential validation, revocation, and reissue.
+paths:
+  /public/events/{event_slug}:
+    get:
+      tags: [Public Registration]
+      operationId: getPublicEvent
+      summary: Get one published event resolved from the trusted request host
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/EventSlug'
+        - $ref: '#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          $ref: '#/components/responses/PublicEventResponse'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '429':
+          $ref: '#/components/responses/Problem'
+  /public/events/{event_slug}/registration-form:
+    get:
+      tags: [Public Registration]
+      operationId: getPublicRegistrationForm
+      summary: Get the active immutable registration form and available tickets
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/EventSlug'
+        - $ref: '#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: Active form and ticket availability
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicRegistrationFormEnvelope'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+  /public/events/{event_slug}/registrations:
+    post:
+      tags: [Public Registration]
+      operationId: createPublicRegistration
+      summary: Create a free order or a paid checkout intent
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/EventSlug'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRegistrationRequest'
+      responses:
+        '201':
+          description: Registration/order created
+          headers:
+            Idempotent-Replayed:
+              $ref: '#/components/headers/IdempotentReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicOrderEnvelope'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        '429':
+          $ref: '#/components/responses/Problem'
+  /public/orders/{public_reference}:
+    get:
+      tags: [Public Registration]
+      operationId: getPublicOrder
+      summary: Get a limited order and credential status using its access token
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PublicReference'
+        - $ref: '#/components/parameters/OrderAccessToken'
+        - $ref: '#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: Safe public order status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicOrderEnvelope'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /public/orders/{public_reference}/payment-intents:
+    post:
+      tags: [Public Registration]
+      operationId: createPublicPaymentIntent
+      summary: Start or safely replay payment for a pending paid order
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PublicReference'
+        - $ref: '#/components/parameters/OrderAccessToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [return_url]
+              properties:
+                return_url:
+                  type: string
+                  format: uri
+                  maxLength: 2048
+      responses:
+        '201':
+          description: Payment action created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentActionEnvelope'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        '503':
+          $ref: '#/components/responses/Problem'
+  /tenant/events:
+    get:
+      tags: [Events]
+      operationId: listEvents
+      summary: List tenant events
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Tenant events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventCollection'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+    post:
+      tags: [Events]
+      operationId: createEvent
+      summary: Create a draft event
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventWriteRequest'
+      responses:
+        '201':
+          description: Draft event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventEnvelope'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}:
+    get:
+      tags: [Events]
+      operationId: getEvent
+      summary: Get a tenant event
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventEnvelope'
+        '404':
+          $ref: '#/components/responses/Problem'
+    patch:
+      tags: [Events]
+      operationId: updateEvent
+      summary: Update a tenant event
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventWriteRequest'
+      responses:
+        '200':
+          description: Updated event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventEnvelope'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/publish:
+    post:
+      tags: [Events]
+      operationId: publishEvent
+      summary: Publish a configured event
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Published event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventEnvelope'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/cancel:
+    post:
+      tags: [Events]
+      operationId: cancelEvent
+      summary: Cancel an event
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+      responses:
+        '200':
+          description: Cancelled event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventEnvelope'
+        '409':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/registration-form:
+    put:
+      tags: [Registration Forms]
+      operationId: saveRegistrationFormDraft
+      summary: Save a registration form draft
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationFormWriteRequest'
+      responses:
+        '200':
+          description: Draft form version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationFormEnvelope'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/registration-form/publish:
+    post:
+      tags: [Registration Forms]
+      operationId: publishRegistrationForm
+      summary: Publish the current registration form draft
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Published form
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationFormEnvelope'
+        '409':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/ticket-types:
+    get:
+      tags: [Ticketing]
+      operationId: listTicketTypes
+      summary: List ticket types and availability
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Ticket types and inventory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketTypeCollection'
+        '403':
+          $ref: '#/components/responses/Problem'
+    post:
+      tags: [Ticketing]
+      operationId: createTicketType
+      summary: Create a ticket type
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketTypeWriteRequest'
+      responses:
+        '201':
+          description: Ticket type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketTypeEnvelope'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/ticket-types/{ticket_type_id}:
+    patch:
+      tags: [Ticketing]
+      operationId: updateTicketType
+      summary: Update a ticket type
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/TicketTypeId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketTypeWriteRequest'
+      responses:
+        '200':
+          description: Updated ticket type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketTypeEnvelope'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/ticket-types/{ticket_type_id}/price-tiers:
+    post:
+      tags: [Ticketing]
+      operationId: createPriceTier
+      summary: Create a scheduled or capacity price tier
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/TicketTypeId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PriceTierWriteRequest'
+      responses:
+        '201':
+          description: Price tier
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceTierEnvelope'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/orders:
+    get:
+      tags: [Orders]
+      operationId: listOrders
+      summary: List event orders
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Event orders
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCollection'
+        '403':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/orders/{order_id}/refunds:
+    post:
+      tags: [Orders]
+      operationId: createRefund
+      summary: Request a full or partial order refund
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [amount_minor, reason]
+              properties:
+                amount_minor:
+                  type: integer
+                  minimum: 1
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+      responses:
+        '202':
+          description: Refund accepted or pending reconciliation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundEnvelope'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        '503':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/attendees:
+    get:
+      tags: [Attendees]
+      operationId: listAttendees
+      summary: List event attendees
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Event attendees
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendeeCollection'
+        '403':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/attendees/{attendee_id}:
+    patch:
+      tags: [Attendees]
+      operationId: updateAttendee
+      summary: Correct permitted attendee details
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/AttendeeId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [reason]
+              properties:
+                first_name:
+                  type: string
+                  maxLength: 120
+                last_name:
+                  type: string
+                  maxLength: 120
+                email:
+                  type: string
+                  format: email
+                  maxLength: 254
+                phone:
+                  type: string
+                  maxLength: 32
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+      responses:
+        '200':
+          description: Updated attendee
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendeeEnvelope'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/credentials/{credential_id}/revoke:
+    post:
+      tags: [Credentials]
+      operationId: revokeCredential
+      summary: Revoke an active credential
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/CredentialId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+      responses:
+        '200':
+          description: Revoked credential
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialEnvelope'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/credentials/{credential_id}/reissue:
+    post:
+      tags: [Credentials]
+      operationId: reissueCredential
+      summary: Reissue a credential and supersede the old token
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/CredentialId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+      responses:
+        '201':
+          description: Replacement credential
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialEnvelope'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+  /tenant/credential-validations:
+    post:
+      tags: [Credentials]
+      operationId: validateCredential
+      summary: Validate credential integrity and authoritative status
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [credential]
+              properties:
+                credential:
+                  type: string
+                  minLength: 32
+                  maxLength: 2048
+      responses:
+        '200':
+          description: Stable credential validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialValidationEnvelope'
+        '422':
+          $ref: '#/components/responses/Problem'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    TenantId:
+      name: X-Tenant-ID
+      in: header
+      required: true
+      schema:
+        $ref: '#/components/schemas/Ulid'
+    AcceptLanguage:
+      name: Accept-Language
+      in: header
+      schema:
+        type: string
+        enum: [en, ar]
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 255
+    OrderAccessToken:
+      name: Order-Access-Token
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 32
+        maxLength: 512
+    EventSlug:
+      name: event_slug
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+        maxLength: 100
+    PublicReference:
+      name: public_reference
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 64
+    EventId:
+      name: event_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Ulid'
+    TicketTypeId:
+      name: ticket_type_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Ulid'
+    OrderId:
+      name: order_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Ulid'
+    AttendeeId:
+      name: attendee_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Ulid'
+    CredentialId:
+      name: credential_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Ulid'
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+        maxLength: 2048
+    PageSize:
+      name: page_size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+  headers:
+    IdempotentReplayed:
+      schema:
+        type: boolean
+  responses:
+    Problem:
+      description: Problem Details response
+      headers:
+        X-Correlation-ID:
+          schema:
+            type: string
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    PublicEventResponse:
+      description: Published event
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PublicEventEnvelope'
+  schemas:
+    Ulid:
+      type: string
+      pattern: '^[0-9A-HJKMNP-TV-Z]{26}$'
+    Timestamp:
+      type: string
+      format: date-time
+    Meta:
+      type: object
+      required: [correlation_id]
+      properties:
+        correlation_id:
+          type: string
+        page_size:
+          type: integer
+        has_more:
+          type: boolean
+        next_cursor:
+          type: [string, 'null']
+    Problem:
+      type: object
+      required: [type, title, status, code, detail, instance, correlation_id]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        code:
+          type: string
+        detail:
+          type: string
+        instance:
+          type: string
+        correlation_id:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+    LocalizedText:
+      type: object
+      additionalProperties: false
+      required: [en, ar]
+      properties:
+        en:
+          type: string
+          maxLength: 2000
+        ar:
+          type: string
+          maxLength: 2000
+    Event:
+      type: object
+      required: [id, slug, name, tier, status, timezone, start_at, end_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/Ulid'
+        slug:
+          type: string
+        name:
+          $ref: '#/components/schemas/LocalizedText'
+        description:
+          $ref: '#/components/schemas/LocalizedText'
+        tier:
+          type: string
+          enum: [corporate, public, vip, vvip]
+        status:
+          type: string
+          enum: [draft, configured, published, registration_open, registration_closed, live, completed, cancelled, archived]
+        timezone:
+          type: string
+        start_at:
+          $ref: '#/components/schemas/Timestamp'
+        end_at:
+          $ref: '#/components/schemas/Timestamp'
+        registration_opens_at:
+          $ref: '#/components/schemas/Timestamp'
+        registration_closes_at:
+          $ref: '#/components/schemas/Timestamp'
+        capacity:
+          type: integer
+          minimum: 1
+    EventWriteRequest:
+      type: object
+      additionalProperties: false
+      required: [slug, name, tier, timezone, start_at, end_at, registration_opens_at, registration_closes_at, capacity]
+      properties:
+        slug:
+          type: string
+          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+          maxLength: 100
+        name:
+          $ref: '#/components/schemas/LocalizedText'
+        description:
+          $ref: '#/components/schemas/LocalizedText'
+        tier:
+          type: string
+          enum: [corporate, public, vip, vvip]
+        timezone:
+          type: string
+          maxLength: 64
+        start_at:
+          $ref: '#/components/schemas/Timestamp'
+        end_at:
+          $ref: '#/components/schemas/Timestamp'
+        registration_opens_at:
+          $ref: '#/components/schemas/Timestamp'
+        registration_closes_at:
+          $ref: '#/components/schemas/Timestamp'
+        capacity:
+          type: integer
+          minimum: 1
+        location_name:
+          $ref: '#/components/schemas/LocalizedText'
+        location_address:
+          $ref: '#/components/schemas/LocalizedText'
+        brand_reference:
+          type: string
+          maxLength: 120
+        domain_reference:
+          type: string
+          maxLength: 253
+    PublicEventEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/Event'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    EventEnvelope:
+      $ref: '#/components/schemas/PublicEventEnvelope'
+    EventCollection:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    FormField:
+      type: object
+      additionalProperties: false
+      required: [key, type, label, required, visibility]
+      properties:
+        key:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{1,63}$'
+        type:
+          type: string
+          enum: [text, email, phone, number, date, dropdown, multi_select, checkbox, hidden, consent]
+        label:
+          $ref: '#/components/schemas/LocalizedText'
+        required:
+          type: boolean
+        visibility:
+          type: string
+          enum: [public, internal]
+        options:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            required: [value, label]
+            properties:
+              value:
+                type: string
+                maxLength: 120
+              label:
+                $ref: '#/components/schemas/LocalizedText'
+    RegistrationForm:
+      type: object
+      required: [id, version, status, schema_hash, fields]
+      properties:
+        id:
+          $ref: '#/components/schemas/Ulid'
+        version:
+          type: integer
+          minimum: 1
+        status:
+          type: string
+          enum: [draft, published, retired]
+        schema_hash:
+          type: string
+        fields:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/FormField'
+    RegistrationFormWriteRequest:
+      type: object
+      additionalProperties: false
+      required: [name, fields, privacy_notice_version, terms_version]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        fields:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/FormField'
+        privacy_notice_version:
+          type: string
+          maxLength: 80
+        terms_version:
+          type: string
+          maxLength: 80
+    RegistrationFormEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/RegistrationForm'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    PublicRegistrationFormEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [event, form, ticket_types]
+          properties:
+            event:
+              $ref: '#/components/schemas/Event'
+            form:
+              $ref: '#/components/schemas/RegistrationForm'
+            ticket_types:
+              type: array
+              items:
+                $ref: '#/components/schemas/TicketType'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    TicketType:
+      type: object
+      required: [id, code, name, price_minor, currency, availability, status]
+      properties:
+        id:
+          $ref: '#/components/schemas/Ulid'
+        code:
+          type: string
+        name:
+          $ref: '#/components/schemas/LocalizedText'
+        price_minor:
+          type: integer
+          minimum: 0
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+        availability:
+          type: string
+          enum: [available, not_started, ended, sold_out, paused]
+        remaining_quantity:
+          type: integer
+          minimum: 0
+        status:
+          type: string
+          enum: [draft, active, paused, sold_out, retired]
+    TicketTypeWriteRequest:
+      type: object
+      additionalProperties: false
+      required: [code, name, capacity, price_minor, currency, sale_starts_at, sale_ends_at]
+      properties:
+        code:
+          type: string
+          pattern: '^[A-Z0-9_-]{2,40}$'
+        name:
+          $ref: '#/components/schemas/LocalizedText'
+        description:
+          $ref: '#/components/schemas/LocalizedText'
+        attendee_type:
+          type: string
+          maxLength: 80
+        capacity:
+          type: integer
+          minimum: 1
+        price_minor:
+          type: integer
+          minimum: 0
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+        sale_starts_at:
+          $ref: '#/components/schemas/Timestamp'
+        sale_ends_at:
+          $ref: '#/components/schemas/Timestamp'
+    TicketTypeEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/TicketType'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    TicketTypeCollection:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TicketType'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    PriceTierWriteRequest:
+      type: object
+      additionalProperties: false
+      required: [name, price_minor, currency, priority]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        price_minor:
+          type: integer
+          minimum: 0
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+        starts_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        ends_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        remaining_at_most:
+          type: [integer, 'null']
+          minimum: 1
+        priority:
+          type: integer
+          minimum: 1
+    PriceTierEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PriceTierWriteRequest'
+            - type: object
+              required: [id]
+              properties:
+                id:
+                  $ref: '#/components/schemas/Ulid'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    CreateRegistrationRequest:
+      type: object
+      additionalProperties: false
+      required: [form_version_id, ticket_type_id, buyer, attendee, answers, consents]
+      properties:
+        form_version_id:
+          $ref: '#/components/schemas/Ulid'
+        ticket_type_id:
+          $ref: '#/components/schemas/Ulid'
+        buyer:
+          $ref: '#/components/schemas/PersonInput'
+        attendee:
+          $ref: '#/components/schemas/PersonInput'
+        answers:
+          type: object
+          maxProperties: 100
+          additionalProperties: true
+        consents:
+          type: object
+          additionalProperties:
+            type: boolean
+    PersonInput:
+      type: object
+      additionalProperties: false
+      required: [first_name, last_name, email]
+      properties:
+        first_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        last_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        phone:
+          type: string
+          maxLength: 32
+        preferred_locale:
+          type: string
+          enum: [en, ar]
+    PublicOrder:
+      type: object
+      required: [public_reference, status, payment_status, total_minor, currency, expires_at]
+      properties:
+        public_reference:
+          type: string
+        access_token:
+          type: string
+          writeOnly: true
+          description: Returned only when the order is initially created.
+        status:
+          type: string
+          enum: [draft, pending_payment, paid, failed, cancelled, refunded, partially_refunded]
+        payment_status:
+          type: string
+          enum: [not_required, pending, authorized, captured, failed, cancelled, refunded, partially_refunded, unknown]
+        total_minor:
+          type: integer
+          minimum: 0
+        currency:
+          type: string
+        credential:
+          oneOf:
+            - $ref: '#/components/schemas/Credential'
+            - type: 'null'
+        expires_at:
+          $ref: '#/components/schemas/Timestamp'
+    PublicOrderEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/PublicOrder'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    PaymentActionEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [payment_attempt_id, status, action]
+          properties:
+            payment_attempt_id:
+              $ref: '#/components/schemas/Ulid'
+            status:
+              type: string
+              enum: [pending, action_required, unknown]
+            action:
+              type: object
+              additionalProperties: true
+        meta:
+          $ref: '#/components/schemas/Meta'
+    Order:
+      allOf:
+        - $ref: '#/components/schemas/PublicOrder'
+        - type: object
+          required: [id, created_at]
+          properties:
+            id:
+              $ref: '#/components/schemas/Ulid'
+            created_at:
+              $ref: '#/components/schemas/Timestamp'
+    OrderCollection:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Order'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    RefundEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [id, status, amount_minor, currency]
+          properties:
+            id:
+              $ref: '#/components/schemas/Ulid'
+            status:
+              type: string
+              enum: [pending, succeeded, failed, unknown]
+            amount_minor:
+              type: integer
+            currency:
+              type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
+    Attendee:
+      type: object
+      required: [id, event_id, ticket_type_id, first_name, last_name, email, registration_status]
+      properties:
+        id:
+          $ref: '#/components/schemas/Ulid'
+        event_id:
+          $ref: '#/components/schemas/Ulid'
+        ticket_type_id:
+          $ref: '#/components/schemas/Ulid'
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: [string, 'null']
+        registration_status:
+          type: string
+          enum: [registered, cancelled, anonymized]
+    AttendeeEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/Attendee'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    AttendeeCollection:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attendee'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    Credential:
+      type: object
+      required: [id, status, issued_at, expires_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/Ulid'
+        status:
+          type: string
+          enum: [active, revoked, expired, superseded]
+        qr_payload:
+          type: string
+          writeOnly: true
+          description: Returned only to an authorized initial or reissue response.
+        issued_at:
+          $ref: '#/components/schemas/Timestamp'
+        expires_at:
+          $ref: '#/components/schemas/Timestamp'
+        revoked_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+    CredentialEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/Credential'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    CredentialValidationEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [valid, code]
+          properties:
+            valid:
+              type: boolean
+            code:
+              type: string
+              enum: [valid, malformed, invalid_signature, unknown_key, expired, revoked, superseded, wrong_tenant, wrong_event]
+            credential_id:
+              oneOf:
+                - $ref: '#/components/schemas/Ulid'
+                - type: 'null'
+            event_id:
+              oneOf:
+                - $ref: '#/components/schemas/Ulid'
+                - type: 'null'
+            ticket_type_id:
+              oneOf:
+                - $ref: '#/components/schemas/Ulid'
+                - type: 'null'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    ReasonRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500

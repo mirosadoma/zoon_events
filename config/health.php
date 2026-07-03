@@ -1,0 +1,13 @@
+<?php
+
+return [
+    'public_live_path' => '/api/v1/health/live',
+    'public_ready_path' => '/api/v1/health/ready',
+    'checks' => [
+        'database',
+        'queue',
+        'storage',
+        'audit_key',
+        'config',
+    ],
+];

@@ -1,0 +1,2484 @@
+openapi: 3.1.1
+info:
+  title: Zonetec Foundation API
+  version: 1.0.0
+  summary: Phase 0 authentication, tenancy, RBAC, audit, and operations contract
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+  description: |
+    Contract-first API for Zonetec Phase 0. Product registration, ticketing,
+    payments, credentials/wallets, kiosks/scanners, ACS, identity verification,
+    marketplace behavior, and production product adapters are not included.
+servers:
+  - url: /api/v1
+    description: Current deployment
+tags:
+  - name: Health
+    description: Minimal public and authorized operational health checks.
+  - name: Authentication
+    description: API token lifecycle and current actor context.
+  - name: Platform Tenants
+    description: Explicit privileged tenant provisioning and lifecycle operations.
+  - name: Platform Users
+    description: Controlled workforce and service-user provisioning.
+  - name: Platform Access
+    description: Governed platform roles, permissions, and assignments.
+  - name: Platform Operations
+    description: Authorized platform health and audit operations.
+  - name: Tenant Memberships
+    description: Tenant-scoped user membership lifecycle.
+  - name: Tenant Roles
+    description: Tenant-scoped roles, permissions, and assignments.
+  - name: Tenant Audit
+    description: Tenant-scoped audit search, export, and integrity verification.
+  - name: Feature Flags
+    description: Governed platform definitions, effective tenant values, and tenant overrides.
+  - name: Configuration
+    description: Read-only Phase 0 configuration schemas and validated tenant values.
+paths:
+  /health/live:
+    get:
+      tags: [Health]
+      operationId: getLiveness
+      summary: Check process availability
+      security: []
+      responses:
+        '200':
+          description: Process can answer requests
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicHealth'
+              example:
+                status: ok
+        4XX:
+          $ref: '#/components/responses/ValidationFailed'
+  /health/ready:
+    get:
+      tags: [Health]
+      operationId: getReadiness
+      summary: Check minimal service readiness
+      description: Returns aggregate readiness without dependency or configuration details.
+      security: []
+      responses:
+        '200':
+          description: Service is ready
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicHealth'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        4XX:
+          $ref: '#/components/responses/ValidationFailed'
+  /auth/token:
+    post:
+      tags: [Authentication]
+      operationId: issueAuthToken
+      summary: Authenticate an administratively provisioned user
+      description: Audits `auth.token.issued`, `auth.failed`, or `auth.locked_out`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+      responses:
+        '200':
+          description: Token issued; plaintext token is shown once
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /auth/token/current:
+    delete:
+      tags: [Authentication]
+      operationId: revokeCurrentAuthToken
+      summary: Revoke the token used for this request
+      description: Audits `auth.token.revoked`.
+      security:
+        - sanctum: []
+      responses:
+        '204':
+          description: Token revoked
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /auth/me:
+    get:
+      tags: [Authentication]
+      operationId: getCurrentUser
+      summary: Get the authenticated user
+      security:
+        - sanctum: []
+      responses:
+        '200':
+          description: Current user
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+  /auth/tenants:
+    get:
+      tags: [Authentication]
+      operationId: listCurrentUserTenants
+      summary: List active tenant memberships available to the current user
+      security:
+        - sanctum: []
+      responses:
+        '200':
+          description: Active tenant choices; permissions are not combined across tenants
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantChoiceCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+  /platform/tenants:
+    get:
+      tags: [Platform Tenants]
+      operationId: listPlatformTenants
+      summary: List tenants
+      description: Requires `platform.tenant.view`.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Tenant collection
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Platform Tenants]
+      operationId: createTenant
+      summary: Create a tenant
+      description: Requires `platform.tenant.manage`; audits `tenant.created`.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTenantRequest'
+      responses:
+        '201':
+          description: Tenant created
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /platform/tenants/{tenant_id}:
+    parameters:
+      - $ref: '#/components/parameters/TenantPathId'
+    get:
+      tags: [Platform Tenants]
+      operationId: getPlatformTenant
+      summary: Get a tenant
+      description: Requires `platform.tenant.view`; privileged tenant access is audited.
+      security:
+        - sanctum: []
+      responses:
+        '200':
+          description: Tenant
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Platform Tenants]
+      operationId: updateTenantLifecycle
+      summary: Update tenant profile or lifecycle status
+      description: Requires `platform.tenant.manage`, an explicit reason, and tenant lifecycle audit.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTenantRequest'
+      responses:
+        '200':
+          description: Tenant updated
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /platform/users:
+    get:
+      tags: [Platform Users]
+      operationId: listPlatformUsers
+      summary: List administratively provisioned users
+      description: Requires `platform.user.view`.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: User collection
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Platform Users]
+      operationId: provisionUser
+      summary: Provision a workforce or service user
+      description: Requires `platform.user.manage`; no public registration is provided.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProvisionUserRequest'
+      responses:
+        '201':
+          description: User provisioned
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /platform/users/{user_id}:
+    parameters:
+      - $ref: '#/components/parameters/UserPathId'
+    patch:
+      tags: [Platform Users]
+      operationId: updatePlatformUserLifecycle
+      summary: Update an administratively provisioned user
+      description: Requires `platform.user.manage`; lifecycle changes revoke access as required and are audited.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: User updated
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /platform/roles:
+    get:
+      tags: [Platform Access]
+      operationId: listPlatformRoles
+      summary: List platform roles
+      description: Requires platform access-management permission.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Platform role collection
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformRoleCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Platform Access]
+      operationId: createPlatformRole
+      summary: Create a deny-by-default platform role
+      description: Requires platform access-management permission; no permissions are granted implicitly.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoleRequest'
+      responses:
+        '201':
+          description: Platform role created and audited
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformRoleEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /platform/roles/{role_id}:
+    parameters:
+      - $ref: '#/components/parameters/RolePathId'
+    patch:
+      tags: [Platform Access]
+      operationId: updatePlatformRole
+      summary: Update a platform role and its explicit permissions
+      description: Requires platform access-management permission; system-role protections apply.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePlatformRoleRequest'
+      responses:
+        '200':
+          description: Platform role updated and audited
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformRoleEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /platform/role-assignments:
+    post:
+      tags: [Platform Access]
+      operationId: createPlatformRoleAssignment
+      summary: Assign a platform role to a user
+      description: Requires platform access-management permission and creates privileged audit evidence.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlatformRoleAssignmentRequest'
+      responses:
+        '201':
+          description: Platform role assigned and audited
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformRoleAssignmentEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /platform/role-assignments/{assignment_id}:
+    parameters:
+      - $ref: '#/components/parameters/AssignmentPathId'
+    delete:
+      tags: [Platform Access]
+      operationId: revokePlatformRoleAssignment
+      summary: Revoke a platform role assignment
+      description: Requires platform access-management permission and cannot remove the final recoverable platform administrator.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Platform assignment revoked and audited
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /platform/health:
+    get:
+      tags: [Platform Operations]
+      operationId: getDetailedHealth
+      summary: Get categorized operational health
+      description: Requires `operations.health.view`; never returns secrets or connection details.
+      security:
+        - sanctum: []
+      responses:
+        '200':
+          description: Detailed safe health
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailedHealthEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /platform/audit-logs:
+    get:
+      tags: [Platform Operations]
+      operationId: listPlatformAuditLogs
+      summary: Search platform-scope audit records
+      description: Requires `platform.audit.view`; the search is audited.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+        - $ref: '#/components/parameters/AuditAction'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Platform audit collection
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+  /tenant/memberships:
+    parameters:
+      - $ref: '#/components/parameters/TenantHeader'
+    get:
+      tags: [Tenant Memberships]
+      operationId: listTenantMemberships
+      summary: List tenant memberships
+      description: Requires `membership.view`.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Membership collection
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Tenant Memberships]
+      operationId: createTenantMembership
+      summary: Add an existing user to the tenant
+      description: Requires `membership.manage`; audits `membership.created`.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMembershipRequest'
+      responses:
+        '201':
+          description: Membership created
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /tenant/memberships/{membership_id}:
+    parameters:
+      - $ref: '#/components/parameters/TenantHeader'
+      - $ref: '#/components/parameters/MembershipPathId'
+    patch:
+      tags: [Tenant Memberships]
+      operationId: updateTenantMembership
+      summary: Change membership lifecycle status
+      description: Requires `membership.manage`; protects the last tenant administrator and audits the outcome.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMembershipRequest'
+      responses:
+        '200':
+          description: Membership updated
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /tenant/roles:
+    parameters:
+      - $ref: '#/components/parameters/TenantHeader'
+    get:
+      tags: [Tenant Roles]
+      operationId: listTenantRoles
+      summary: List tenant roles
+      description: Requires `role.view`.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Role collection
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Tenant Roles]
+      operationId: createTenantRole
+      summary: Create a deny-by-default tenant role
+      description: Requires `role.manage`; audits `role.created`.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoleRequest'
+      responses:
+        '201':
+          description: Role created without implicit permissions
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /tenant/roles/{role_id}:
+    parameters:
+      - $ref: '#/components/parameters/TenantHeader'
+      - $ref: '#/components/parameters/RolePathId'
+    get:
+      tags: [Tenant Roles]
+      operationId: getTenantRole
+      summary: Get a tenant role
+      description: Requires `role.view`.
+      security:
+        - sanctum: []
+      responses:
+        '200':
+          description: Tenant role
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Tenant Roles]
+      operationId: updateTenantRole
+      summary: Update a tenant role
+      description: Requires `role.manage`; system roles have protected fields.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoleRequest'
+      responses:
+        '200':
+          description: Role updated
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    delete:
+      tags: [Tenant Roles]
+      operationId: deleteTenantRole
+      summary: Delete an unused custom role
+      description: Requires `role.manage`; system or assigned roles cannot be deleted.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Role deleted and action audited
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /tenant/roles/{role_id}/permissions:
+    parameters:
+      - $ref: '#/components/parameters/TenantHeader'
+      - $ref: '#/components/parameters/RolePathId'
+    put:
+      tags: [Tenant Roles]
+      operationId: replaceTenantRolePermissions
+      summary: Replace a tenant role's explicit permissions
+      description: Requires `role.manage`; only tenant-scope permission keys are accepted.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceRolePermissionsRequest'
+      responses:
+        '200':
+          description: Role permissions replaced and audited
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /tenant/role-assignments:
+    parameters:
+      - $ref: '#/components/parameters/TenantHeader'
+    post:
+      tags: [Tenant Roles]
+      operationId: createTenantRoleAssignment
+      summary: Assign a role to a tenant membership
+      description: Requires `role.assign`; role and membership must belong to the current tenant.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoleAssignmentRequest'
+      responses:
+        '201':
+          description: Role assigned and audited
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleAssignmentEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /tenant/role-assignments/{assignment_id}:
+    parameters:
+      - $ref: '#/components/parameters/TenantHeader'
+      - $ref: '#/components/parameters/AssignmentPathId'
+    delete:
+      tags: [Tenant Roles]
+      operationId: revokeTenantRoleAssignment
+      summary: Revoke a tenant role assignment
+      description: Requires `role.assign`; protects the final effective tenant administrator.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Assignment revoked and audited
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /tenant/audit-logs:
+    parameters:
+      - $ref: '#/components/parameters/TenantHeader'
+    get:
+      tags: [Tenant Audit]
+      operationId: listTenantAuditLogs
+      summary: Search tenant audit records
+      description: Requires `audit.view`; the search itself is audited.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+        - $ref: '#/components/parameters/AuditAction'
+        - $ref: '#/components/parameters/AuditOutcome'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Tenant audit collection
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+  /tenant/audit-exports:
+    parameters:
+      - $ref: '#/components/parameters/TenantHeader'
+    post:
+      tags: [Tenant Audit]
+      operationId: createTenantAuditExport
+      summary: Request a bounded tenant audit export
+      description: Requires `audit.export`; queues an idempotent tenant-aware export job.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAuditExportRequest'
+      responses:
+        '202':
+          description: Export accepted and audited
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditExportEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /tenant/audit-exports/{export_id}:
+    parameters:
+      - $ref: '#/components/parameters/TenantHeader'
+      - $ref: '#/components/parameters/ExportPathId'
+    get:
+      tags: [Tenant Audit]
+      operationId: getTenantAuditExport
+      summary: Get audit export status
+      description: Requires `audit.export`; cross-tenant export IDs are indistinguishable from missing IDs.
+      security:
+        - sanctum: []
+      responses:
+        '200':
+          description: Export status
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditExportEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /tenant/audit-exports/{export_id}/download:
+    parameters:
+      - $ref: '#/components/parameters/TenantHeader'
+      - $ref: '#/components/parameters/ExportPathId'
+    get:
+      tags: [Tenant Audit]
+      operationId: downloadTenantAuditExport
+      summary: Download a completed unexpired export
+      description: Requires `audit.export`; authorization is re-evaluated and download is audited.
+      security:
+        - sanctum: []
+      responses:
+        '200':
+          description: Audit export file
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            text/csv:
+              schema:
+                type: string
+                contentMediaType: text/csv
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /tenant/audit-verifications:
+    parameters:
+      - $ref: '#/components/parameters/TenantHeader'
+    post:
+      tags: [Tenant Audit]
+      operationId: verifyTenantAuditIntegrity
+      summary: Verify integrity for a bounded audit range
+      description: Requires `audit.verify`; verification and any integrity failure are audited.
+      security:
+        - sanctum: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuditVerificationRequest'
+      responses:
+        '200':
+          description: Verification result
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditVerificationEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+  /platform/feature-flags:
+    get:
+      tags: [Feature Flags]
+      operationId: listPlatformFeatureFlags
+      summary: List governed feature-flag definitions
+      description: Requires `platform.feature_flag.view`.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Feature-flag definition collection
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureFlagCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Feature Flags]
+      operationId: createPlatformFeatureFlag
+      summary: Create a governed optional-capability flag
+      description: Requires `platform.feature_flag.manage`; mandatory security controls are not valid flag targets.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFeatureFlagRequest'
+      responses:
+        '201':
+          description: Feature flag created and audited
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureFlagEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /platform/feature-flags/{flag_key}:
+    parameters:
+      - $ref: '#/components/parameters/FlagKey'
+    patch:
+      tags: [Feature Flags]
+      operationId: updatePlatformFeatureFlag
+      summary: Update a feature-flag default or lifecycle
+      description: Requires `platform.feature_flag.manage`; the immutable key and security class cannot change.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFeatureFlagRequest'
+      responses:
+        '200':
+          description: Feature flag updated and audited
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureFlagEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /tenant/feature-flags:
+    parameters:
+      - $ref: '#/components/parameters/TenantHeader'
+    get:
+      tags: [Feature Flags]
+      operationId: listTenantFeatureFlags
+      summary: List effective feature-flag values for the current tenant
+      description: Requires `feature_flag.view`; values include default or tenant-override source.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Effective tenant feature flags
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EffectiveFeatureFlagCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /tenant/feature-flags/{flag_key}:
+    parameters:
+      - $ref: '#/components/parameters/TenantHeader'
+      - $ref: '#/components/parameters/FlagKey'
+    put:
+      tags: [Feature Flags]
+      operationId: setTenantFeatureFlagOverride
+      summary: Set the current tenant's override
+      description: Requires `feature_flag.manage`; type, lifecycle, tenant scope, and security invariants are validated.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetFeatureFlagOverrideRequest'
+      responses:
+        '200':
+          description: Tenant override set and audited
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EffectiveFeatureFlagEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    delete:
+      tags: [Feature Flags]
+      operationId: removeTenantFeatureFlagOverride
+      summary: Remove the current tenant's override
+      description: Requires `feature_flag.manage`; evaluation returns to the safe platform default.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Override removed and action audited
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /platform/configuration-schemas:
+    get:
+      tags: [Configuration]
+      operationId: listConfigurationSchemas
+      summary: List Phase 0 tenant configuration schema definitions
+      description: Requires `platform.configuration.view`; returns schemas and versions, never secret values.
+      security:
+        - sanctum: []
+      responses:
+        '200':
+          description: Configuration schema collection
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationSchemaCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /tenant/configuration:
+    get:
+      tags: [Configuration]
+      operationId: listTenantConfiguration
+      summary: Inspect validated configuration values for the current tenant
+      description: Requires `configuration.view`; Phase 0 is read-only and provides no domain, asset, or theme-management workflow.
+      security:
+        - sanctum: []
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200':
+          description: Tenant configuration collection
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantConfigurationCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+components:
+  securitySchemes:
+    sanctum:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum
+  headers:
+    CorrelationId:
+      description: Effective request correlation identifier
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 64
+  parameters:
+    TenantHeader:
+      name: X-Tenant-ID
+      in: header
+      required: true
+      description: Active tenant selected for this operation; verified against membership.
+      schema:
+        $ref: '#/components/schemas/Ulid'
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Caller-generated key bound to actor, scope, operation, and request.
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 255
+    PageSize:
+      name: page_size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+        maxLength: 2048
+    From:
+      name: from
+      in: query
+      required: true
+      schema:
+        type: string
+        format: date-time
+    To:
+      name: to
+      in: query
+      required: true
+      schema:
+        type: string
+        format: date-time
+    AuditAction:
+      name: action
+      in: query
+      schema:
+        type: string
+        maxLength: 160
+    AuditOutcome:
+      name: outcome
+      in: query
+      schema:
+        type: string
+        enum: [succeeded, denied, failed]
+    TenantPathId:
+      name: tenant_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Ulid'
+    UserPathId:
+      name: user_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Ulid'
+    MembershipPathId:
+      name: membership_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Ulid'
+    RolePathId:
+      name: role_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Ulid'
+    AssignmentPathId:
+      name: assignment_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Ulid'
+    ExportPathId:
+      name: export_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Ulid'
+    FlagKey:
+      name: flag_key
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-z][a-z0-9_.-]{2,119}$'
+  responses:
+    Unauthenticated:
+      description: Authentication is absent or invalid
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Forbidden:
+      description: Actor lacks the required in-scope permission
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: Resource is absent or outside current tenant scope
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Conflict:
+      description: Lifecycle, concurrency, uniqueness, or idempotency conflict
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    ValidationFailed:
+      description: Request validation failed
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    RateLimited:
+      description: Rate limit exceeded
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    ServiceUnavailable:
+      description: Required audit or operational dependency is unavailable
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    Ulid:
+      type: string
+      pattern: '^[0-9A-HJKMNP-TV-Z]{26}$'
+      examples: [01J00000000000000000000000]
+    Timestamp:
+      type: string
+      format: date-time
+    PublicHealth:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok, unavailable]
+    Meta:
+      type: object
+      additionalProperties: false
+      required: [correlation_id]
+      properties:
+        correlation_id:
+          type: string
+        page_size:
+          type: integer
+        has_more:
+          type: boolean
+        next_cursor:
+          type: [string, 'null']
+    Problem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code, detail, instance, correlation_id]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        code:
+          type: string
+        detail:
+          type: string
+        instance:
+          type: string
+        correlation_id:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+    TokenRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password, device_name]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          writeOnly: true
+        device_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+    TokenResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [token, token_type, expires_at, user]
+          properties:
+            token:
+              type: string
+              writeOnly: true
+            token_type:
+              type: string
+              const: Bearer
+            expires_at:
+              oneOf:
+                - $ref: '#/components/schemas/Timestamp'
+                - type: 'null'
+            user:
+              $ref: '#/components/schemas/User'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    User:
+      type: object
+      additionalProperties: false
+      required: [id, name, email, status, preferred_locale, created_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/Ulid'
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        status:
+          type: string
+          enum: [active, suspended, deactivated]
+        preferred_locale:
+          type: string
+          enum: [en, ar]
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+    UserEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/User'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    UserCollection:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    UpdateUserRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      minProperties: 2
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        status:
+          type: string
+          enum: [active, suspended, deactivated]
+        preferred_locale:
+          type: string
+          enum: [en, ar]
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+    Tenant:
+      type: object
+      additionalProperties: false
+      required: [id, name, slug, status, default_locale, timezone, data_residency_region, created_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/Ulid'
+        name:
+          type: string
+        slug:
+          type: string
+        status:
+          type: string
+          enum: [active, suspended, deactivated]
+        default_locale:
+          type: string
+          enum: [en, ar]
+        timezone:
+          type: string
+        data_residency_region:
+          type: string
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+    TenantEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/Tenant'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    TenantCollection:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tenant'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    TenantChoice:
+      type: object
+      required: [tenant, membership_id]
+      properties:
+        tenant:
+          $ref: '#/components/schemas/Tenant'
+        membership_id:
+          $ref: '#/components/schemas/Ulid'
+    TenantChoiceCollection:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TenantChoice'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    CreateTenantRequest:
+      type: object
+      additionalProperties: false
+      required: [name, slug, default_locale, timezone, data_residency_region, initial_admin_user_id]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        slug:
+          type: string
+          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+          maxLength: 100
+        default_locale:
+          type: string
+          enum: [en, ar]
+        timezone:
+          type: string
+          maxLength: 64
+        data_residency_region:
+          type: string
+          maxLength: 64
+        initial_admin_user_id:
+          $ref: '#/components/schemas/Ulid'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+    UpdateTenantRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      minProperties: 2
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        status:
+          type: string
+          enum: [active, suspended, deactivated]
+        default_locale:
+          type: string
+          enum: [en, ar]
+        timezone:
+          type: string
+          maxLength: 64
+        data_residency_region:
+          type: string
+          maxLength: 64
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+    ProvisionUserRequest:
+      type: object
+      additionalProperties: false
+      required: [name, email, password, preferred_locale, reason]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          minLength: 12
+          maxLength: 1024
+          writeOnly: true
+        preferred_locale:
+          type: string
+          enum: [en, ar]
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+    Membership:
+      type: object
+      required: [id, tenant_id, user, status, created_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/Ulid'
+        tenant_id:
+          $ref: '#/components/schemas/Ulid'
+        user:
+          $ref: '#/components/schemas/User'
+        status:
+          type: string
+          enum: [active, suspended, deactivated]
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+    MembershipEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/Membership'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    MembershipCollection:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Membership'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    CreateMembershipRequest:
+      type: object
+      additionalProperties: false
+      required: [user_id]
+      properties:
+        user_id:
+          $ref: '#/components/schemas/Ulid'
+    UpdateMembershipRequest:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [active, suspended, deactivated]
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+    Role:
+      type: object
+      required: [id, tenant_id, name, is_system, permissions, created_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/Ulid'
+        tenant_id:
+          $ref: '#/components/schemas/Ulid'
+        name:
+          type: string
+        description:
+          type: [string, 'null']
+        is_system:
+          type: boolean
+        permissions:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+    RoleEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/Role'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    RoleCollection:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Role'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    PlatformRole:
+      type: object
+      additionalProperties: false
+      required: [id, name, is_system, permissions, created_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/Ulid'
+        name:
+          type: string
+        description:
+          type: [string, 'null']
+        is_system:
+          type: boolean
+        permissions:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+    PlatformRoleEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/PlatformRole'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    PlatformRoleCollection:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformRole'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    UpdatePlatformRoleRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: [string, 'null']
+          maxLength: 500
+        permissions:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: string
+            maxLength: 120
+    CreatePlatformRoleAssignmentRequest:
+      type: object
+      additionalProperties: false
+      required: [user_id, role_id, reason]
+      properties:
+        user_id:
+          $ref: '#/components/schemas/Ulid'
+        role_id:
+          $ref: '#/components/schemas/Ulid'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+        expires_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+    PlatformRoleAssignment:
+      type: object
+      additionalProperties: false
+      required: [id, user_id, role_id, created_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/Ulid'
+        user_id:
+          $ref: '#/components/schemas/Ulid'
+        role_id:
+          $ref: '#/components/schemas/Ulid'
+        expires_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+    PlatformRoleAssignmentEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/PlatformRoleAssignment'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    CreateRoleRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: [string, 'null']
+          maxLength: 500
+    UpdateRoleRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: [string, 'null']
+          maxLength: 500
+    ReplaceRolePermissionsRequest:
+      type: object
+      additionalProperties: false
+      required: [permissions]
+      properties:
+        permissions:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: string
+            maxLength: 120
+    CreateRoleAssignmentRequest:
+      type: object
+      additionalProperties: false
+      required: [membership_id, role_id]
+      properties:
+        membership_id:
+          $ref: '#/components/schemas/Ulid'
+        role_id:
+          $ref: '#/components/schemas/Ulid'
+        expires_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+    RoleAssignment:
+      type: object
+      required: [id, tenant_id, membership_id, role_id, created_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/Ulid'
+        tenant_id:
+          $ref: '#/components/schemas/Ulid'
+        membership_id:
+          $ref: '#/components/schemas/Ulid'
+        role_id:
+          $ref: '#/components/schemas/Ulid'
+        expires_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+    RoleAssignmentEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/RoleAssignment'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    AuditLog:
+      type: object
+      required: [id, scope, actor_type, action, outcome, channel, correlation_id, occurred_at, integrity_key_id]
+      properties:
+        id:
+          $ref: '#/components/schemas/Ulid'
+        scope:
+          type: string
+          enum: [tenant, platform]
+        tenant_id:
+          oneOf:
+            - $ref: '#/components/schemas/Ulid'
+            - type: 'null'
+        actor_type:
+          type: string
+          enum: [user, service, anonymous, system]
+        actor_id:
+          oneOf:
+            - $ref: '#/components/schemas/Ulid'
+            - type: 'null'
+        action:
+          type: string
+        target_type:
+          type: [string, 'null']
+        target_id:
+          type: [string, 'null']
+        outcome:
+          type: string
+          enum: [succeeded, denied, failed]
+        reason_code:
+          type: [string, 'null']
+        channel:
+          type: string
+          enum: [api, console, job, scheduler, system]
+        correlation_id:
+          type: string
+        metadata:
+          type: [object, 'null']
+        occurred_at:
+          $ref: '#/components/schemas/Timestamp'
+        integrity_key_id:
+          type: string
+    AuditCollection:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLog'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    CreateAuditExportRequest:
+      type: object
+      additionalProperties: false
+      required: [from, to, format]
+      properties:
+        from:
+          $ref: '#/components/schemas/Timestamp'
+        to:
+          $ref: '#/components/schemas/Timestamp'
+        action:
+          type: [string, 'null']
+        outcome:
+          type: [string, 'null']
+          enum: [succeeded, denied, failed, null]
+        format:
+          type: string
+          const: csv
+    AuditExport:
+      type: object
+      required: [id, status, expires_at, created_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/Ulid'
+        status:
+          type: string
+          enum: [pending, processing, completed, failed, expired]
+        record_count:
+          type: [integer, 'null']
+          minimum: 0
+        failure_code:
+          type: [string, 'null']
+        expires_at:
+          $ref: '#/components/schemas/Timestamp'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+    AuditExportEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/AuditExport'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    AuditVerificationRequest:
+      type: object
+      additionalProperties: false
+      required: [from, to]
+      properties:
+        from:
+          $ref: '#/components/schemas/Timestamp'
+        to:
+          $ref: '#/components/schemas/Timestamp'
+    AuditVerification:
+      type: object
+      required: [verified_count, failed_count, status]
+      properties:
+        verified_count:
+          type: integer
+          minimum: 0
+        failed_count:
+          type: integer
+          minimum: 0
+        status:
+          type: string
+          enum: [valid, invalid]
+    AuditVerificationEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/AuditVerification'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    FlagValue:
+      oneOf:
+        - type: boolean
+        - type: integer
+        - type: string
+          maxLength: 500
+    FeatureFlag:
+      type: object
+      additionalProperties: false
+      required: [key, name, description, owner, value_type, default_value, status, security_class, created_at]
+      properties:
+        key:
+          type: string
+          pattern: '^[a-z][a-z0-9_.-]{2,119}$'
+        name:
+          type: string
+          maxLength: 160
+        description:
+          type: string
+          maxLength: 500
+        owner:
+          type: string
+          maxLength: 120
+        value_type:
+          type: string
+          enum: [boolean, integer, string]
+        default_value:
+          $ref: '#/components/schemas/FlagValue'
+        status:
+          type: string
+          enum: [draft, active, disabled, retired]
+        security_class:
+          type: string
+          const: optional_capability
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+    CreateFeatureFlagRequest:
+      type: object
+      additionalProperties: false
+      required: [key, name, description, owner, value_type, default_value]
+      properties:
+        key:
+          type: string
+          pattern: '^[a-z][a-z0-9_.-]{2,119}$'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        description:
+          type: string
+          minLength: 1
+          maxLength: 500
+        owner:
+          type: string
+          minLength: 1
+          maxLength: 120
+        value_type:
+          type: string
+          enum: [boolean, integer, string]
+        default_value:
+          $ref: '#/components/schemas/FlagValue'
+    UpdateFeatureFlagRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        description:
+          type: string
+          minLength: 1
+          maxLength: 500
+        owner:
+          type: string
+          minLength: 1
+          maxLength: 120
+        default_value:
+          $ref: '#/components/schemas/FlagValue'
+        status:
+          type: string
+          enum: [draft, active, disabled, retired]
+    FeatureFlagEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/FeatureFlag'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    FeatureFlagCollection:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeatureFlag'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    EffectiveFeatureFlag:
+      type: object
+      additionalProperties: false
+      required: [key, value_type, effective_value, source]
+      properties:
+        key:
+          type: string
+        value_type:
+          type: string
+          enum: [boolean, integer, string]
+        effective_value:
+          $ref: '#/components/schemas/FlagValue'
+        source:
+          type: string
+          enum: [default, tenant_override]
+        override_expires_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+    EffectiveFeatureFlagEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/EffectiveFeatureFlag'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    EffectiveFeatureFlagCollection:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/EffectiveFeatureFlag'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    SetFeatureFlagOverrideRequest:
+      type: object
+      additionalProperties: false
+      required: [value, reason]
+      properties:
+        value:
+          $ref: '#/components/schemas/FlagValue'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+        expires_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+    ConfigurationSchema:
+      type: object
+      additionalProperties: false
+      required: [key, version, owner, purpose, sensitivity, value_schema]
+      properties:
+        key:
+          type: string
+          enum: [branding, domains, residency, retention]
+        version:
+          type: integer
+          minimum: 1
+        owner:
+          type: string
+        purpose:
+          type: string
+        sensitivity:
+          type: string
+          enum: [public, internal, confidential]
+        value_schema:
+          type: object
+          additionalProperties: true
+    ConfigurationSchemaCollection:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConfigurationSchema'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    TenantConfiguration:
+      type: object
+      additionalProperties: false
+      required: [key, schema_version, status, value]
+      properties:
+        key:
+          type: string
+          enum: [branding, domains, residency, retention]
+        schema_version:
+          type: integer
+          minimum: 1
+        status:
+          type: string
+          enum: [draft, active]
+        value:
+          type: object
+          additionalProperties: true
+    TenantConfigurationCollection:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TenantConfiguration'
+        meta:
+          $ref: '#/components/schemas/Meta'
+    DetailedHealth:
+      type: object
+      required: [status, checked_at, checks]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, unavailable]
+        checked_at:
+          $ref: '#/components/schemas/Timestamp'
+        checks:
+          type: array
+          items:
+            type: object
+            required: [category, status, duration_ms]
+            properties:
+              category:
+                type: string
+                enum: [database, queue, storage, audit_key, config]
+              status:
+                type: string
+                enum: [ok, degraded, unavailable]
+              duration_ms:
+                type: integer
+                minimum: 0
+              reason_code:
+                type: [string, 'null']
+    DetailedHealthEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/DetailedHealth'
+        meta:
+          $ref: '#/components/schemas/Meta'
