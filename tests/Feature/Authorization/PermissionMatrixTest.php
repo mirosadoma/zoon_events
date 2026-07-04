@@ -31,7 +31,12 @@ class PermissionMatrixTest extends TestCase
         foreach ($tenantPermissions as $permission) {
             DB::table('tenant_role_permissions')->insert(['tenant_id' => $fixture['tenant']->id, 'tenant_role_id' => $tenantRole->id, 'permission_id' => $permission->id, 'granted_by_user_id' => $fixture['user']->id, 'created_at' => now()]);
         }
-        DB::table('tenant_role_assignments')->insert(['id' => (string) Str::ulid(), 'tenant_id' => $fixture['tenant']->id, 'tenant_membership_id' => $fixture['membership']->id, 'tenant_role_id' => $tenantRole->id, 'granted_by_user_id' => $fixture['user']->id, 'created_at' => now(), 'updated_at' => now()]);
+        $evaluator = app(PermissionEvaluator::class);
+        foreach ($tenantPermissions as $permission) {
+            self::assertFalse($evaluator->hasTenantPermission($context, $permission->key), $permission->key);
+        }
+        $assignmentId = (string) Str::ulid();
+        DB::table('tenant_role_assignments')->insert(['id' => $assignmentId, 'tenant_id' => $fixture['tenant']->id, 'tenant_membership_id' => $fixture['membership']->id, 'tenant_role_id' => $tenantRole->id, 'granted_by_user_id' => $fixture['user']->id, 'created_at' => now(), 'updated_at' => now()]);
 
         $platformRole = PlatformRole::query()->create(['name' => 'Matrix platform', 'is_system' => false, 'created_by_user_id' => $fixture['user']->id]);
         $platformPermissions = DB::table('permissions')->where('scope', 'platform')->get();
@@ -41,9 +46,15 @@ class PermissionMatrixTest extends TestCase
         DB::table('platform_role_assignments')->insert(['id' => (string) Str::ulid(), 'user_id' => $fixture['user']->id, 'platform_role_id' => $platformRole->id, 'granted_by_user_id' => $fixture['user']->id, 'created_at' => now(), 'updated_at' => now()]);
 
         $denied = User::factory()->create();
-        $evaluator = app(PermissionEvaluator::class);
         foreach ($tenantPermissions as $permission) {
             self::assertTrue($evaluator->hasTenantPermission($context, $permission->key), $permission->key);
+        }
+        DB::table('tenant_role_assignments')->where('id', $assignmentId)->update([
+            'revoked_at' => now(),
+            'revoked_by_user_id' => $fixture['user']->id,
+        ]);
+        foreach ($tenantPermissions as $permission) {
+            self::assertFalse($evaluator->hasTenantPermission($context, $permission->key), $permission->key);
         }
         foreach ($platformPermissions as $permission) {
             self::assertTrue($evaluator->hasPlatformPermission($fixture['user'], $permission->key), $permission->key);

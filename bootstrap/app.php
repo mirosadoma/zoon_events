@@ -1,17 +1,16 @@
 <?php
 
-use App\Exceptions\FoundationException;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Modules\AdminConsole\Http\Middleware\AuthorizeDashboardPage;
 use App\Modules\Authorization\Http\Middleware\RequirePermission;
+use App\Modules\Events\Http\Middleware\ClearPublicEventContext;
+use App\Modules\Events\Http\Middleware\ResolvePublicEventContext;
 use App\Modules\Operations\Application\Telemetry\RecordRequestTelemetry;
-use App\Modules\Shared\Domain\Context\CorrelationId;
-use App\Modules\Shared\Domain\Context\RequestContextStore;
 use App\Modules\Shared\Http\Middleware\AssignRequestContext;
 use App\Modules\Shared\Http\Middleware\RequireIdempotencyKey;
 use App\Modules\Shared\Http\Middleware\ResolveLocale;
 use App\Modules\Shared\Http\Middleware\SecurityHeaders;
-use App\Modules\Shared\Http\Problems\ProblemFactory;
+use App\Modules\Shared\Http\Problems\FoundationProblemRenderer;
 use App\Modules\Tenancy\Http\Middleware\ClearTenantContext;
 use App\Modules\Tenancy\Http\Middleware\ResolveTenantContext;
 use App\Providers\ModuleServiceProvider;
@@ -43,6 +42,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => RequirePermission::class,
             'idempotency' => RequireIdempotencyKey::class,
             'dashboard.permission' => AuthorizeDashboardPage::class,
+            'public.event.context' => ResolvePublicEventContext::class,
+            'public.event.context.clear' => ClearPublicEventContext::class,
         ]);
 
         $middleware->append([
@@ -56,6 +57,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->priority([
             AssignRequestContext::class,
             ResolveLocale::class,
+            ClearPublicEventContext::class,
+            ResolvePublicEventContext::class,
             ClearTenantContext::class,
             ResolveTenantContext::class,
             SubstituteBindings::class,
@@ -67,25 +70,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
 
-            $correlationId = app(RequestContextStore::class)->current()?->correlationId->value
-                ?? CorrelationId::fromHeader($request->headers->get('X-Correlation-ID'))->value;
-
-            $problem = $throwable instanceof InvalidArgumentException
-                ? ProblemFactory::fromThrowable(
-                    FoundationException::validation('validation_failed', 'One or more fields are invalid.'),
-                    '/'.$request->path(),
-                    $correlationId,
-                )
-                : ProblemFactory::fromThrowable($throwable, '/'.$request->path(), $correlationId);
-
-            return response()->json(
-                $problem->toArray(),
-                $problem->status,
-                [
-                    'Content-Type' => 'application/problem+json',
-                    'X-Correlation-ID' => $problem->correlationId,
-                ],
-            );
+            return app(FoundationProblemRenderer::class)->render($throwable, $request);
         });
     })
     ->create();

@@ -8,6 +8,10 @@ return [
         'queue',
         'storage',
         'audit_key',
+        'data_protection',
+        'credential_signing',
+        'payments',
+        'notifications',
         'config',
     ],
 ];

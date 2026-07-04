@@ -514,11 +514,12 @@ Migration order:
 2. registration forms and immutable versions;
 3. ticket types, inventory, and price tiers;
 4. submissions, inventory holds, orders, and order items;
-5. payment accounts, attempts, webhook receipts, and refunds;
-6. attendees;
-7. credential key metadata and credentials;
-8. notifications;
-9. permission/system-role catalog updates and indexes.
+5. attendees and attendee ownership links;
+6. credential key metadata and credentials;
+7. notifications;
+8. payment accounts, attempts, webhook receipts, and refunds;
+9. paid-fulfillment fields, attendee corrections, legal holds, and
+   permission/system-role catalog updates.
 
 Rules:
 

@@ -9,4 +9,12 @@ export default {
   featureFlags: 'Feature flags',
   configuration: 'Configuration',
   logout: 'Log out',
+  events: 'Events',
+  registrationForm: 'Registration form',
+  ticketTypes: 'Ticket types',
+  orders: 'Orders',
+  attendees: 'Attendees',
+  credentials: 'Credentials',
+  paymentPending: 'Payment confirmation is pending',
+  notificationUnavailable: 'Confirmation delivery is temporarily unavailable',
 }

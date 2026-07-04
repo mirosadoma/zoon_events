@@ -2,14 +2,14 @@ openapi: 3.1.1
 info:
   title: Zonetec Foundation API
   version: 1.0.0
-  summary: Phase 0 authentication, tenancy, RBAC, audit, and operations contract
+  summary: Zonetec foundation, registration, ticketing, payment, and credential contract
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
   description: |
-    Contract-first API for Zonetec Phase 0. Product registration, ticketing,
-    payments, credentials/wallets, kiosks/scanners, ACS, identity verification,
-    marketplace behavior, and production product adapters are not included.
+    Contract-first API for Zonetec Phase 0 and Phase 1. Kiosks/scanners, check-in,
+    wallets, ACS, identity verification, marketplace behavior, and venue-asset
+    rentals are not included.
 servers:
   - url: /api/v1
     description: Current deployment
@@ -36,7 +36,63 @@ tags:
     description: Governed platform definitions, effective tenant values, and tenant overrides.
   - name: Configuration
     description: Read-only Phase 0 configuration schemas and validated tenant values.
+  - name: Public Registration
+    description: Attendee event discovery, registration, checkout, and order status.
+  - name: Events
+    description: Tenant event setup and lifecycle.
+  - name: Registration Forms
+    description: Versioned event registration form management.
+  - name: Ticketing
+    description: Ticket types, inventory, and scheduled pricing.
+  - name: Orders
+    description: Organizer order review and refund operations.
+  - name: Attendees
+    description: Tenant-scoped attendee review and correction.
+  - name: Credentials
+    description: Signed credential validation, revocation, and reissue.
 paths:
+  /public/events/{event_slug}:
+    $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1public~1events~1{event_slug}'
+  /public/events/{event_slug}/registration-form:
+    $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1public~1events~1{event_slug}~1registration-form'
+  /public/events/{event_slug}/registrations:
+    $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1public~1events~1{event_slug}~1registrations'
+  /public/orders/{public_reference}:
+    $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1public~1orders~1{public_reference}'
+  /public/orders/{public_reference}/payment-intents:
+    $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1public~1orders~1{public_reference}~1payment-intents'
+  /tenant/events:
+    $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1tenant~1events'
+  /tenant/events/{event_id}:
+    $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}'
+  /tenant/events/{event_id}/publish:
+    $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1publish'
+  /tenant/events/{event_id}/cancel:
+    $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1cancel'
+  /tenant/events/{event_id}/registration-form:
+    $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1registration-form'
+  /tenant/events/{event_id}/registration-form/publish:
+    $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1registration-form~1publish'
+  /tenant/events/{event_id}/ticket-types:
+    $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1ticket-types'
+  /tenant/events/{event_id}/ticket-types/{ticket_type_id}:
+    $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1ticket-types~1{ticket_type_id}'
+  /tenant/events/{event_id}/ticket-types/{ticket_type_id}/price-tiers:
+    $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1ticket-types~1{ticket_type_id}~1price-tiers'
+  /tenant/events/{event_id}/orders:
+    $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1orders'
+  /tenant/events/{event_id}/orders/{order_id}/refunds:
+    $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1orders~1{order_id}~1refunds'
+  /tenant/events/{event_id}/attendees:
+    $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1attendees'
+  /tenant/events/{event_id}/attendees/{attendee_id}:
+    $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1attendees~1{attendee_id}'
+  /tenant/events/{event_id}/credentials/{credential_id}/revoke:
+    $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1credentials~1{credential_id}~1revoke'
+  /tenant/events/{event_id}/credentials/{credential_id}/reissue:
+    $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1credentials~1{credential_id}~1reissue'
+  /tenant/credential-validations:
+    $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1tenant~1credential-validations'
   /health/live:
     get:
       tags: [Health]
@@ -1373,6 +1429,10 @@ components:
       type: http
       scheme: bearer
       bearerFormat: Sanctum
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum
   headers:
     CorrelationId:
       description: Effective request correlation identifier
@@ -2465,7 +2525,7 @@ components:
             properties:
               category:
                 type: string
-                enum: [database, queue, storage, audit_key, config]
+                enum: [database, queue, storage, audit_key, data_protection, credential_signing, payments, notifications, config]
               status:
                 type: string
                 enum: [ok, degraded, unavailable]

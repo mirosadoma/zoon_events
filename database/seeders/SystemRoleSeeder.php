@@ -40,19 +40,35 @@ final class SystemRoleSeeder extends Seeder
 
             $tenantPermissionIds = Permission::query()->where('scope', 'tenant')->pluck('id')->all();
             Tenant::query()->each(function (Tenant $tenant) use ($creator, $tenantPermissionIds): void {
-                $role = TenantRole::query()->withoutGlobalScopes()->updateOrCreate(
-                    ['tenant_id' => $tenant->id, 'name' => 'Tenant Administrator'],
-                    ['description' => 'Tenant administration system role.', 'is_system' => true, 'created_by_user_id' => $creator->id],
-                );
-                DB::table('tenant_role_permissions')->where('tenant_role_id', $role->id)->delete();
-                foreach ($tenantPermissionIds as $permissionId) {
-                    DB::table('tenant_role_permissions')->insert([
-                        'tenant_id' => $tenant->id,
-                        'tenant_role_id' => $role->id,
-                        'permission_id' => $permissionId,
-                        'granted_by_user_id' => $creator->id,
-                        'created_at' => now(),
-                    ]);
+                $roles = [
+                    'Tenant Administrator' => $tenantPermissionIds,
+                    'Event Manager' => Permission::query()->whereIn('key', [
+                        'event.view', 'event.manage', 'event.publish', 'event.cancel', 'event.reopen', 'event.archive',
+                        'registration.manage', 'ticketing.manage', 'order.view',
+                        'attendee.view', 'attendee.manage', 'credential.view',
+                        'credential.revoke', 'credential.reissue',
+                    ])->pluck('id')->all(),
+                    'Ticketing Manager' => Permission::query()->whereIn('key', [
+                        'event.view', 'ticketing.manage', 'order.view', 'order.manage',
+                        'payment.refund', 'attendee.view', 'credential.view',
+                    ])->pluck('id')->all(),
+                ];
+
+                foreach ($roles as $name => $permissionIds) {
+                    $role = TenantRole::query()->withoutGlobalScopes()->updateOrCreate(
+                        ['tenant_id' => $tenant->id, 'name' => $name],
+                        ['description' => "{$name} system role.", 'is_system' => true, 'created_by_user_id' => $creator->id],
+                    );
+                    DB::table('tenant_role_permissions')->where('tenant_role_id', $role->id)->delete();
+                    foreach ($permissionIds as $permissionId) {
+                        DB::table('tenant_role_permissions')->insert([
+                            'tenant_id' => $tenant->id,
+                            'tenant_role_id' => $role->id,
+                            'permission_id' => $permissionId,
+                            'granted_by_user_id' => $creator->id,
+                            'created_at' => now(),
+                        ]);
+                    }
                 }
             });
         });

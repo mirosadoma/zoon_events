@@ -4,6 +4,7 @@ namespace App\Modules\Authorization\Providers;
 
 use App\Modules\Authorization\Application\PermissionEvaluator;
 use App\Modules\Authorization\Contracts\PermissionEvaluator as PermissionEvaluatorContract;
+use App\Modules\Authorization\Policies\Phase1\Phase1Policy;
 use App\Modules\Tenancy\Domain\Context\TenantContextStore;
 use Database\Seeders\PermissionSeeder;
 use Illuminate\Support\Facades\Gate;
@@ -15,6 +16,7 @@ class AuthorizationServiceProvider extends ServiceProvider
     {
         $this->app->singleton(PermissionEvaluator::class);
         $this->app->alias(PermissionEvaluator::class, PermissionEvaluatorContract::class);
+        $this->app->singleton(Phase1Policy::class);
     }
 
     public function boot(): void

@@ -12,5 +12,6 @@ class DatabaseSeeder extends Seeder
         $this->call(PlatformSeeder::class);
         $this->call(SystemRoleSeeder::class);
         $this->call(FoundationIsolationSeeder::class);
+        $this->call(Phase1RegistrationSeeder::class);
     }
 }

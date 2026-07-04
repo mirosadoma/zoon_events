@@ -1,0 +1,58 @@
+<?php
+
+namespace App\Modules\Events\Application\Publication;
+
+use Carbon\CarbonImmutable;
+use DateTimeZone;
+
+final class PublicationReadiness
+{
+    /**
+     * @param array{
+     *   name_en?:string,name_ar?:string,timezone?:string,start_at?:string,
+     *   end_at?:string,registration_opens_at?:string,registration_closes_at?:string,
+     *   active_form_version_id?:string,active_ticket_types?:int,branding_active?:bool
+     * } $event
+     * @return list<string>
+     */
+    public function missing(array $event): array
+    {
+        $missing = [];
+        foreach (['name_en', 'name_ar', 'timezone', 'start_at', 'end_at', 'registration_opens_at', 'registration_closes_at', 'active_form_version_id'] as $key) {
+            if (trim((string) ($event[$key] ?? '')) === '') {
+                $missing[] = $key;
+            }
+        }
+        if (($event['active_ticket_types'] ?? 0) < 1) {
+            $missing[] = 'active_ticket_type';
+        }
+        if (($event['branding_active'] ?? false) !== true) {
+            $missing[] = 'active_branding';
+        }
+        if (isset($event['timezone']) && ! in_array($event['timezone'], DateTimeZone::listIdentifiers(), true)) {
+            $missing[] = 'valid_timezone';
+        }
+
+        try {
+            $start = CarbonImmutable::parse((string) ($event['start_at'] ?? ''));
+            $end = CarbonImmutable::parse((string) ($event['end_at'] ?? ''));
+            $opens = CarbonImmutable::parse((string) ($event['registration_opens_at'] ?? ''));
+            $closes = CarbonImmutable::parse((string) ($event['registration_closes_at'] ?? ''));
+            if (! ($opens->isBefore($closes) && $closes->lessThanOrEqualTo($end) && $start->isBefore($end))) {
+                $missing[] = 'valid_schedule';
+            }
+        } catch (\Throwable) {
+            if (! in_array('valid_schedule', $missing, true)) {
+                $missing[] = 'valid_schedule';
+            }
+        }
+
+        return array_values(array_unique($missing));
+    }
+
+    /** @param array<string,mixed> $event */
+    public function isReady(array $event): bool
+    {
+        return $this->missing($event) === [];
+    }
+}

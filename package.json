@@ -7,6 +7,7 @@
         "dev": "vite",
         "lint": "eslint . --max-warnings=0",
         "openapi:lint": "redocly lint specs/001-project-foundation/contracts/openapi.yaml",
+        "openapi:phase1": "redocly lint specs/002-registration-ticketing-credentials/contracts/openapi.yaml",
         "openapi:sync": "php scripts/sync-openapi.php --check",
         "test": "vitest run",
         "typecheck": "tsc --noEmit"

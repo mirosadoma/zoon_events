@@ -61,6 +61,7 @@
             "@composer lint",
             "@composer test",
             "@php scripts/sync-openapi.php --check",
+            "npm run openapi:phase1",
             "@php artisan zonetec:docs:check",
             "@php artisan zonetec:phase-boundary:check"
         ],

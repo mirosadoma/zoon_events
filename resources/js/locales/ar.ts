@@ -9,4 +9,12 @@ export default {
   featureFlags: 'علامات الميزات',
   configuration: 'الإعدادات',
   logout: 'تسجيل الخروج',
+  events: 'الفعاليات',
+  registrationForm: 'نموذج التسجيل',
+  ticketTypes: 'أنواع التذاكر',
+  orders: 'الطلبات',
+  attendees: 'الحضور',
+  credentials: 'بيانات الدخول',
+  paymentPending: 'تأكيد الدفع قيد الانتظار',
+  notificationUnavailable: 'إرسال التأكيد غير متاح مؤقتًا',
 }

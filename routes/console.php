@@ -9,3 +9,6 @@ Artisan::command('zonetec:about', function (): void {
 
 Schedule::command('zonetec:audit:cleanup-exports')->hourly()->withoutOverlapping();
 Schedule::command('zonetec:audit:verify --recent')->daily()->withoutOverlapping();
+Schedule::command('zonetec:ticketing:expire-holds')->everyMinute()->withoutOverlapping();
+Schedule::command('zonetec:payments:reconcile')->everyMinute()->withoutOverlapping();
+Schedule::command('zonetec:notifications:deliver-due')->everyMinute()->withoutOverlapping();

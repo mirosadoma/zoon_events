@@ -1,13 +1,13 @@
 openapi: 3.1.0
 info:
   title: Zonetec Phase 1 Registration and Ticketing API
-  version: 1.0.0-draft
+  version: 1.0.0
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
   description: >
-    Review contract for Phase 1. During implementation these operations are
-    merged into the authoritative versioned product OpenAPI document.
+    Authoritative versioned contract for Phase 1 registration, ticketing,
+    payment, credential, notification, and organizer operations.
 servers:
   - url: https://{host}/api/v1
     variables:
@@ -28,6 +28,8 @@ tags:
     description: Tenant-scoped attendee review and correction.
   - name: Credentials
     description: Signed credential validation, revocation, and reissue.
+  - name: Webhooks
+    description: Authenticated provider callbacks with opaque routing credentials.
 paths:
   /public/events/{event_slug}:
     get:
@@ -151,6 +153,89 @@ paths:
         '422':
           $ref: '#/components/responses/Problem'
         '503':
+          $ref: '#/components/responses/Problem'
+  /webhooks/payments/moyasar/{route_token}:
+    post:
+      tags: [Webhooks]
+      operationId: receiveMoyasarPaymentWebhook
+      summary: Receive an authenticated, idempotent Moyasar payment callback
+      security: []
+      parameters:
+        - name: route_token
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 32
+            maxLength: 160
+        - name: X-Moyasar-Signature
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 32
+            maxLength: 256
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              required: [id, payment_id]
+              properties:
+                id:
+                  type: string
+                  maxLength: 160
+                payment_id:
+                  type: string
+                  maxLength: 160
+      responses:
+        '202':
+          description: Callback accepted for authoritative processing
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        '429':
+          $ref: '#/components/responses/Problem'
+  /webhooks/notifications/unifonic/{route_token}:
+    post:
+      tags: [Webhooks]
+      operationId: receiveUnifonicNotificationWebhook
+      summary: Receive an authenticated, idempotent Unifonic delivery callback
+      security: []
+      parameters:
+        - name: route_token
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 32
+            maxLength: 160
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [MessageID, Status]
+              properties:
+                MessageID:
+                  type: string
+                  maxLength: 160
+                Status:
+                  type: string
+                  maxLength: 40
+      responses:
+        '202':
+          description: Callback accepted without disclosing message existence
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        '429':
           $ref: '#/components/responses/Problem'
   /tenant/events:
     get:
@@ -290,6 +375,58 @@ paths:
       responses:
         '200':
           description: Cancelled event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventEnvelope'
+        '409':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/reopen:
+    post:
+      tags: [Events]
+      operationId: reopenEvent
+      summary: Reopen registration for a closed event
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+      responses:
+        '200':
+          description: Reopened event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventEnvelope'
+        '409':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/archive:
+    post:
+      tags: [Events]
+      operationId: archiveEvent
+      summary: Archive a completed or cancelled event
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+      responses:
+        '200':
+          description: Archived event
           content:
             application/json:
               schema:
@@ -505,6 +642,33 @@ paths:
         '422':
           $ref: '#/components/responses/Problem'
         '503':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/orders/{order_id}/cancel:
+    post:
+      tags: [Orders]
+      operationId: cancelOrder
+      summary: Cancel an eligible unpaid order and release its inventory hold
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+      responses:
+        '200':
+          description: Order cancelled
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
           $ref: '#/components/responses/Problem'
   /tenant/events/{event_id}/attendees:
     get:
@@ -929,7 +1093,7 @@ components:
     FormField:
       type: object
       additionalProperties: false
-      required: [key, type, label, required, visibility]
+      required: [key, type, label_en, label_ar, required, visibility]
       properties:
         key:
           type: string
@@ -937,8 +1101,18 @@ components:
         type:
           type: string
           enum: [text, email, phone, number, date, dropdown, multi_select, checkbox, hidden, consent]
-        label:
-          $ref: '#/components/schemas/LocalizedText'
+        label_en:
+          type: string
+          maxLength: 160
+        label_ar:
+          type: string
+          maxLength: 160
+        help_en:
+          type: string
+          maxLength: 500
+        help_ar:
+          type: string
+          maxLength: 500
         required:
           type: boolean
         visibility:
@@ -948,14 +1122,33 @@ components:
           type: array
           maxItems: 100
           items:
-            type: object
-            required: [value, label]
-            properties:
-              value:
-                type: string
-                maxLength: 120
-              label:
-                $ref: '#/components/schemas/LocalizedText'
+            type: string
+            maxLength: 120
+        default:
+          type: [string, number, boolean, 'null']
+        validation:
+          type: object
+          additionalProperties: false
+          properties:
+            min:
+              type: number
+            max:
+              type: number
+            max_length:
+              type: integer
+              minimum: 1
+              maximum: 5000
+        condition:
+          type: object
+          additionalProperties: false
+          required: [field, operator, value]
+          properties:
+            field:
+              type: string
+            operator:
+              type: string
+              enum: [equals, not_equals, in]
+            value: {}
     RegistrationForm:
       type: object
       required: [id, version, status, schema_hash, fields]
@@ -1155,8 +1348,17 @@ components:
           additionalProperties: true
         consents:
           type: object
-          additionalProperties:
-            type: boolean
+          additionalProperties: false
+          required: [terms, privacy, marketing]
+          properties:
+            terms:
+              type: boolean
+              const: true
+            privacy:
+              type: boolean
+              const: true
+            marketing:
+              type: boolean
     PersonInput:
       type: object
       additionalProperties: false

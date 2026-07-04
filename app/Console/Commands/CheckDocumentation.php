@@ -24,6 +24,14 @@ final class CheckDocumentation extends Command
             'docs/operations/backup-restore.md', 'docs/operations/migrations-rollbacks.md',
             'docs/operations/retention-residency.md', 'docs/CONTRIBUTING.md',
             'docs/review-checklist.md', 'docs/governance/exceptions.md',
+            'docs/standards/phase1-registration-ticketing.md',
+            'docs/operations/phase1-data-governance.md',
+            'docs/operations/payments.md',
+            'docs/operations/credential-keys.md',
+            'docs/operations/notifications.md',
+            'docs/release/phase1-migration-evidence.md',
+            'docs/release/phase1-dependency-audit.md',
+            'docs/release/phase1-readiness.md',
         ];
         $failures = [];
         foreach ($required as $path) {

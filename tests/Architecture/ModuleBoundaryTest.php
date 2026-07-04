@@ -49,7 +49,7 @@ class ModuleBoundaryTest extends TestCase
                 $violations[] = $file.':cross-module-infrastructure-import';
             }
 
-            if (preg_match('/\b(registration|ticketing|wallet|kiosk|acs|identity verification|marketplace)\b/i', $contents)) {
+            if (preg_match('/\b(wallet|kiosk|scanner|check-in|badge|acs|identity verification|marketplace)\b/i', $contents)) {
                 $violations[] = $file.':forbidden-product-scope-name';
             }
         }

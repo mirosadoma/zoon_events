@@ -8,3 +8,24 @@ tenant/user/membership lifecycle, role/permission/assignment changes, privileged
 audit search/export/download/integrity, feature-flag governance, configuration governance,
 and adapter failure. Events record scope, actor, target, outcome, stable reason, correlation,
 channel, fingerprints, sanitized changed fields, key ID, algorithm, and HMAC.
+
+Phase 1 required action families are:
+
+- `event.published|reopened|archived`, `registration_form.published`, and
+  `ticket_type.created|updated|archived`;
+- `inventory.held|sold|released|expired`;
+- `registration.free_completed`;
+- `payment.pending|captured|failed|unknown` and
+  `refund.pending|succeeded|failed|unknown`;
+- `attendee.corrected`;
+- `credential.revoked|reissued` and validation denial evidence;
+- `notification.delivered|permanent_failure`.
+
+Authenticated callback denial evidence uses `payment.callback_denied` and
+`notification.callback_denied` with a stable reason and no route token,
+signature, destination, provider identifier, or payload.
+
+Notification evidence contains only event ID, channel, notification ID, outcome,
+and stable reason. Payment evidence excludes provider payload and card data.
+Credential evidence excludes signed tokens. Attendee evidence records changed
+field names, never old/new values.

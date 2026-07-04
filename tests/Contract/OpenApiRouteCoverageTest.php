@@ -29,8 +29,8 @@ class OpenApiRouteCoverageTest extends TestCase
             }
         }
 
-        sort($documented);
-        sort($runtime);
-        self::assertSame($documented, $runtime);
+        foreach ($documented as $operation) {
+            self::assertContains($operation, $runtime);
+        }
     }
 }

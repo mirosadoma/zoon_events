@@ -3,6 +3,11 @@
 namespace App\Modules\Operations\Application\Health;
 
 use App\Modules\Operations\Application\Configuration\ConfigurationValidator;
+use App\Modules\Operations\Application\Health\Checks\CredentialSigningHealthCheck;
+use App\Modules\Operations\Application\Health\Checks\DataProtectionHealthCheck;
+use App\Modules\Operations\Application\Health\Checks\NotificationConfigurationHealthCheck;
+use App\Modules\Operations\Application\Health\Checks\PaymentCheck;
+use App\Modules\Operations\Contracts\HealthCheck;
 use App\Modules\Shared\Contracts\Clock;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
@@ -46,6 +51,10 @@ class HealthService
                 'storage' => $this->filesystem->disk(config('filesystems.default'))->exists('.'),
                 'audit_key' => $this->assertAuditKey(),
                 'config' => $this->assertConfiguration(),
+                'data_protection' => $this->runExtensionCheck(DataProtectionHealthCheck::class),
+                'credential_signing' => $this->runExtensionCheck(CredentialSigningHealthCheck::class),
+                'payments' => $this->runExtensionCheck(PaymentCheck::class),
+                'notifications' => $this->runExtensionCheck(NotificationConfigurationHealthCheck::class),
                 default => null,
             };
 
@@ -74,6 +83,14 @@ class HealthService
     {
         if (! $this->configuration->isValid()) {
             throw new \RuntimeException('Configuration validation failed.');
+        }
+    }
+
+    /** @param class-string<HealthCheck> $check */
+    private function runExtensionCheck(string $check): void
+    {
+        if (app($check)->run()->status !== 'ok') {
+            throw new \RuntimeException('Phase 1 configuration health check failed.');
         }
     }
 }

@@ -19,9 +19,9 @@ native services only.
 ```powershell
 composer install
 npm install
-php artisan zonetec:config:validate
-php artisan config:cache
-php artisan zonetec:config:validate
+php artisan zonetec:config:validate --env=testing
+php artisan config:cache --env=testing
+php artisan zonetec:config:validate --env=testing
 php artisan config:clear
 ```
 
@@ -138,7 +138,7 @@ exceed captured amount.
 
 ```powershell
 php artisan test --group=credentials
-php artisan zonetec:credentials:keys:check
+php artisan zonetec:credentials:keys-check --env=testing
 ```
 
 Expected:

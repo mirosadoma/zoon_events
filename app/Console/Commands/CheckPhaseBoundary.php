@@ -9,7 +9,7 @@ final class CheckPhaseBoundary extends Command
 {
     protected $signature = 'zonetec:phase-boundary:check';
 
-    protected $description = 'Reject container files and excluded Phase 0 product implementation.';
+    protected $description = 'Reject container files and product implementation beyond the active Phase 1 scope.';
 
     public function handle(): int
     {
@@ -24,7 +24,7 @@ final class CheckPhaseBoundary extends Command
         }
 
         $roots = [app_path(), resource_path('js'), base_path('routes'), database_path('migrations')];
-        $forbidden = '/\\\\(Payments?|Tickets?|Credentials?|Wallet|Kiosks?|Scanners?|ACS|Marketplace|Registration)(\\\\|\\.|$)/i';
+        $forbidden = '/\\\\(Wallet|Kiosks?|Scanners?|Scan|CheckIn|Badges?|ACS|IdentityVerification|Marketplace|Hardware|VenueAssets?|Rentals?)(\\\\|\\.|$)/i';
         foreach ($roots as $root) {
             foreach (File::allFiles($root) as $file) {
                 if (preg_match($forbidden, $file->getPathname())) {

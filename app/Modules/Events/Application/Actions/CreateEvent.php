@@ -1,0 +1,47 @@
+<?php
+
+namespace App\Modules\Events\Application\Actions;
+
+use App\Modules\Audit\Application\AuditWriter;
+use App\Modules\Events\Infrastructure\Persistence\Models\Event;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventBranding;
+use App\Modules\Tenancy\Domain\Context\TenantContext;
+use Illuminate\Support\Facades\DB;
+
+final readonly class CreateEvent
+{
+    public function __construct(private AuditWriter $audit) {}
+
+    /** @param array<string,mixed> $attributes */
+    public function execute(TenantContext $context, array $attributes): Event
+    {
+        return DB::transaction(function () use ($context, $attributes): Event {
+            $branding = [
+                'brand_reference' => $attributes['brand_reference'] ?? null,
+                'domain_reference' => $attributes['domain_reference'] ?? null,
+            ];
+            unset($attributes['brand_reference'], $attributes['domain_reference']);
+            $event = Event::query()->create([
+                ...$attributes,
+                'tenant_id' => $context->tenant->id,
+                'status' => 'draft',
+                'created_by_user_id' => $context->actor->id,
+            ]);
+            if ($branding['brand_reference'] !== null && $branding['domain_reference'] !== null) {
+                EventBranding::query()->create([
+                    'tenant_id' => $context->tenant->id,
+                    'event_id' => $event->id,
+                    ...$branding,
+                    'content_en' => [],
+                    'content_ar' => [],
+                    'sender_name_en' => $event->name_en,
+                    'sender_name_ar' => $event->name_ar,
+                    'status' => 'active',
+                ]);
+            }
+            $this->audit->writeTenant('event.created', 'succeeded', $context, targetType: 'event', targetId: $event->id);
+
+            return $event;
+        });
+    }
+}

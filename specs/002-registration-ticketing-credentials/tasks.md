@@ -26,14 +26,14 @@ ordered by executable dependency: US1 → US4 → US2 → US3 → US5 → US6 �
 **Purpose**: Register Phase 1 modules, configuration, test groups, localization,
 and contract tooling without changing product behavior.
 
-- [ ] T001 Register Events, Registration, Ticketing, Orders, Payments, Attendees, Credentials, and Notifications providers in `app/Providers/ModuleServiceProvider.php` (depends: Phase 0 complete; accept: `php artisan about` boots with all providers).
-- [ ] T002 [P] Create provider skeletons in `app/Modules/{Events,Registration,Ticketing,Orders,Payments,Attendees,Credentials,Notifications}/Providers/` (depends: none; accept: providers contain no product routes or persistence behavior yet).
-- [ ] T003 [P] Create configuration files `config/registration.php`, `config/payments.php`, `config/credentials.php`, and `config/notifications.php` with safe disabled/local defaults and no secret values (depends: none; accept: `php artisan config:cache` succeeds).
-- [ ] T004 Document all Phase 1 environment keys and synthetic test values in `.env.example` and `.env.testing` (depends: T003; accept: config validation names missing keys without printing values).
-- [ ] T005 [P] Add Phase 1 test groups and MySQL helpers in `phpunit.xml` and `tests/Support/Phase1MySqlTestCase.php` (depends: none; accept: `php artisan test --list-tests` discovers Phase 1 suites).
-- [ ] T006 [P] Add Arabic and English Phase 1 message catalogs in `lang/en/phase1.php`, `lang/ar/phase1.php`, `resources/js/locales/en.ts`, and `resources/js/locales/ar.ts` (depends: none; accept: identical message-key sets are enforced).
-- [ ] T007 [P] Create Phase 1 frontend route/type entry points in `resources/js/types/phase1.ts` and `resources/js/pages/{public/registration,tenant/events}/` (depends: none; accept: `npm run typecheck` succeeds with empty typed pages).
-- [ ] T008 Add Phase 1 OpenAPI lint command and contract path to `package.json` and `composer.json` quality scripts (depends: none; accept: `npx redocly lint specs/002-registration-ticketing-credentials/contracts/openapi.yaml` passes with zero warning).
+- [X] T001 Register Events, Registration, Ticketing, Orders, Payments, Attendees, Credentials, and Notifications providers in `app/Providers/ModuleServiceProvider.php` (depends: Phase 0 complete; accept: `php artisan about` boots with all providers).
+- [X] T002 [P] Create provider skeletons in `app/Modules/{Events,Registration,Ticketing,Orders,Payments,Attendees,Credentials,Notifications}/Providers/` (depends: none; accept: providers contain no product routes or persistence behavior yet).
+- [X] T003 [P] Create configuration files `config/registration.php`, `config/payments.php`, `config/credentials.php`, and `config/notifications.php` with safe disabled/local defaults and no secret values (depends: none; accept: `php artisan config:cache` succeeds).
+- [X] T004 Document all Phase 1 environment keys and synthetic test values in `.env.example` and `.env.testing` (depends: T003; accept: config validation names missing keys without printing values).
+- [X] T005 [P] Add Phase 1 test groups and MySQL helpers in `phpunit.xml` and `tests/Support/Phase1MySqlTestCase.php` (depends: none; accept: `php artisan test --list-tests` discovers Phase 1 suites).
+- [X] T006 [P] Add Arabic and English Phase 1 message catalogs in `lang/en/phase1.php`, `lang/ar/phase1.php`, `resources/js/locales/en.ts`, and `resources/js/locales/ar.ts` (depends: none; accept: identical message-key sets are enforced).
+- [X] T007 [P] Create Phase 1 frontend route/type entry points in `resources/js/types/phase1.ts` and `resources/js/pages/{public/registration,tenant/events}/` (depends: none; accept: `npm run typecheck` succeeds with empty typed pages).
+- [X] T008 Add Phase 1 OpenAPI lint command and contract path to `package.json` and `composer.json` quality scripts (depends: none; accept: `npx redocly lint specs/002-registration-ticketing-credentials/contracts/openapi.yaml` passes with zero warning).
 
 **Checkpoint**: The application boots and all Phase 1 scaffolding remains behavior-free.
 
@@ -46,24 +46,24 @@ context, permissions, signing keys, errors, and module boundaries.
 
 **CRITICAL**: Complete this phase before any user-story implementation.
 
-- [ ] T009 [P] Write Phase 1 module-boundary and forbidden-scope tests in `tests/Architecture/Phase1ModuleBoundaryTest.php` (depends: T001; accept: cross-module Infrastructure imports and Phase 2+ namespaces fail).
-- [ ] T010 [P] Write personal-data encryption, blind-index, and key-rotation tests in `tests/Unit/Shared/PersonalDataProtectionTest.php` (depends: T004; accept: tests fail before protection services exist).
-- [ ] T011 Implement versioned `PersonalDataCipher` and `BlindIndex` in `app/Modules/Shared/Application/DataProtection/` (depends: T010; accept: authenticated encryption, dual-read rotation, normalization, and exact blind lookup tests pass).
-- [ ] T012 [P] Write public host/event context spoofing and cleanup tests in `tests/Integration/Security/PublicEventContextTest.php` (depends: T005; accept: headers, unknown hosts, inactive tenants, and leaked context fail closed).
-- [ ] T013 Implement `PublicEventContext`, store, resolver contract, and cleanup middleware in `app/Modules/Events/Domain/Context/`, `app/Modules/Events/Contracts/PublicEventContextResolver.php`, and `app/Modules/Events/Http/Middleware/` (depends: T012; accept: context binds only trusted host/slug resolution and always clears).
-- [ ] T014 Configure public discovery, form, registration, checkout, callback, and organizer rate limiters in `app/Providers/AppServiceProvider.php` (depends: T003, T013; accept: limits use safe host/event/source or tenant/actor keys and return standard 429 responses).
-- [ ] T015 [P] Write Phase 1 permission allow/deny and immediate-revocation tests in `tests/Feature/Authorization/Phase1PermissionMatrixTest.php` (depends: T005; accept: every planned permission initially lacks a catalog entry).
-- [ ] T016 Extend `database/seeders/PermissionCatalogSeeder.php` and `database/seeders/SystemRoleSeeder.php` with Phase 1 permissions and least-privilege Event/Ticketing roles (depends: T015; accept: repeat seeding is idempotent and custom roles stay empty).
-- [ ] T017 Implement Phase 1 policies in `app/Modules/Authorization/Policies/Phase1/` and register them in `app/Modules/Authorization/Providers/AuthorizationServiceProvider.php` (depends: T016; accept: T015 passes for tenant, event, and action scope).
-- [ ] T018 [P] Write Phase 1 stable error and no-leak tests in `tests/Contract/Phase1ProblemDetailsTest.php` (depends: T008; accept: every new code has Arabic/English text and no provider/PII leakage).
-- [ ] T019 Extend exception mapping in `app/Modules/Shared/Http/Problems/FoundationProblemRenderer.php` and locale catalogs for all Phase 1 error codes (depends: T018; accept: contract tests pass without controller-built errors).
-- [ ] T020 [P] Write Ed25519 key-ring, canonical token, rotation, and readiness tests in `tests/Unit/Credentials/CredentialKeyRingTest.php` (depends: T004; accept: tests fail before credential primitives exist).
-- [ ] T021 Implement credential value objects, canonical encoder, Ed25519 key ring, and secret-reference loader in `app/Modules/Credentials/Domain/` and `app/Modules/Credentials/Application/Signing/` (depends: T020; accept: active/verify-only/retired/compromised behavior and constant-time verification pass).
-- [ ] T022 [P] Define payment and notification contracts/results in `app/Modules/Payments/Contracts/`, `app/Modules/Payments/Domain/`, and `app/Modules/Notifications/Contracts/` from `contracts/payment-adapter.md` and `contracts/notification-adapter.md` (depends: T002; accept: interfaces expose no provider SDK or credential type).
-- [ ] T023 [P] Implement deterministic fake payment, email, and SMS adapters in `app/Modules/Payments/Testing/` and `app/Modules/Notifications/Testing/` (depends: T022; accept: all documented success/failure/timeout/unknown states require no network).
-- [ ] T024 Extend configuration validation and health categories in `app/Modules/Operations/Application/Configuration/ConfigurationValidator.php` and `app/Modules/Operations/Application/Health/Checks/` for data, signing, payment, and notification keys (depends: T003, T011, T021-T023; accept: unsafe live config fails readiness without exposing values).
-- [ ] T025 Merge Phase 1 schemas/operations into `specs/001-project-foundation/contracts/openapi.yaml`, update `docs/api/openapi.yaml`, and preserve `specs/002-registration-ticketing-credentials/contracts/openapi.yaml` as review input (depends: T008; accept: sync, lint, and backward-compatibility checks pass).
-- [ ] T026 Register Phase 1 middleware aliases and empty versioned route files in `bootstrap/app.php`, `routes/api.php`, and each module `Routes/api.php` (depends: T013-T14, T17, T25; accept: route cache boots and no undocumented operation exists).
+- [X] T009 [P] Write Phase 1 module-boundary and forbidden-scope tests in `tests/Architecture/Phase1ModuleBoundaryTest.php` (depends: T001; accept: cross-module Infrastructure imports and Phase 2+ namespaces fail).
+- [X] T010 [P] Write personal-data encryption, blind-index, and key-rotation tests in `tests/Unit/Shared/PersonalDataProtectionTest.php` (depends: T004; accept: tests fail before protection services exist).
+- [X] T011 Implement versioned `PersonalDataCipher` and `BlindIndex` in `app/Modules/Shared/Application/DataProtection/` (depends: T010; accept: authenticated encryption, dual-read rotation, normalization, and exact blind lookup tests pass).
+- [X] T012 [P] Write public host/event context spoofing and cleanup tests in `tests/Integration/Security/PublicEventContextTest.php` (depends: T005; accept: headers, unknown hosts, inactive tenants, and leaked context fail closed).
+- [X] T013 Implement `PublicEventContext`, store, resolver contract, and cleanup middleware in `app/Modules/Events/Domain/Context/`, `app/Modules/Events/Contracts/PublicEventContextResolver.php`, and `app/Modules/Events/Http/Middleware/` (depends: T012; accept: context binds only trusted host/slug resolution and always clears).
+- [X] T014 Configure public discovery, form, registration, checkout, callback, and organizer rate limiters in `app/Providers/AppServiceProvider.php` (depends: T003, T013; accept: limits use safe host/event/source or tenant/actor keys and return standard 429 responses).
+- [X] T015 [P] Write Phase 1 permission allow/deny and immediate-revocation tests in `tests/Feature/Authorization/Phase1PermissionMatrixTest.php` (depends: T005; accept: every planned permission initially lacks a catalog entry).
+- [X] T016 Extend `database/seeders/PermissionCatalogSeeder.php` and `database/seeders/SystemRoleSeeder.php` with Phase 1 permissions and least-privilege Event/Ticketing roles (depends: T015; accept: repeat seeding is idempotent and custom roles stay empty).
+- [X] T017 Implement Phase 1 policies in `app/Modules/Authorization/Policies/Phase1/` and register them in `app/Modules/Authorization/Providers/AuthorizationServiceProvider.php` (depends: T016; accept: T015 passes for tenant, event, and action scope).
+- [X] T018 [P] Write Phase 1 stable error and no-leak tests in `tests/Contract/Phase1ProblemDetailsTest.php` (depends: T008; accept: every new code has Arabic/English text and no provider/PII leakage).
+- [X] T019 Extend exception mapping in `app/Modules/Shared/Http/Problems/FoundationProblemRenderer.php` and locale catalogs for all Phase 1 error codes (depends: T018; accept: contract tests pass without controller-built errors).
+- [X] T020 [P] Write Ed25519 key-ring, canonical token, rotation, and readiness tests in `tests/Unit/Credentials/CredentialKeyRingTest.php` (depends: T004; accept: tests fail before credential primitives exist).
+- [X] T021 Implement credential value objects, canonical encoder, Ed25519 key ring, and secret-reference loader in `app/Modules/Credentials/Domain/` and `app/Modules/Credentials/Application/Signing/` (depends: T020; accept: active/verify-only/retired/compromised behavior and constant-time verification pass).
+- [X] T022 [P] Define payment and notification contracts/results in `app/Modules/Payments/Contracts/`, `app/Modules/Payments/Domain/`, and `app/Modules/Notifications/Contracts/` from `contracts/payment-adapter.md` and `contracts/notification-adapter.md` (depends: T002; accept: interfaces expose no provider SDK or credential type).
+- [X] T023 [P] Implement deterministic fake payment, email, and SMS adapters in `app/Modules/Payments/Testing/` and `app/Modules/Notifications/Testing/` (depends: T022; accept: all documented success/failure/timeout/unknown states require no network).
+- [X] T024 Extend configuration validation and health categories in `app/Modules/Operations/Application/Configuration/ConfigurationValidator.php` and `app/Modules/Operations/Application/Health/Checks/` for data, signing, payment, and notification keys (depends: T003, T011, T021-T023; accept: unsafe live config fails readiness without exposing values).
+- [X] T025 Merge Phase 1 schemas/operations into `specs/001-project-foundation/contracts/openapi.yaml`, update `docs/api/openapi.yaml`, and preserve `specs/002-registration-ticketing-credentials/contracts/openapi.yaml` as review input (depends: T008; accept: sync, lint, and backward-compatibility checks pass).
+- [X] T026 Register Phase 1 middleware aliases and empty versioned route files in `bootstrap/app.php`, `routes/api.php`, and each module `Routes/api.php` (depends: T013-T14, T17, T25; accept: route cache boots and no undocumented operation exists).
 
 **Checkpoint**: Encryption, public context, permissions, signing, adapters,
 errors, health, and contracts are ready; no story route performs product work.
@@ -80,30 +80,30 @@ public page/form, and verify tenant isolation, branding, locale, and readiness.
 
 ### Tests for User Story 1
 
-- [ ] T027 [P] [US1] Write event/form/ticket schema and composite-scope tests in `tests/Integration/MySql/EventSetupSchemaTest.php` (depends: T026; accept: tests fail before migrations).
-- [ ] T028 [P] [US1] Write event lifecycle, tier-default, and publication-readiness unit tests in `tests/Unit/Events/EventLifecycleTest.php` (depends: T026; accept: invalid transitions/readiness currently fail).
-- [ ] T029 [P] [US1] Write registration-form field, condition-cycle, immutability, and consent tests in `tests/Unit/Registration/RegistrationFormSchemaTest.php` (depends: T026; accept: tests fail before validators).
-- [ ] T030 [P] [US1] Write organizer event/form/ticket OpenAPI tests in `tests/Contract/Phase1/EventSetupApiTest.php` (depends: T025; accept: documented operations are initially unimplemented).
-- [ ] T031 [P] [US1] Write event setup isolation/RBAC/audit tests in `tests/Integration/Security/EventSetupIsolationTest.php` (depends: T015, T025; accept: cross-tenant IDs and unauthorized publication are denied identically).
-- [ ] T032 [P] [US1] Write public host, branding, Arabic/English, accessibility, and enumeration tests in `tests/Feature/Events/PublicEventPageTest.php` and `resources/js/__tests__/public-event.test.tsx` (depends: T006-T007, T013; accept: pages/routes are missing).
+- [X] T027 [P] [US1] Write event/form/ticket schema and composite-scope tests in `tests/Integration/MySql/EventSetupSchemaTest.php` (depends: T026; accept: tests fail before migrations).
+- [X] T028 [P] [US1] Write event lifecycle, tier-default, and publication-readiness unit tests in `tests/Unit/Events/EventLifecycleTest.php` (depends: T026; accept: invalid transitions/readiness currently fail).
+- [X] T029 [P] [US1] Write registration-form field, condition-cycle, immutability, and consent tests in `tests/Unit/Registration/RegistrationFormSchemaTest.php` (depends: T026; accept: tests fail before validators).
+- [X] T030 [P] [US1] Write organizer event/form/ticket OpenAPI tests in `tests/Contract/Phase1/EventSetupApiTest.php` (depends: T025; accept: documented operations are initially unimplemented).
+- [X] T031 [P] [US1] Write event setup isolation/RBAC/audit tests in `tests/Integration/Security/EventSetupIsolationTest.php` (depends: T015, T025; accept: cross-tenant IDs and unauthorized publication are denied identically).
+- [X] T032 [P] [US1] Write public host, branding, Arabic/English, accessibility, and enumeration tests in `tests/Feature/Events/PublicEventPageTest.php` and `resources/js/__tests__/public-event.test.tsx` (depends: T006-T007, T013; accept: pages/routes are missing).
 
 ### Implementation for User Story 1
 
-- [ ] T033 [US1] Create events and event-branding migration in `database/migrations/2026_07_03_000009_create_events_tables.php` (depends: T027; accept: tenant-first keys, lifecycle checks, schedule checks, and approved-reference fields pass T027).
-- [ ] T034 [US1] Create registration-form/version migration in `database/migrations/2026_07_03_000010_create_registration_form_tables.php` (depends: T027, T033; accept: version uniqueness and immutable published evidence pass).
-- [ ] T035 [US1] Create ticket-type migration in `database/migrations/2026_07_03_000011_create_ticket_types_table.php` (depends: T027, T033; accept: same-event keys, currency/sale checks, and tenant-first indexes pass).
-- [ ] T036 [P] [US1] Implement Event and EventBranding models in `app/Modules/Events/Infrastructure/Persistence/Models/` (depends: T033; accept: guarded fields, casts, and tenant scope tests pass).
-- [ ] T037 [P] [US1] Implement RegistrationForm and RegistrationFormVersion models in `app/Modules/Registration/Infrastructure/Persistence/Models/` (depends: T034; accept: published update/delete attempts throw).
-- [ ] T038 [P] [US1] Implement TicketType model in `app/Modules/Ticketing/Infrastructure/Persistence/Models/TicketType.php` (depends: T035; accept: cross-event relationships and invalid lifecycle fail).
-- [ ] T039 [P] [US1] Implement event tier defaults and lifecycle/readiness services in `app/Modules/Events/Domain/` and `app/Modules/Events/Application/Publication/` (depends: T028, T036-T038; accept: T028 passes).
-- [ ] T040 [P] [US1] Implement typed form fields, conditional validation, canonical schema hashing, and immutable version publishing in `app/Modules/Registration/Domain/Fields/` and `app/Modules/Registration/Application/Validation/` (depends: T029, T037; accept: T029 passes).
-- [ ] T041 [US1] Implement audited event create/update/publish/cancel actions in `app/Modules/Events/Application/Actions/` (depends: T039-T040; accept: required state and audit commit/rollback together).
-- [ ] T042 [US1] Implement audited form draft/publish and ticket create/update actions in `app/Modules/Registration/Application/Actions/` and `app/Modules/Ticketing/Application/Actions/` (depends: T038, T040-T041; accept: system validates same-event scope and protected published state).
-- [ ] T043 [US1] Implement organizer event/form/ticket requests, resources, controllers, and routes in `app/Modules/{Events,Registration,Ticketing}/Http/` and their `Routes/api.php` files (depends: T030, T041-T042; accept: T030 passes with thin controllers).
-- [ ] T044 [US1] Implement approved-host public event/form query and controllers in `app/Modules/Events/Application/Queries/`, `app/Modules/Registration/Application/Queries/`, and `app/Modules/Events/Http/Controllers/Public/` (depends: T013, T039-T043; accept: unknown/inactive/cross-tenant host-event combinations return uniform 404).
-- [ ] T045 [P] [US1] Implement organizer event setup pages/view models in `resources/js/pages/tenant/events/`, `resources/js/components/events/`, and `app/Modules/AdminConsole/ViewModels/Events/` (depends: T043; accept: page props contain no persistence object or unauthorized field).
-- [ ] T046 [P] [US1] Implement public branded event/form shell in `resources/js/pages/public/registration/Event.tsx`, `resources/js/components/registration/`, and `resources/css/app.css` (depends: T032, T044; accept: English/LTR and Arabic/RTL accessibility tests pass).
-- [ ] T047 [US1] Register immutable Event/Form/Ticket domain events and sanitized audit mappings in `app/Modules/{Events,Registration,Ticketing}/Domain/Events/` and `app/Modules/Audit/Application/Listeners/Phase1/` (depends: T041-T046; accept: T031 and all US1 tests pass).
+- [X] T033 [US1] Create events and event-branding migration in `database/migrations/2026_07_03_000009_create_events_tables.php` (depends: T027; accept: tenant-first keys, lifecycle checks, schedule checks, and approved-reference fields pass T027).
+- [X] T034 [US1] Create registration-form/version migration in `database/migrations/2026_07_03_000010_create_registration_form_tables.php` (depends: T027, T033; accept: version uniqueness and immutable published evidence pass).
+- [X] T035 [US1] Create ticket-type migration in `database/migrations/2026_07_03_000011_create_ticket_types_table.php` (depends: T027, T033; accept: same-event keys, currency/sale checks, and tenant-first indexes pass).
+- [X] T036 [P] [US1] Implement Event and EventBranding models in `app/Modules/Events/Infrastructure/Persistence/Models/` (depends: T033; accept: guarded fields, casts, and tenant scope tests pass).
+- [X] T037 [P] [US1] Implement RegistrationForm and RegistrationFormVersion models in `app/Modules/Registration/Infrastructure/Persistence/Models/` (depends: T034; accept: published update/delete attempts throw).
+- [X] T038 [P] [US1] Implement TicketType model in `app/Modules/Ticketing/Infrastructure/Persistence/Models/TicketType.php` (depends: T035; accept: cross-event relationships and invalid lifecycle fail).
+- [X] T039 [P] [US1] Implement event tier defaults and lifecycle/readiness services in `app/Modules/Events/Domain/` and `app/Modules/Events/Application/Publication/` (depends: T028, T036-T038; accept: T028 passes).
+- [X] T040 [P] [US1] Implement typed form fields, conditional validation, canonical schema hashing, and immutable version publishing in `app/Modules/Registration/Domain/Fields/` and `app/Modules/Registration/Application/Validation/` (depends: T029, T037; accept: T029 passes).
+- [X] T041 [US1] Implement audited event create/update/publish/cancel actions in `app/Modules/Events/Application/Actions/` (depends: T039-T040; accept: required state and audit commit/rollback together).
+- [X] T042 [US1] Implement audited form draft/publish and ticket create/update actions in `app/Modules/Registration/Application/Actions/` and `app/Modules/Ticketing/Application/Actions/` (depends: T038, T040-T041; accept: system validates same-event scope and protected published state).
+- [X] T043 [US1] Implement organizer event/form/ticket requests, resources, controllers, and routes in `app/Modules/{Events,Registration,Ticketing}/Http/` and their `Routes/api.php` files (depends: T030, T041-T042; accept: T030 passes with thin controllers).
+- [X] T044 [US1] Implement approved-host public event/form query and controllers in `app/Modules/Events/Application/Queries/`, `app/Modules/Registration/Application/Queries/`, and `app/Modules/Events/Http/Controllers/Public/` (depends: T013, T039-T043; accept: unknown/inactive/cross-tenant host-event combinations return uniform 404).
+- [X] T045 [P] [US1] Implement organizer event setup pages/view models in `resources/js/pages/tenant/events/`, `resources/js/components/events/`, and `app/Modules/AdminConsole/ViewModels/Events/` (depends: T043; accept: page props contain no persistence object or unauthorized field).
+- [X] T046 [P] [US1] Implement public branded event/form shell in `resources/js/pages/public/registration/Event.tsx`, `resources/js/components/registration/`, and `resources/css/app.css` (depends: T032, T044; accept: English/LTR and Arabic/RTL accessibility tests pass).
+- [X] T047 [US1] Register immutable Event/Form/Ticket domain events and sanitized audit mappings in `app/Modules/{Events,Registration,Ticketing}/Domain/Events/` and `app/Modules/Audit/Application/Listeners/Phase1/` (depends: T041-T046; accept: T031 and all US1 tests pass).
 
 **Checkpoint**: US1 is independently demonstrable as a published branded event
 with no attendee, order, payment, credential, or notification creation.
@@ -119,23 +119,23 @@ time/capacity boundaries; one sale/hold succeeds and one price is selected.
 
 ### Tests for User Story 4
 
-- [ ] T048 [P] [US4] Write inventory/hold/price-tier schema tests in `tests/Integration/MySql/TicketInventorySchemaTest.php` (depends: T035; accept: tables/constraints are absent).
-- [ ] T049 [P] [US4] Write deterministic price-tier boundary tests in `tests/Unit/Ticketing/PriceTierEvaluatorTest.php` (depends: T038; accept: evaluator is absent).
-- [ ] T050 [P] [US4] Write final-unit concurrency, expiry, conversion, and double-release tests in `tests/Integration/Ticketing/InventoryConcurrencyTest.php` (depends: T005; accept: oversell protection is absent).
-- [ ] T051 [P] [US4] Write price-tier API and RBAC/audit tests in `tests/Contract/Phase1/TicketPricingApiTest.php` and `tests/Integration/Security/TicketPricingIsolationTest.php` (depends: T025, T043; accept: tier operations are incomplete).
+- [X] T048 [P] [US4] Write inventory/hold/price-tier schema tests in `tests/Integration/MySql/TicketInventorySchemaTest.php` (depends: T035; accept: tables/constraints are absent).
+- [X] T049 [P] [US4] Write deterministic price-tier boundary tests in `tests/Unit/Ticketing/PriceTierEvaluatorTest.php` (depends: T038; accept: evaluator is absent).
+- [X] T050 [P] [US4] Write final-unit concurrency, expiry, conversion, and double-release tests in `tests/Integration/Ticketing/InventoryConcurrencyTest.php` (depends: T005; accept: oversell protection is absent).
+- [X] T051 [P] [US4] Write price-tier API and RBAC/audit tests in `tests/Contract/Phase1/TicketPricingApiTest.php` and `tests/Integration/Security/TicketPricingIsolationTest.php` (depends: T025, T043; accept: tier operations are incomplete).
 
 ### Implementation for User Story 4
 
-- [ ] T052 [US4] Create inventory, hold, and price-tier migration in `database/migrations/2026_07_03_000012_create_ticket_inventory_tables.php` (depends: T048; accept: capacity/counter/currency/scope constraints and indexes pass).
-- [ ] T053 [P] [US4] Implement TicketInventory, InventoryHold, and PriceTier models in `app/Modules/Ticketing/Infrastructure/Persistence/Models/` (depends: T052; accept: invalid counters and cross-event references fail).
-- [ ] T054 [P] [US4] Implement Money, PriceQuote, and PriceTierEvaluator in `app/Modules/Ticketing/Domain/ValueObjects/` and `Application/Pricing/` (depends: T049, T053; accept: all timezone and boundary cases pass).
-- [ ] T055 [US4] Implement row-locked reserve/convert/release services in `app/Modules/Ticketing/Application/Inventory/` (depends: T050, T053-T054; accept: held+sold never exceeds capacity and terminal transitions are idempotent).
-- [ ] T056 [US4] Implement `ExpireInventoryHoldsJob` and scheduled command in `app/Modules/Ticketing/Application/Jobs/`, `app/Console/Commands/ExpireInventoryHolds.php`, and `routes/console.php` (depends: T055; accept: bounded duplicate workers release each hold once).
-- [ ] T057 [US4] Extend ticket and price-tier actions/controllers/resources/routes in `app/Modules/Ticketing/Application/Actions/`, `Http/`, and `Routes/api.php` (depends: T051, T054-T055; accept: T051 passes).
-- [ ] T058 [P] [US4] Add ticket inventory/price controls and state components in `resources/js/components/ticketing/` and `resources/js/pages/tenant/events/Ticketing.tsx` (depends: T057; accept: conflict/sold-out/paused states are localized and accessible).
-- [ ] T059 [US4] Add inventory/price domain events, audited changes, metrics, and slow-lock telemetry in `app/Modules/Ticketing/Domain/Events/`, `app/Modules/Audit/Application/Listeners/Phase1/`, and `app/Modules/Operations/Application/Telemetry/` (depends: T055-T058; accept: no quantity/personal/provider payload leaks).
-- [ ] T060 [US4] Add 10,000-attempt no-oversell and query-plan fixture in `tests/Performance/Phase1TicketingPerformanceTest.php` (depends: T056-T059; accept: intended indexes are used and zero oversell occurs).
-- [ ] T061 [US4] Run and fix all `ticket-inventory` and `price-tiers` groups across `tests/` (depends: T048-T060; accept: all US4 tests pass independently).
+- [X] T052 [US4] Create inventory, hold, and price-tier migration in `database/migrations/2026_07_03_000012_create_ticket_inventory_tables.php` (depends: T048; accept: capacity/counter/currency/scope constraints and indexes pass).
+- [X] T053 [P] [US4] Implement TicketInventory, InventoryHold, and PriceTier models in `app/Modules/Ticketing/Infrastructure/Persistence/Models/` (depends: T052; accept: invalid counters and cross-event references fail).
+- [X] T054 [P] [US4] Implement Money, PriceQuote, and PriceTierEvaluator in `app/Modules/Ticketing/Domain/ValueObjects/` and `Application/Pricing/` (depends: T049, T053; accept: all timezone and boundary cases pass).
+- [X] T055 [US4] Implement row-locked reserve/convert/release services in `app/Modules/Ticketing/Application/Inventory/` (depends: T050, T053-T054; accept: held+sold never exceeds capacity and terminal transitions are idempotent).
+- [X] T056 [US4] Implement `ExpireInventoryHoldsJob` and scheduled command in `app/Modules/Ticketing/Application/Jobs/`, `app/Console/Commands/ExpireInventoryHolds.php`, and `routes/console.php` (depends: T055; accept: bounded duplicate workers release each hold once).
+- [X] T057 [US4] Extend ticket and price-tier actions/controllers/resources/routes in `app/Modules/Ticketing/Application/Actions/`, `Http/`, and `Routes/api.php` (depends: T051, T054-T055; accept: T051 passes).
+- [X] T058 [P] [US4] Add ticket inventory/price controls and state components in `resources/js/components/ticketing/` and `resources/js/pages/tenant/events/Ticketing.tsx` (depends: T057; accept: conflict/sold-out/paused states are localized and accessible).
+- [X] T059 [US4] Add inventory/price domain events, audited changes, metrics, and slow-lock telemetry in `app/Modules/Ticketing/Domain/Events/`, `app/Modules/Audit/Application/Listeners/Phase1/`, and `app/Modules/Operations/Application/Telemetry/` (depends: T055-T058; accept: no quantity/personal/provider payload leaks).
+- [X] T060 [US4] Add 10,000-attempt no-oversell and query-plan fixture in `tests/Performance/Phase1TicketingPerformanceTest.php` (depends: T056-T059; accept: intended indexes are used and zero oversell occurs).
+- [X] T061 [US4] Run and fix all `ticket-inventory` and `price-tiers` groups across `tests/` (depends: T048-T060; accept: all US4 tests pass independently).
 
 **Checkpoint**: US4 supplies a stable quote/hold contract for free and paid registration.
 
@@ -151,31 +151,31 @@ aggregate exists and its PII-free QR validates.
 
 ### Tests for User Story 2
 
-- [ ] T062 [P] [US2] Write submission/order/attendee/credential/notification schema tests in `tests/Integration/MySql/FreeRegistrationSchemaTest.php` (depends: T061; accept: product tables are absent).
-- [ ] T063 [P] [US2] Write encrypted submission, consent, and exact-form-version tests in `tests/Integration/Registration/SubmissionValidationTest.php` (depends: T040; accept: storage/validation path is absent).
-- [ ] T064 [P] [US2] Write free registration atomicity, audit-failure, and replay tests in `tests/Integration/Registration/FreeRegistrationTest.php` (depends: T055; accept: journey is absent).
-- [ ] T065 [P] [US2] Write credential issue/sign/validate/no-PII tests in `tests/Unit/Credentials/CredentialIssuanceTest.php` (depends: T021; accept: issuance service is absent).
-- [ ] T066 [P] [US2] Write public registration/order OpenAPI and uniform-error tests in `tests/Contract/Phase1/PublicRegistrationApiTest.php` (depends: T025, T044; accept: operations are unimplemented).
-- [ ] T067 [P] [US2] Write public registration XSS, mass-assignment, rate-limit, host/event isolation, and token-enumeration tests in `tests/Integration/Security/PublicRegistrationSecurityTest.php` (depends: T014, T044; accept: defenses are incomplete).
-- [ ] T068 [P] [US2] Write bilingual conditional-form/checkout/confirmation component tests in `resources/js/__tests__/free-registration.test.tsx` (depends: T046; accept: interactive journey is absent).
+- [X] T062 [P] [US2] Write submission/order/attendee/credential/notification schema tests in `tests/Integration/MySql/FreeRegistrationSchemaTest.php` (depends: T061; accept: product tables are absent).
+- [X] T063 [P] [US2] Write encrypted submission, consent, and exact-form-version tests in `tests/Integration/Registration/SubmissionValidationTest.php` (depends: T040; accept: storage/validation path is absent).
+- [X] T064 [P] [US2] Write free registration atomicity, audit-failure, and replay tests in `tests/Integration/Registration/FreeRegistrationTest.php` (depends: T055; accept: journey is absent).
+- [X] T065 [P] [US2] Write credential issue/sign/validate/no-PII tests in `tests/Unit/Credentials/CredentialIssuanceTest.php` (depends: T021; accept: issuance service is absent).
+- [X] T066 [P] [US2] Write public registration/order OpenAPI and uniform-error tests in `tests/Contract/Phase1/PublicRegistrationApiTest.php` (depends: T025, T044; accept: operations are unimplemented).
+- [X] T067 [P] [US2] Write public registration XSS, mass-assignment, rate-limit, host/event isolation, and token-enumeration tests in `tests/Integration/Security/PublicRegistrationSecurityTest.php` (depends: T014, T044; accept: defenses are incomplete).
+- [X] T068 [P] [US2] Write bilingual conditional-form/checkout/confirmation component tests in `resources/js/__tests__/free-registration.test.tsx` (depends: T046; accept: interactive journey is absent).
 
 ### Implementation for User Story 2
 
-- [ ] T069 [US2] Create submission, order, item, and hold-link migration in `database/migrations/2026_07_03_000013_create_registration_order_tables.php` (depends: T062; accept: immutable snapshots, access-token hash, same-event keys, and money checks pass).
-- [ ] T070 [US2] Create attendee migration in `database/migrations/2026_07_03_000014_create_attendees_table.php` (depends: T062, T069; accept: encrypted fields/blind indexes and one-item relation pass).
-- [ ] T071 [US2] Create credential key metadata/credentials migration in `database/migrations/2026_07_03_000015_create_credentials_table.php` (depends: T062, T070; accept: token/nonce digests, key states, supersession scope, and one-active strategy pass).
-- [ ] T072 [US2] Create notification-intent migration in `database/migrations/2026_07_03_000016_create_notifications_table.php` (depends: T062, T069-T071; accept: one intent per order/channel/template/version and encrypted destination checks pass).
-- [ ] T073 [P] [US2] Implement RegistrationSubmission model/repository and encrypted answer/consent mapper in `app/Modules/Registration/Infrastructure/Persistence/` and `Application/Submission/` (depends: T063, T069; accept: only exact published schema values persist).
-- [ ] T074 [P] [US2] Implement Order and OrderItem models/value objects in `app/Modules/Orders/Infrastructure/Persistence/Models/` and `app/Modules/Orders/Domain/` (depends: T069; accept: immutable money snapshots and legal transitions pass).
-- [ ] T075 [P] [US2] Implement Attendee model and creation contract in `app/Modules/Attendees/Infrastructure/Persistence/Models/` and `Contracts/` (depends: T070; accept: PII is encrypted and blind-index tests pass).
-- [ ] T076 [P] [US2] Implement Credential model, issuer, compact token encoder, and validator in `app/Modules/Credentials/Infrastructure/Persistence/Models/` and `Application/` (depends: T065, T071; accept: signing, authoritative state, tamper, expiry, and PII-free tests pass).
-- [ ] T077 [P] [US2] Implement Notification model and confirmation-intent factory in `app/Modules/Notifications/Infrastructure/Persistence/Models/` and `Application/` (depends: T072; accept: duplicate aggregate creation yields one intent).
-- [ ] T078 [US2] Implement audited `CompleteFreeRegistration` orchestration in `app/Modules/Orders/Application/Actions/CompleteFreeRegistration.php` using Registration, Ticketing, Attendees, Credentials, and Notifications contracts (depends: T055, T073-T077; accept: T064 passes and no module queries another module's models).
-- [ ] T079 [US2] Implement public registration/order requests, resources, controllers, and routes in `app/Modules/Orders/Http/` and `app/Modules/Orders/Routes/api.php` (depends: T066-T067, T078; accept: replay returns original safe response and token is displayed once).
-- [ ] T080 [P] [US2] Implement public conditional form, free checkout, and order result pages in `resources/js/pages/public/registration/` and `resources/js/components/registration/` (depends: T068, T079; accept: Arabic/English validation and accessibility pass).
-- [ ] T081 [US2] Add free-registration domain events and atomic sanitized audit mappings in `app/Modules/{Registration,Orders,Attendees,Credentials,Notifications}/Domain/Events/` and `app/Modules/Audit/Application/Listeners/Phase1/` (depends: T078-T080; accept: forced audit failure leaves zero partial aggregate).
-- [ ] T082 [US2] Add synthetic event/registration factories and idempotent Phase 1 seeder in `database/factories/Phase1/` and `database/seeders/Phase1RegistrationSeeder.php` (depends: T069-T081; accept: repeat test seeding is deterministic and production refuses).
-- [ ] T083 [US2] Run and fix `free-registration` and Phase 1 public security groups across `tests/` (depends: T062-T082; accept: all US2 tests pass independently with fake delivery).
+- [X] T069 [US2] Create submission, order, item, and hold-link migration in `database/migrations/2026_07_03_000013_create_registration_order_tables.php` (depends: T062; accept: immutable snapshots, access-token hash, same-event keys, and money checks pass).
+- [X] T070 [US2] Create attendee migration in `database/migrations/2026_07_03_000014_create_attendees_table.php` (depends: T062, T069; accept: encrypted fields/blind indexes and one-item relation pass).
+- [X] T071 [US2] Create credential key metadata/credentials migration in `database/migrations/2026_07_03_000015_create_credentials_table.php` (depends: T062, T070; accept: token/nonce digests, key states, supersession scope, and one-active strategy pass).
+- [X] T072 [US2] Create notification-intent migration in `database/migrations/2026_07_03_000016_create_notifications_table.php` (depends: T062, T069-T071; accept: one intent per order/channel/template/version and encrypted destination checks pass).
+- [X] T073 [P] [US2] Implement RegistrationSubmission model/repository and encrypted answer/consent mapper in `app/Modules/Registration/Infrastructure/Persistence/` and `Application/Submission/` (depends: T063, T069; accept: only exact published schema values persist).
+- [X] T074 [P] [US2] Implement Order and OrderItem models/value objects in `app/Modules/Orders/Infrastructure/Persistence/Models/` and `app/Modules/Orders/Domain/` (depends: T069; accept: immutable money snapshots and legal transitions pass).
+- [X] T075 [P] [US2] Implement Attendee model and creation contract in `app/Modules/Attendees/Infrastructure/Persistence/Models/` and `Contracts/` (depends: T070; accept: PII is encrypted and blind-index tests pass).
+- [X] T076 [P] [US2] Implement Credential model, issuer, compact token encoder, and validator in `app/Modules/Credentials/Infrastructure/Persistence/Models/` and `Application/` (depends: T065, T071; accept: signing, authoritative state, tamper, expiry, and PII-free tests pass).
+- [X] T077 [P] [US2] Implement Notification model and confirmation-intent factory in `app/Modules/Notifications/Infrastructure/Persistence/Models/` and `Application/` (depends: T072; accept: duplicate aggregate creation yields one intent).
+- [X] T078 [US2] Implement audited `CompleteFreeRegistration` orchestration in `app/Modules/Orders/Application/Actions/CompleteFreeRegistration.php` using Registration, Ticketing, Attendees, Credentials, and Notifications contracts (depends: T055, T073-T077; accept: T064 passes and no module queries another module's models).
+- [X] T079 [US2] Implement public registration/order requests, resources, controllers, and routes in `app/Modules/Orders/Http/` and `app/Modules/Orders/Routes/api.php` (depends: T066-T067, T078; accept: replay returns original safe response and token is displayed once).
+- [X] T080 [P] [US2] Implement public conditional form, free checkout, and order result pages in `resources/js/pages/public/registration/` and `resources/js/components/registration/` (depends: T068, T079; accept: Arabic/English validation and accessibility pass).
+- [X] T081 [US2] Add free-registration domain events and atomic sanitized audit mappings in `app/Modules/{Registration,Orders,Attendees,Credentials,Notifications}/Domain/Events/` and `app/Modules/Audit/Application/Listeners/Phase1/` (depends: T078-T080; accept: forced audit failure leaves zero partial aggregate).
+- [X] T082 [US2] Add synthetic event/registration factories and idempotent Phase 1 seeder in `database/factories/Phase1/` and `database/seeders/Phase1RegistrationSeeder.php` (depends: T069-T081; accept: repeat test seeding is deterministic and production refuses).
+- [X] T083 [US2] Run and fix `free-registration` and Phase 1 public security groups across `tests/` (depends: T062-T082; accept: all US2 tests pass independently with fake delivery).
 
 **Checkpoint**: Free registration is the first end-to-end attendee MVP.
 
@@ -191,32 +191,32 @@ unknown, mismatch, and reconciliation; only one valid capture issues one credent
 
 ### Tests for User Story 3
 
-- [ ] T084 [P] [US3] Write payment account/attempt/webhook/refund schema tests in `tests/Integration/MySql/PaymentSchemaTest.php` (depends: T083; accept: tables are absent).
-- [ ] T085 [P] [US3] Write shared payment adapter contract suite in `tests/Contract/Payments/PaymentGatewayContractTestCase.php` and fake cases in `FakePaymentGatewayTest.php` (depends: T022-T023; accept: contract gaps are listed).
-- [ ] T086 [P] [US3] Write Moyasar request/response/redaction contract tests in `tests/Contract/Payments/MoyasarPaymentGatewayTest.php` using HTTP fakes (depends: T022; accept: adapter is absent and no real network is used).
-- [ ] T087 [P] [US3] Write paid checkout/callback/browser race/late-capture integration tests in `tests/Integration/Payments/PaidRegistrationTest.php` (depends: T078; accept: paid flow is absent).
-- [ ] T088 [P] [US3] Write duplicate/forged webhook and amount/currency/account/live-mode mismatch tests in `tests/Integration/Security/PaymentWebhookSecurityTest.php` (depends: T013-T014; accept: callback route is absent).
-- [ ] T089 [P] [US3] Write timeout-before-send, unknown-outcome, reconciliation, hold-expiry, and outage recovery tests in `tests/Integration/Payments/PaymentReconciliationTest.php` (depends: T056; accept: reconciliation is absent).
-- [ ] T090 [P] [US3] Write public payment-intent/status OpenAPI tests in `tests/Contract/Phase1/PaidRegistrationApiTest.php` (depends: T025, T079; accept: payment operations are unimplemented).
+- [X] T084 [P] [US3] Write payment account/attempt/webhook/refund schema tests in `tests/Integration/MySql/PaymentSchemaTest.php` (depends: T083; accept: tables are absent).
+- [X] T085 [P] [US3] Write shared payment adapter contract suite in `tests/Contract/Payments/PaymentGatewayContractTestCase.php` and fake cases in `FakePaymentGatewayTest.php` (depends: T022-T023; accept: contract gaps are listed).
+- [X] T086 [P] [US3] Write Moyasar request/response/redaction contract tests in `tests/Contract/Payments/MoyasarPaymentGatewayTest.php` using HTTP fakes (depends: T022; accept: adapter is absent and no real network is used).
+- [X] T087 [P] [US3] Write paid checkout/callback/browser race/late-capture integration tests in `tests/Integration/Payments/PaidRegistrationTest.php` (depends: T078; accept: paid flow is absent).
+- [X] T088 [P] [US3] Write duplicate/forged webhook and amount/currency/account/live-mode mismatch tests in `tests/Integration/Security/PaymentWebhookSecurityTest.php` (depends: T013-T014; accept: callback route is absent).
+- [X] T089 [P] [US3] Write timeout-before-send, unknown-outcome, reconciliation, hold-expiry, and outage recovery tests in `tests/Integration/Payments/PaymentReconciliationTest.php` (depends: T056; accept: reconciliation is absent).
+- [X] T090 [P] [US3] Write public payment-intent/status OpenAPI tests in `tests/Contract/Phase1/PaidRegistrationApiTest.php` (depends: T025, T079; accept: payment operations are unimplemented).
 
 ### Implementation for User Story 3
 
-- [ ] T091 [US3] Create payment tables migration in `database/migrations/2026_07_03_000017_create_payment_tables.php` (depends: T084; accept: account mapping, unique provider/event/idempotency keys, money bounds, and reconciliation indexes pass).
-- [ ] T092 [P] [US3] Implement PaymentAccount, PaymentAttempt, WebhookReceipt, and Refund models in `app/Modules/Payments/Infrastructure/Persistence/Models/` (depends: T091; accept: provider payload/card fields cannot be mass assigned).
-- [ ] T093 [P] [US3] Complete fake payment adapter and registry/readiness rules in `app/Modules/Payments/Testing/FakePaymentGateway.php` and `Application/PaymentGatewayRegistry.php` (depends: T085, T092; accept: fake passes every adapter contract state).
-- [ ] T094 [P] [US3] Implement Moyasar adapter/authentication/mapping in `app/Modules/Payments/Infrastructure/Adapters/Moyasar/` using secret references and bounded HTTP (depends: T086, T092; accept: contract tests pass with zero provider payload leakage).
-- [ ] T095 [US3] Implement payment intent creation and browser-return reconciliation in `app/Modules/Payments/Application/Actions/` (depends: T087, T093-T094; accept: provider calls occur outside inventory transactions and unknown stays pending).
-- [ ] T096 [US3] Implement webhook receipt controller and authoritative fetch processor in `app/Modules/Payments/Http/Controllers/Webhooks/MoyasarWebhookController.php` and `Application/Webhooks/` (depends: T088, T094-T095; accept: quick dedupe acknowledgement precedes idempotent processing).
-- [ ] T097 [US3] Implement `ReconcilePaymentAttemptJob` and bounded scheduler in `app/Modules/Payments/Application/Jobs/`, `app/Console/Commands/ReconcilePayments.php`, and `routes/console.php` (depends: T089, T095-T096; accept: reconcile-first recovery never duplicates capture effects).
-- [ ] T098 [US3] Implement audited `CompletePaidRegistration` orchestration in `app/Modules/Orders/Application/Actions/CompletePaidRegistration.php` (depends: T078, T095-T097; accept: exact account/order/amount/currency/live match converts hold and creates one attendee/credential).
-- [ ] T099 [US3] Implement public payment-intent/status requests, resources, controllers, and routes in `app/Modules/Payments/Http/` and `Routes/api.php` (depends: T090, T095-T098; accept: T090 passes with stable provider-neutral outcomes).
-- [ ] T100 [P] [US3] Implement paid checkout action/pending/recovery UI in `resources/js/pages/public/registration/Payment.tsx` and `resources/js/components/orders/` (depends: T099; accept: immutable totals and action-required/pending/failed states are accessible/localized).
-- [ ] T101 [US3] Add payment domain events, audit mappings, safe metrics, and readiness in `app/Modules/Payments/Domain/Events/`, `app/Modules/Audit/Application/Listeners/Phase1/`, and `app/Modules/Operations/Application/Health/Checks/PaymentCheck.php` (depends: T95-T100; accept: succeeded/denied/failed/unknown outcomes carry no secrets).
-- [ ] T102 [US3] Add tenant payment-account configuration action/command in `app/Modules/Payments/Application/Actions/ConfigurePaymentAccount.php` and `app/Console/Commands/ConfigurePaymentAccount.php` (depends: T092-T094; accept: stores references only, requires privilege/reason, and never echoes secrets).
-- [ ] T103 [US3] Add paid registration, callback burst, and recovery performance tests in `tests/Performance/Phase1PaymentPerformanceTest.php` (depends: T097-T101; accept: duplicate bursts converge and reconciliation backlog drains within plan target).
-- [ ] T104 [US3] Document production Moyasar onboarding evidence template in `docs/operations/payments.md` (depends: T94-T102; accept: live readiness requires merchant approval, test/live keys, webhook, refund, outage, and reconciliation proof).
-- [ ] T105 [US3] Run and fix shared/Moyasar payment adapter contract suites across `tests/Contract/Payments/` (depends: T085-T104; accept: fake and Moyasar pass the same matrix).
-- [ ] T106 [US3] Run and fix `paid-registration`, `payments`, and `payment-reconciliation` groups across `tests/` (depends: T084-T105; accept: all US3 tests pass independently).
+- [X] T091 [US3] Create payment tables migration in `database/migrations/2026_07_03_000017_create_payment_tables.php` (depends: T084; accept: account mapping, unique provider/event/idempotency keys, money bounds, and reconciliation indexes pass).
+- [X] T092 [P] [US3] Implement PaymentAccount, PaymentAttempt, WebhookReceipt, and Refund models in `app/Modules/Payments/Infrastructure/Persistence/Models/` (depends: T091; accept: provider payload/card fields cannot be mass assigned).
+- [X] T093 [P] [US3] Complete fake payment adapter and registry/readiness rules in `app/Modules/Payments/Testing/FakePaymentGateway.php` and `Application/PaymentGatewayRegistry.php` (depends: T085, T092; accept: fake passes every adapter contract state).
+- [X] T094 [P] [US3] Implement Moyasar adapter/authentication/mapping in `app/Modules/Payments/Infrastructure/Adapters/Moyasar/` using secret references and bounded HTTP (depends: T086, T092; accept: contract tests pass with zero provider payload leakage).
+- [X] T095 [US3] Implement payment intent creation and browser-return reconciliation in `app/Modules/Payments/Application/Actions/` (depends: T087, T093-T094; accept: provider calls occur outside inventory transactions and unknown stays pending).
+- [X] T096 [US3] Implement webhook receipt controller and authoritative fetch processor in `app/Modules/Payments/Http/Controllers/Webhooks/MoyasarWebhookController.php` and `Application/Webhooks/` (depends: T088, T094-T095; accept: quick dedupe acknowledgement precedes idempotent processing).
+- [X] T097 [US3] Implement `ReconcilePaymentAttemptJob` and bounded scheduler in `app/Modules/Payments/Application/Jobs/`, `app/Console/Commands/ReconcilePayments.php`, and `routes/console.php` (depends: T089, T095-T096; accept: reconcile-first recovery never duplicates capture effects).
+- [X] T098 [US3] Implement audited `CompletePaidRegistration` orchestration in `app/Modules/Orders/Application/Actions/CompletePaidRegistration.php` (depends: T078, T095-T097; accept: exact account/order/amount/currency/live match converts hold and creates one attendee/credential).
+- [X] T099 [US3] Implement public payment-intent/status requests, resources, controllers, and routes in `app/Modules/Payments/Http/` and `Routes/api.php` (depends: T090, T095-T098; accept: T090 passes with stable provider-neutral outcomes).
+- [X] T100 [P] [US3] Implement paid checkout action/pending/recovery UI in `resources/js/pages/public/registration/Payment.tsx` and `resources/js/components/orders/` (depends: T099; accept: immutable totals and action-required/pending/failed states are accessible/localized).
+- [X] T101 [US3] Add payment domain events, audit mappings, safe metrics, and readiness in `app/Modules/Payments/Domain/Events/`, `app/Modules/Audit/Application/Listeners/Phase1/`, and `app/Modules/Operations/Application/Health/Checks/PaymentCheck.php` (depends: T95-T100; accept: succeeded/denied/failed/unknown outcomes carry no secrets).
+- [X] T102 [US3] Add tenant payment-account configuration action/command in `app/Modules/Payments/Application/Actions/ConfigurePaymentAccount.php` and `app/Console/Commands/ConfigurePaymentAccount.php` (depends: T092-T094; accept: stores references only, requires privilege/reason, and never echoes secrets).
+- [X] T103 [US3] Add paid registration, callback burst, and recovery performance tests in `tests/Performance/Phase1PaymentPerformanceTest.php` (depends: T097-T101; accept: duplicate bursts converge and reconciliation backlog drains within plan target).
+- [X] T104 [US3] Document production Moyasar onboarding evidence template in `docs/operations/payments.md` (depends: T94-T102; accept: live readiness requires merchant approval, test/live keys, webhook, refund, outage, and reconciliation proof).
+- [X] T105 [US3] Run and fix shared/Moyasar payment adapter contract suites across `tests/Contract/Payments/` (depends: T085-T104; accept: fake and Moyasar pass the same matrix).
+- [X] T106 [US3] Run and fix `paid-registration`, `payments`, and `payment-reconciliation` groups across `tests/` (depends: T084-T105; accept: all US3 tests pass independently).
 
 **Checkpoint**: Paid registration is safe under retries, callback races, and outages.
 
@@ -232,21 +232,21 @@ evidence while unauthorized and cross-tenant actors see no data.
 
 ### Tests for User Story 5
 
-- [ ] T107 [P] [US5] Write bounded order/attendee query, blind-index, cursor, and 100k-row plan tests in `tests/Integration/Orders/OrganizerQueriesTest.php` (depends: T083; accept: organizer queries are absent).
-- [ ] T108 [P] [US5] Write attendee correction/history/privacy and cross-tenant tests in `tests/Feature/Attendees/ManageAttendeeTest.php` (depends: T075; accept: correction action is absent).
-- [ ] T109 [P] [US5] Write full/partial/duplicate/excess/unknown refund tests in `tests/Integration/Payments/RefundTest.php` (depends: T106; accept: refund action is absent).
-- [ ] T110 [P] [US5] Write organizer orders/attendees/refunds OpenAPI and RBAC tests in `tests/Contract/Phase1/OrganizerOperationsApiTest.php` (depends: T025; accept: operations are incomplete).
+- [X] T107 [P] [US5] Write bounded order/attendee query, blind-index, cursor, and 100k-row plan tests in `tests/Integration/Orders/OrganizerQueriesTest.php` (depends: T083; accept: organizer queries are absent).
+- [X] T108 [P] [US5] Write attendee correction/history/privacy and cross-tenant tests in `tests/Feature/Attendees/ManageAttendeeTest.php` (depends: T075; accept: correction action is absent).
+- [X] T109 [P] [US5] Write full/partial/duplicate/excess/unknown refund tests in `tests/Integration/Payments/RefundTest.php` (depends: T106; accept: refund action is absent).
+- [X] T110 [P] [US5] Write organizer orders/attendees/refunds OpenAPI and RBAC tests in `tests/Contract/Phase1/OrganizerOperationsApiTest.php` (depends: T025; accept: operations are incomplete).
 
 ### Implementation for User Story 5
 
-- [ ] T111 [P] [US5] Implement bounded order and attendee queries in `app/Modules/Orders/Application/Queries/` and `app/Modules/Attendees/Application/Queries/` (depends: T107; accept: cursors bind tenant/event/filter/blind-index version and plans use intended indexes).
-- [ ] T112 [P] [US5] Implement audited attendee correction/history action in `app/Modules/Attendees/Application/Actions/CorrectAttendee.php` (depends: T108, T111; accept: PII changes use redacted markers and financial identity is immutable).
-- [ ] T113 [US5] Implement refund request/reconciliation actions and job in `app/Modules/Payments/Application/Actions/`, `Application/Jobs/ReconcileRefundJob.php` (depends: T109, T093-T097; accept: cumulative refund never exceeds capture and unknown is reconcilable).
-- [ ] T114 [US5] Implement organizer order/attendee/refund requests, resources, controllers, and routes in `app/Modules/{Orders,Attendees,Payments}/Http/` and their `Routes/api.php` files (depends: T110-T113; accept: T110 passes with uniform cross-tenant 404).
-- [ ] T115 [P] [US5] Implement explicit organizer order/attendee view models and pages in `app/Modules/AdminConsole/ViewModels/Events/`, `resources/js/pages/tenant/events/{Orders,Attendees}.tsx`, and `resources/js/components/{orders,attendees}/` (depends: T114; accept: lists minimize PII and render pending/unknown/refund states).
-- [ ] T116 [US5] Add attendee/order/refund events and atomic audit mappings in `app/Modules/{Attendees,Orders,Payments}/Domain/Events/` and `app/Modules/Audit/Application/Listeners/Phase1/` (depends: T112-T115; accept: audit failure rolls back required local transitions).
-- [ ] T117 [US5] Add organizer operations accessibility, tenant-switch, and zero-unauthorized-props tests in `resources/js/__tests__/organizer-operations.test.tsx` and `tests/Feature/AdminConsole/Phase1OrganizerAuthorizationTest.php` (depends: T115-T116; accept: all states pass Arabic/English and mobile/desktop checks).
-- [ ] T118 [US5] Run and fix `phase-1-organizer`, `attendees`, and `refunds` groups across `tests/` (depends: T107-T117; accept: all US5 tests pass independently).
+- [X] T111 [P] [US5] Implement bounded order and attendee queries in `app/Modules/Orders/Application/Queries/` and `app/Modules/Attendees/Application/Queries/` (depends: T107; accept: cursors bind tenant/event/filter/blind-index version and plans use intended indexes).
+- [X] T112 [P] [US5] Implement audited attendee correction/history action in `app/Modules/Attendees/Application/Actions/CorrectAttendee.php` (depends: T108, T111; accept: PII changes use redacted markers and financial identity is immutable).
+- [X] T113 [US5] Implement refund request/reconciliation actions and job in `app/Modules/Payments/Application/Actions/`, `Application/Jobs/ReconcileRefundJob.php` (depends: T109, T093-T097; accept: cumulative refund never exceeds capture and unknown is reconcilable).
+- [X] T114 [US5] Implement organizer order/attendee/refund requests, resources, controllers, and routes in `app/Modules/{Orders,Attendees,Payments}/Http/` and their `Routes/api.php` files (depends: T110-T113; accept: T110 passes with uniform cross-tenant 404).
+- [X] T115 [P] [US5] Implement explicit organizer order/attendee view models and pages in `app/Modules/AdminConsole/ViewModels/Events/`, `resources/js/pages/tenant/events/{Orders,Attendees}.tsx`, and `resources/js/components/{orders,attendees}/` (depends: T114; accept: lists minimize PII and render pending/unknown/refund states).
+- [X] T116 [US5] Add attendee/order/refund events and atomic audit mappings in `app/Modules/{Attendees,Orders,Payments}/Domain/Events/` and `app/Modules/Audit/Application/Listeners/Phase1/` (depends: T112-T115; accept: audit failure rolls back required local transitions).
+- [X] T117 [US5] Add organizer operations accessibility, tenant-switch, and zero-unauthorized-props tests in `resources/js/__tests__/organizer-operations.test.tsx` and `tests/Feature/AdminConsole/Phase1OrganizerAuthorizationTest.php` (depends: T115-T116; accept: all states pass Arabic/English and mobile/desktop checks).
+- [X] T118 [US5] Run and fix `phase-1-organizer`, `attendees`, and `refunds` groups across `tests/` (depends: T107-T117; accept: all US5 tests pass independently).
 
 **Checkpoint**: Organizer operations expose only authorized event-scoped data.
 
@@ -261,22 +261,22 @@ replacement under key rotation and concurrency.
 
 ### Tests for User Story 6
 
-- [ ] T119 [P] [US6] Write credential validation result and token-format contract tests in `tests/Contract/Credentials/CredentialContractTest.php` (depends: T076; accept: every result in `contracts/credential-contract.md` is enforced).
-- [ ] T120 [P] [US6] Write revoke/reissue concurrency, audit atomicity, and one-active tests in `tests/Integration/Credentials/CredentialLifecycleTest.php` (depends: T076; accept: lifecycle actions are absent).
-- [ ] T121 [P] [US6] Write cross-tenant/event, random-ID, tamper, key-state, expiry, and replay security tests in `tests/Integration/Security/CredentialSecurityTest.php` (depends: T021, T076; accept: lifecycle endpoints are absent).
-- [ ] T122 [P] [US6] Write revoke/reissue/validate OpenAPI and RBAC tests in `tests/Contract/Phase1/CredentialApiTest.php` (depends: T025; accept: operations are incomplete).
+- [X] T119 [P] [US6] Write credential validation result and token-format contract tests in `tests/Contract/Credentials/CredentialContractTest.php` (depends: T076; accept: every result in `contracts/credential-contract.md` is enforced).
+- [X] T120 [P] [US6] Write revoke/reissue concurrency, audit atomicity, and one-active tests in `tests/Integration/Credentials/CredentialLifecycleTest.php` (depends: T076; accept: lifecycle actions are absent).
+- [X] T121 [P] [US6] Write cross-tenant/event, random-ID, tamper, key-state, expiry, and replay security tests in `tests/Integration/Security/CredentialSecurityTest.php` (depends: T021, T076; accept: lifecycle endpoints are absent).
+- [X] T122 [P] [US6] Write revoke/reissue/validate OpenAPI and RBAC tests in `tests/Contract/Phase1/CredentialApiTest.php` (depends: T025; accept: operations are incomplete).
 
 ### Implementation for User Story 6
 
-- [ ] T123 [US6] Implement audited revoke/reissue actions with credential-set locking in `app/Modules/Credentials/Application/Actions/` (depends: T120-T121; accept: old token becomes invalid and exactly one replacement is active).
-- [ ] T124 [US6] Harden validator result mapping and authoritative tenant/event checks in `app/Modules/Credentials/Application/Validation/CredentialValidator.php` (depends: T119, T123; accept: malformed/invalid/cross-scope responses expose no attendee data).
-- [ ] T125 [US6] Implement credential requests, resources, controllers, policies, and routes in `app/Modules/Credentials/Http/` and `Routes/api.php` (depends: T122-T124; accept: T122 passes and raw token appears only in issue/reissue response).
-- [ ] T126 [P] [US6] Implement organizer credential view/lifecycle dialog in `resources/js/pages/tenant/events/Credentials.tsx` and `resources/js/components/credentials/` (depends: T125; accept: permissions, reason, conflict, and one-time QR states are accessible/localized).
-- [ ] T127 [US6] Add credential lifecycle/key-failure events, audit mappings, metrics, and alerts in `app/Modules/Credentials/Domain/Events/`, `app/Modules/Audit/Application/Listeners/Phase1/`, and `app/Modules/Operations/Application/Telemetry/` (depends: T123-T126; accept: validation denial is evidenced without token/PII).
-- [ ] T128 [US6] Implement credential key health/rotation/compromise commands in `app/Console/Commands/CredentialKeysCheck.php` and `RotateCredentialKey.php` (depends: T021, T124; accept: commands use secret references, require explicit confirmation, and print no key material).
-- [ ] T129 [US6] Document token, key ceremony, rotation, compromise, revoke, and reissue runbook in `docs/operations/credential-keys.md` (depends: T128; accept: recovery distinguishes signing disablement from historical verification).
-- [ ] T130 [US6] Add credential lifecycle accessibility and no-token-leak regression tests in `resources/js/__tests__/credential-lifecycle.test.tsx` and `tests/Integration/Security/CredentialLeakageTest.php` (depends: T126-T129; accept: HTML/log/audit/error fixtures contain no raw QR).
-- [ ] T131 [US6] Run and fix `credentials` and Phase 1 credential security groups across `tests/` (depends: T119-T130; accept: all US6 tests pass independently).
+- [X] T123 [US6] Implement audited revoke/reissue actions with credential-set locking in `app/Modules/Credentials/Application/Actions/` (depends: T120-T121; accept: old token becomes invalid and exactly one replacement is active).
+- [X] T124 [US6] Harden validator result mapping and authoritative tenant/event checks in `app/Modules/Credentials/Application/Validation/CredentialValidator.php` (depends: T119, T123; accept: malformed/invalid/cross-scope responses expose no attendee data).
+- [X] T125 [US6] Implement credential requests, resources, controllers, policies, and routes in `app/Modules/Credentials/Http/` and `Routes/api.php` (depends: T122-T124; accept: T122 passes and raw token appears only in issue/reissue response).
+- [X] T126 [P] [US6] Implement organizer credential view/lifecycle dialog in `resources/js/pages/tenant/events/Credentials.tsx` and `resources/js/components/credentials/` (depends: T125; accept: permissions, reason, conflict, and one-time QR states are accessible/localized).
+- [X] T127 [US6] Add credential lifecycle/key-failure events, audit mappings, metrics, and alerts in `app/Modules/Credentials/Domain/Events/`, `app/Modules/Audit/Application/Listeners/Phase1/`, and `app/Modules/Operations/Application/Telemetry/` (depends: T123-T126; accept: validation denial is evidenced without token/PII).
+- [X] T128 [US6] Implement credential key health/rotation/compromise commands in `app/Console/Commands/CredentialKeysCheck.php` and `RotateCredentialKey.php` (depends: T021, T124; accept: commands use secret references, require explicit confirmation, and print no key material).
+- [X] T129 [US6] Document token, key ceremony, rotation, compromise, revoke, and reissue runbook in `docs/operations/credential-keys.md` (depends: T128; accept: recovery distinguishes signing disablement from historical verification).
+- [X] T130 [US6] Add credential lifecycle accessibility and no-token-leak regression tests in `resources/js/__tests__/credential-lifecycle.test.tsx` and `tests/Integration/Security/CredentialLeakageTest.php` (depends: T126-T129; accept: HTML/log/audit/error fixtures contain no raw QR).
+- [X] T131 [US6] Run and fix `credentials` and Phase 1 credential security groups across `tests/` (depends: T119-T130; accept: all US6 tests pass independently).
 
 **Checkpoint**: The credential core is ready for later wallet/scanning consumers.
 
@@ -292,21 +292,21 @@ temporary failures, reconcile unknowns, and expose safe terminal failure once.
 
 ### Tests for User Story 7
 
-- [ ] T132 [P] [US7] Write common email/SMS adapter contract suites in `tests/Contract/Notifications/NotificationAdapterContractTestCase.php` and fake adapter tests (depends: T022-T023; accept: all documented states are represented).
-- [ ] T133 [P] [US7] Write SMTP and Unifonic request/callback/redaction tests in `tests/Contract/Notifications/{SmtpEmailAdapterTest,UnifonicSmsAdapterTest}.php` using fakes (depends: T022; accept: adapters are absent and no network runs).
-- [ ] T134 [P] [US7] Write duplicate job, temporary/permanent/unknown failure, callback, and recovery tests in `tests/Integration/Notifications/NotificationDeliveryTest.php` (depends: T077; accept: delivery pipeline is absent).
-- [ ] T135 [P] [US7] Write Arabic/English template, bidi, branding, and no-sensitive-content tests in `tests/Feature/Notifications/LocalizedConfirmationTest.php` (depends: T006; accept: templates are absent).
+- [X] T132 [P] [US7] Write common email/SMS adapter contract suites in `tests/Contract/Notifications/NotificationAdapterContractTestCase.php` and fake adapter tests (depends: T022-T023; accept: all documented states are represented).
+- [X] T133 [P] [US7] Write SMTP and Unifonic request/callback/redaction tests in `tests/Contract/Notifications/{SmtpEmailAdapterTest,UnifonicSmsAdapterTest}.php` using fakes (depends: T022; accept: adapters are absent and no network runs).
+- [X] T134 [P] [US7] Write duplicate job, temporary/permanent/unknown failure, callback, and recovery tests in `tests/Integration/Notifications/NotificationDeliveryTest.php` (depends: T077; accept: delivery pipeline is absent).
+- [X] T135 [P] [US7] Write Arabic/English template, bidi, branding, and no-sensitive-content tests in `tests/Feature/Notifications/LocalizedConfirmationTest.php` (depends: T006; accept: templates are absent).
 
 ### Implementation for User Story 7
 
-- [ ] T136 [P] [US7] Implement SMTP email and Unifonic SMS adapters in `app/Modules/Notifications/Infrastructure/Adapters/` (depends: T132-T133; accept: both pass the common contract and resolve secrets internally).
-- [ ] T137 [P] [US7] Implement versioned Arabic/English confirmation templates in `app/Modules/Notifications/Application/Rendering/`, `resources/views/mail/phase1/`, and locale catalogs (depends: T135; accept: bidi-safe event/order/credential links contain no forbidden values).
-- [ ] T138 [US7] Implement `DeliverNotificationJob`, callback processing, bounded retry, and adapter registry in `app/Modules/Notifications/Application/` and `Http/Controllers/Webhooks/` (depends: T134, T136-T137; accept: duplicate delivery intent/job/callback converges).
-- [ ] T139 [US7] Register notification routes, schedules, telemetry, and safe readiness checks in `app/Modules/Notifications/Routes/api.php`, `Providers/NotificationServiceProvider.php`, `routes/console.php`, and `app/Modules/Operations/Application/Health/Checks/NotificationCheck.php` (depends: T138; accept: outage cannot fail order/credential and readiness exposes category only).
-- [ ] T140 [US7] Add notification terminal events and sanitized audit mappings in `app/Modules/Notifications/Domain/Events/` and `app/Modules/Audit/Application/Listeners/Phase1/` (depends: T138-T139; accept: queued and terminal failure evidence contains no destination/body/provider payload).
-- [ ] T141 [US7] Add organizer delivery-status view to `resources/js/pages/tenant/events/Orders.tsx` and `resources/js/components/orders/NotificationStatus.tsx` (depends: T139-T140; accept: authorized staff see safe queued/delivered/failure categories).
-- [ ] T142 [US7] Document SMTP/Unifonic sender onboarding, templates, callback, retry, and outage recovery in `docs/operations/notifications.md` (depends: T136-T141; accept: live readiness evidence and secret handling are explicit).
-- [ ] T143 [US7] Run and fix `notifications` and localized confirmation groups across `tests/` (depends: T132-T142; accept: all US7 tests pass independently).
+- [X] T136 [P] [US7] Implement SMTP email and Unifonic SMS adapters in `app/Modules/Notifications/Infrastructure/Adapters/` (depends: T132-T133; accept: both pass the common contract and resolve secrets internally).
+- [X] T137 [P] [US7] Implement versioned Arabic/English confirmation templates in `app/Modules/Notifications/Application/Rendering/`, `resources/views/mail/phase1/`, and locale catalogs (depends: T135; accept: bidi-safe event/order/credential links contain no forbidden values).
+- [X] T138 [US7] Implement `DeliverNotificationJob`, callback processing, bounded retry, and adapter registry in `app/Modules/Notifications/Application/` and `Http/Controllers/Webhooks/` (depends: T134, T136-T137; accept: duplicate delivery intent/job/callback converges).
+- [X] T139 [US7] Register notification routes, schedules, telemetry, and safe readiness checks in `app/Modules/Notifications/Routes/api.php`, `Providers/NotificationServiceProvider.php`, `routes/console.php`, and `app/Modules/Operations/Application/Health/Checks/NotificationCheck.php` (depends: T138; accept: outage cannot fail order/credential and readiness exposes category only).
+- [X] T140 [US7] Add notification terminal events and sanitized audit mappings in `app/Modules/Notifications/Domain/Events/` and `app/Modules/Audit/Application/Listeners/Phase1/` (depends: T138-T139; accept: queued and terminal failure evidence contains no destination/body/provider payload).
+- [X] T141 [US7] Add organizer delivery-status view to `resources/js/pages/tenant/events/Orders.tsx` and `resources/js/components/orders/NotificationStatus.tsx` (depends: T139-T140; accept: authorized staff see safe queued/delivered/failure categories).
+- [X] T142 [US7] Document SMTP/Unifonic sender onboarding, templates, callback, retry, and outage recovery in `docs/operations/notifications.md` (depends: T136-T141; accept: live readiness evidence and secret handling are explicit).
+- [X] T143 [US7] Run and fix `notifications` and localized confirmation groups across `tests/` (depends: T132-T142; accept: all US7 tests pass independently).
 
 **Checkpoint**: Every completed registration has durable localized confirmation handling.
 
@@ -316,21 +316,21 @@ temporary failures, reconcile unknowns, and expose safe terminal failure once.
 
 **Purpose**: Validate Phase 1 as one secure, portable, documented release.
 
-- [ ] T144 [P] Update permission and audit catalogs in `docs/standards/permission-catalog.md` and `docs/standards/audit-event-catalog.md` (depends: T047, T059, T081, T101, T116, T127, T140; accept: automated catalog checks match code exactly).
-- [ ] T145 [P] Document event/form/ticket/inventory lifecycle and support procedures in `docs/standards/phase1-registration-ticketing.md` (depends: T061, T083; accept: safe/unsafe examples and ownership are explicit).
-- [ ] T146 [P] Document Phase 1 PDPL classification, encryption, consent, retention, anonymization, legal hold, residency, and breach handling in `docs/operations/phase1-data-governance.md` (depends: T011, T073, T075; accept: no unapproved fixed production retention is implied).
-- [ ] T147 Implement tenant-aware anonymization/legal-hold jobs and dry-run command in `app/Modules/Attendees/Application/Jobs/`, `app/Console/Commands/ApplyAttendeeRetention.php`, and `routes/console.php` (depends: T146; accept: eligible PII is removed while financial/audit tombstones remain).
-- [ ] T148 [P] Extend architecture/phase-boundary tests in `tests/Architecture/PhaseBoundaryTest.php` for wallet, scan, check-in, kiosk, badge, ACS, identity, marketplace, and hardware exclusions (depends: all story phases; accept: controlled forbidden fixtures fail).
-- [ ] T149 [P] Add full Phase 1 OpenAPI route coverage, response conformance, and compatibility tests in `tests/Contract/Phase1/Phase1OpenApiCoverageTest.php` (depends: T025, all routes; accept: 24 review operations have zero drift/undocumented route).
-- [ ] T150 [P] Add full cross-channel tenant/event isolation matrix in `tests/Integration/Security/Phase1IsolationMatrixTest.php` (depends: all story phases; accept: 100% request/job/event/cache/file/log/telemetry/adapter attacks are denied).
-- [ ] T151 [P] Add Phase 1 RBAC and audit catalog coverage matrices in `tests/Integration/Security/Phase1RbacAuditMatrixTest.php` (depends: T144; accept: every permission has allow/deny/revocation and every required action has outcome evidence).
-- [ ] T152 [P] Add PII/card/secret/XSS/SQL-injection/mass-assignment regression suite in `tests/Integration/Security/Phase1SecurityRegressionTest.php` (depends: all story phases; accept: forbidden fixtures never persist or render).
-- [ ] T153 [P] Add SaaS/on-premise and blocked-network recovery suite in `tests/Integration/Operations/Phase1DeploymentParityTest.php` (depends: T106, T143; accept: local core parity and explicit payment/SMS degradation pass).
-- [ ] T154 Add Phase 1 migration fresh/upgrade/rollback/backup-restore evidence in `docs/release/phase1-migration-evidence.md` (depends: all migrations; accept: Phase 0 upgrade and repeat seed pass on MySQL 8.4).
-- [ ] T155 Run dependency audits and remediate critical/high findings in `composer.lock`, `package-lock.json`, and `docs/release/phase1-dependency-audit.md` (depends: implementation complete; accept: zero unresolved critical/high advisory).
-- [ ] T156 Execute every command in `specs/002-registration-ticketing-credentials/quickstart.md` and correct only inaccurate validation instructions (depends: T144-T155; accept: every command/result is reproduced natively without Docker).
-- [ ] T157 Create Phase 1 release readiness report in `docs/release/phase1-readiness.md` linking API, migration, isolation, RBAC, audit, privacy, payment, credential, notification, accessibility, performance, parity, and exception evidence (depends: T156; accept: no expired exception or Phase 2+ artifact exists).
-- [ ] T158 Run complete Composer/npm/backend/frontend/OpenAPI/docs/phase-boundary quality gates from `specs/002-registration-ticketing-credentials/quickstart.md` and mark Phase 1 ready only when all pass (depends: T157; accept: clean fresh run has zero failure, warning, drift, or skipped mandatory suite).
+- [X] T144 [P] Update permission and audit catalogs in `docs/standards/permission-catalog.md` and `docs/standards/audit-event-catalog.md` (depends: T047, T059, T081, T101, T116, T127, T140; accept: automated catalog checks match code exactly).
+- [X] T145 [P] Document event/form/ticket/inventory lifecycle and support procedures in `docs/standards/phase1-registration-ticketing.md` (depends: T061, T083; accept: safe/unsafe examples and ownership are explicit).
+- [X] T146 [P] Document Phase 1 PDPL classification, encryption, consent, retention, anonymization, legal hold, residency, and breach handling in `docs/operations/phase1-data-governance.md` (depends: T011, T073, T075; accept: no unapproved fixed production retention is implied).
+- [X] T147 Implement tenant-aware anonymization/legal-hold jobs and dry-run command in `app/Modules/Attendees/Application/Jobs/`, `app/Console/Commands/ApplyAttendeeRetention.php`, and `routes/console.php` (depends: T146; accept: eligible PII is removed while financial/audit tombstones remain).
+- [X] T148 [P] Extend architecture/phase-boundary tests in `tests/Architecture/PhaseBoundaryTest.php` for wallet, scan, check-in, kiosk, badge, ACS, identity, marketplace, and hardware exclusions (depends: all story phases; accept: controlled forbidden fixtures fail).
+- [X] T149 [P] Add full Phase 1 OpenAPI route coverage, response conformance, and compatibility tests in `tests/Contract/Phase1/Phase1OpenApiCoverageTest.php` (depends: T025, all routes; accept: 24 review operations have zero drift/undocumented route).
+- [X] T150 [P] Add full cross-channel tenant/event isolation matrix in `tests/Integration/Security/Phase1IsolationMatrixTest.php` (depends: all story phases; accept: 100% request/job/event/cache/file/log/telemetry/adapter attacks are denied).
+- [X] T151 [P] Add Phase 1 RBAC and audit catalog coverage matrices in `tests/Integration/Security/Phase1RbacAuditMatrixTest.php` (depends: T144; accept: every permission has allow/deny/revocation and every required action has outcome evidence).
+- [X] T152 [P] Add PII/card/secret/XSS/SQL-injection/mass-assignment regression suite in `tests/Integration/Security/Phase1SecurityRegressionTest.php` (depends: all story phases; accept: forbidden fixtures never persist or render).
+- [X] T153 [P] Add SaaS/on-premise and blocked-network recovery suite in `tests/Integration/Operations/Phase1DeploymentParityTest.php` (depends: T106, T143; accept: local core parity and explicit payment/SMS degradation pass).
+- [X] T154 Add Phase 1 migration fresh/upgrade/rollback/backup-restore evidence in `docs/release/phase1-migration-evidence.md` (depends: all migrations; accept: Phase 0 upgrade and repeat seed pass on MySQL 8.4).
+- [X] T155 Run dependency audits and remediate critical/high findings in `composer.lock`, `package-lock.json`, and `docs/release/phase1-dependency-audit.md` (depends: implementation complete; accept: zero unresolved critical/high advisory).
+- [X] T156 Execute every command in `specs/002-registration-ticketing-credentials/quickstart.md` and correct only inaccurate validation instructions (depends: T144-T155; accept: every command/result is reproduced natively without Docker).
+- [X] T157 Create Phase 1 release readiness report in `docs/release/phase1-readiness.md` linking API, migration, isolation, RBAC, audit, privacy, payment, credential, notification, accessibility, performance, parity, and exception evidence (depends: T156; accept: no expired exception or Phase 2+ artifact exists).
+- [X] T158 Run complete Composer/npm/backend/frontend/OpenAPI/docs/phase-boundary quality gates from `specs/002-registration-ticketing-credentials/quickstart.md` and mark Phase 1 ready only when all pass (depends: T157; accept: clean fresh run has zero failure, warning, drift, or skipped mandatory suite).
 
 ---
 
@@ -439,3 +439,18 @@ After US2: US6 credential lifecycle | US7 confirmation delivery
 - Use synthetic data only; never commit secrets, card data, real attendees, or provider payloads.
 - Any public contract change updates both OpenAPI sources and compatibility tests.
 - Do not scaffold wallet, scan/check-in, kiosk/badge, ACS, identity, marketplace, or hardware features.
+
+---
+
+## Phase 11: Convergence
+
+- [X] T159 CRITICAL document and verify Moyasar and Unifonic webhook operations in the versioned Phase 1 OpenAPI contract per Constitution I and CR-006 (missing).
+- [X] T160 CRITICAL replace Notifications reads of Events and Orders persistence with declared application contracts and strengthen boundary tests per Constitution VI and plan: module ownership (contradicts).
+- [X] T161 CRITICAL replace Attendees retention writes to Orders, Registration, and Notifications persistence with module-owned anonymization contracts and atomic orchestration per Constitution VI and CR-005 (contradicts).
+- [X] T162 CRITICAL make notification terminal state and audit evidence atomic, and audit sanitized payment/notification callback denials per CR-003 and SC-011 (partial).
+- [X] T163 replace synthetic counters with real MySQL concurrent final-unit and duplicate-callback burst tests, including recovery assertions, per SC-004, SC-006, and plan: performance gates (partial).
+- [X] T164 create idempotent SMS confirmation intents when SMS is enabled and an attendee phone is valid, with channel-specific adapter selection and tests, per US7/AC1 and FR-043-FR-045 (missing).
+- [X] T165 implement audited event reopen/archive and eligible order cancellation actions, permissions, API operations, inventory/payment safeguards, and tests per FR-006, FR-016, FR-024, and US5 (missing).
+- [X] T166 support safe internal-only and hidden registration form fields without exposing or accepting forged internal values per FR-007-FR-010 (contradicts).
+- [X] T167 expand behavioral tenant/event isolation, permission allow-deny-immediate-revocation, Arabic/English organizer, accessibility, and callback recovery matrices per SC-009-SC-013 and CR-007-CR-009 (partial).
+- [X] T168 reconcile completed artifact status and implemented migration ordering, then rerun every Phase 1 release gate per spec: status, plan: migration order, and Constitution VII (partial).

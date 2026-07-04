@@ -16,6 +16,15 @@ use App\Modules\Tenancy\Http\Controllers\TenantMembershipController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
+    require base_path('app/Modules/Events/Routes/api.php');
+    require base_path('app/Modules/Registration/Routes/api.php');
+    require base_path('app/Modules/Ticketing/Routes/api.php');
+    require base_path('app/Modules/Orders/Routes/api.php');
+    require base_path('app/Modules/Payments/Routes/api.php');
+    require base_path('app/Modules/Attendees/Routes/api.php');
+    require base_path('app/Modules/Credentials/Routes/api.php');
+    require base_path('app/Modules/Notifications/Routes/api.php');
+
     Route::post('/auth/token', [AuthController::class, 'issueToken'])
         ->middleware('throttle:auth')
         ->name('api.v1.auth.token.issue');
