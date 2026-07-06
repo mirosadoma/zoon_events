@@ -8,6 +8,7 @@
         "lint": "eslint . --max-warnings=0",
         "openapi:lint": "redocly lint specs/001-project-foundation/contracts/openapi.yaml",
         "openapi:phase1": "redocly lint specs/002-registration-ticketing-credentials/contracts/openapi.yaml",
+        "openapi:phase2": "redocly lint specs/003-wallet-passes-scanning/contracts/openapi.yaml",
         "openapi:sync": "php scripts/sync-openapi.php --check",
         "test": "vitest run",
         "typecheck": "tsc --noEmit"
@@ -20,6 +21,7 @@
         "lucide-react": "^1.23.0",
         "react": "^19.2.7",
         "react-dom": "^19.2.7",
+        "react-i18next": "^17.0.8",
         "tailwind-merge": "^3.3.1"
     },
     "devDependencies": {

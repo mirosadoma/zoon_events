@@ -2,6 +2,7 @@
 
 namespace App\Modules\Credentials\Application;
 
+use App\Modules\Credentials\Application\Presentation\CredentialPresentationToken;
 use App\Modules\Credentials\Application\Signing\CanonicalCredentialToken;
 use App\Modules\Credentials\Application\Signing\CredentialKeyRing;
 use App\Modules\Credentials\Contracts\CredentialIssuer;
@@ -13,7 +14,11 @@ use Illuminate\Support\Str;
 
 final readonly class CredentialIssuerService implements CredentialIssuer
 {
-    public function __construct(private CanonicalCredentialToken $tokens, private CredentialKeyRing $keys) {}
+    public function __construct(
+        private CanonicalCredentialToken $tokens,
+        private CredentialKeyRing $keys,
+        private CredentialPresentationToken $presentationTokens,
+    ) {}
 
     public function issue(string $tenantId, string $eventId, string $attendeeId, string $ticketTypeId, CarbonImmutable $expiresAt): IssuedCredential
     {
@@ -52,6 +57,8 @@ final readonly class CredentialIssuerService implements CredentialIssuer
             'issued_at' => $issuedAt,
             'expires_at' => $expiresAt,
         ]);
+        $credential = Credential::query()->findOrFail($id);
+        $this->presentationTokens->store($credential, $token);
 
         return new IssuedCredential($id, $token, $expiresAt);
     }

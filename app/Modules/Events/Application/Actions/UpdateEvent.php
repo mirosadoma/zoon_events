@@ -3,6 +3,7 @@
 namespace App\Modules\Events\Application\Actions;
 
 use App\Modules\Audit\Application\AuditWriter;
+use App\Modules\Events\Domain\Events\EventUpdated;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventBranding;
 use App\Modules\Tenancy\Domain\Context\TenantContext;
@@ -38,6 +39,12 @@ final readonly class UpdateEvent
                 );
             }
             $this->audit->writeTenant('event.updated', 'succeeded', $context, targetType: 'event', targetId: $event->id, changeSummary: ['before' => $before, 'after' => $event->only(array_keys($attributes))]);
+
+            $syncFields = ['start_at', 'end_at', 'timezone', 'location_name_en', 'location_name_ar', 'location_address_en', 'location_address_ar'];
+            $syncRelevant = array_intersect_key($attributes, array_flip($syncFields)) !== [] || $branding !== [];
+            if ($syncRelevant) {
+                event(new EventUpdated($context->tenant->id, $event->id));
+            }
 
             return $event->refresh();
         });

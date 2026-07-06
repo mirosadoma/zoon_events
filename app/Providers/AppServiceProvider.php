@@ -31,12 +31,16 @@ class AppServiceProvider extends ServiceProvider
             ->by($this->publicKey($request, 'registration')));
         RateLimiter::for('public-checkout', fn (Request $request): Limit => Limit::perMinute(10)
             ->by($this->publicKey($request, 'checkout')));
+        RateLimiter::for('public-wallet', fn (Request $request): Limit => Limit::perMinute(20)
+            ->by($this->publicKey($request, 'wallet')));
         RateLimiter::for('payment-callback', fn (Request $request): Limit => Limit::perMinute(300)
             ->by(hash('sha256', 'callback|'.mb_strtolower($request->getHost()).'|'.$request->route('route_token', 'none'))));
         RateLimiter::for('notification-callback', fn (Request $request): Limit => Limit::perMinute(300)
             ->by(hash('sha256', 'notification|'.mb_strtolower($request->getHost()).'|'.$request->route('route_token', 'none'))));
         RateLimiter::for('phase1-organizer', fn (Request $request): Limit => Limit::perMinute(90)
             ->by(($request->user()?->id ?? 'guest').'|'.($request->header('X-Tenant-ID') ?? 'none')));
+        RateLimiter::for('apple-wallet-webservice', fn (Request $request): Limit => Limit::perMinute(120)
+            ->by(hash('sha256', 'apple-wallet|'.($request->header('Authorization') ?? $request->ip()))));
     }
 
     private function publicKey(Request $request, string $operation): string

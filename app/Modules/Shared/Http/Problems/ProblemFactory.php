@@ -97,6 +97,15 @@ final class ProblemFactory
                 instance: $instance,
                 correlationId: $correlationId,
             ),
+            $throwable instanceof HttpExceptionInterface && $throwable->getStatusCode() === 401 => new ProblemDetails(
+                type: self::typeFor('unauthenticated'),
+                title: 'Unauthenticated',
+                status: 401,
+                code: 'unauthenticated',
+                detail: 'Authentication is required to access this resource.',
+                instance: $instance,
+                correlationId: $correlationId,
+            ),
             $throwable instanceof HttpExceptionInterface && $throwable->getStatusCode() === 503 => new ProblemDetails(
                 type: self::typeFor('service_unavailable'),
                 title: 'Service unavailable',

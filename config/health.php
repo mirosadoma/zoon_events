@@ -12,6 +12,8 @@ return [
         'credential_signing',
         'payments',
         'notifications',
+        'apple_wallet',
+        'google_wallet',
         'config',
     ],
 ];

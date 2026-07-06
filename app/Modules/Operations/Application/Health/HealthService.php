@@ -3,8 +3,10 @@
 namespace App\Modules\Operations\Application\Health;
 
 use App\Modules\Operations\Application\Configuration\ConfigurationValidator;
+use App\Modules\Operations\Application\Health\Checks\AppleWalletHealthCheck;
 use App\Modules\Operations\Application\Health\Checks\CredentialSigningHealthCheck;
 use App\Modules\Operations\Application\Health\Checks\DataProtectionHealthCheck;
+use App\Modules\Operations\Application\Health\Checks\GoogleWalletHealthCheck;
 use App\Modules\Operations\Application\Health\Checks\NotificationConfigurationHealthCheck;
 use App\Modules\Operations\Application\Health\Checks\PaymentCheck;
 use App\Modules\Operations\Contracts\HealthCheck;
@@ -55,6 +57,8 @@ class HealthService
                 'credential_signing' => $this->runExtensionCheck(CredentialSigningHealthCheck::class),
                 'payments' => $this->runExtensionCheck(PaymentCheck::class),
                 'notifications' => $this->runExtensionCheck(NotificationConfigurationHealthCheck::class),
+                'apple_wallet' => $this->runExtensionCheck(AppleWalletHealthCheck::class),
+                'google_wallet' => $this->runExtensionCheck(GoogleWalletHealthCheck::class),
                 default => null,
             };
 

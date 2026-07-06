@@ -7,7 +7,9 @@ use App\Modules\Credentials\Application\Signing\CanonicalCredentialToken;
 use App\Modules\Credentials\Application\Signing\CredentialKeyRing;
 use App\Modules\Credentials\Application\Signing\EnvironmentSecretReferenceLoader;
 use App\Modules\Credentials\Contracts\CredentialIssuer;
+use App\Modules\Credentials\Contracts\CredentialPersonalDataAnonymizer;
 use App\Modules\Credentials\Contracts\SecretReferenceLoader;
+use App\Modules\Credentials\Infrastructure\Persistence\DatabaseCredentialPersonalDataAnonymizer;
 use Illuminate\Support\ServiceProvider;
 
 final class CredentialsServiceProvider extends ServiceProvider
@@ -22,5 +24,6 @@ final class CredentialsServiceProvider extends ServiceProvider
         ));
         $this->app->singleton(CanonicalCredentialToken::class);
         $this->app->bind(CredentialIssuer::class, CredentialIssuerService::class);
+        $this->app->bind(CredentialPersonalDataAnonymizer::class, DatabaseCredentialPersonalDataAnonymizer::class);
     }
 }

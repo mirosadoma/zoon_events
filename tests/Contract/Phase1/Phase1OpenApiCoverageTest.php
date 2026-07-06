@@ -22,10 +22,19 @@ final class Phase1OpenApiCoverageTest extends TestCase
         foreach ($documented as $operation) {
             self::assertTrue($runtime->contains($operation['route']), $operation['operation'].' has no runtime route');
         }
-        $phaseOneRuntime = $runtime->filter(fn (string $route): bool => preg_match(
-            '#^[A-Z]+ /(public/(events|orders)|tenant/events|tenant/credential-validations|webhooks/(payments|notifications))#',
-            $route,
-        ) === 1)->sort()->values()->all();
+        $phaseOneRuntime = $runtime->filter(function (string $route): bool {
+            if (preg_match(
+                '#^[A-Z]+ /(public/(events|orders)|tenant/events|tenant/credential-validations|webhooks/(payments|notifications))#',
+                $route,
+            ) !== 1) {
+                return false;
+            }
+
+            return preg_match(
+                '#/(wallet-passes|check-in|check-in-summary|offline-allowlist|offline-scan-batches|scans)(/|$)#',
+                $route,
+            ) !== 1;
+        })->sort()->values()->all();
         $documentedRoutes = collect($documented)->pluck('route')->sort()->values()->all();
         self::assertSame($documentedRoutes, $phaseOneRuntime, 'Phase 1 has undocumented or stale runtime routes.');
     }

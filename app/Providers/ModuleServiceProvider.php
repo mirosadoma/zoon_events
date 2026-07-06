@@ -16,9 +16,11 @@ use App\Modules\Operations\Providers\OperationsServiceProvider;
 use App\Modules\Orders\Providers\OrdersServiceProvider;
 use App\Modules\Payments\Providers\PaymentsServiceProvider;
 use App\Modules\Registration\Providers\RegistrationServiceProvider;
+use App\Modules\Scanning\Providers\ScanningServiceProvider;
 use App\Modules\Shared\Providers\SharedServiceProvider;
 use App\Modules\Tenancy\Providers\TenancyServiceProvider;
 use App\Modules\Ticketing\Providers\TicketingServiceProvider;
+use App\Modules\WalletPasses\Providers\WalletPassesServiceProvider;
 use Illuminate\Support\ServiceProvider;
 
 class ModuleServiceProvider extends ServiceProvider
@@ -44,6 +46,8 @@ class ModuleServiceProvider extends ServiceProvider
         AttendeesServiceProvider::class,
         CredentialsServiceProvider::class,
         NotificationServiceProvider::class,
+        WalletPassesServiceProvider::class,
+        ScanningServiceProvider::class,
     ];
 
     public function register(): void

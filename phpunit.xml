@@ -30,6 +30,7 @@
             <directory>tests/Phase1</directory>
         </testsuite>
     </testsuites>
+    <!-- Phase 2 test groups (via @group / #[Group]): wallet-passes, check-in, offline-scanning, phase-2-isolation, phase-2 -->
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>

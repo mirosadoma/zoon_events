@@ -24,6 +24,7 @@ final class ConfigurationValidator
         $this->validateCredentialKeys($issues);
         $this->validatePaymentAdapter($issues);
         $this->validateNotificationAdapters($issues);
+        $this->validateWalletAdapters($issues);
 
         if (app()->environment('production')) {
             if ((bool) config('app.debug')) {
@@ -148,6 +149,53 @@ final class ConfigurationValidator
             $this->required($issues, 'UNIFONIC_SENDER_ID', config('notifications.unifonic.sender_id'));
             if (! (bool) config('notifications.allow_network')) {
                 $issues[] = new ConfigurationIssue('NOTIFICATIONS_ALLOW_NETWORK', 'notification_network_disabled', 'Network access must be explicitly enabled for a live notification adapter.');
+            }
+        }
+    }
+
+    private function validateWalletAdapters(array &$issues): void
+    {
+        $apple = (string) config('wallet.default_apple_adapter');
+        $google = (string) config('wallet.default_google_adapter');
+
+        if (! in_array($apple, ['fake', 'apple'], true)) {
+            $issues[] = new ConfigurationIssue('WALLET_APPLE_ADAPTER', 'wallet_adapter_invalid', 'The configured Apple wallet adapter is not supported.');
+        }
+        if (! in_array($google, ['fake', 'google'], true)) {
+            $issues[] = new ConfigurationIssue('WALLET_GOOGLE_ADAPTER', 'wallet_adapter_invalid', 'The configured Google wallet adapter is not supported.');
+        }
+
+        if (app()->environment('production', 'staging') && $apple === 'fake') {
+            $issues[] = new ConfigurationIssue('WALLET_APPLE_ADAPTER', 'testing_adapter_in_production', 'Fake Apple wallet adapter cannot be used in production.');
+        }
+        if (app()->environment('production', 'staging') && $google === 'fake') {
+            $issues[] = new ConfigurationIssue('WALLET_GOOGLE_ADAPTER', 'testing_adapter_in_production', 'Fake Google wallet adapter cannot be used in production.');
+        }
+
+        if ($apple === 'apple') {
+            if (trim((string) config('wallet.apple.certificate_secret_reference')) === '') {
+                $issues[] = new ConfigurationIssue('WALLET_APPLE_CERT_SECRET_REF', 'wallet_configuration_invalid', 'Apple wallet certificate secret reference is required for the live adapter.');
+            }
+            if (trim((string) config('wallet.apple.private_key_secret_reference')) === '') {
+                $issues[] = new ConfigurationIssue('WALLET_APPLE_KEY_SECRET_REF', 'wallet_configuration_invalid', 'Apple wallet private key secret reference is required for the live adapter.');
+            }
+            if (trim((string) config('wallet.apple.pass_type_identifier')) === '') {
+                $issues[] = new ConfigurationIssue('WALLET_APPLE_PASS_TYPE_IDENTIFIER', 'wallet_configuration_invalid', 'Apple pass type identifier is required for the live adapter.');
+            }
+            if (trim((string) config('wallet.apple.team_identifier')) === '') {
+                $issues[] = new ConfigurationIssue('WALLET_APPLE_TEAM_IDENTIFIER', 'wallet_configuration_invalid', 'Apple team identifier is required for the live adapter.');
+            }
+            if (trim((string) config('wallet.apple.web_service_base_url')) === '') {
+                $issues[] = new ConfigurationIssue('WALLET_APPLE_WEB_SERVICE_URL', 'wallet_configuration_invalid', 'Apple wallet web service base URL is required for the live adapter.');
+            }
+        }
+
+        if ($google === 'google') {
+            if (trim((string) config('wallet.google.service_account_secret_reference')) === '') {
+                $issues[] = new ConfigurationIssue('WALLET_GOOGLE_SERVICE_ACCOUNT_SECRET_REF', 'wallet_configuration_invalid', 'Google wallet service account secret reference is required for the live adapter.');
+            }
+            if (trim((string) config('wallet.google.issuer_id')) === '') {
+                $issues[] = new ConfigurationIssue('WALLET_GOOGLE_ISSUER_ID', 'wallet_configuration_invalid', 'Google Wallet issuer ID is required for the live adapter.');
             }
         }
     }

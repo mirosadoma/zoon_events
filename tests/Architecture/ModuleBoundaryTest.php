@@ -7,6 +7,21 @@ use Tests\TestCase;
 
 class ModuleBoundaryTest extends TestCase
 {
+    /** @var list<string> */
+    private array $allowedPhaseTwoPaths = [
+        'app/Modules/WalletPasses',
+        'app/Modules/Scanning',
+        'app/Modules/AdminConsole/Http/Controllers/Tenant/CheckIn',
+        'app/Console/Commands/CheckDocumentation.php',
+        'app/Console/Commands/RefreshCheckInSummary.php',
+        'app/Modules/Authorization/Policies/Phase2',
+        'app/Modules/Operations/Application/Configuration/ConfigurationValidator.php',
+        'app/Modules/Operations/Application/Health/Checks/AppleWalletHealthCheck.php',
+        'app/Modules/Operations/Application/Health/Checks/GoogleWalletHealthCheck.php',
+        'app/Providers/AppServiceProvider.php',
+        'config/wallet.php',
+    ];
+
     #[Test]
     public function repository_code_avoids_cross_module_infrastructure_imports_and_product_scope_names(): void
     {
@@ -49,11 +64,25 @@ class ModuleBoundaryTest extends TestCase
                 $violations[] = $file.':cross-module-infrastructure-import';
             }
 
-            if (preg_match('/\b(wallet|kiosk|scanner|check-in|badge|acs|identity verification|marketplace)\b/i', $contents)) {
+            if ($this->isAllowedPhaseTwoPath($file) === false
+                && preg_match('/\b(wallet|kiosk|scanner|check-in|badge|acs|identity verification|marketplace)\b/i', $contents)) {
                 $violations[] = $file.':forbidden-product-scope-name';
             }
         }
 
         return $violations;
+    }
+
+    private function isAllowedPhaseTwoPath(string $path): bool
+    {
+        $relative = str_replace('\\', '/', str_replace(base_path().DIRECTORY_SEPARATOR, '', $path));
+
+        foreach ($this->allowedPhaseTwoPaths as $allowed) {
+            if (str_starts_with($relative, $allowed)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

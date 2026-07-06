@@ -1,0 +1,534 @@
+openapi: 3.1.0
+info:
+  title: Zonetec Phase 2 Wallet Passes and QR Scanning API
+  version: 1.0.0
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+  description: >
+    Authoritative versioned contract for Phase 2 wallet pass issuance/update,
+    Apple Wallet device web-service callbacks, staff QR scanning, check-in
+    dashboard, and offline scan reconciliation. This is the review contract
+    for this feature; implementation merges it into the authoritative
+    `specs/001-project-foundation/contracts/openapi.yaml`.
+servers:
+  - url: https://{host}/api/v1
+    variables:
+      host:
+        default: example.test
+tags:
+  - name: Public Wallet
+    description: Attendee-facing wallet pass issuance reached via the Phase 1 order access token.
+  - name: Apple Wallet Web Service
+    description: Apple PassKit device registration and update protocol callbacks.
+  - name: Check-In
+    description: Staff QR scan submission and organizer check-in dashboard.
+  - name: Offline Scanning
+    description: Offline allowlist export and reconciliation batch upload.
+paths:
+  /public/orders/{public_reference}/wallet-passes/apple:
+    get:
+      tags: [Public Wallet]
+      operationId: getApplePass
+      summary: Get or generate the attendee's Apple Wallet pass for this order
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PublicReference'
+        - $ref: '#/components/parameters/OrderAccessToken'
+        - $ref: '#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: Signed .pkpass bundle
+          content:
+            application/vnd.apple.pkpass:
+              schema:
+                type: string
+                format: binary
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /public/orders/{public_reference}/wallet-passes/google:
+    get:
+      tags: [Public Wallet]
+      operationId: getGoogleWalletSaveLink
+      summary: Get the attendee's "Add to Google Wallet" signed save link
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PublicReference'
+        - $ref: '#/components/parameters/OrderAccessToken'
+        - $ref: '#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: Save-link envelope
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleWalletSaveLinkEnvelope'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /wallet/apple/v1/devices/{device_library_identifier}/registrations/{pass_type_identifier}/{serial_number}:
+    post:
+      tags: [Apple Wallet Web Service]
+      operationId: registerAppleDevice
+      summary: Register a device to receive updates for one pass
+      security:
+        - ApplePassAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DeviceLibraryIdentifier'
+        - $ref: '#/components/parameters/PassTypeIdentifier'
+        - $ref: '#/components/parameters/SerialNumber'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplePushTokenRequest'
+      responses:
+        '201':
+          description: Registration created
+        '200':
+          description: Already registered
+        '401':
+          description: Authentication token mismatch
+    delete:
+      tags: [Apple Wallet Web Service]
+      operationId: unregisterAppleDevice
+      summary: Unregister a device from pass updates
+      security:
+        - ApplePassAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DeviceLibraryIdentifier'
+        - $ref: '#/components/parameters/PassTypeIdentifier'
+        - $ref: '#/components/parameters/SerialNumber'
+      responses:
+        '200':
+          description: Unregistered
+        '401':
+          description: Authentication token mismatch
+  /wallet/apple/v1/devices/{device_library_identifier}/registrations/{pass_type_identifier}:
+    get:
+      tags: [Apple Wallet Web Service]
+      operationId: getUpdatedAppleSerialNumbers
+      summary: List serial numbers updated since the given tag for this device
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/DeviceLibraryIdentifier'
+        - $ref: '#/components/parameters/PassTypeIdentifier'
+        - name: passesUpdatedSince
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Updated serial numbers and a new tag
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppleUpdatedSerialNumbers'
+        '204':
+          description: No updates
+        '401':
+          description: Unknown device or pass type
+  /wallet/apple/v1/passes/{pass_type_identifier}/{serial_number}:
+    get:
+      tags: [Apple Wallet Web Service]
+      operationId: getUpdatedApplePass
+      summary: Fetch the current signed pass bundle
+      security:
+        - ApplePassAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PassTypeIdentifier'
+        - $ref: '#/components/parameters/SerialNumber'
+        - name: If-Modified-Since
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Current signed .pkpass bundle
+          content:
+            application/vnd.apple.pkpass:
+              schema:
+                type: string
+                format: binary
+        '304':
+          description: Not modified
+        '401':
+          description: Authentication token mismatch
+  /tenant/events/{event_id}/scans:
+    post:
+      tags: [Check-In]
+      operationId: submitScan
+      summary: Submit one staff QR scan and receive an authoritative result
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitScanRequest'
+      responses:
+        '200':
+          description: Scan result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanResultEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/check-in-summary:
+    get:
+      tags: [Check-In]
+      operationId: getCheckInSummary
+      summary: Get bounded registration and check-in counts for one event
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Current check-in summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckInSummaryEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/offline-allowlist:
+    get:
+      tags: [Offline Scanning]
+      operationId: getOfflineAllowlist
+      summary: Fetch a signed, time-windowed allowlist for offline scanning
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - name: window_minutes
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 15
+            maximum: 720
+      responses:
+        '200':
+          description: Signed allowlist export
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfflineAllowlistEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/offline-scan-batches:
+    post:
+      tags: [Offline Scanning]
+      operationId: submitOfflineScanBatch
+      summary: Submit locally recorded offline scans for reconciliation
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OfflineScanBatchRequest'
+      responses:
+        '202':
+          description: Batch accepted for reconciliation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfflineScanBatchEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+components:
+  securitySchemes:
+    TenantSession:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Bearer token or session cookie plus required X-Tenant-ID.
+    ApplePassAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: 'ApplePass {authenticationToken} issued for the specific pass.'
+  parameters:
+    PublicReference:
+      name: public_reference
+      in: path
+      required: true
+      schema:
+        type: string
+    OrderAccessToken:
+      name: access_token
+      in: query
+      required: true
+      schema:
+        type: string
+    AcceptLanguage:
+      name: Accept-Language
+      in: header
+      required: false
+      schema:
+        type: string
+        enum: [en, ar]
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+    TenantId:
+      name: X-Tenant-ID
+      in: header
+      required: true
+      schema:
+        type: string
+    EventId:
+      name: event_id
+      in: path
+      required: true
+      schema:
+        type: string
+    DeviceLibraryIdentifier:
+      name: device_library_identifier
+      in: path
+      required: true
+      schema:
+        type: string
+    PassTypeIdentifier:
+      name: pass_type_identifier
+      in: path
+      required: true
+      schema:
+        type: string
+    SerialNumber:
+      name: serial_number
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    Problem:
+      description: Problem Details error
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status, code, correlation_id]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        code:
+          type: string
+        detail:
+          type: string
+        correlation_id:
+          type: string
+    GoogleWalletSaveLinkEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [save_url, pass_status]
+          properties:
+            save_url:
+              type: string
+              format: uri
+            pass_status:
+              type: string
+              enum: [created, active, updated, revoked, expired, failed]
+    ApplePushTokenRequest:
+      type: object
+      required: [pushToken]
+      properties:
+        pushToken:
+          type: string
+    AppleUpdatedSerialNumbers:
+      type: object
+      required: [serialNumbers, lastUpdated]
+      properties:
+        serialNumbers:
+          type: array
+          items:
+            type: string
+        lastUpdated:
+          type: string
+    SubmitScanRequest:
+      type: object
+      required: [qr_payload, scanner_type]
+      properties:
+        qr_payload:
+          type: string
+          maxLength: 512
+        scanner_type:
+          type: string
+          enum: [staff_phone, handheld_scanner]
+        override:
+          type: boolean
+          default: false
+        override_reason:
+          type: string
+          maxLength: 500
+        offline_mode:
+          type: boolean
+          default: false
+        scanned_at:
+          type: string
+          format: date-time
+    ScanResultEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [scan_event_id, result, reason_code]
+          properties:
+            scan_event_id:
+              type: string
+            result:
+              type: string
+              enum: [accepted, manual_override, duplicate, revoked, expired, rejected]
+            reason_code:
+              type: string
+            attendee_display_name:
+              type: string
+            ticket_type_label:
+              type: string
+    CheckInSummaryEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [registered_count, checked_in_count, rejected_count, duplicate_count]
+          properties:
+            registered_count:
+              type: integer
+            checked_in_count:
+              type: integer
+            rejected_count:
+              type: integer
+            duplicate_count:
+              type: integer
+            last_scan_at:
+              type: [string, 'null']
+              format: date-time
+    OfflineAllowlistEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [issued_at, expires_at, entries_digest, entries]
+          properties:
+            issued_at:
+              type: string
+              format: date-time
+            expires_at:
+              type: string
+              format: date-time
+            entries_digest:
+              type: string
+              description: SHA-256 of the canonical entries list for tamper detection.
+            entries:
+              type: array
+              items:
+                type: object
+                required: [credential_reference_digest]
+                properties:
+                  credential_reference_digest:
+                    type: string
+    OfflineScanBatchRequest:
+      type: object
+      required: [device_reference, scans]
+      properties:
+        device_reference:
+          type: string
+        scans:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [qr_payload, scanned_at]
+            properties:
+              qr_payload:
+                type: string
+                maxLength: 512
+              scanned_at:
+                type: string
+                format: date-time
+              override:
+                type: boolean
+                default: false
+              override_reason:
+                type: string
+                maxLength: 500
+    OfflineScanBatchEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [batch_id, status, submitted_scan_count]
+          properties:
+            batch_id:
+              type: string
+            status:
+              type: string
+              enum: [received, processed, processed_with_conflicts]
+            submitted_scan_count:
+              type: integer
+            accepted_count:
+              type: integer
+            duplicate_count:
+              type: integer
+            conflict_count:
+              type: integer

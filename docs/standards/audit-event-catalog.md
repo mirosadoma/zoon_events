@@ -29,3 +29,14 @@ Notification evidence contains only event ID, channel, notification ID, outcome,
 and stable reason. Payment evidence excludes provider payload and card data.
 Credential evidence excludes signed tokens. Attendee evidence records changed
 field names, never old/new values.
+
+Phase 2 required action families:
+
+- `wallet_pass.generated|generation_denied|updated|update_failed|revoked|revocation_failed`;
+- `scan.accepted|rejected|duplicate|revoked|expired|manual_override`;
+- `offline_scan_batch.received|processed|conflict_flagged`;
+- `checkin_dashboard.viewed` (optional per tenant access-logging policy).
+
+Wallet pass evidence excludes provider payloads and certificate material. Scan evidence
+excludes attendee PII beyond stable identifiers. Full Phase 2 tables live in
+`docs/security/audit-catalog.md`.

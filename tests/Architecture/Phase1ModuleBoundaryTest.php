@@ -33,9 +33,12 @@ final class Phase1ModuleBoundaryTest extends TestCase
         self::assertSame([], $violations);
     }
 
-    public function test_phase_two_namespaces_are_absent(): void
+    public function test_phase_two_product_modules_exist_without_phase_three_plus_namespaces(): void
     {
-        foreach (['Wallet', 'Scanning', 'CheckIn', 'Kiosk', 'Badges', 'ACS', 'IdentityVerification', 'Marketplace'] as $module) {
+        self::assertDirectoryExists(app_path('Modules/WalletPasses'));
+        self::assertDirectoryExists(app_path('Modules/Scanning'));
+
+        foreach (['Kiosk', 'Badges', 'ACS', 'IdentityVerification', 'Marketplace', 'CheckIn'] as $module) {
             self::assertDirectoryDoesNotExist(app_path("Modules/{$module}"));
         }
     }

@@ -11,7 +11,10 @@ The executable source is `Database\Seeders\PermissionSeeder::definitions()`. Ten
 `registration.manage`, `ticketing.manage`,
 `order.view`, `order.manage`, `payment.refund`, `attendee.view`,
 `attendee.manage`, `credential.view`, `credential.validate`,
-`credential.revoke`, and `credential.reissue`. Platform keys cover tenant, user,
+`credential.revoke`, and `credential.reissue`. Phase 2 tenant keys:
+`wallet.pass.view`, `wallet.pass.generate`, `wallet.pass.manage`,
+`checkin.scan.submit`, `checkin.scan.override`, and `checkin.dashboard.view`.
+Platform keys cover tenant, user,
 role, audit, feature-flag and configuration operations, health visibility, and explicit
 access recovery. CI compares documentation with the seeder.
 
@@ -27,3 +30,7 @@ Exact platform keys: `platform.tenant.view`, `platform.tenant.manage`,
 `platform.audit.view`, `platform.audit.export`, `platform.audit.verify`,
 `operations.health.view`, `platform.feature_flag.view`,
 `platform.feature_flag.manage`, and `platform.configuration.view`.
+
+Phase 2 workforce permissions are tabulated in `docs/security/permissions.md`.
+`wallet.pass.generate` is also available to the public attendee journey through the
+order access token, not a workforce role.

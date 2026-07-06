@@ -50,6 +50,14 @@ tags:
     description: Tenant-scoped attendee review and correction.
   - name: Credentials
     description: Signed credential validation, revocation, and reissue.
+  - name: Public Wallet
+    description: Attendee-facing wallet pass issuance reached via the Phase 1 order access token.
+  - name: Apple Wallet Web Service
+    description: Apple PassKit device registration and update protocol callbacks.
+  - name: Check-In
+    description: Staff QR scan submission and organizer check-in dashboard.
+  - name: Offline Scanning
+    description: Offline allowlist export and reconciliation batch upload.
 paths:
   /public/events/{event_slug}:
     $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1public~1events~1{event_slug}'
@@ -93,6 +101,24 @@ paths:
     $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1credentials~1{credential_id}~1reissue'
   /tenant/credential-validations:
     $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1tenant~1credential-validations'
+  /public/orders/{public_reference}/wallet-passes/apple:
+    $ref: '../../003-wallet-passes-scanning/contracts/openapi.yaml#/paths/~1public~1orders~1{public_reference}~1wallet-passes~1apple'
+  /public/orders/{public_reference}/wallet-passes/google:
+    $ref: '../../003-wallet-passes-scanning/contracts/openapi.yaml#/paths/~1public~1orders~1{public_reference}~1wallet-passes~1google'
+  /wallet/apple/v1/devices/{device_library_identifier}/registrations/{pass_type_identifier}/{serial_number}:
+    $ref: '../../003-wallet-passes-scanning/contracts/openapi.yaml#/paths/~1wallet~1apple~1v1~1devices~1{device_library_identifier}~1registrations~1{pass_type_identifier}~1{serial_number}'
+  /wallet/apple/v1/devices/{device_library_identifier}/registrations/{pass_type_identifier}:
+    $ref: '../../003-wallet-passes-scanning/contracts/openapi.yaml#/paths/~1wallet~1apple~1v1~1devices~1{device_library_identifier}~1registrations~1{pass_type_identifier}'
+  /wallet/apple/v1/passes/{pass_type_identifier}/{serial_number}:
+    $ref: '../../003-wallet-passes-scanning/contracts/openapi.yaml#/paths/~1wallet~1apple~1v1~1passes~1{pass_type_identifier}~1{serial_number}'
+  /tenant/events/{event_id}/scans:
+    $ref: '../../003-wallet-passes-scanning/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1scans'
+  /tenant/events/{event_id}/check-in-summary:
+    $ref: '../../003-wallet-passes-scanning/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1check-in-summary'
+  /tenant/events/{event_id}/offline-allowlist:
+    $ref: '../../003-wallet-passes-scanning/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1offline-allowlist'
+  /tenant/events/{event_id}/offline-scan-batches:
+    $ref: '../../003-wallet-passes-scanning/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1offline-scan-batches'
   /health/live:
     get:
       tags: [Health]
@@ -1433,6 +1459,10 @@ components:
       type: http
       scheme: bearer
       bearerFormat: Sanctum
+    TenantSession:
+      $ref: '../../003-wallet-passes-scanning/contracts/openapi.yaml#/components/securitySchemes/TenantSession'
+    ApplePassAuth:
+      $ref: '../../003-wallet-passes-scanning/contracts/openapi.yaml#/components/securitySchemes/ApplePassAuth'
   headers:
     CorrelationId:
       description: Effective request correlation identifier

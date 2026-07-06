@@ -52,6 +52,9 @@ final class SystemRoleSeeder extends Seeder
                         'event.view', 'ticketing.manage', 'order.view', 'order.manage',
                         'payment.refund', 'attendee.view', 'credential.view',
                     ])->pluck('id')->all(),
+                    'On-Site Staff' => Permission::query()->whereIn('key', [
+                        'checkin.scan.submit', 'checkin.dashboard.view',
+                    ])->pluck('id')->all(),
                 ];
 
                 foreach ($roles as $name => $permissionIds) {

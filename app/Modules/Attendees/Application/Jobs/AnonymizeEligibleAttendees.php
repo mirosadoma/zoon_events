@@ -2,9 +2,12 @@
 
 namespace App\Modules\Attendees\Application\Jobs;
 
+use App\Modules\Credentials\Contracts\CredentialPersonalDataAnonymizer;
 use App\Modules\Notifications\Contracts\NotificationDestinationAnonymizer;
 use App\Modules\Orders\Contracts\OrderPersonalDataAnonymizer;
 use App\Modules\Registration\Contracts\SubmissionPersonalDataAnonymizer;
+use App\Modules\Scanning\Contracts\ScanEventPersonalDataAnonymizer;
+use App\Modules\WalletPasses\Contracts\WalletPassPersonalDataAnonymizer;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -14,6 +17,9 @@ final readonly class AnonymizeEligibleAttendees
         private OrderPersonalDataAnonymizer $orders,
         private SubmissionPersonalDataAnonymizer $submissions,
         private NotificationDestinationAnonymizer $notifications,
+        private ScanEventPersonalDataAnonymizer $scanEvents,
+        private CredentialPersonalDataAnonymizer $credentials,
+        private WalletPassPersonalDataAnonymizer $issuedPasses,
     ) {}
 
     /** @return array{eligible:int,anonymized:int} */
@@ -52,6 +58,9 @@ final readonly class AnonymizeEligibleAttendees
                     $this->orders->anonymize($tenantId, $attendee->order_id, $tombstone);
                     $this->submissions->anonymize($tenantId, $attendee->submission_id);
                     $this->notifications->anonymizeForAttendee($tenantId, $attendee->id, $tombstone);
+                    $this->scanEvents->anonymizeForAttendee($tenantId, $attendee->id);
+                    $this->credentials->revokeForAttendee($tenantId, $attendee->id);
+                    $this->issuedPasses->anonymizeForAttendee($tenantId, $attendee->id);
                     $anonymized++;
                 }
             });
