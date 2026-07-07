@@ -3,9 +3,8 @@
 > **بالعربى (ملخص):** ده ملف بكل النقاط اللى ظهرت من المراجعة العميقة لموديول
 > `AccessControl` (اللى نفّذه موديل LLM أرخص). كل نقطة فيها: مكانها فى الكود،
 > المشكلة، التعديل المطلوب، الخطورة، والحالة (اتعدلت / مؤجلة).
-> النقاط **F1 لحد F5** اتعدلت فى الكود بالفعل. النقاط **F6 و F7** خطورتها بسيطة
-> واتأجلت. لسه **الاختبارات ماتشغّلتش** فى الجلسة دى (الخطوة دى اتوقفت) — محتاجة
-> `composer test` / `--group=phase-4` + `composer quality` للتأكيد.
+> النقاط **F1 لحد F7** اتعدلت فى الكود. تم إضافة تغطية اختبارية لـ F6/F7،
+> ولسه مطلوب تشغيل gate التحقق النهائى بعد التعديل.
 
 **Feature**: `specs/005-acs-access-control` · **Module**: `app/Modules/AccessControl`
 **Reviewed**: 2026-07-07 · **Method**: whole-file read of the decision path, rule
@@ -27,11 +26,11 @@ routes, adapter interface, and the deployment-parity test, cross-checked against
 | F3 | 🟡 Medium | idempotency لاستقبال entry/exit فيه سباق (check-then-insert برّه الـ transaction) | `Application/Actions/IngestAccessEventAction.php` | ✅ اتعدلت (Fixed) |
 | F4 | 🟡 Medium | تحديث حالة anti-passback مش atomic → سباق ممكن يسمح بـ passback | `Application/Support/AntiPassbackService.php` | ✅ اتعدلت (Fixed) |
 | F5 | 🟡 Medium | الطوارئ (fail-open) بتفتح الدخول بس — الخروج ممكن يترفض أثناء الإخلاء | `Application/Actions/AuthorizeGateAction.php` (+ contracts/data-model) | ✅ اتعدلت (Fixed — دخول وخروج) |
-| F6 | ⚪ Low | `reason_code` لأحداث entry/exit/emergency بيتحط قيم مش من قائمة reason codes المعرّفة | `Application/Actions/IngestAccessEventAction.php`, `Application/Actions/RaiseEmergencyAction.php` | ⏸️ مؤجلة (Deferred) |
-| F7 | ⚪ Low | طوارئ على مستوى الحدث بتسجّل `behavior_applied = fail_open` بغض النظر عن وضع كل zone | `Application/Actions/RaiseEmergencyAction.php` | ⏸️ مؤجلة (Deferred) |
+| F6 | ⚪ Low | `reason_code` لأحداث entry/exit/emergency بيتحط قيم مش من قائمة reason codes المعرّفة | `Application/Actions/IngestAccessEventAction.php`, `Application/Actions/RaiseEmergencyAction.php`, `Application/Actions/ClearEmergencyAction.php` | ✅ اتعدلت (Fixed) |
+| F7 | ⚪ Low | طوارئ على مستوى الحدث بتسجّل `behavior_applied = fail_open` بغض النظر عن وضع كل zone | `Application/Actions/RaiseEmergencyAction.php` | ✅ اتعدلت (Fixed) |
 | — | ℹ️ Cleanup | تكرار `use DatabaseTransactions;` مرتين فى ملف اختبار | `tests/Unit/AccessControl/AntiPassbackServiceTest.php` | ✅ اتعدلت (Fixed) |
 
-**النطاق المتفق عليه:** تعديل F1–F5 (Critical + High + Medium). F6/F7 مؤجلة.
+**النطاق المنفذ:** تعديل F1–F7. F6/F7 اتعملوا كتحسينات منخفضة الخطورة بدل التأجيل.
 **قرار F5:** الطوارئ تفتح **الاتجاهين** (دخول وخروج).
 
 ---
@@ -120,19 +119,26 @@ routes, adapter interface, and the deployment-parity test, cross-checked against
   `authorization-contract.md` (خطوة 2) لتقول "entry and exit".
 - **الاختبار:** `AuthorizeGateActionTest::test_emergency_fail_open_allows_exit_not_only_entry`.
 
-### F6 — ⚪ Low (مؤجلة): reason_code لأحداث غير القرار
+### F6 — ⚪ Low: reason_code لأحداث غير القرار
 
 - **المكان:** `IngestAccessEventAction` (`reason_code = $eventType` = `"entry"`/`"exit"`)
-  و`RaiseEmergencyAction` (`"emergency_raised"`).
+  و`RaiseEmergencyAction` / `ClearEmergencyAction` (`"emergency_raised"` / `"emergency_cleared"`).
 - **المشكلة:** القيم دى مش ضمن قائمة reason codes المعرّفة فى `data-model.md`
   (كلها قرارات). تأثير تجميلى/تحليلى بس (الصفوف دى `decision = n/a`).
-- **المقترح لاحقاً:** `reason_code` nullable لأحداث غير القرار، أو مجموعة امتداد موثّقة.
+- **التعديل المطلوب/اللى اتعمل:** `reason_code` بقى nullable لأحداث غير القرار
+  (`entry`/`exit`/`emergency`) مع migration لتحديث قواعد البيانات القائمة، وتحديث
+  `data-model.md`.
+- **الاختبار:** `IngestAccessEventActionTest` بيتأكد إن `reason_code` = null بعد
+  الاستقبال؛ `OperatorEmergencyApiTest` بيتأكد إن emergency evidence بترجع null.
 
-### F7 — ⚪ Low (مؤجلة): دقة `behavior_applied` للطوارئ على مستوى الحدث
+### F7 — ⚪ Low: دقة `behavior_applied` للطوارئ على مستوى الحدث
 
 - **المكان:** `RaiseEmergencyAction` بيثبّت `fail_open` لما `zoneId` تكون null،
   بينما البوابة بتعيد فحص وضع كل zone. القيمة المسجّلة مضلّلة لـ zones الـ fail_closed.
-- **المقترح لاحقاً:** تسجيل السلوك الفعلى لكل zone بدل قيمة ثابتة.
+- **التعديل المطلوب/اللى اتعمل:** الطوارئ على مستوى الحدث بتسجّل `mixed` لو فيه
+  zones فعّالة بمزيج `fail_open` و`fail_closed`، وبتسجّل القيمة الوحيدة لو كل الـ
+  zones متفقة. اتضاف constraint وmigration لاستخدام `mixed`.
+- **الاختبار:** `OperatorEmergencyApiTest::test_event_wide_emergency_records_mixed_behavior_when_zones_disagree`.
 
 ---
 
@@ -153,37 +159,43 @@ routes, adapter interface, and the deployment-parity test, cross-checked against
 
 ## الملفات اللى اتعدّلت (Changed files)
 
-**Code (F1–F5):**
+**Code (F1–F7):**
 - `app/Modules/AccessControl/Contracts/AcsAdapter.php` — أضيف `isAvailable()`.
 - `app/Modules/AccessControl/Testing/FakeAcsAdapter.php` — نفّذ `isAvailable()`.
 - `app/Modules/AccessControl/Infrastructure/Adapters/MockAcsAdapter.php` — **جديد** (adapter إنتاجى).
 - `app/Modules/AccessControl/Providers/AccessControlServiceProvider.php` — binding افتراضى → `MockAcsAdapter`.
 - `app/Modules/AccessControl/Application/Actions/AuthorizeGateAction.php` — F1 + F2 + F5.
-- `app/Modules/AccessControl/Application/Actions/IngestAccessEventAction.php` — F3.
+- `app/Modules/AccessControl/Application/Actions/IngestAccessEventAction.php` — F3 + F6.
+- `app/Modules/AccessControl/Application/Actions/RaiseEmergencyAction.php` — F6 + F7.
+- `app/Modules/AccessControl/Application/Actions/ClearEmergencyAction.php` — F6.
 - `app/Modules/AccessControl/Application/Support/AntiPassbackService.php` — F4.
+- `database/migrations/2026_07_07_000010_fix_acs_review_reason_and_emergency_behavior.php` — **جديد** (F6/F7 schema).
 
-**Docs (F5):**
-- `specs/005-acs-access-control/data-model.md` — invariant 7 + قسم EmergencyEvent (دخول وخروج).
+**Docs (F5–F7):**
+- `specs/005-acs-access-control/data-model.md` — invariant 7 + nullable reason codes + `mixed` behavior.
 - `specs/005-acs-access-control/contracts/authorization-contract.md` — خطوة 2 (دخول وخروج).
+- `docs/operations/acs-emergency-egress-runbook.md` — evidence wording.
 
 **Tests:**
 - `tests/Unit/AccessControl/AuthorizeGateActionTest.php` — rebind الـ fake + 3 اختبارات جديدة (F1/F2/F5).
 - `tests/Integration/AcsUnavailableDeploymentParityTest.php` — rebind الـ fake على الـ interface.
 - `tests/Feature/AccessControl/AcsHealthApiTest.php` — rebind الـ fake على الـ interface.
 - `tests/Unit/AccessControl/AntiPassbackServiceTest.php` — شيل تكرار `use DatabaseTransactions;`.
+- `tests/Unit/AccessControl/IngestAccessEventActionTest.php` — nullable reason assertion (F6).
+- `tests/Feature/AccessControl/OperatorEmergencyApiTest.php` — mixed behavior + null reason (F6/F7).
+- `tests/Integration/MySql/EmergencyEventSchemaTest.php` — `mixed` constraint assertion (F7).
 
 ---
 
-## التحقّق المطلوب (لسه ماتشغّلش فى الجلسة دى)
+## التحقّق المطلوب
 
 ```bash
-composer test                       # أو: php artisan test --group=phase-4
-composer quality                    # Pint + PHPUnit + OpenAPI sync/lint + docs + phase-boundary
+php artisan migrate --env=testing --force
+php artisan test --group=phase-4
+composer quality
 ```
 
 **الاختبارات المتوقّع تنجح:** fail-open/fail-closed لأى adapter (F1)، قاعدة staff
 تسمح/ترفض (F2)، idempotency الاستقبال (F3)، إعادة ترتيب anti-passback (F4)،
-السماح بالخروج أثناء الطوارئ (F5).
-
-> ملاحظة: خطوة تشغيل الاختبارات اتوقفت فى الجلسة دى (الـ `php`/`composer` مش على
-> الـ PATH). لازم تتشغّل قبل الدمج للتأكيد النهائى.
+السماح بالخروج أثناء الطوارئ (F5)، nullable reason codes (F6)، mixed event-wide
+emergency behavior (F7).

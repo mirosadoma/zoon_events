@@ -27,7 +27,7 @@ return new class extends Migration
         });
 
         DB::statement("ALTER TABLE emergency_events ADD CONSTRAINT emergency_events_source_chk CHECK (signal_source IN ('operator','acs','fire_alarm','system'))");
-        DB::statement("ALTER TABLE emergency_events ADD CONSTRAINT emergency_events_behavior_chk CHECK (behavior_applied IN ('fail_open','fail_closed'))");
+        DB::statement("ALTER TABLE emergency_events ADD CONSTRAINT emergency_events_behavior_chk CHECK (behavior_applied IN ('fail_open','fail_closed','mixed'))");
     }
 
     public function down(): void

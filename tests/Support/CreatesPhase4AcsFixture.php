@@ -9,6 +9,7 @@ use App\Modules\AccessControl\Infrastructure\Persistence\Models\AcsLane;
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\AcsZone;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
+use DateTimeInterface;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 
@@ -114,12 +115,13 @@ trait CreatesPhase4AcsFixture
         string $eventType,
         ?string $credentialReference = null,
         ?string $idempotencyKey = null,
+        ?DateTimeInterface $occurredAt = null,
     ): TestResponse {
         $payload = [
             'external_event_id' => $externalEventId,
             'external_acs_lane_id' => $acs['lane']->external_acs_lane_id,
             'event_type' => $eventType,
-            'occurred_at' => now()->toIso8601String(),
+            'occurred_at' => ($occurredAt ?? now())->format('Y-m-d\TH:i:s.uP'),
         ];
 
         if ($credentialReference !== null) {

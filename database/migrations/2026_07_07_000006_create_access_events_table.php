@@ -19,7 +19,7 @@ return new class extends Migration
             $table->char('lane_id', 26)->nullable();
             $table->string('direction', 10)->default('none');
             $table->string('decision', 10)->default('n/a');
-            $table->string('reason_code', 40);
+            $table->string('reason_code', 40)->nullable();
             $table->string('source', 20)->default('acs_gate');
             $table->string('external_event_id', 160)->nullable();
             $table->char('scan_event_id', 26)->nullable();

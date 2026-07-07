@@ -45,7 +45,7 @@ final class GateEventsFeedApiTest extends Phase4MySqlTestCase
             'credential_id' => $acs['credential']->id,
             'direction' => 'entry',
             'decision' => 'n/a',
-            'reason_code' => 'entry',
+            'reason_code' => null,
             'occurred_at' => now()->subMinutes(5),
         ]);
 

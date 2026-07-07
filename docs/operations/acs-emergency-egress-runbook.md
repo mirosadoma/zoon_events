@@ -41,9 +41,8 @@ ACS callback:
 Effects:
 
 - Creates an `EmergencyEvent` with `cleared_at = null`.
-- `behavior_applied` derives from the target zone's `emergency_egress_mode`
-  (`fail_open` default for event-wide).
-- Appends an `AccessEvent` with `reason_code = emergency_raised`.
+- `behavior_applied` derives from the target zone's `emergency_egress_mode`; event-wide emergencies record `mixed` when affected zones use different modes.
+- Appends an emergency `AccessEvent`; non-decision emergency evidence uses `reason_code = null`.
 - Audit action `acs_emergency.raised`.
 
 ## Authorization behavior while active
@@ -67,7 +66,7 @@ Anti-passback and rule denials are bypassed only for the fail-open emergency pat
 ```
 
 Clears all active emergency rows for the target scope (`cleared_at = now()`),
-appends `emergency_cleared` access evidence, and emits `acs_emergency.cleared`
+appends emergency clear access evidence with `reason_code = null`, and emits `acs_emergency.cleared`
 audit rows. Normal authorization resumes immediately.
 
 ## Monitoring
@@ -109,3 +108,5 @@ assume ACS can receive outbound emergency state from Zonetec.
 | `acs_emergency.cleared` | `emergency_event` | `event_id`, `zone_id` |
 
 No integration secrets or credential payloads appear in audit metadata.
+
+

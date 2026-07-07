@@ -25,17 +25,7 @@ final readonly class RaiseEmergencyAction
         string $signalSource,
         DateTimeInterface $raisedAt,
     ): EmergencyEvent {
-        $behavior = 'fail_open';
-
-        if ($zoneId !== null) {
-            $zone = AcsZone::query()
-                ->where('tenant_id', $tenantId)
-                ->where('event_id', $eventId)
-                ->where('id', $zoneId)
-                ->firstOrFail();
-
-            $behavior = $zone->emergency_egress_mode;
-        }
+        $behavior = $this->deriveBehaviorApplied($tenantId, $eventId, $zoneId);
 
         return $this->audited->run(
             function () use ($tenantId, $eventId, $zoneId, $signalSource, $raisedAt, $behavior): EmergencyEvent {
@@ -57,7 +47,7 @@ final readonly class RaiseEmergencyAction
                     'zone_id' => $zoneId,
                     'direction' => 'none',
                     'decision' => 'n/a',
-                    'reason_code' => 'emergency_raised',
+                    'reason_code' => null,
                     'source' => 'acs_gate',
                     'occurred_at' => $raisedAt,
                 ]);
@@ -71,5 +61,34 @@ final readonly class RaiseEmergencyAction
                 $zoneId,
             )),
         );
+    }
+
+    private function deriveBehaviorApplied(string $tenantId, string $eventId, ?string $zoneId): string
+    {
+        if ($zoneId !== null) {
+            return (string) AcsZone::query()
+                ->where('tenant_id', $tenantId)
+                ->where('event_id', $eventId)
+                ->where('id', $zoneId)
+                ->valueOrFail('emergency_egress_mode');
+        }
+
+        $modes = AcsZone::query()
+            ->where('tenant_id', $tenantId)
+            ->where('event_id', $eventId)
+            ->where('status', 'active')
+            ->distinct()
+            ->pluck('emergency_egress_mode')
+            ->values();
+
+        if ($modes->isEmpty()) {
+            return 'fail_open';
+        }
+
+        if ($modes->count() === 1) {
+            return (string) $modes->first();
+        }
+
+        return 'mixed';
     }
 }

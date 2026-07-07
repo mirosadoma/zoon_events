@@ -115,7 +115,7 @@ one entry/exit/emergency event. (Realizes the "access event" of `all_plan.md`
 | `lane_id` | Same scope; nullable for an event-wide emergency |
 | `direction` | `entry`, `exit`, `none` (for `decision`/`emergency` where not directional) |
 | `decision` | `allow`, `deny`, `n/a`; set for `event_type = decision`, `n/a` otherwise |
-| `reason_code` | Stable machine-readable code (see Reason Codes); language-neutral |
+| `reason_code` | Nullable for non-decision events; decision events carry stable machine-readable codes (see Reason Codes); language-neutral |
 | `source` | `acs_gate`, `operator`, `system`; who/what produced the event |
 | `external_event_id` | Nullable; the ACS-supplied idempotency key for ingested entry/exit callbacks |
 | `scan_event_id` | Nullable; links to the Phase 2 `ScanEvent` when an admission lane also recorded a check-in (`research.md` Decision 9) |
@@ -157,7 +157,7 @@ behavior (`all_plan.md` §19.5).
 | `id`, `tenant_id`, `event_id` | Required |
 | `zone_id` | Nullable; the affected zone, or null for an event-wide emergency |
 | `signal_source` | `operator`, `acs`, `fire_alarm`, `system` |
-| `behavior_applied` | `fail_open`, `fail_closed`; the mode applied for affected zones at raise time |
+| `behavior_applied` | `fail_open`, `fail_closed`, `mixed`; the mode applied for affected zones at raise time (`mixed` for event-wide emergencies spanning zones with different modes) |
 | `raised_at` | When the emergency became active |
 | `cleared_at` | Nullable; set when the emergency is cleared and normal decisioning resumes |
 | `created_at`, `updated_at` | Standard |
@@ -222,7 +222,8 @@ is introduced.
    job rebuilds the cache.
 6. A `decision` with `decision = deny` always carries a specific
    `reason_code`; an `allow` may carry `allowed`, `emergency_fail_open`, or
-   `acs_unavailable_fail_open`.
+   `acs_unavailable_fail_open`. Non-decision `entry`, `exit`, and
+   `emergency` events set `reason_code = null`.
 7. While an emergency is active for a zone configured `fail_open`, entry and
    exit decisions at affected lanes return `allow`/`emergency_fail_open`
    regardless of anti-passback or time-window rules; the emergency event and
@@ -235,8 +236,8 @@ is introduced.
 
 ## Reason Codes
 
-Language-neutral codes recorded on `AccessEvent.reason_code` and returned in
-authorization responses (see `contracts/authorization-contract.md`):
+Language-neutral codes recorded on decision `AccessEvent.reason_code` values and returned in
+authorization responses (see `contracts/authorization-contract.md`). Non-decision access events use a null reason code:
 
 | Reason code | Decision | Meaning |
 |---|---|---|
@@ -251,3 +252,5 @@ authorization responses (see `contracts/authorization-contract.md`):
 | `acs_unavailable_fail_open` | allow | ACS dependency unavailable; zone configured fail-open |
 | `acs_unavailable_fail_closed` | deny | ACS dependency unavailable; zone configured fail-closed |
 | `emergency_fail_open` | allow | Emergency active; zone configured fail-open |
+
+

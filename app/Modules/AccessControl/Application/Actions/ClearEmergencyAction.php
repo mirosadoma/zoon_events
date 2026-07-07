@@ -44,7 +44,7 @@ final readonly class ClearEmergencyAction
                     'zone_id' => $zoneId,
                     'direction' => 'none',
                     'decision' => 'n/a',
-                    'reason_code' => 'emergency_cleared',
+                    'reason_code' => null,
                     'source' => 'acs_gate',
                     'occurred_at' => $clearedAt,
                 ]);

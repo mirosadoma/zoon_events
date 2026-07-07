@@ -63,7 +63,7 @@ final readonly class IngestAccessEventAction
                         'lane_id' => $lane->id,
                         'direction' => $eventType,
                         'decision' => 'n/a',
-                        'reason_code' => $eventType,
+                        'reason_code' => null,
                         'source' => 'acs_gate',
                         'external_event_id' => $externalEventId,
                         'occurred_at' => $occurredAt,

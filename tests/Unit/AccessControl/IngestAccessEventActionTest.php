@@ -44,6 +44,7 @@ final class IngestAccessEventActionTest extends Phase4MySqlTestCase
         );
 
         self::assertSame('entry', $first->event_type);
+        self::assertNull($first->reason_code);
         self::assertSame($acs['lane']->id, $first->lane_id);
         self::assertSame($acs['zone']->id, $first->zone_id);
 

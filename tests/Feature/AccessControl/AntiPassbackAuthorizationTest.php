@@ -29,11 +29,14 @@ final class AntiPassbackAuthorizationTest extends Phase4MySqlTestCase
         $acs = $this->createAcsAuthorizationFixture($scan);
         $acs['zone']->forceFill(['anti_passback_enabled' => true])->save();
 
+        $entryAt = now()->subMinutes(2);
+
         $this->postAccessEventCallback(
             $acs,
             'ap-entry-'.Str::lower((string) Str::ulid()),
             'entry',
             $acs['token'],
+            occurredAt: $entryAt,
         )->assertAccepted();
 
         $deny = $this->postJson('/api/v1/acs/v1/authorize', [
@@ -51,6 +54,7 @@ final class AntiPassbackAuthorizationTest extends Phase4MySqlTestCase
             'ap-exit-'.Str::lower((string) Str::ulid()),
             'exit',
             $acs['token'],
+            occurredAt: $entryAt->copy()->addMinute(),
         )->assertAccepted();
 
         $allow = $this->postJson('/api/v1/acs/v1/authorize', [

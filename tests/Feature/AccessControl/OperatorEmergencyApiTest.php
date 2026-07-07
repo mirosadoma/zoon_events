@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\AccessControl;
 
+use App\Modules\AccessControl\Infrastructure\Persistence\Models\AccessEvent;
+use App\Modules\AccessControl\Infrastructure\Persistence\Models\AcsZone;
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\EmergencyEvent;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Str;
@@ -60,6 +62,32 @@ final class OperatorEmergencyApiTest extends Phase4MySqlTestCase
 
         $emergency = EmergencyEvent::query()->findOrFail($emergencyId);
         self::assertNotNull($emergency->cleared_at);
+        self::assertNull(AccessEvent::query()->where('event_type', 'emergency')->latest('created_at')->value('reason_code'));
+    }
+
+    public function test_event_wide_emergency_records_mixed_behavior_when_zones_disagree(): void
+    {
+        $this->assertMySqlConnectionIsAvailable();
+
+        $scan = $this->createIssuedCredentialScanFixture(['acs.emergency.manage']);
+        $acs = $this->createAcsAuthorizationFixture($scan);
+
+        AcsZone::factory()->create([
+            'tenant_id' => $acs['event']->tenant_id,
+            'event_id' => $acs['event']->id,
+            'emergency_egress_mode' => 'fail_closed',
+        ]);
+
+        $this->actingAsScanner($scan);
+
+        $this->postJson(
+            "/api/v1/tenant/events/{$acs['event']->id}/acs/emergency",
+            ['action' => 'raise'],
+            $this->acsTenantHeaders($scan, 'acs-emergency-event-wide-'.Str::ulid()),
+        )
+            ->assertOk()
+            ->assertJsonPath('data.zone_id', null)
+            ->assertJsonPath('data.behavior_applied', 'mixed');
     }
 
     public function test_operator_emergency_requires_permission(): void
