@@ -58,6 +58,14 @@ tags:
     description: Staff QR scan submission and organizer check-in dashboard.
   - name: Offline Scanning
     description: Offline allowlist export and reconciliation batch upload.
+  - name: ACS Configuration
+    description: Organizer/operations management of zones, lanes, authorization rules, and the ACS integration credential.
+  - name: ACS Integration
+    description: Machine-to-machine operations called by the external ACS (authorization, event callbacks, emergency).
+  - name: Gate Events
+    description: Authorized read views of gate events and ACS/lane health.
+  - name: Emergency
+    description: Operator-initiated emergency egress raise/clear.
 paths:
   /public/events/{event_slug}:
     $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1public~1events~1{event_slug}'
@@ -119,6 +127,28 @@ paths:
     $ref: '../../003-wallet-passes-scanning/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1offline-allowlist'
   /tenant/events/{event_id}/offline-scan-batches:
     $ref: '../../003-wallet-passes-scanning/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1offline-scan-batches'
+  /tenant/events/{event_id}/acs/zones:
+    $ref: '../../005-acs-access-control/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1acs~1zones'
+  /tenant/events/{event_id}/acs/zones/{zone_id}:
+    $ref: '../../005-acs-access-control/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1acs~1zones~1{zone_id}'
+  /tenant/events/{event_id}/acs/lanes:
+    $ref: '../../005-acs-access-control/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1acs~1lanes'
+  /tenant/events/{event_id}/acs/rules:
+    $ref: '../../005-acs-access-control/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1acs~1rules'
+  /tenant/events/{event_id}/acs/integration-credentials:
+    $ref: '../../005-acs-access-control/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1acs~1integration-credentials'
+  /acs/v1/authorize:
+    $ref: '../../005-acs-access-control/contracts/openapi.yaml#/paths/~1acs~1v1~1authorize'
+  /acs/v1/events:
+    $ref: '../../005-acs-access-control/contracts/openapi.yaml#/paths/~1acs~1v1~1events'
+  /acs/v1/emergency:
+    $ref: '../../005-acs-access-control/contracts/openapi.yaml#/paths/~1acs~1v1~1emergency'
+  /tenant/events/{event_id}/acs/emergency:
+    $ref: '../../005-acs-access-control/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1acs~1emergency'
+  /tenant/events/{event_id}/acs/gate-events:
+    $ref: '../../005-acs-access-control/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1acs~1gate-events'
+  /tenant/events/{event_id}/acs/health:
+    $ref: '../../005-acs-access-control/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1acs~1health'
   /health/live:
     get:
       tags: [Health]
@@ -1463,6 +1493,8 @@ components:
       $ref: '../../003-wallet-passes-scanning/contracts/openapi.yaml#/components/securitySchemes/TenantSession'
     ApplePassAuth:
       $ref: '../../003-wallet-passes-scanning/contracts/openapi.yaml#/components/securitySchemes/ApplePassAuth'
+    AcsIntegrationAuth:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/securitySchemes/AcsIntegrationAuth'
   headers:
     CorrelationId:
       description: Effective request correlation identifier
@@ -1478,6 +1510,14 @@ components:
       description: Active tenant selected for this operation; verified against membership.
       schema:
         $ref: '#/components/schemas/Ulid'
+    TenantId:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/parameters/TenantId'
+    EventId:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/parameters/EventId'
+    ZoneId:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/parameters/ZoneId'
+    AcceptLanguage:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/parameters/AcceptLanguage'
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -1571,6 +1611,8 @@ components:
         type: string
         pattern: '^[a-z][a-z0-9_.-]{2,119}$'
   responses:
+    Problem:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/responses/Problem'
     Unauthenticated:
       description: Authentication is absent or invalid
       headers:
@@ -2572,3 +2614,55 @@ components:
           $ref: '#/components/schemas/DetailedHealth'
         meta:
           $ref: '#/components/schemas/Meta'
+    ReasonCode:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/ReasonCode'
+    AcsZoneRequest:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/AcsZoneRequest'
+    AcsZoneEnvelope:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/AcsZoneEnvelope'
+    AcsZoneListEnvelope:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/AcsZoneListEnvelope'
+    AcsZone:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/AcsZone'
+    AcsLaneRequest:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/AcsLaneRequest'
+    AcsLaneEnvelope:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/AcsLaneEnvelope'
+    AcsLaneListEnvelope:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/AcsLaneListEnvelope'
+    AcsLane:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/AcsLane'
+    AcsRuleRequest:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/AcsRuleRequest'
+    AcsRuleEnvelope:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/AcsRuleEnvelope'
+    AcsRuleListEnvelope:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/AcsRuleListEnvelope'
+    AcsRule:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/AcsRule'
+    AcsIntegrationCredentialRequest:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/AcsIntegrationCredentialRequest'
+    AcsIntegrationCredentialEnvelope:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/AcsIntegrationCredentialEnvelope'
+    AuthorizationRequest:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/AuthorizationRequest'
+    AuthorizationDecisionEnvelope:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/AuthorizationDecisionEnvelope'
+    AccessEventCallbackRequest:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/AccessEventCallbackRequest'
+    AccessEventEnvelope:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/AccessEventEnvelope'
+    AccessEvent:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/AccessEvent'
+    EmergencySignalRequest:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/EmergencySignalRequest'
+    OperatorEmergencyRequest:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/OperatorEmergencyRequest'
+    EmergencyEventEnvelope:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/EmergencyEventEnvelope'
+    EmergencyEvent:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/EmergencyEvent'
+    GateEventListEnvelope:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/GateEventListEnvelope'
+    AcsHealthEnvelope:
+      $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/AcsHealthEnvelope'

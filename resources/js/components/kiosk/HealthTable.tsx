@@ -19,24 +19,36 @@ export function HealthTable({ eventId, pollIntervalMs = 15000 }: HealthTableProp
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  async function fetchKiosks() {
-    try {
-      const res = await fetch(`/api/v1/tenant/events/${eventId}/kiosks`)
-      if (!res.ok) throw new Error('Failed to fetch kiosk health')
-      const data = await res.json()
-      setKiosks(data.data ?? [])
-      setError(null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   useEffect(() => {
-    fetchKiosks()
-    const interval = setInterval(fetchKiosks, pollIntervalMs)
-    return () => clearInterval(interval)
+    let cancelled = false
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/v1/tenant/events/${eventId}/kiosks`)
+        if (!res.ok) throw new Error('Failed to fetch kiosk health')
+        const data = await res.json()
+        if (cancelled) return
+        setKiosks(data.data ?? [])
+        setError(null)
+      } catch (e) {
+        if (cancelled) return
+        setError(e instanceof Error ? e.message : 'Unknown error')
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
+    void poll()
+    const interval = setInterval(() => {
+      void poll()
+    }, pollIntervalMs)
+
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
   }, [eventId, pollIntervalMs])
 
   if (loading) return <p>Loading kiosk health…</p>

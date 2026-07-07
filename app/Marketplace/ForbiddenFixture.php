@@ -1,0 +1,1 @@
+<?php // controlled phase-boundary fixture

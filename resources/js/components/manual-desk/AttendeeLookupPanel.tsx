@@ -1,5 +1,3 @@
-import type { BadgePrintJob } from '../../types/phase3'
-
 interface LookupMatch {
   attendee_id: string | null
   credential_id: string | null

@@ -32,6 +32,7 @@
     </testsuites>
     <!-- Phase 2 test groups (via @group / #[Group]): wallet-passes, check-in, offline-scanning, phase-2-isolation, phase-2 -->
     <!-- Phase 3 test groups (via @group / #[Group]): kiosk, manual-desk, badge-printing, badge-reprint, walk-up-registration, kiosk-health, phase-3-isolation, phase-3 -->
+    <!-- Phase 4 test groups (via @group / #[Group]): acs-config, acs-authorization, acs-events, acs-anti-passback, acs-unavailable, acs-emergency, acs-health, phase-4-isolation, phase-4 -->
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>

@@ -29,13 +29,13 @@ final readonly class CreateOrUpdateBadgeTemplateAction
 
         if ($existing === null) {
             $template = BadgeTemplate::create([
-                'tenant_id'    => $tenantId,
-                'event_id'     => $eventId,
-                'name'         => $name,
-                'layout'       => $layout,
-                'paper_size'   => $paperSize,
+                'tenant_id' => $tenantId,
+                'event_id' => $eventId,
+                'name' => $name,
+                'layout' => $layout,
+                'paper_size' => $paperSize,
                 'printer_type' => $printerType,
-                'status'       => 'draft',
+                'status' => 'draft',
             ]);
 
             event(new BadgeTemplateCreated($tenantId, $eventId, $template->id));
@@ -44,9 +44,9 @@ final readonly class CreateOrUpdateBadgeTemplateAction
         }
 
         $existing->forceFill([
-            'name'         => $name,
-            'layout'       => $layout,
-            'paper_size'   => $paperSize,
+            'name' => $name,
+            'layout' => $layout,
+            'paper_size' => $paperSize,
             'printer_type' => $printerType,
         ])->save();
 

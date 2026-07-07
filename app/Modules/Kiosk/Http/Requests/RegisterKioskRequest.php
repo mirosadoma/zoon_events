@@ -15,10 +15,10 @@ final class RegisterKioskRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'device_name'         => ['required', 'string', 'max:120'],
-            'location_label'      => ['sometimes', 'nullable', 'string', 'max:160'],
+            'device_name' => ['required', 'string', 'max:120'],
+            'location_label' => ['sometimes', 'nullable', 'string', 'max:160'],
             'confirmation_required' => ['sometimes', 'boolean'],
-            'confirmation_code'   => ['sometimes', 'required_if:confirmation_required,true', 'string', 'max:12'],
+            'confirmation_code' => ['sometimes', 'required_if:confirmation_required,true', 'string', 'max:12'],
         ];
     }
 }

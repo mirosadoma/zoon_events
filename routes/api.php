@@ -28,6 +28,7 @@ Route::prefix('v1')->group(function (): void {
     require base_path('app/Modules/Scanning/Routes/api.php');
     require base_path('app/Modules/Kiosk/Routes/api.php');
     require base_path('app/Modules/BadgePrinting/Routes/api.php');
+    require base_path('app/Modules/AccessControl/Routes/api.php');
 
     Route::post('/auth/token', [AuthController::class, 'issueToken'])
         ->middleware('throttle:auth')

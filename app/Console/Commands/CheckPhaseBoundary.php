@@ -9,40 +9,95 @@ final class CheckPhaseBoundary extends Command
 {
     protected $signature = 'zonetec:phase-boundary:check';
 
-    protected $description = 'Reject container files and product implementation beyond the active Phase 2 scope.';
+    protected $description = 'Reject container files and product implementation beyond the active Phase 4 scope.';
 
     /** @var list<string> */
-    private array $allowedPhaseTwoPaths = [
+    private array $allowedProductPaths = [
         'app/Modules/WalletPasses',
         'app/Modules/Scanning',
+        'app/Modules/Kiosk',
+        'app/Modules/BadgePrinting',
+        'app/Modules/AccessControl',
+        'app/Modules/AdminConsole/Http/Controllers/Tenant/CheckIn',
+        'app/Modules/Authorization/Policies/Phase2',
+        'app/Modules/Authorization/Policies/Phase3',
+        'app/Modules/Authorization/Policies/Phase4',
+        'app/Modules/Audit/Application/Listeners/Phase3',
+        'app/Modules/Audit/Application/Listeners/Phase4',
+        'app/Modules/Operations/Application/Health/Checks/AppleWalletHealthCheck.php',
+        'app/Modules/Operations/Application/Health/Checks/GoogleWalletHealthCheck.php',
+        'app/Modules/Operations/Application/Health/Checks/KioskFleetHealthCheck.php',
+        'app/Modules/Operations/Application/Health/HealthService.php',
+        'app/Modules/Shared/Http/Middleware/RequireIdempotencyKey.php',
+        'app/Modules/Shared/Http/Problems/Phase3Problem.php',
+        'app/Modules/Shared/Http/Problems/Phase4Problem.php',
+        'app/Providers/ModuleServiceProvider.php',
         'resources/js/pages/tenant/checkin',
+        'resources/js/pages/tenant/kiosk',
+        'resources/js/pages/tenant/manual-desk',
+        'resources/js/pages/tenant/badge-templates',
+        'resources/js/pages/tenant/gate-events',
+        'resources/js/pages/tenant/acs',
+        'resources/js/pages/tenant/acs-health',
         'resources/js/components/wallet',
         'resources/js/components/checkin',
+        'resources/js/components/kiosk',
+        'resources/js/components/manual-desk',
+        'resources/js/components/badge-templates',
+        'resources/js/components/gate-events',
+        'resources/js/components/acs',
+        'resources/js/components/acs-health',
         'resources/js/types/phase2.ts',
+        'resources/js/types/phase3.ts',
+        'resources/js/types/phase4.ts',
         'tests/Feature/WalletPasses',
         'tests/Feature/Scanning',
+        'tests/Feature/Kiosk',
+        'tests/Feature/BadgePrinting',
+        'tests/Feature/AccessControl',
         'tests/Contract/Phase2',
+        'tests/Contract/Phase3',
+        'tests/Contract/Phase4',
         'tests/Contract/Wallet',
         'tests/Browser/Phase2',
         'tests/Architecture/Phase2ModuleBoundaryTest.php',
+        'tests/Architecture/Phase3ModuleBoundaryTest.php',
+        'tests/Architecture/Phase4ModuleBoundaryTest.php',
         'tests/Feature/Authorization/Phase2PermissionMatrixTest.php',
+        'tests/Feature/Authorization/Phase4PermissionMatrixTest.php',
         'tests/Support/Phase2MySqlTestCase.php',
+        'tests/Support/Phase3MySqlTestCase.php',
+        'tests/Support/Phase4MySqlTestCase.php',
+        'tests/Support/CreatesPhase4AcsFixture.php',
         'lang/en/phase2.php',
         'lang/ar/phase2.php',
+        'lang/en/phase3.php',
+        'lang/ar/phase3.php',
+        'lang/en/phase4.php',
+        'lang/ar/phase4.php',
         'config/wallet.php',
+        'config/acs.php',
+        'config/printing.php',
+        'database/migrations/2026_07_07_000001_create_acs_integration_credentials_table.php',
+        'database/migrations/2026_07_07_000002_add_acs_gate_scanner_type.php',
+        'database/migrations/2026_07_07_000003_create_acs_zones_table.php',
+        'database/migrations/2026_07_07_000004_create_acs_lanes_table.php',
+        'database/migrations/2026_07_07_000005_create_acs_authorization_rules_table.php',
+        'database/migrations/2026_07_07_0000055_add_scan_events_scope_unique.php',
+        'database/migrations/2026_07_07_000006_create_access_events_table.php',
+        'database/migrations/2026_07_07_000007_fix_idempotency_actor_id_for_integration_auth.php',
+        'database/migrations/2026_07_07_000008_create_anti_passback_states_table.php',
+        'database/migrations/2026_07_07_000009_create_emergency_events_table.php',
     ];
 
     /** @return list<string> */
-    private function forbiddenPhaseThreeNames(): array
+    private function forbiddenPhaseFiveNames(): array
     {
         return [
-            'Kio'.'sk',
-            'Badge'.'Print',
-            'Manual'.'Desk',
-            'Anti'.'Passback',
-            'Acs'.'Lane',
             'Identity'.'Verification',
+            'Identity'.'Assurance',
             'Market'.'place',
+            'Venue'.'Listing',
         ];
     }
 
@@ -65,20 +120,28 @@ final class CheckPhaseBoundary extends Command
                 continue;
             }
 
-            if (! $this->isAllowedPhaseTwoPath($relative)
+            if (! $this->isAllowedProductPath($relative)
                 && preg_match('/\/Modules\/(Wallet|Scan|CheckIn)\//i', '/'.$relative)) {
                 $failures[] = $relative;
             }
 
             if (preg_match(
-                '/\/(Kiosks?|Badges?|BadgePrint|ManualDesk|AntiPassback|AcsLanes?|ACS|IdentityVerification|Marketplace|Hardware|VenueAssets?|Rentals?)(\/|\.|$)/i',
+                '/\/(IdentityVerification|IdentityAssurance|Marketplace|VenueAssets?|Rentals?|Hardware)(\/|\.|$)/i',
                 '/'.$relative,
-            ) === 1 && ! $this->isAllowedPhaseTwoPath($relative)) {
+            ) === 1 && ! $this->isAllowedProductPath($relative)) {
                 $failures[] = $relative;
             }
 
+            if ($this->isAllowedProductPath($relative)) {
+                continue;
+            }
+
+            if (! File::exists($file->getPathname())) {
+                continue;
+            }
+
             $contents = File::get($file->getPathname());
-            foreach ($this->forbiddenPhaseThreeNames() as $name) {
+            foreach ($this->forbiddenPhaseFiveNames() as $name) {
                 if (preg_match('/\b'.preg_quote($name, '/').'\b/i', $relative) === 1
                     || preg_match('/\b'.preg_quote($name, '/').'\b/i', $contents) === 1) {
                     $failures[] = "{$relative} contains {$name}";
@@ -93,9 +156,9 @@ final class CheckPhaseBoundary extends Command
         return $failures === [] ? self::SUCCESS : self::FAILURE;
     }
 
-    private function isAllowedPhaseTwoPath(string $relative): bool
+    private function isAllowedProductPath(string $relative): bool
     {
-        foreach ($this->allowedPhaseTwoPaths as $allowed) {
+        foreach ($this->allowedProductPaths as $allowed) {
             if (str_starts_with($relative, str_replace('\\', '/', $allowed))) {
                 return true;
             }
@@ -112,7 +175,7 @@ final class CheckPhaseBoundary extends Command
 
         if (str_starts_with($relative, 'specs/')
             || str_starts_with($relative, 'docs/')
-            || in_array($relative, ['all_plan.md', 'Zonetec_PRD.md'], true)) {
+            || in_array($relative, ['all_plan.md', 'Zonetec_PRD.md', 'front_plan_step_2.md'], true)) {
             return true;
         }
 
@@ -123,6 +186,8 @@ final class CheckPhaseBoundary extends Command
             'tests/Architecture/Phase1ModuleBoundaryTest.php',
             'tests/Architecture/PhaseBoundaryTest.php',
             'tests/Architecture/Phase2ModuleBoundaryTest.php',
+            'tests/Architecture/Phase3ModuleBoundaryTest.php',
+            'tests/Architecture/Phase4ModuleBoundaryTest.php',
         ], true)) {
             return true;
         }

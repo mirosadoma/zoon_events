@@ -24,8 +24,8 @@ final class KioskStatusDeriverEdgeCasesTest extends TestCase
     {
         $kiosk = new Kiosk;
         $kiosk->forceFill([
-            'status'            => 'retired',
-            'printer_status'    => 'ready',
+            'status' => 'retired',
+            'printer_status' => 'ready',
             'last_heartbeat_at' => CarbonImmutable::now(),
         ]);
 
@@ -38,8 +38,8 @@ final class KioskStatusDeriverEdgeCasesTest extends TestCase
     {
         $kiosk = new Kiosk;
         $kiosk->forceFill([
-            'status'            => 'online',
-            'printer_status'    => 'error',
+            'status' => 'online',
+            'printer_status' => 'error',
             'last_heartbeat_at' => CarbonImmutable::now(),
         ]);
 
@@ -52,8 +52,8 @@ final class KioskStatusDeriverEdgeCasesTest extends TestCase
     {
         $kiosk = new Kiosk;
         $kiosk->forceFill([
-            'status'            => 'registered',
-            'printer_status'    => 'unknown',
+            'status' => 'registered',
+            'printer_status' => 'unknown',
             'last_heartbeat_at' => null,
         ]);
 
@@ -66,8 +66,8 @@ final class KioskStatusDeriverEdgeCasesTest extends TestCase
     {
         $kiosk = new Kiosk;
         $kiosk->forceFill([
-            'status'            => 'online',
-            'printer_status'    => 'ready',
+            'status' => 'online',
+            'printer_status' => 'ready',
             'last_heartbeat_at' => CarbonImmutable::now()->subSeconds(200),
         ]);
 
@@ -80,8 +80,8 @@ final class KioskStatusDeriverEdgeCasesTest extends TestCase
     {
         $kiosk = new Kiosk;
         $kiosk->forceFill([
-            'status'            => 'online',
-            'printer_status'    => 'ready',
+            'status' => 'online',
+            'printer_status' => 'ready',
             'last_heartbeat_at' => CarbonImmutable::now(),
         ]);
 

@@ -101,16 +101,16 @@ final readonly class ReprintBadgeAction
         return $this->transaction->run(
             mutation: function () use ($tenantId, $eventId, $attendeeId, $credentialId, $template, $payload, $priorJob, $actor, $reason): BadgePrintJob {
                 $job = BadgePrintJob::create([
-                    'tenant_id'              => $tenantId,
-                    'event_id'               => $eventId,
-                    'attendee_id'            => $attendeeId,
-                    'credential_id'          => $credentialId,
-                    'badge_template_id'      => $template->id,
-                    'printed_by_user_id'     => $actor->id,
-                    'status'                 => 'queued',
-                    'is_reprint'             => true,
-                    'reprint_reason'         => $reason,
-                    'original_print_job_id'  => $priorJob->id,
+                    'tenant_id' => $tenantId,
+                    'event_id' => $eventId,
+                    'attendee_id' => $attendeeId,
+                    'credential_id' => $credentialId,
+                    'badge_template_id' => $template->id,
+                    'printed_by_user_id' => $actor->id,
+                    'status' => 'queued',
+                    'is_reprint' => true,
+                    'reprint_reason' => $reason,
+                    'original_print_job_id' => $priorJob->id,
                 ]);
 
                 try {
@@ -124,9 +124,9 @@ final readonly class ReprintBadgeAction
                 }
 
                 $job->forceFill([
-                    'status'         => $result->status === 'printed' ? 'printed' : 'failed',
+                    'status' => $result->status === 'printed' ? 'printed' : 'failed',
                     'failure_reason' => $result->status !== 'printed' ? ($result->reasonCode ?? 'unknown') : null,
-                    'printed_at'     => $result->status === 'printed' ? CarbonImmutable::now() : null,
+                    'printed_at' => $result->status === 'printed' ? CarbonImmutable::now() : null,
                 ])->save();
 
                 return $job;

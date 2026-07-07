@@ -21,7 +21,7 @@ final readonly class KioskStatusDeriver
             return 'offline';
         }
 
-        $nowTs       = (int) $now->getTimestamp();
+        $nowTs = (int) $now->getTimestamp();
         $heartbeatTs = (int) $kiosk->last_heartbeat_at->getTimestamp();
 
         if (($nowTs - $heartbeatTs) > $thresholdSeconds) {

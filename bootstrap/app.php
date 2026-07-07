@@ -1,10 +1,15 @@
 <?php
 
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Modules\AccessControl\Http\Middleware\ClearAcsIntegration;
+use App\Modules\AccessControl\Http\Middleware\RequireAcsCapability;
+use App\Modules\AccessControl\Http\Middleware\ResolveAcsIntegration;
 use App\Modules\AdminConsole\Http\Middleware\AuthorizeDashboardPage;
 use App\Modules\Authorization\Http\Middleware\RequirePermission;
 use App\Modules\Events\Http\Middleware\ClearPublicEventContext;
 use App\Modules\Events\Http\Middleware\ResolvePublicEventContext;
+use App\Modules\Kiosk\Http\Middleware\ClearKioskSession;
+use App\Modules\Kiosk\Http\Middleware\ResolveKioskSession;
 use App\Modules\Operations\Application\Telemetry\RecordRequestTelemetry;
 use App\Modules\Shared\Http\Middleware\AssignRequestContext;
 use App\Modules\Shared\Http\Middleware\RequireIdempotencyKey;
@@ -13,8 +18,6 @@ use App\Modules\Shared\Http\Middleware\SecurityHeaders;
 use App\Modules\Shared\Http\Problems\FoundationProblemRenderer;
 use App\Modules\Tenancy\Http\Middleware\ClearTenantContext;
 use App\Modules\Tenancy\Http\Middleware\ResolveTenantContext;
-use App\Modules\Kiosk\Http\Middleware\ClearKioskSession;
-use App\Modules\Kiosk\Http\Middleware\ResolveKioskSession;
 use App\Modules\WalletPasses\Http\Middleware\AuthenticateApplePass;
 use App\Providers\ModuleServiceProvider;
 use Illuminate\Foundation\Application;
@@ -50,6 +53,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'apple-pass-auth' => AuthenticateApplePass::class,
             'kiosk.session' => ResolveKioskSession::class,
             'kiosk.session.clear' => ClearKioskSession::class,
+            'acs.integration' => ResolveAcsIntegration::class,
+            'acs.integration.clear' => ClearAcsIntegration::class,
+            'acs.capability' => RequireAcsCapability::class,
         ]);
 
         $middleware->append([
@@ -67,6 +73,8 @@ return Application::configure(basePath: dirname(__DIR__))
             ResolvePublicEventContext::class,
             ClearTenantContext::class,
             ResolveTenantContext::class,
+            ClearKioskSession::class,
+            ResolveKioskSession::class,
             SubstituteBindings::class,
         ]);
     })

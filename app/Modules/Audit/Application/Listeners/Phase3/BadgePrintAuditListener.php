@@ -37,10 +37,10 @@ final readonly class BadgePrintAuditListener
             targetType: 'badge_print_job',
             targetId: $event->badgePrintJobId,
             metadata: [
-                'event_id'            => $event->eventId,
-                'attendee_id'         => $event->attendeeId,
+                'event_id' => $event->eventId,
+                'attendee_id' => $event->attendeeId,
                 'original_print_job_id' => $event->originalPrintJobId,
-                'reason'              => $event->reason,
+                'reason' => $event->reason,
             ],
         );
     }

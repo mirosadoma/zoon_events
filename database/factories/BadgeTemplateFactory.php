@@ -13,11 +13,11 @@ final class BadgeTemplateFactory extends Factory
     public function definition(): array
     {
         return [
-            'name'         => 'Default Badge Template',
-            'layout'       => ['attendee_name' => [], 'qr' => [], 'ticket_type' => []],
-            'paper_size'   => 'a6',
+            'name' => 'Default Badge Template',
+            'layout' => ['attendee_name' => [], 'qr' => [], 'ticket_type' => []],
+            'paper_size' => 'a6',
             'printer_type' => 'fake',
-            'status'       => 'active',
+            'status' => 'active',
         ];
     }
 

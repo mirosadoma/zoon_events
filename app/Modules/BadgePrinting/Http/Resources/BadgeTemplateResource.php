@@ -16,16 +16,16 @@ final class BadgeTemplateResource extends JsonResource
     public function toArray($request): array
     {
         return [
-            'id'           => $this->id,
-            'event_id'     => $this->event_id,
-            'tenant_id'    => $this->tenant_id,
-            'name'         => $this->name,
-            'layout'       => $this->layout,
-            'paper_size'   => $this->paper_size,
+            'id' => $this->id,
+            'event_id' => $this->event_id,
+            'tenant_id' => $this->tenant_id,
+            'name' => $this->name,
+            'layout' => $this->layout,
+            'paper_size' => $this->paper_size,
             'printer_type' => $this->printer_type,
-            'status'       => $this->status,
-            'created_at'   => $this->created_at?->toIso8601String(),
-            'updated_at'   => $this->updated_at?->toIso8601String(),
+            'status' => $this->status,
+            'created_at' => $this->created_at?->toIso8601String(),
+            'updated_at' => $this->updated_at?->toIso8601String(),
         ];
     }
 }

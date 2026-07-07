@@ -4,8 +4,8 @@ namespace App\Modules\Attendees\Application\Actions;
 
 use App\Modules\Attendees\Domain\Events\WalkUpAttendeeRegistered;
 use App\Modules\Attendees\Domain\WalkUpRegistrationResult;
-use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
+use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Orders\Application\Actions\CompleteFreeRegistration;
 use App\Modules\Orders\Application\Actions\StartPaidRegistration;
 use App\Modules\Orders\Contracts\OrderPaymentPort;
@@ -52,9 +52,9 @@ final readonly class RegisterWalkUpAttendeeAction
         [$firstName, $lastName] = $this->splitName($name);
         $person = array_filter([
             'first_name' => $firstName,
-            'last_name'  => $lastName,
-            'email'      => $email,
-            'phone'      => $phone,
+            'last_name' => $lastName,
+            'email' => $email,
+            'phone' => $phone,
         ], fn ($value) => $value !== null);
 
         $formVersion = RegistrationFormVersion::query()

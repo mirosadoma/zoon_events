@@ -2,9 +2,9 @@
 
 use App\Modules\Attendees\Http\Controllers\WalkUpRegistrationController;
 use App\Modules\Scanning\Http\Controllers\CheckInSummaryController;
+use App\Modules\Scanning\Http\Controllers\ManualDesk\LookupController;
 use App\Modules\Scanning\Http\Controllers\OfflineAllowlistController;
 use App\Modules\Scanning\Http\Controllers\OfflineScanBatchController;
-use App\Modules\Scanning\Http\Controllers\ManualDesk\LookupController;
 use App\Modules\Scanning\Http\Controllers\ScanController;
 use Illuminate\Support\Facades\Route;
 

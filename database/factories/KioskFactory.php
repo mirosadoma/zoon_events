@@ -14,15 +14,15 @@ final class KioskFactory extends Factory
     public function definition(): array
     {
         return [
-            'device_name'          => 'Kiosk '.$this->faker->word(),
-            'device_code'          => strtoupper(Str::random(8)),
-            'location_label'       => null,
-            'status'               => 'registered',
-            'printer_status'       => 'unknown',
-            'last_heartbeat_at'    => null,
+            'device_name' => 'Kiosk '.$this->faker->word(),
+            'device_code' => strtoupper(Str::random(8)),
+            'location_label' => null,
+            'status' => 'registered',
+            'printer_status' => 'unknown',
+            'last_heartbeat_at' => null,
             'confirmation_required' => false,
             'confirmation_code_hash' => null,
-            'retired_at'           => null,
+            'retired_at' => null,
         ];
     }
 

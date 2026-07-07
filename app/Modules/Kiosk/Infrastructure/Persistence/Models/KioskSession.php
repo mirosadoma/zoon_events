@@ -21,9 +21,9 @@ final class KioskSession extends Model
     {
         return [
             'confirmed_at' => 'datetime',
-            'expires_at'   => 'datetime',
-            'revoked_at'   => 'datetime',
-            'created_at'   => 'datetime',
+            'expires_at' => 'datetime',
+            'revoked_at' => 'datetime',
+            'created_at' => 'datetime',
         ];
     }
 

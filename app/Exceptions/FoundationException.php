@@ -12,7 +12,7 @@ class FoundationException extends Exception
         public readonly string $title,
         string $detail,
     ) {
-        parent::__construct($detail, $status);
+        parent::__construct($detail, 0);
     }
 
     public static function conflict(string $code, string $detail): self

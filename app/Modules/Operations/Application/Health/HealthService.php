@@ -3,12 +3,13 @@
 namespace App\Modules\Operations\Application\Health;
 
 use App\Modules\Operations\Application\Configuration\ConfigurationValidator;
+use App\Modules\Operations\Application\Health\Checks\AcsIntegrationHealthCheck;
 use App\Modules\Operations\Application\Health\Checks\AppleWalletHealthCheck;
 use App\Modules\Operations\Application\Health\Checks\BadgePrinterHealthCheck;
 use App\Modules\Operations\Application\Health\Checks\CredentialSigningHealthCheck;
-use App\Modules\Operations\Application\Health\Checks\KioskFleetHealthCheck;
 use App\Modules\Operations\Application\Health\Checks\DataProtectionHealthCheck;
 use App\Modules\Operations\Application\Health\Checks\GoogleWalletHealthCheck;
+use App\Modules\Operations\Application\Health\Checks\KioskFleetHealthCheck;
 use App\Modules\Operations\Application\Health\Checks\NotificationConfigurationHealthCheck;
 use App\Modules\Operations\Application\Health\Checks\PaymentCheck;
 use App\Modules\Operations\Contracts\HealthCheck;
@@ -63,6 +64,7 @@ class HealthService
                 'google_wallet' => $this->runExtensionCheck(GoogleWalletHealthCheck::class),
                 'badge_printer' => $this->runExtensionCheck(BadgePrinterHealthCheck::class),
                 'kiosk_fleet' => $this->runExtensionCheck(KioskFleetHealthCheck::class),
+                'acs_integration' => $this->runExtensionCheck(AcsIntegrationHealthCheck::class),
                 default => null,
             };
 

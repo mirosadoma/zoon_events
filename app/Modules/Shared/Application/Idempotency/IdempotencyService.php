@@ -25,6 +25,13 @@ final class IdempotencyService
             $record = null;
         }
 
+        if ($record instanceof IdempotencyRecord
+            && $record->state === 'completed'
+            && ($record->response_status < 200 || $record->response_status >= 300)) {
+            $record->delete();
+            $record = null;
+        }
+
         if (! $record instanceof IdempotencyRecord) {
             try {
                 return IdempotencyRecord::query()->create($attributes + [
@@ -33,8 +40,12 @@ final class IdempotencyService
                     'state' => 'processing',
                     'expires_at' => now()->addHours((int) config('zonetec.idempotency_hours', 24)),
                 ]);
-            } catch (QueryException) {
-                $record = IdempotencyRecord::query()->where($attributes)->firstOrFail();
+            } catch (QueryException $exception) {
+                $record = IdempotencyRecord::query()->where($attributes)->first();
+
+                if ($record === null) {
+                    throw $exception;
+                }
             }
         }
 

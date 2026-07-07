@@ -10,16 +10,17 @@ use App\Modules\Notifications\Application\NotificationAdapterRegistry;
 use App\Modules\Notifications\Domain\NotificationChannel;
 use App\Modules\Notifications\Domain\NotificationRequest;
 use App\Modules\Scanning\Application\Queries\LookupAttendeesQuery;
-use App\Modules\Scanning\Infrastructure\Persistence\Models\EventCheckInSetting;
 use App\Modules\Scanning\Http\Requests\AttendeeLookupRequest;
 use App\Modules\Scanning\Http\Resources\AttendeeLookupResource;
+use App\Modules\Scanning\Infrastructure\Persistence\Models\EventCheckInSetting;
 use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
 use App\Modules\Shared\Http\Problems\Phase3Problem;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
-final class KioskLookupController extends \App\Http\Controllers\Controller
+final class KioskLookupController extends Controller
 {
     use RespondsWithApi;
 
@@ -31,11 +32,11 @@ final class KioskLookupController extends \App\Http\Controllers\Controller
         private readonly PersonalDataCipher $cipher,
     ) {}
 
-    public function store(AttendeeLookupRequest $request): \Illuminate\Http\JsonResponse
+    public function store(AttendeeLookupRequest $request): JsonResponse
     {
-        $context  = $this->kioskContexts->current();
+        $context = $this->kioskContexts->current();
         $tenantId = $context->tenantId;
-        $eventId  = $context->eventId;
+        $eventId = $context->eventId;
 
         if ($request->filled('qr_payload')) {
             $validated = $this->credentials->validate(
@@ -45,16 +46,16 @@ final class KioskLookupController extends \App\Http\Controllers\Controller
             );
             $result = [
                 'too_many' => false,
-                'matches'  => [[
-                    'attendee_id'       => null,
-                    'credential_id'     => $validated['credential_id'],
-                    'display_name'      => null,
+                'matches' => [[
+                    'attendee_id' => null,
+                    'credential_id' => $validated['credential_id'],
+                    'display_name' => null,
                     'ticket_type_label' => null,
-                    'checkin_status'    => 'not_checked_in',
+                    'checkin_status' => 'not_checked_in',
                 ]],
             ];
         } else {
-            $fragment   = $request->string('query')->toString();
+            $fragment = $request->string('query')->toString();
             $maxMatches = (int) config('printing.lookup.max_matches', 8);
             $result = $this->lookup->search($tenantId, $eventId, $fragment, $maxMatches);
 

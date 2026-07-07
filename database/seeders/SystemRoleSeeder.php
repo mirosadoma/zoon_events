@@ -55,6 +55,9 @@ final class SystemRoleSeeder extends Seeder
                     'On-Site Staff' => Permission::query()->whereIn('key', [
                         'checkin.scan.submit', 'checkin.dashboard.view', 'checkin.desk.perform',
                     ])->pluck('id')->all(),
+                    'ACS Operator' => Permission::query()->whereIn('key', [
+                        'acs.configure', 'acs.events.view', 'acs.health.view',
+                    ])->pluck('id')->all(),
                 ];
 
                 foreach ($roles as $name => $permissionIds) {

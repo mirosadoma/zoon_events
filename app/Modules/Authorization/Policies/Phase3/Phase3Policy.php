@@ -9,12 +9,12 @@ use App\Modules\Tenancy\Domain\Context\TenantContextStore;
 final readonly class Phase3Policy
 {
     public const ABILITIES = [
-        'manageKiosk'            => 'kiosk.manage',
-        'viewKioskHealth'        => 'kiosk.health.view',
-        'performDeskCheckIn'     => 'checkin.desk.perform',
-        'printBadge'             => 'badge.print',
-        'reprintBadge'           => 'badge.reprint',
-        'manageBadgeTemplate'    => 'badge.template.manage',
+        'manageKiosk' => 'kiosk.manage',
+        'viewKioskHealth' => 'kiosk.health.view',
+        'performDeskCheckIn' => 'checkin.desk.perform',
+        'printBadge' => 'badge.print',
+        'reprintBadge' => 'badge.reprint',
+        'manageBadgeTemplate' => 'badge.template.manage',
         'registerWalkUpAttendee' => 'attendee.walkup.register',
     ];
 

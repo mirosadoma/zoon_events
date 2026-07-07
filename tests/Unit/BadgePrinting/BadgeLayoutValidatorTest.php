@@ -2,8 +2,8 @@
 
 namespace Tests\Unit\BadgePrinting;
 
-use App\Modules\BadgePrinting\Application\Support\BadgeLayoutValidator;
 use App\Exceptions\FoundationException;
+use App\Modules\BadgePrinting\Application\Support\BadgeLayoutValidator;
 use PHPUnit\Framework\Attributes\Group;
 use Tests\TestCase;
 
@@ -23,8 +23,8 @@ final class BadgeLayoutValidatorTest extends TestCase
     {
         $this->validator->validate([
             'attendee_name' => [],
-            'qr'           => [],
-            'ticket_type'  => [],
+            'qr' => [],
+            'ticket_type' => [],
         ]);
 
         $this->addToAssertionCount(1);
@@ -35,24 +35,24 @@ final class BadgeLayoutValidatorTest extends TestCase
         $this->expectException(FoundationException::class);
 
         $this->validator->validate([
-            'attendee_name'  => [],
-            'invalid_field'  => [],
+            'attendee_name' => [],
+            'invalid_field' => [],
         ]);
     }
 
     public function test_all_allowed_fields_pass_validation(): void
     {
         $this->validator->validate([
-            'attendee_name'    => [],
-            'company'         => [],
-            'job_title'       => [],
-            'qr'              => [],
-            'ticket_type'     => [],
-            'tier'            => [],
-            'zone'            => [],
-            'sponsor_logo_ref'   => [],
+            'attendee_name' => [],
+            'company' => [],
+            'job_title' => [],
+            'qr' => [],
+            'ticket_type' => [],
+            'tier' => [],
+            'zone' => [],
+            'sponsor_logo_ref' => [],
             'organizer_logo_ref' => [],
-            'color_code'      => [],
+            'color_code' => [],
         ]);
 
         $this->addToAssertionCount(1);

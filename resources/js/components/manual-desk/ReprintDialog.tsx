@@ -6,7 +6,7 @@ interface ReprintDialogProps {
   onCancel: () => void
 }
 
-export function ReprintDialog({ printJobId, onSubmit, onCancel }: ReprintDialogProps) {
+export function ReprintDialog({ onSubmit, onCancel }: ReprintDialogProps) {
   const [reason, setReason] = useState('')
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {

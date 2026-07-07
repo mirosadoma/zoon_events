@@ -39,7 +39,7 @@ final class KioskPairingController extends Controller
 
         return $this->success([
             'session_secret' => $result['secret'],
-            'expires_at'     => $result['expiresAt']->format('Y-m-d\TH:i:s\Z'),
+            'expires_at' => $result['expiresAt']->format('Y-m-d\TH:i:s\Z'),
         ], 201);
     }
 }

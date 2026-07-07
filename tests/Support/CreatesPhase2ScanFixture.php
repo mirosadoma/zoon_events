@@ -14,6 +14,8 @@ use Illuminate\Support\Str;
 
 trait CreatesPhase2ScanFixture
 {
+    use BuildsTenantFixtures;
+
     /** @return array{fixture:array<string,mixed>,token:string,credential:Credential,membership:TenantMembership,scanner:User} */
     protected function createIssuedCredentialScanFixture(array $permissions = ['checkin.scan.submit']): array
     {

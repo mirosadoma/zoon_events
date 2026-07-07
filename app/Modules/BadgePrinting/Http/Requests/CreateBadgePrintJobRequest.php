@@ -16,7 +16,7 @@ final class CreateBadgePrintJobRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'attendee_id'   => ['required', 'string'],
+            'attendee_id' => ['required', 'string'],
             'credential_id' => ['required', 'string'],
         ];
     }

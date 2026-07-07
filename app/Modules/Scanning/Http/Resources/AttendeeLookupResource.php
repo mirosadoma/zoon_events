@@ -14,7 +14,7 @@ final class AttendeeLookupResource extends JsonResource
 
         return [
             'too_many' => (bool) ($data['too_many'] ?? false),
-            'matches'  => $data['matches'] ?? [],
+            'matches' => $data['matches'] ?? [],
         ];
     }
 }

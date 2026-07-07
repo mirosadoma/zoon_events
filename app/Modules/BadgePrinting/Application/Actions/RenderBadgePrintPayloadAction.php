@@ -26,10 +26,10 @@ final readonly class RenderBadgePrintPayloadAction
 
         foreach (array_keys($layout) as $fieldKey) {
             $fields[$fieldKey] = match ($fieldKey) {
-                'attendee_name'  => $this->resolveAttendeeName($tenantId, $eventId, $attendeeId),
-                'qr'             => $this->resolveQrPayload($tenantId, $eventId, $credentialId),
-                'ticket_type'    => $this->resolveTicketType($tenantId, $eventId, $credentialId),
-                default          => null,
+                'attendee_name' => $this->resolveAttendeeName($tenantId, $eventId, $attendeeId),
+                'qr' => $this->resolveQrPayload($tenantId, $eventId, $credentialId),
+                'ticket_type' => $this->resolveTicketType($tenantId, $eventId, $credentialId),
+                default => null,
             };
         }
 

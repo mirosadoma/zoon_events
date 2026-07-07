@@ -18,6 +18,7 @@ final class Phase3ModuleBoundaryTest extends TestCase
             $root = app_path('Modules');
             if (! is_dir($root)) {
                 $violations[] = "Missing module directory: {$root}";
+
                 continue;
             }
             $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS));
@@ -46,6 +47,14 @@ final class Phase3ModuleBoundaryTest extends TestCase
             'tests'.DIRECTORY_SEPARATOR,
             '__tests__'.DIRECTORY_SEPARATOR,
             'CheckPhaseBoundary.php',
+            'app'.DIRECTORY_SEPARATOR.'Modules'.DIRECTORY_SEPARATOR.'AccessControl'.DIRECTORY_SEPARATOR,
+            'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'pages'.DIRECTORY_SEPARATOR.'tenant'.DIRECTORY_SEPARATOR.'acs'.DIRECTORY_SEPARATOR,
+            'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'pages'.DIRECTORY_SEPARATOR.'tenant'.DIRECTORY_SEPARATOR.'acs-health'.DIRECTORY_SEPARATOR,
+            'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'pages'.DIRECTORY_SEPARATOR.'tenant'.DIRECTORY_SEPARATOR.'gate-events'.DIRECTORY_SEPARATOR,
+            'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'components'.DIRECTORY_SEPARATOR.'acs'.DIRECTORY_SEPARATOR,
+            'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'components'.DIRECTORY_SEPARATOR.'acs-health'.DIRECTORY_SEPARATOR,
+            'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'components'.DIRECTORY_SEPARATOR.'gate-events'.DIRECTORY_SEPARATOR,
+            'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'types'.DIRECTORY_SEPARATOR.'phase4.ts',
         ];
         $roots = [app_path(), resource_path('js'), base_path('routes'), database_path('migrations')];
         $violations = [];

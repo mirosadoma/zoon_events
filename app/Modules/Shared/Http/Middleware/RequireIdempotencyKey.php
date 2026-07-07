@@ -4,6 +4,7 @@ namespace App\Modules\Shared\Http\Middleware;
 
 use App\Exceptions\FoundationException;
 use App\Models\User;
+use App\Modules\AccessControl\Domain\Context\AcsIntegrationContextStore;
 use App\Modules\Shared\Application\Idempotency\IdempotencyService;
 use App\Modules\Tenancy\Domain\Context\TenantContextStore;
 use Closure;
@@ -17,6 +18,7 @@ final class RequireIdempotencyKey
     public function __construct(
         private readonly IdempotencyService $service,
         private readonly TenantContextStore $tenants,
+        private readonly AcsIntegrationContextStore $acsIntegrations,
     ) {}
 
     public function handle(Request $request, Closure $next): Response
@@ -27,25 +29,45 @@ final class RequireIdempotencyKey
         }
 
         $actor = $request->user();
-        if (! $actor instanceof User) {
-            throw FoundationException::unauthenticated();
+        if ($actor instanceof User) {
+            $tenant = $this->tenants->currentOrNull();
+            $scope = $tenant ? 'tenant' : 'platform';
+            $tenantId = $tenant?->tenant->id;
+            $actorId = $actor->id;
+        } else {
+            $acs = $this->acsIntegrations->currentOrNull();
+            if ($acs === null) {
+                throw FoundationException::unauthenticated();
+            }
+
+            $scope = 'tenant';
+            $tenantId = $acs->tenantId;
+            $actorId = $acs->eventId;
         }
 
-        $tenant = $this->tenants->currentOrNull();
-        $scope = $tenant ? 'tenant' : 'platform';
-        $tenantId = $tenant?->tenant->id;
         $operation = $request->route()?->getName() ?: $request->method().' '.$request->route()?->uri();
         $requestHash = hash('sha256', json_encode([$request->method(), $request->path(), $request->query(), $request->all()], JSON_THROW_ON_ERROR));
-        $record = $this->service->acquire($scope, $tenantId, $actor->id, $operation, $key, $requestHash);
+        $record = $this->service->acquire($scope, $tenantId, $actorId, $operation, $key, $requestHash);
 
         if ($record->state === 'completed') {
-            return response()->json($record->response_body, $record->response_status, ['Idempotent-Replayed' => 'true']);
+            $status = (int) $record->response_status;
+            if ($status >= 200 && $status < 300) {
+                return response()->json($record->response_body, $status, ['Idempotent-Replayed' => 'true']);
+            }
+
+            $record->delete();
+            $record = $this->service->acquire($scope, $tenantId, $actorId, $operation, $key, $requestHash);
         }
 
         try {
             $response = $next($request);
-            $body = $response instanceof JsonResponse ? $response->getData(true) : null;
-            $this->service->complete($record, $response->getStatusCode(), $body);
+
+            if ($response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
+                $body = $response instanceof JsonResponse ? $response->getData(true) : null;
+                $this->service->complete($record, $response->getStatusCode(), $body);
+            } else {
+                $this->service->fail($record);
+            }
 
             return $response;
         } catch (Throwable $throwable) {

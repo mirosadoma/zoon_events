@@ -14,7 +14,7 @@ final readonly class RecordKioskHeartbeatAction
     ): void {
         $kiosk->forceFill([
             'last_heartbeat_at' => now(),
-            'printer_status'    => $printerStatus,
+            'printer_status' => $printerStatus,
         ])->save();
     }
 }

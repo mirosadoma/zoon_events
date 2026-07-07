@@ -19,8 +19,8 @@ final class Kiosk extends Model
     protected function casts(): array
     {
         return [
-            'last_heartbeat_at'    => 'datetime',
-            'retired_at'           => 'datetime',
+            'last_heartbeat_at' => 'datetime',
+            'retired_at' => 'datetime',
             'confirmation_required' => 'boolean',
         ];
     }

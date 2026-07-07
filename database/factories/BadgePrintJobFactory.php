@@ -16,14 +16,14 @@ final class BadgePrintJobFactory extends Factory
     public function definition(): array
     {
         return [
-            'status'               => 'queued',
-            'failure_reason'       => null,
-            'is_reprint'           => false,
-            'reprint_reason'       => null,
+            'status' => 'queued',
+            'failure_reason' => null,
+            'is_reprint' => false,
+            'reprint_reason' => null,
             'original_print_job_id' => null,
-            'printed_at'           => null,
-            'kiosk_id'             => null,
-            'printed_by_user_id'   => null,
+            'printed_at' => null,
+            'kiosk_id' => null,
+            'printed_by_user_id' => null,
         ];
     }
 
@@ -40,10 +40,10 @@ final class BadgePrintJobFactory extends Factory
     public function forCredential(Credential $credential, Attendee $attendee, BadgeTemplate $template): static
     {
         return $this->state(fn (): array => [
-            'tenant_id'         => $credential->tenant_id,
-            'event_id'          => $credential->event_id,
-            'attendee_id'       => $attendee->id,
-            'credential_id'     => $credential->id,
+            'tenant_id' => $credential->tenant_id,
+            'event_id' => $credential->event_id,
+            'attendee_id' => $attendee->id,
+            'credential_id' => $credential->id,
             'badge_template_id' => $template->id,
         ]);
     }

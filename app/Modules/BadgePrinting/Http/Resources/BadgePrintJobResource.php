@@ -16,13 +16,13 @@ final class BadgePrintJobResource extends JsonResource
         $job = $this->resource;
 
         return [
-            'id'                   => $job->id,
-            'status'               => $job->status,
-            'failure_reason'       => $job->failure_reason,
-            'is_reprint'           => $job->is_reprint,
-            'reprint_reason'       => $job->reprint_reason,
+            'id' => $job->id,
+            'status' => $job->status,
+            'failure_reason' => $job->failure_reason,
+            'is_reprint' => $job->is_reprint,
+            'reprint_reason' => $job->reprint_reason,
             'original_print_job_id' => $job->original_print_job_id,
-            'printed_at'           => $job->printed_at?->toIso8601String(),
+            'printed_at' => $job->printed_at?->toIso8601String(),
         ];
     }
 }

@@ -16,7 +16,7 @@ final readonly class PairKioskAction
     public function execute(Kiosk $kiosk): array
     {
         $secretLength = (int) config('printing.kiosk.session_secret_length', 40);
-        $ttlHours     = (int) config('printing.kiosk.session_ttl_hours', 168);
+        $ttlHours = (int) config('printing.kiosk.session_ttl_hours', 168);
 
         $rawSecret = sodium_bin2base64(
             random_bytes($secretLength),
@@ -35,11 +35,11 @@ final readonly class PairKioskAction
                 ->each(fn (KioskSession $s) => $s->forceFill(['revoked_at' => now()])->save());
 
             $session = KioskSession::create([
-                'tenant_id'   => $kiosk->tenant_id,
-                'kiosk_id'    => $kiosk->id,
+                'tenant_id' => $kiosk->tenant_id,
+                'kiosk_id' => $kiosk->id,
                 'secret_hash' => hash('sha256', $rawSecret),
-                'expires_at'  => $expiresAt,
-                'created_at'  => now(),
+                'expires_at' => $expiresAt,
+                'created_at' => now(),
             ]);
 
             event(new KioskPaired($kiosk->tenant_id, $kiosk->event_id, $kiosk->id, $session->id));

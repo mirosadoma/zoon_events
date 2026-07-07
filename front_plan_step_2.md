@@ -157,11 +157,6 @@ Each phase card should include:
 
 ### 3.4 Example Phases To Display
 
-1. Phase 0 — Foundation and Constitution
-2. Phase 1 — Registration, Ticketing, Orders, and Credentials
-3. Phase 2 — Wallet Passes and QR Scanning
-4. Phase 3 — Kiosk, Badge Printing, and Manual Desk
-5. Phase 4 — ACS and Access Control
 6. Phase 5 — Identity Verification
 7. Phase 6 — Venue Marketplace
 8. Phase 7 — On-Premise, Enterprise, and Compliance

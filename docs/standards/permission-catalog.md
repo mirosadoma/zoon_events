@@ -39,3 +39,8 @@ Phase 3 tenant keys: `kiosk.manage`, `kiosk.health.view`, `checkin.desk.perform`
 `badge.print`, `badge.reprint`, `badge.template.manage`, and `attendee.walkup.register`.
 Kiosk devices authenticate via device-session tokens resolved by the `kiosk.session`
 middleware and do not hold user RBAC permissions.
+
+Phase 4 tenant keys: `acs.configure`, `acs.events.view`, `acs.health.view`, and
+`acs.emergency.manage`. ACS integrations authenticate with M2M credentials and
+capability lists (`authorize`, `event.ingest`, `emergency.ingest`), not workforce
+RBAC. Full Phase 4 tables live in `docs/security/permissions-phase4.md`.

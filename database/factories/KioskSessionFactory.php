@@ -13,11 +13,11 @@ final class KioskSessionFactory extends Factory
     public function definition(): array
     {
         return [
-            'secret_hash'  => hash('sha256', 'fake-session-secret-'.$this->faker->uuid()),
+            'secret_hash' => hash('sha256', 'fake-session-secret-'.$this->faker->uuid()),
             'confirmed_at' => null,
-            'expires_at'   => now()->addDays(7),
-            'revoked_at'   => null,
-            'created_at'   => now(),
+            'expires_at' => now()->addDays(7),
+            'revoked_at' => null,
+            'created_at' => now(),
         ];
     }
 

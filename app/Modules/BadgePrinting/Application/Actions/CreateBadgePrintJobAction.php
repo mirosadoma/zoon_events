@@ -44,15 +44,15 @@ final readonly class CreateBadgePrintJobAction
         return $this->transaction->run(
             mutation: function () use ($tenantId, $eventId, $attendeeId, $credentialId, $template, $payload, $kioskId, $printedByUserId): BadgePrintJob {
                 $job = BadgePrintJob::create([
-                    'tenant_id'          => $tenantId,
-                    'event_id'           => $eventId,
-                    'attendee_id'        => $attendeeId,
-                    'credential_id'      => $credentialId,
-                    'badge_template_id'  => $template->id,
-                    'kiosk_id'           => $kioskId,
+                    'tenant_id' => $tenantId,
+                    'event_id' => $eventId,
+                    'attendee_id' => $attendeeId,
+                    'credential_id' => $credentialId,
+                    'badge_template_id' => $template->id,
+                    'kiosk_id' => $kioskId,
                     'printed_by_user_id' => $printedByUserId,
-                    'status'             => 'queued',
-                    'is_reprint'         => false,
+                    'status' => 'queued',
+                    'is_reprint' => false,
                 ]);
 
                 try {
@@ -66,9 +66,9 @@ final readonly class CreateBadgePrintJobAction
                 }
 
                 $job->forceFill([
-                    'status'         => $result->status === 'printed' ? 'printed' : 'failed',
+                    'status' => $result->status === 'printed' ? 'printed' : 'failed',
                     'failure_reason' => $result->status !== 'printed' ? ($result->reasonCode ?? 'unknown') : null,
-                    'printed_at'     => $result->status === 'printed' ? CarbonImmutable::now() : null,
+                    'printed_at' => $result->status === 'printed' ? CarbonImmutable::now() : null,
                 ])->save();
 
                 return $job;

@@ -14,7 +14,7 @@ class PhaseBoundaryTest extends TestCase
 
     public function test_controlled_phase_two_product_fixtures_are_rejected(): void
     {
-        foreach (['Kiosk', 'Badge', 'ACS', 'IdentityVerification', 'Marketplace', 'Hardware'] as $name) {
+        foreach (['IdentityVerification', 'Marketplace', 'VenueListing', 'Hardware'] as $name) {
             $directory = app_path($name);
             File::ensureDirectoryExists($directory);
             $fixture = $directory.'/ForbiddenFixture.php';

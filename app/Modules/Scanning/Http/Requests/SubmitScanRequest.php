@@ -17,13 +17,13 @@ final class SubmitScanRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'qr_payload'      => ['sometimes', 'string', 'max:512'],
-            'credential_id'   => ['sometimes', 'string'],
-            'scanner_type'    => ['required', 'string', Rule::in(['staff_phone', 'handheld_scanner', 'manual_desk'])],
-            'override'        => ['sometimes', 'boolean'],
+            'qr_payload' => ['sometimes', 'string', 'max:512'],
+            'credential_id' => ['sometimes', 'string'],
+            'scanner_type' => ['required', 'string', Rule::in(['staff_phone', 'handheld_scanner', 'manual_desk'])],
+            'override' => ['sometimes', 'boolean'],
             'override_reason' => ['sometimes', 'nullable', 'string', 'max:500'],
-            'offline_mode'    => ['sometimes', 'boolean'],
-            'scanned_at'      => ['sometimes', 'nullable', 'date'],
+            'offline_mode' => ['sometimes', 'boolean'],
+            'scanned_at' => ['sometimes', 'nullable', 'date'],
         ];
     }
 
@@ -36,7 +36,7 @@ final class SubmitScanRequest extends FormRequest
                 $validator->errors()->add('body', 'Unknown fields are not permitted.');
             }
 
-            $hasQr         = $this->filled('qr_payload');
+            $hasQr = $this->filled('qr_payload');
             $hasCredential = $this->filled('credential_id');
 
             if (! $hasQr && ! $hasCredential) {

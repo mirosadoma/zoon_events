@@ -2,6 +2,7 @@
 
 namespace App\Modules\Operations\Application\Telemetry;
 
+use App\Exceptions\FoundationException;
 use App\Modules\Shared\Domain\Context\RequestContextStore;
 use Closure;
 use Illuminate\Http\Request;
@@ -26,9 +27,11 @@ final class RecordRequestTelemetry
 
             return $response;
         } catch (Throwable $throwable) {
-            $status = method_exists($throwable, 'getStatusCode')
-                ? (int) $throwable->getStatusCode()
-                : ((int) $throwable->getCode() >= 400 && (int) $throwable->getCode() <= 599 ? (int) $throwable->getCode() : 500);
+            $status = $throwable instanceof FoundationException
+                ? $throwable->status
+                : (method_exists($throwable, 'getStatusCode')
+                    ? (int) $throwable->getStatusCode()
+                    : ((int) $throwable->getCode() >= 400 && (int) $throwable->getCode() <= 599 ? (int) $throwable->getCode() : 500));
 
             throw $throwable;
         } finally {

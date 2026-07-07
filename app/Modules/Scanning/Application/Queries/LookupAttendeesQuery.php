@@ -17,6 +17,7 @@ use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
 final readonly class LookupAttendeesQuery
 {
     private const EMAIL_PATTERN = '/^[^@]+@[^@]+\.[^@]+$/';
+
     private const PHONE_PATTERN = '/^\+?[0-9\s\-]{6,20}$/';
 
     public function __construct(
@@ -25,7 +26,7 @@ final readonly class LookupAttendeesQuery
     ) {}
 
     /**
-     * @param int $maxMatches Maximum allowed matches before returning too_many.
+     * @param  int  $maxMatches  Maximum allowed matches before returning too_many.
      * @return array{too_many: bool, matches: list<array{attendee_id: string, credential_id: string|null, display_name: string, ticket_type_label: string, checkin_status: string}>}
      */
     public function search(string $tenantId, string $eventId, string $fragment, int $maxMatches = 8): array
@@ -55,8 +56,8 @@ final readonly class LookupAttendeesQuery
 
         $mapped = $rows->map(function (Attendee $attendee) use ($tenantId, $eventId): array {
             $firstName = $this->decryptOrNull($attendee->first_name_ciphertext, $attendee->encryption_key_id, $tenantId, $eventId);
-            $lastName  = $this->decryptOrNull($attendee->last_name_ciphertext, $attendee->encryption_key_id, $tenantId, $eventId);
-            $displayName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
+            $lastName = $this->decryptOrNull($attendee->last_name_ciphertext, $attendee->encryption_key_id, $tenantId, $eventId);
+            $displayName = trim(($firstName ?? '').' '.($lastName ?? ''));
 
             $credential = Credential::query()
                 ->where('tenant_id', $tenantId)
@@ -68,11 +69,11 @@ final readonly class LookupAttendeesQuery
                 ->first();
 
             return [
-                'attendee_id'       => $attendee->id,
-                'credential_id'     => $credential?->id,
-                'display_name'      => $displayName,
+                'attendee_id' => $attendee->id,
+                'credential_id' => $credential?->id,
+                'display_name' => $displayName,
                 'ticket_type_label' => (string) ($attendee->ticket_type_id ?? ''),
-                'checkin_status'    => (string) ($attendee->checkin_status ?? 'not_checked_in'),
+                'checkin_status' => (string) ($attendee->checkin_status ?? 'not_checked_in'),
             ];
         });
 

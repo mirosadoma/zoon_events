@@ -10,8 +10,8 @@ use App\Modules\Kiosk\Domain\KioskStatusDeriver;
 use App\Modules\Kiosk\Http\Requests\RegisterKioskRequest;
 use App\Modules\Kiosk\Infrastructure\Persistence\Models\Kiosk;
 use App\Modules\Scanning\Infrastructure\Persistence\Models\EventCheckInSetting;
-use App\Modules\Shared\Http\Responses\RespondsWithApi;
 use App\Modules\Shared\Contracts\Clock;
+use App\Modules\Shared\Http\Responses\RespondsWithApi;
 use App\Modules\Tenancy\Domain\Context\TenantContextStore;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -107,12 +107,12 @@ final class KioskController extends Controller
         $derivedStatus = $this->deriver->derive($kiosk, $threshold, $this->clock->now());
 
         return [
-            'id'                   => $kiosk->id,
-            'device_name'          => $kiosk->device_name,
-            'device_code'          => $kiosk->device_code,
-            'status'               => $derivedStatus,
-            'printer_status'       => $kiosk->printer_status,
-            'last_heartbeat_at'    => $kiosk->last_heartbeat_at?->toIso8601String(),
+            'id' => $kiosk->id,
+            'device_name' => $kiosk->device_name,
+            'device_code' => $kiosk->device_code,
+            'status' => $derivedStatus,
+            'printer_status' => $kiosk->printer_status,
+            'last_heartbeat_at' => $kiosk->last_heartbeat_at?->toIso8601String(),
             'confirmation_required' => $kiosk->confirmation_required,
         ];
     }

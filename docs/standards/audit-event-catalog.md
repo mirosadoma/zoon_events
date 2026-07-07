@@ -53,3 +53,14 @@ Kiosk audit evidence includes `kiosk_id`, `session_id`, and `event_id` but never
 session token. Badge print evidence includes `badge_print_job_id`, `attendee_id`, and
 `event_id` but never the rendered badge payload or PII layout values. Reprint evidence
 additionally records `original_print_job_id` and the operator-supplied `reason`.
+
+Phase 4 required action families:
+
+- `acs_zone.created|updated`, `acs_lane.created`, `acs_rule.created`;
+- `acs_integration.credential_registered`;
+- `access.authorized|denied|entry|exit`;
+- `acs_emergency.raised|cleared`.
+
+Gate decision evidence is synchronous inside the audited transaction. Integration
+secrets and credential payloads never enter audit metadata. Full Phase 4 tables live
+in `docs/security/audit-catalog-phase4.md`.

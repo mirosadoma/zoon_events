@@ -16,8 +16,8 @@ final class AttendeeLookupRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'qr_payload'        => ['sometimes', 'string', 'max:512'],
-            'query'             => ['sometimes', 'string', 'min:2', 'max:120'],
+            'qr_payload' => ['sometimes', 'string', 'max:512'],
+            'query' => ['sometimes', 'string', 'min:2', 'max:120'],
             'confirmation_code' => ['sometimes', 'string', 'max:12'],
         ];
     }
@@ -31,7 +31,7 @@ final class AttendeeLookupRequest extends FormRequest
                 $validator->errors()->add('body', 'Unknown fields are not permitted.');
             }
 
-            $hasQr    = $this->filled('qr_payload');
+            $hasQr = $this->filled('qr_payload');
             $hasQuery = $this->filled('query');
 
             if (! $hasQr && ! $hasQuery) {

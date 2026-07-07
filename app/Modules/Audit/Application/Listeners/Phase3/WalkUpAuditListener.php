@@ -2,8 +2,8 @@
 
 namespace App\Modules\Audit\Application\Listeners\Phase3;
 
-use App\Modules\Audit\Contracts\AuditWriter;
 use App\Modules\Attendees\Domain\Events\WalkUpAttendeeRegistered;
+use App\Modules\Audit\Contracts\AuditWriter;
 
 final readonly class WalkUpAuditListener
 {

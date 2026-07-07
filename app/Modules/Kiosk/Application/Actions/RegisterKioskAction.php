@@ -23,15 +23,15 @@ final readonly class RegisterKioskAction
         $deviceCode = $this->generateUniqueDeviceCode($tenantId, $eventId);
 
         return Kiosk::create([
-            'tenant_id'               => $tenantId,
-            'event_id'                => $eventId,
-            'device_name'             => $deviceName,
-            'device_code'             => $deviceCode,
-            'location_label'          => $locationLabel,
-            'status'                  => 'registered',
-            'printer_status'          => 'unknown',
-            'confirmation_required'   => $confirmationRequired,
-            'confirmation_code_hash'  => $confirmationRequired
+            'tenant_id' => $tenantId,
+            'event_id' => $eventId,
+            'device_name' => $deviceName,
+            'device_code' => $deviceCode,
+            'location_label' => $locationLabel,
+            'status' => 'registered',
+            'printer_status' => 'unknown',
+            'confirmation_required' => $confirmationRequired,
+            'confirmation_code_hash' => $confirmationRequired
                 ? hash('sha256', (string) $plainConfirmationCode)
                 : null,
         ]);

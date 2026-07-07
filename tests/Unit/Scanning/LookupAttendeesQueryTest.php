@@ -2,7 +2,12 @@
 
 namespace Tests\Unit\Scanning;
 
+use App\Models\User;
+use App\Modules\Events\Infrastructure\Persistence\Models\Event;
+use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationFormVersion;
 use App\Modules\Scanning\Application\Queries\LookupAttendeesQuery;
+use App\Modules\Tenancy\Infrastructure\Persistence\Models\Tenant;
+use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketType;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use PHPUnit\Framework\Attributes\Group;
 use Tests\Support\CreatesPhase1RegistrationFixture;
@@ -60,7 +65,7 @@ final class LookupAttendeesQueryTest extends Phase1MySqlTestCase
         self::assertSame([], $result['matches']);
     }
 
-    /** @param array{actor:\App\Models\User,tenant:\App\Modules\Tenancy\Infrastructure\Persistence\Models\Tenant,event:\App\Modules\Events\Infrastructure\Persistence\Models\Event,form:\App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationFormVersion,ticket:\App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketType} $fixture */
+    /** @param array{actor:User,tenant:Tenant,event:Event,form:RegistrationFormVersion,ticket:TicketType} $fixture */
     private function createAttendeeThroughRegistration(array $fixture, string $firstName, string $lastName, string $email, string $idempotencyKey): void
     {
         $payload = $this->registrationPayload($fixture);

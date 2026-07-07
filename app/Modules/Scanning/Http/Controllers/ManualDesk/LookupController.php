@@ -44,16 +44,16 @@ final class LookupController extends Controller
 
             $result = [
                 'too_many' => false,
-                'matches'  => [[
-                    'attendee_id'       => null,
-                    'credential_id'     => $validated['credential_id'],
-                    'display_name'      => null,
+                'matches' => [[
+                    'attendee_id' => null,
+                    'credential_id' => $validated['credential_id'],
+                    'display_name' => null,
                     'ticket_type_label' => null,
-                    'checkin_status'    => 'not_checked_in',
+                    'checkin_status' => 'not_checked_in',
                 ]],
             ];
         } else {
-            $fragment   = $request->string('query')->toString();
+            $fragment = $request->string('query')->toString();
             $maxMatches = (int) config('printing.lookup.max_matches', 8);
 
             $result = $this->lookup->search($tenantId, $eventId, $fragment, $maxMatches);

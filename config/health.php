@@ -14,6 +14,7 @@ return [
         'notifications',
         'apple_wallet',
         'google_wallet',
+        'acs_integration',
         'config',
     ],
 ];

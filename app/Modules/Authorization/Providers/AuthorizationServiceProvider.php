@@ -7,6 +7,7 @@ use App\Modules\Authorization\Contracts\PermissionEvaluator as PermissionEvaluat
 use App\Modules\Authorization\Policies\Phase1\Phase1Policy;
 use App\Modules\Authorization\Policies\Phase2\Phase2Policy;
 use App\Modules\Authorization\Policies\Phase3\Phase3Policy;
+use App\Modules\Authorization\Policies\Phase4\Phase4Policy;
 use App\Modules\Tenancy\Domain\Context\TenantContextStore;
 use Database\Seeders\PermissionSeeder;
 use Illuminate\Support\Facades\Gate;
@@ -21,6 +22,7 @@ class AuthorizationServiceProvider extends ServiceProvider
         $this->app->singleton(Phase1Policy::class);
         $this->app->singleton(Phase2Policy::class);
         $this->app->singleton(Phase3Policy::class);
+        $this->app->singleton(Phase4Policy::class);
     }
 
     public function boot(): void
