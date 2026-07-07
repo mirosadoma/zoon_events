@@ -36,26 +36,22 @@ final class LookupController extends Controller
         $tenantId = $context->tenant->id;
 
         if ($request->filled('qr_payload')) {
-            try {
-                $validated = $this->credentials->validate(
-                    $request->string('qr_payload')->toString(),
-                    $tenantId,
-                    $eventId,
-                );
+            $validated = $this->credentials->validate(
+                $request->string('qr_payload')->toString(),
+                $tenantId,
+                $eventId,
+            );
 
-                $result = [
-                    'too_many' => false,
-                    'matches'  => [[
-                        'attendee_id'       => null,
-                        'credential_id'     => $validated['credential_id'],
-                        'display_name'      => null,
-                        'ticket_type_label' => null,
-                        'checkin_status'    => 'not_checked_in',
-                    ]],
-                ];
-            } catch (\Throwable $e) {
-                throw $e;
-            }
+            $result = [
+                'too_many' => false,
+                'matches'  => [[
+                    'attendee_id'       => null,
+                    'credential_id'     => $validated['credential_id'],
+                    'display_name'      => null,
+                    'ticket_type_label' => null,
+                    'checkin_status'    => 'not_checked_in',
+                ]],
+            ];
         } else {
             $fragment   = $request->string('query')->toString();
             $maxMatches = (int) config('printing.lookup.max_matches', 8);

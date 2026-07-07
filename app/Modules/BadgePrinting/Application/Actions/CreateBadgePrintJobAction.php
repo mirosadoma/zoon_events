@@ -7,6 +7,7 @@ use App\Modules\BadgePrinting\Contracts\PrinterAdapter;
 use App\Modules\BadgePrinting\Domain\Events\BadgePrintJobCreated;
 use App\Modules\BadgePrinting\Domain\Events\BadgePrintJobFailed;
 use App\Modules\BadgePrinting\Domain\Events\BadgePrintJobPrinted;
+use App\Modules\BadgePrinting\Domain\Results\PrintResult;
 use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgePrintJob;
 use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgeTemplate;
 use App\Modules\Shared\Http\Problems\Phase3Problem;
@@ -54,7 +55,15 @@ final readonly class CreateBadgePrintJobAction
                     'is_reprint'         => false,
                 ]);
 
-                $result = $this->printer->print($payload);
+                try {
+                    $result = $this->printer->print($payload);
+                } catch (\Throwable) {
+                    $result = new PrintResult(
+                        status: 'failed',
+                        reasonCode: 'printer_error',
+                        confirmationReference: null,
+                    );
+                }
 
                 $job->forceFill([
                     'status'         => $result->status === 'printed' ? 'printed' : 'failed',

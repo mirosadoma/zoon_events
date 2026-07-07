@@ -36,6 +36,7 @@ export default {
   lookupConfirmationRequired: 'رمز التأكيد مطلوب قبل تسجيل الحضور.',
   lookupConfirmationInvalid: 'رمز التأكيد غير صحيح أو انتهت صلاحيته.',
   badgeTemplateNotActive: 'لا يوجد قالب شارة نشط لهذا الحدث.',
+  badgeTemplateNotFound: 'لم يتم العثور على قالب الشارة المطلوب.',
   badgeTemplateInvalidField: 'يحتوي قالب الشارة على حقل غير معروف.',
   badgeReprintReasonRequired: 'السبب مطلوب لإعادة طباعة الشارة.',
   badgeReprintNotPermitted: 'ليس لديك صلاحية إعادة طباعة الشارات.',

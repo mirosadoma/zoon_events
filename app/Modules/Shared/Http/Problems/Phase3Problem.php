@@ -15,6 +15,7 @@ final class Phase3Problem
         'lookup_confirmation_required'    => 422,
         'lookup_confirmation_invalid'     => 422,
         'badge_template_not_active'       => 409,
+        'badge_template_not_found'        => 404,
         'badge_template_invalid_field'    => 422,
         'badge_reprint_reason_required'   => 422,
         'badge_reprint_not_permitted'     => 403,

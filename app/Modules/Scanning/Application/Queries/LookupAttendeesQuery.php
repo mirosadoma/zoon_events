@@ -32,26 +32,30 @@ final readonly class LookupAttendeesQuery
     {
         $query = Attendee::query()
             ->where('tenant_id', $tenantId)
-            ->where('event_id', $eventId);
+            ->where('event_id', $eventId)
+            ->orderBy('registered_at')
+            ->orderBy('id');
+
+        $needle = mb_strtolower(trim($fragment));
+        $isNameSearch = true;
 
         if (preg_match(self::EMAIL_PATTERN, $fragment)) {
             $query->where('email_index', $this->indexes->email($fragment));
+            $isNameSearch = false;
         } elseif (preg_match(self::PHONE_PATTERN, $fragment)) {
             $query->where('phone_index', $this->indexes->phone($fragment));
-        } else {
-            // Name search: fetch one extra row to detect "too many" without COUNT
-            $query->limit($maxMatches + 1);
+            $isNameSearch = false;
         }
 
         $rows = $query->with('lastScanEvent')->get();
 
-        if ($rows->count() > $maxMatches) {
+        if (! $isNameSearch && $rows->count() > $maxMatches) {
             return ['too_many' => true, 'matches' => []];
         }
 
-        $matches = $rows->map(function (Attendee $attendee) use ($tenantId, $eventId): array {
-            $firstName = $this->decryptOrNull($attendee->first_name_ciphertext, $attendee->encryption_key_id, $tenantId);
-            $lastName  = $this->decryptOrNull($attendee->last_name_ciphertext, $attendee->encryption_key_id, $tenantId);
+        $mapped = $rows->map(function (Attendee $attendee) use ($tenantId, $eventId): array {
+            $firstName = $this->decryptOrNull($attendee->first_name_ciphertext, $attendee->encryption_key_id, $tenantId, $eventId);
+            $lastName  = $this->decryptOrNull($attendee->last_name_ciphertext, $attendee->encryption_key_id, $tenantId, $eventId);
             $displayName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
 
             $credential = Credential::query()
@@ -70,19 +74,33 @@ final readonly class LookupAttendeesQuery
                 'ticket_type_label' => (string) ($attendee->ticket_type_id ?? ''),
                 'checkin_status'    => (string) ($attendee->checkin_status ?? 'not_checked_in'),
             ];
-        })->values()->all();
+        });
 
-        return ['too_many' => false, 'matches' => $matches];
+        if ($isNameSearch) {
+            $filtered = $mapped->filter(
+                fn (array $row): bool => $needle !== '' && str_contains(mb_strtolower($row['display_name']), $needle)
+            )->values();
+
+            if ($filtered->count() > $maxMatches) {
+                return ['too_many' => true, 'matches' => []];
+            }
+
+            return ['too_many' => false, 'matches' => $filtered->all()];
+        }
+
+        return ['too_many' => false, 'matches' => $mapped->values()->all()];
     }
 
-    private function decryptOrNull(?string $ciphertext, ?string $keyId, string $tenantId): ?string
+    private function decryptOrNull(?string $ciphertext, ?string $keyId, string $tenantId, ?string $eventId = null): ?string
     {
         if ($ciphertext === null || $keyId === null) {
             return null;
         }
 
         try {
-            return $this->cipher->decrypt(['ciphertext' => $ciphertext, 'key_id' => $keyId], $tenantId);
+            $scope = $eventId === null ? $tenantId : "{$tenantId}:{$eventId}:attendee";
+
+            return $this->cipher->decrypt(['ciphertext' => $ciphertext, 'key_id' => $keyId], $scope);
         } catch (\Throwable) {
             return null;
         }

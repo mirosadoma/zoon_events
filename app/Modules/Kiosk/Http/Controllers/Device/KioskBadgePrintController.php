@@ -4,9 +4,9 @@ namespace App\Modules\Kiosk\Http\Controllers\Device;
 
 use App\Http\Controllers\Controller;
 use App\Modules\BadgePrinting\Application\Actions\CreateBadgePrintJobAction;
-use App\Modules\BadgePrinting\Http\Requests\CreateBadgePrintJobRequest;
 use App\Modules\BadgePrinting\Http\Resources\BadgePrintJobResource;
 use App\Modules\Kiosk\Domain\Context\KioskSessionContextStore;
+use App\Modules\Kiosk\Http\Requests\KioskBadgePrintRequest;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
 use Illuminate\Http\JsonResponse;
 
@@ -16,7 +16,7 @@ final class KioskBadgePrintController extends Controller
 
     public function __construct(private readonly KioskSessionContextStore $kioskContexts) {}
 
-    public function store(CreateBadgePrintJobRequest $request, CreateBadgePrintJobAction $action): JsonResponse
+    public function store(KioskBadgePrintRequest $request, CreateBadgePrintJobAction $action): JsonResponse
     {
         $context = $this->kioskContexts->current();
 

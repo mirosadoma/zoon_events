@@ -5,10 +5,10 @@ namespace App\Modules\Kiosk\Http\Controllers\Device;
 use App\Http\Controllers\Controller;
 use App\Modules\Kiosk\Application\Actions\RecordKioskHeartbeatAction;
 use App\Modules\Kiosk\Domain\Context\KioskSessionContextStore;
+use App\Modules\Kiosk\Http\Requests\KioskHeartbeatRequest;
 use App\Modules\Kiosk\Infrastructure\Persistence\Models\Kiosk;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 final class KioskHeartbeatController extends Controller
 {
@@ -16,7 +16,7 @@ final class KioskHeartbeatController extends Controller
 
     public function __construct(private readonly KioskSessionContextStore $kioskContexts) {}
 
-    public function store(Request $request, RecordKioskHeartbeatAction $action): JsonResponse
+    public function store(KioskHeartbeatRequest $request, RecordKioskHeartbeatAction $action): JsonResponse
     {
         $context = $this->kioskContexts->current();
 

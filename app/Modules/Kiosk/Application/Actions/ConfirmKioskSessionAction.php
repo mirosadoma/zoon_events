@@ -11,7 +11,7 @@ final readonly class ConfirmKioskSessionAction
     public function execute(KioskSession $session, Kiosk $kiosk, string $submittedCode): void
     {
         if (! hash_equals($kiosk->confirmation_code_hash ?? '', hash('sha256', $submittedCode))) {
-            throw Phase3Problem::make('lookup_confirmation_invalid');
+            throw Phase3Problem::make('kiosk_session_unconfirmed');
         }
 
         $session->forceFill(['confirmed_at' => now()])->save();

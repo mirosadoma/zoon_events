@@ -36,6 +36,7 @@ export default {
   lookupConfirmationRequired: 'A confirmation code is required before check-in.',
   lookupConfirmationInvalid: 'The confirmation code is incorrect or has expired.',
   badgeTemplateNotActive: 'No active badge template is configured for this event.',
+  badgeTemplateNotFound: 'The requested badge template was not found.',
   badgeTemplateInvalidField: 'The badge template contains an unrecognised field.',
   badgeReprintReasonRequired: 'A reason is required to reprint a badge.',
   badgeReprintNotPermitted: 'You do not have permission to reprint badges.',

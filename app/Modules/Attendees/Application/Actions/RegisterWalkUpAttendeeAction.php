@@ -4,6 +4,7 @@ namespace App\Modules\Attendees\Application\Actions;
 
 use App\Modules\Attendees\Domain\Events\WalkUpAttendeeRegistered;
 use App\Modules\Attendees\Domain\WalkUpRegistrationResult;
+use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\Orders\Application\Actions\CompleteFreeRegistration;
 use App\Modules\Orders\Application\Actions\StartPaidRegistration;
@@ -63,6 +64,10 @@ final readonly class RegisterWalkUpAttendeeAction
             ->latest('version')
             ->firstOrFail();
 
+        $event = Event::query()
+            ->where('tenant_id', $tenantId)
+            ->findOrFail($eventId);
+
         $input = new FreeRegistrationInput(
             tenantId: $tenantId,
             eventId: $eventId,
@@ -74,7 +79,7 @@ final readonly class RegisterWalkUpAttendeeAction
             buyer: $person,
             attendee: $person,
             locale: app()->getLocale(),
-            credentialExpiresAt: CarbonImmutable::now()->addDay(),
+            credentialExpiresAt: CarbonImmutable::instance($event->end_at ?? now()->addYear()),
         );
 
         if ($ticketType->base_price_minor === 0) {

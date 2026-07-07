@@ -8,6 +8,7 @@ use App\Modules\Audit\Contracts\AuditWriter;
 use App\Modules\Authorization\Policies\Phase3\Phase3Policy;
 use App\Modules\BadgePrinting\Contracts\PrinterAdapter;
 use App\Modules\BadgePrinting\Domain\Events\BadgePrintJobReprinted;
+use App\Modules\BadgePrinting\Domain\Results\PrintResult;
 use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgePrintJob;
 use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgeTemplate;
 use App\Modules\Credentials\Application\Actions\ReissueCredential;
@@ -82,13 +83,13 @@ final readonly class ReprintBadgeAction
 
         if ($settings?->reprint_revokes_old_qr) {
             $reissued = $this->reissue->execute($tenantContext, $eventId, $credentialId, $reason);
-            $credentialId = $reissued->credentialId;
+            $credentialId = $reissued->id;
         }
 
         $template = BadgeTemplate::query()
             ->where('tenant_id', $tenantId)
             ->where('event_id', $eventId)
-            ->where('status', 'active')
+            ->where('id', $priorJob->badge_template_id)
             ->first();
 
         if ($template === null) {
@@ -112,7 +113,15 @@ final readonly class ReprintBadgeAction
                     'original_print_job_id'  => $priorJob->id,
                 ]);
 
-                $result = $this->printer->print($payload);
+                try {
+                    $result = $this->printer->print($payload);
+                } catch (\Throwable) {
+                    $result = new PrintResult(
+                        status: 'failed',
+                        reasonCode: 'printer_error',
+                        confirmationReference: null,
+                    );
+                }
 
                 $job->forceFill([
                     'status'         => $result->status === 'printed' ? 'printed' : 'failed',

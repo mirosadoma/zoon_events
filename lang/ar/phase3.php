@@ -8,6 +8,7 @@ return [
     'lookup_confirmation_required'  => 'رمز التأكيد مطلوب قبل تسجيل الحضور.',
     'lookup_confirmation_invalid'   => 'رمز التأكيد غير صحيح أو انتهت صلاحيته.',
     'badge_template_not_active'     => 'لا يوجد قالب شارة نشط لهذا الحدث.',
+    'badge_template_not_found'      => 'لم يتم العثور على قالب الشارة المطلوب.',
     'badge_template_invalid_field'  => 'يحتوي قالب الشارة على حقل غير معروف.',
     'badge_reprint_reason_required' => 'السبب مطلوب لإعادة طباعة الشارة.',
     'badge_reprint_not_permitted'   => 'ليس لديك صلاحية إعادة طباعة الشارات.',

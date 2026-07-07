@@ -8,6 +8,7 @@ return [
     'lookup_confirmation_required'  => 'A confirmation code is required before check-in.',
     'lookup_confirmation_invalid'   => 'The confirmation code is incorrect or has expired.',
     'badge_template_not_active'     => 'No active badge template is configured for this event.',
+    'badge_template_not_found'      => 'The requested badge template was not found.',
     'badge_template_invalid_field'  => 'The badge template contains an unrecognised field.',
     'badge_reprint_reason_required' => 'A reason is required to reprint a badge.',
     'badge_reprint_not_permitted'   => 'You do not have permission to reprint badges.',
