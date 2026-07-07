@@ -4,11 +4,13 @@ namespace App\Modules\Scanning\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Authorization\Policies\Phase2\Phase2Policy;
+use App\Modules\Authorization\Policies\Phase3\Phase3Policy;
 use App\Modules\Scanning\Application\Actions\SubmitScanAction;
 use App\Modules\Scanning\Domain\ValueObjects\ScanContext;
 use App\Modules\Scanning\Http\Requests\SubmitScanRequest;
 use App\Modules\Scanning\Http\Resources\ScanResultResource;
 use App\Modules\Shared\Http\Problems\Phase2Problem;
+use App\Modules\Shared\Http\Problems\Phase3Problem;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
 use App\Modules\Tenancy\Domain\Context\TenantContextStore;
 use Illuminate\Http\JsonResponse;
@@ -20,13 +22,22 @@ final class ScanController extends Controller
     public function __construct(
         private readonly TenantContextStore $contexts,
         private readonly Phase2Policy $policy,
+        private readonly Phase3Policy $phase3Policy,
     ) {}
 
     public function store(SubmitScanRequest $request, string $eventId, SubmitScanAction $action): JsonResponse
     {
         $user = $request->user();
-        if ($user === null || ! $this->policy->allows($user, 'submitScan')) {
-            abort(403);
+        $scannerType = $request->string('scanner_type')->toString();
+
+        if ($scannerType === 'manual_desk') {
+            if ($user === null || ! $this->phase3Policy->allows($user, 'performDeskCheckIn')) {
+                throw Phase3Problem::make('checkin_desk_not_permitted');
+            }
+        } else {
+            if ($user === null || ! $this->policy->allows($user, 'submitScan')) {
+                abort(403);
+            }
         }
 
         if ($request->boolean('offline_mode')) {
@@ -49,8 +60,9 @@ final class ScanController extends Controller
             tenantId: $context->tenant->id,
             eventId: $eventId,
             scannerId: (string) $user->id,
-            scannerType: $request->string('scanner_type')->toString(),
+            scannerType: $scannerType,
             qrPayload: $request->string('qr_payload')->toString(),
+            credentialId: $request->input('credential_id'),
             override: $override,
             overrideReason: $request->input('override_reason'),
             actorCanOverride: $this->policy->allows($user, 'overrideScan'),

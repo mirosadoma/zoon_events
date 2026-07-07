@@ -1,0 +1,862 @@
+openapi: 3.1.0
+info:
+  title: Zonetec Phase 3 Kiosk, Badge Printing, and Manual Desk API
+  version: 1.0.0
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+  description: >
+    Authoritative versioned contract for Phase 3 kiosk registration/pairing,
+    kiosk device session operations, badge template management, badge
+    print/reprint, manual desk lookup/check-in, and walk-up registration.
+    This is the review contract for this feature; implementation merges it
+    into the authoritative `specs/001-project-foundation/contracts/openapi.yaml`
+    and extends the Phase 2 `submitScan` operation's `scanner_type` enum.
+servers:
+  - url: https://{host}/api/v1
+    variables:
+      host:
+        default: example.test
+tags:
+  - name: Kiosk Management
+    description: Organizer/operations registration, pairing, retirement, and health view of kiosk devices.
+  - name: Kiosk Device
+    description: Device-session-authenticated operations called by a paired kiosk.
+  - name: Manual Desk
+    description: Staff-operated attendee lookup, check-in, badge print, and walk-up registration.
+  - name: Badge Templates
+    description: Organizer no-code badge template designer.
+  - name: Badge Printing
+    description: Badge print and reprint job creation shared by the manual desk and kiosks.
+paths:
+  /tenant/events/{event_id}/kiosks:
+    post:
+      tags: [Kiosk Management]
+      operationId: registerKiosk
+      summary: Register a new kiosk device for an event
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterKioskRequest'
+      responses:
+        '201':
+          description: Kiosk registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KioskEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+    get:
+      tags: [Kiosk Management]
+      operationId: listKiosks
+      summary: List kiosks and their current health for an event
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Kiosk list with health
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KioskListEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/kiosks/{kiosk_id}/pair:
+    post:
+      tags: [Kiosk Management]
+      operationId: pairKiosk
+      summary: Issue a new device-session secret for a kiosk, revoking any prior session
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/KioskId'
+      responses:
+        '201':
+          description: New session paired; secret shown exactly once
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KioskPairingEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/kiosks/{kiosk_id}/retire:
+    post:
+      tags: [Kiosk Management]
+      operationId: retireKiosk
+      summary: Decommission a kiosk and revoke all its sessions
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/KioskId'
+      responses:
+        '200':
+          description: Kiosk retired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KioskEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /kiosk/v1/heartbeat:
+    post:
+      tags: [Kiosk Device]
+      operationId: sendKioskHeartbeat
+      summary: Report kiosk and printer health
+      security:
+        - KioskSessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KioskHeartbeatRequest'
+      responses:
+        '200':
+          description: Heartbeat accepted
+        '401':
+          $ref: '#/components/responses/Problem'
+  /kiosk/v1/session/confirmations:
+    post:
+      tags: [Kiosk Device]
+      operationId: confirmKioskSession
+      summary: Confirm a newly paired session with the configured PIN/one-time code
+      security:
+        - KioskSessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KioskSessionConfirmationRequest'
+      responses:
+        '200':
+          description: Session confirmed
+        '401':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /kiosk/v1/lookups:
+    post:
+      tags: [Kiosk Device]
+      operationId: lookupAttendeeAtKiosk
+      summary: Look up an attendee by QR credential or name/email/phone at a kiosk
+      security:
+        - KioskSessionAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttendeeLookupRequest'
+      responses:
+        '200':
+          description: Lookup result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendeeLookupEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /kiosk/v1/scans:
+    post:
+      tags: [Kiosk Device]
+      operationId: submitKioskScan
+      summary: Submit a kiosk check-in for a resolved credential
+      security:
+        - KioskSessionAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KioskScanRequest'
+      responses:
+        '200':
+          description: Scan result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanResultEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /kiosk/v1/badge-print-jobs:
+    post:
+      tags: [Kiosk Device]
+      operationId: createKioskBadgePrintJob
+      summary: Trigger a badge print at a kiosk after a successful check-in
+      security:
+        - KioskSessionAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBadgePrintJobRequest'
+      responses:
+        '201':
+          description: Print job created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadgePrintJobEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/desk/lookups:
+    post:
+      tags: [Manual Desk]
+      operationId: lookupAttendeeAtDesk
+      summary: Look up an attendee by name, email, or phone at the manual desk
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/AcceptLanguage'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttendeeLookupRequest'
+      responses:
+        '200':
+          description: Lookup result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendeeLookupEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/desk/walk-up-attendees:
+    post:
+      tags: [Manual Desk]
+      operationId: registerWalkUpAttendee
+      summary: Register a walk-up attendee and issue a credential
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterWalkUpAttendeeRequest'
+      responses:
+        '201':
+          description: Walk-up attendee registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalkUpAttendeeEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/badge-templates:
+    post:
+      tags: [Badge Templates]
+      operationId: createBadgeTemplate
+      summary: Create a draft badge template
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BadgeTemplateRequest'
+      responses:
+        '201':
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadgeTemplateEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+    get:
+      tags: [Badge Templates]
+      operationId: listBadgeTemplates
+      summary: List badge templates for an event
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Template list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadgeTemplateListEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/badge-templates/{badge_template_id}:
+    patch:
+      tags: [Badge Templates]
+      operationId: updateBadgeTemplate
+      summary: Update a draft or inactive badge template
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/BadgeTemplateId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BadgeTemplateRequest'
+      responses:
+        '200':
+          description: Template updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadgeTemplateEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/badge-templates/{badge_template_id}/activate:
+    post:
+      tags: [Badge Templates]
+      operationId: activateBadgeTemplate
+      summary: Activate a badge template, deactivating any prior active template
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/BadgeTemplateId'
+      responses:
+        '200':
+          description: Template activated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadgeTemplateEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/badge-templates/{badge_template_id}/deactivate:
+    post:
+      tags: [Badge Templates]
+      operationId: deactivateBadgeTemplate
+      summary: Deactivate the currently active badge template
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/BadgeTemplateId'
+      responses:
+        '200':
+          description: Template deactivated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadgeTemplateEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/badge-print-jobs:
+    post:
+      tags: [Badge Printing]
+      operationId: createBadgePrintJob
+      summary: Create a badge print job from the manual desk
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBadgePrintJobRequest'
+      responses:
+        '201':
+          description: Print job created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadgePrintJobEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/badge-print-jobs/{badge_print_job_id}/reprint:
+    post:
+      tags: [Badge Printing]
+      operationId: reprintBadge
+      summary: Reprint a badge, linked to its original print job
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/BadgePrintJobId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReprintBadgeRequest'
+      responses:
+        '201':
+          description: Reprint job created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadgePrintJobEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+components:
+  securitySchemes:
+    TenantSession:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Bearer token or session cookie plus required X-Tenant-ID.
+    KioskSessionAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: 'KioskSession {secret} issued at pairing time for one specific kiosk.'
+  parameters:
+    AcceptLanguage:
+      name: Accept-Language
+      in: header
+      required: false
+      schema:
+        type: string
+        enum: [en, ar]
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+    TenantId:
+      name: X-Tenant-ID
+      in: header
+      required: true
+      schema:
+        type: string
+    EventId:
+      name: event_id
+      in: path
+      required: true
+      schema:
+        type: string
+    KioskId:
+      name: kiosk_id
+      in: path
+      required: true
+      schema:
+        type: string
+    BadgeTemplateId:
+      name: badge_template_id
+      in: path
+      required: true
+      schema:
+        type: string
+    BadgePrintJobId:
+      name: badge_print_job_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    Problem:
+      description: Problem Details error
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status, code, correlation_id]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        code:
+          type: string
+        detail:
+          type: string
+        correlation_id:
+          type: string
+    RegisterKioskRequest:
+      type: object
+      required: [device_name]
+      properties:
+        device_name:
+          type: string
+          maxLength: 120
+        location_label:
+          type: string
+          maxLength: 160
+        confirmation_required:
+          type: boolean
+          default: false
+    KioskEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/Kiosk'
+    KioskListEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Kiosk'
+    Kiosk:
+      type: object
+      required: [id, device_name, device_code, status, printer_status]
+      properties:
+        id:
+          type: string
+        device_name:
+          type: string
+        device_code:
+          type: string
+        location_label:
+          type: [string, 'null']
+        status:
+          type: string
+          enum: [registered, online, offline, degraded, retired]
+        printer_status:
+          type: string
+          enum: [unknown, ready, error, disconnected]
+        last_heartbeat_at:
+          type: [string, 'null']
+          format: date-time
+        confirmation_required:
+          type: boolean
+    KioskPairingEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [kiosk_id, session_secret, expires_at]
+          properties:
+            kiosk_id:
+              type: string
+            session_secret:
+              type: string
+              description: Raw device-session secret, shown exactly once and never retrievable again.
+            expires_at:
+              type: string
+              format: date-time
+    KioskHeartbeatRequest:
+      type: object
+      required: [printer_status]
+      properties:
+        printer_status:
+          type: string
+          enum: [unknown, ready, error, disconnected]
+        printer_reason_code:
+          type: string
+        app_version:
+          type: string
+    KioskSessionConfirmationRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          maxLength: 12
+    AttendeeLookupRequest:
+      type: object
+      properties:
+        qr_payload:
+          type: string
+          maxLength: 512
+        query:
+          type: string
+          minLength: 2
+          maxLength: 120
+        confirmation_code:
+          type: string
+          maxLength: 12
+    AttendeeLookupEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [matches]
+          properties:
+            matches:
+              type: array
+              items:
+                type: object
+                required: [attendee_id, credential_id, display_name, ticket_type_label, checkin_status]
+                properties:
+                  attendee_id:
+                    type: string
+                  credential_id:
+                    type: string
+                  display_name:
+                    type: string
+                  ticket_type_label:
+                    type: string
+                  checkin_status:
+                    type: string
+                    enum: [not_checked_in, checked_in]
+            too_many_matches:
+              type: boolean
+              default: false
+            confirmation_required:
+              type: boolean
+              default: false
+    KioskScanRequest:
+      type: object
+      required: [credential_id]
+      properties:
+        credential_id:
+          type: string
+        override:
+          type: boolean
+          default: false
+        override_reason:
+          type: string
+          maxLength: 500
+    ScanResultEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [scan_event_id, result, reason_code]
+          properties:
+            scan_event_id:
+              type: string
+            result:
+              type: string
+              enum: [accepted, manual_override, duplicate, revoked, expired, rejected]
+            reason_code:
+              type: string
+            attendee_display_name:
+              type: string
+            ticket_type_label:
+              type: string
+    CreateBadgePrintJobRequest:
+      type: object
+      required: [attendee_id, credential_id]
+      properties:
+        attendee_id:
+          type: string
+        credential_id:
+          type: string
+    BadgePrintJobEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/BadgePrintJob'
+    BadgePrintJob:
+      type: object
+      required: [id, status, is_reprint]
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [queued, printed, failed]
+        failure_reason:
+          type: [string, 'null']
+        is_reprint:
+          type: boolean
+        reprint_reason:
+          type: [string, 'null']
+        original_print_job_id:
+          type: [string, 'null']
+        printed_at:
+          type: [string, 'null']
+          format: date-time
+    ReprintBadgeRequest:
+      type: object
+      required: [reprint_reason]
+      properties:
+        reprint_reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+    RegisterWalkUpAttendeeRequest:
+      type: object
+      required: [name, email]
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          maxLength: 32
+        ticket_type_id:
+          type: string
+    WalkUpAttendeeEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [attendee_id, credential_id, origin, payment_status]
+          properties:
+            attendee_id:
+              type: string
+            credential_id:
+              type: string
+            origin:
+              type: string
+              enum: [standard, walk_up]
+            payment_status:
+              type: string
+              enum: [paid, payment_pending, not_required]
+    BadgeTemplateRequest:
+      type: object
+      required: [name, layout, paper_size, printer_type]
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        layout:
+          type: object
+          description: Structured layout referencing only the fixed field allowlist; see data-model.md.
+        paper_size:
+          type: string
+        printer_type:
+          type: string
+    BadgeTemplateEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/BadgeTemplate'
+    BadgeTemplateListEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BadgeTemplate'
+    BadgeTemplate:
+      type: object
+      required: [id, name, status, paper_size, printer_type]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        layout:
+          type: object
+        paper_size:
+          type: string
+        printer_type:
+          type: string
+        status:
+          type: string
+          enum: [draft, active, inactive]

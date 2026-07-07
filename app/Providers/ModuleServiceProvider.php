@@ -20,6 +20,8 @@ use App\Modules\Scanning\Providers\ScanningServiceProvider;
 use App\Modules\Shared\Providers\SharedServiceProvider;
 use App\Modules\Tenancy\Providers\TenancyServiceProvider;
 use App\Modules\Ticketing\Providers\TicketingServiceProvider;
+use App\Modules\BadgePrinting\Providers\BadgePrintingServiceProvider;
+use App\Modules\Kiosk\Providers\KioskServiceProvider;
 use App\Modules\WalletPasses\Providers\WalletPassesServiceProvider;
 use Illuminate\Support\ServiceProvider;
 
@@ -48,6 +50,8 @@ class ModuleServiceProvider extends ServiceProvider
         NotificationServiceProvider::class,
         WalletPassesServiceProvider::class,
         ScanningServiceProvider::class,
+        KioskServiceProvider::class,
+        BadgePrintingServiceProvider::class,
     ];
 
     public function register(): void

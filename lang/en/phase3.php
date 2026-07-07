@@ -1,0 +1,25 @@
+<?php
+
+return [
+    'kiosk_session_invalid'         => 'Kiosk session is invalid or has expired.',
+    'kiosk_session_unconfirmed'     => 'Kiosk session must be confirmed before use.',
+    'kiosk_retired'                 => 'This kiosk has been retired and can no longer be used.',
+    'lookup_too_many_matches'       => 'Too many matching attendees. Please refine your search.',
+    'lookup_confirmation_required'  => 'A confirmation code is required before check-in.',
+    'lookup_confirmation_invalid'   => 'The confirmation code is incorrect or has expired.',
+    'badge_template_not_active'     => 'No active badge template is configured for this event.',
+    'badge_template_invalid_field'  => 'The badge template contains an unrecognised field.',
+    'badge_reprint_reason_required' => 'A reason is required to reprint a badge.',
+    'badge_reprint_not_permitted'   => 'You do not have permission to reprint badges.',
+    'badge_no_prior_print_job'      => 'No existing badge print job found for this attendee.',
+    'badge_print_not_permitted'     => 'You do not have permission to print badges.',
+    'printer_unavailable'           => 'The badge printer is currently unavailable.',
+    'printer_error'                 => 'The badge printer reported an error.',
+    'payload_rejected'              => 'The print payload was rejected by the printer.',
+    'checkin_desk_not_permitted'    => 'You do not have permission to perform desk check-ins.',
+    'walk_up_registration_disabled' => 'Walk-up registration is not enabled for this event.',
+    'walk_up_payment_not_collectible' => 'On-site payment collection is not enabled for this event.',
+    'kiosk.paired'                  => 'Kiosk paired successfully.',
+    'badge_print.printed'           => 'Badge printed successfully.',
+    'walk_up_attendee.registered'   => 'Walk-up attendee registered successfully.',
+];

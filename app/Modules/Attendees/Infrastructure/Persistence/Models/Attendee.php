@@ -15,7 +15,7 @@ final class Attendee extends Model
         'submission_id', 'first_name_ciphertext', 'last_name_ciphertext',
         'email_ciphertext', 'phone_ciphertext', 'email_index', 'phone_index',
         'encryption_key_id', 'preferred_locale', 'registered_at',
-        'checkin_status', 'first_checked_in_at', 'last_scan_event_id',
+        'checkin_status', 'first_checked_in_at', 'last_scan_event_id', 'origin',
     ];
 
     protected function casts(): array

@@ -42,4 +42,33 @@ final readonly class CredentialValidator
 
         return ['credential_id' => $credential->id, 'status' => 'active', 'event_id' => $credential->event_id];
     }
+
+    /**
+     * Validate a credential directly by its ID (no signed token required).
+     * Used for look-up-based check-ins where no raw QR payload is available.
+     * Returns the same shape as validate() and throws the same Phase1Problem codes.
+     *
+     * @return array{credential_id:string,status:string,event_id:string}
+     */
+    public function validateById(string $credentialId, string $tenantId, string $eventId): array
+    {
+        $credential = Credential::query()
+            ->where('tenant_id', $tenantId)
+            ->where('event_id', $eventId)
+            ->find($credentialId);
+
+        if ($credential === null) {
+            throw Phase1Problem::make('credential_invalid');
+        }
+
+        if ($credential->expires_at->isPast()) {
+            throw Phase1Problem::make('credential_expired');
+        }
+
+        if ($credential->status !== 'active') {
+            throw Phase1Problem::make('credential_'.$credential->status);
+        }
+
+        return ['credential_id' => $credential->id, 'status' => 'active', 'event_id' => $credential->event_id];
+    }
 }

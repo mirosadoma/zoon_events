@@ -40,3 +40,16 @@ Phase 2 required action families:
 Wallet pass evidence excludes provider payloads and certificate material. Scan evidence
 excludes attendee PII beyond stable identifiers. Full Phase 2 tables live in
 `docs/security/audit-catalog.md`.
+
+Phase 3 required action families:
+
+- `kiosk.paired|retired|status_changed`;
+- `desk_scan.accepted|rejected` (uses same `scan.*` mechanism with `scanner_type = 'manual_desk'`);
+- `badge_print.created|printed|failed|reprinted`;
+- `badge_template.created|updated|activated|deactivated|deleted`;
+- `walk_up_attendee.registered`.
+
+Kiosk audit evidence includes `kiosk_id`, `session_id`, and `event_id` but never the raw
+session token. Badge print evidence includes `badge_print_job_id`, `attendee_id`, and
+`event_id` but never the rendered badge payload or PII layout values. Reprint evidence
+additionally records `original_print_job_id` and the operator-supplied `reason`.

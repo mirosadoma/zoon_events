@@ -25,12 +25,22 @@ final class EventCheckInSetting extends Model
         'event_id',
         'single_entry_enabled',
         'single_entry_scope',
+        'kiosk_offline_threshold_seconds',
+        'lookup_confirmation_required',
+        'reprint_revokes_old_qr',
+        'walk_up_registration_enabled',
+        'walk_up_payment_method_enabled',
     ];
 
     protected function casts(): array
     {
         return [
             'single_entry_enabled' => 'boolean',
+            'kiosk_offline_threshold_seconds' => 'integer',
+            'lookup_confirmation_required' => 'boolean',
+            'reprint_revokes_old_qr' => 'boolean',
+            'walk_up_registration_enabled' => 'boolean',
+            'walk_up_payment_method_enabled' => 'boolean',
         ];
     }
 }

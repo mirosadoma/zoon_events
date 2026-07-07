@@ -20,11 +20,19 @@ final readonly class ScanDecisionEvaluatorImpl implements ScanDecisionEvaluator
     public function evaluate(ScanContext $context): ScanDecision
     {
         try {
-            $validated = $this->credentials->validate(
-                $context->qrPayload,
-                $context->tenantId,
-                $context->eventId,
-            );
+            if ($context->qrPayload !== '') {
+                $validated = $this->credentials->validate(
+                    $context->qrPayload,
+                    $context->tenantId,
+                    $context->eventId,
+                );
+            } else {
+                $validated = $this->credentials->validateById(
+                    (string) $context->credentialId,
+                    $context->tenantId,
+                    $context->eventId,
+                );
+            }
         } catch (FoundationException $exception) {
             return match ($exception->problemCode) {
                 'credential_expired' => new ScanDecision('expired', 'credential_expired'),

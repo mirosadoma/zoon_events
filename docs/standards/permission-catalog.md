@@ -34,3 +34,8 @@ Exact platform keys: `platform.tenant.view`, `platform.tenant.manage`,
 Phase 2 workforce permissions are tabulated in `docs/security/permissions.md`.
 `wallet.pass.generate` is also available to the public attendee journey through the
 order access token, not a workforce role.
+
+Phase 3 tenant keys: `kiosk.manage`, `kiosk.health.view`, `checkin.desk.perform`,
+`badge.print`, `badge.reprint`, `badge.template.manage`, and `attendee.walkup.register`.
+Kiosk devices authenticate via device-session tokens resolved by the `kiosk.session`
+middleware and do not hold user RBAC permissions.

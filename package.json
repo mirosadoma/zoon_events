@@ -9,6 +9,7 @@
         "openapi:lint": "redocly lint specs/001-project-foundation/contracts/openapi.yaml",
         "openapi:phase1": "redocly lint specs/002-registration-ticketing-credentials/contracts/openapi.yaml",
         "openapi:phase2": "redocly lint specs/003-wallet-passes-scanning/contracts/openapi.yaml",
+        "openapi:phase3": "redocly lint specs/004-kiosk-badge-printing-manual-desk/contracts/openapi.yaml",
         "openapi:sync": "php scripts/sync-openapi.php --check",
         "test": "vitest run",
         "typecheck": "tsc --noEmit"
