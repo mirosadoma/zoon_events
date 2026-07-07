@@ -92,6 +92,25 @@ final readonly class LookupAttendeesQuery
         return ['too_many' => false, 'matches' => $mapped->values()->all()];
     }
 
+    public function emailDestinationForAttendee(string $tenantId, string $eventId, string $attendeeId): ?string
+    {
+        $attendee = Attendee::query()
+            ->where('tenant_id', $tenantId)
+            ->where('event_id', $eventId)
+            ->find($attendeeId);
+
+        if ($attendee === null || $attendee->email_ciphertext === null || $attendee->encryption_key_id === null) {
+            return null;
+        }
+
+        return $this->decryptOrNull(
+            $attendee->email_ciphertext,
+            $attendee->encryption_key_id,
+            $tenantId,
+            $eventId,
+        );
+    }
+
     private function decryptOrNull(?string $ciphertext, ?string $keyId, string $tenantId, ?string $eventId = null): ?string
     {
         if ($ciphertext === null || $keyId === null) {

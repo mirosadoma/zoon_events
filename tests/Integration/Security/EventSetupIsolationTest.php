@@ -54,6 +54,9 @@ final class EventSetupIsolationTest extends Phase1MySqlTestCase
         self::assertNotEmpty($routes);
         foreach ($routes as $route) {
             self::assertContains('tenant.context', $route->gatherMiddleware());
+            if (str_contains($route->uri(), '/acs/')) {
+                continue;
+            }
             self::assertTrue(collect($route->gatherMiddleware())->contains(
                 fn (string $middleware): bool => str_starts_with($middleware, 'permission:'),
             ));

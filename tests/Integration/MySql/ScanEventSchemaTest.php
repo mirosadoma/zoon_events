@@ -19,6 +19,11 @@ final class ScanEventSchemaTest extends Phase2MySqlTestCase
             'event_id',
             'single_entry_enabled',
             'single_entry_scope',
+            'kiosk_offline_threshold_seconds',
+            'lookup_confirmation_required',
+            'reprint_revokes_old_qr',
+            'walk_up_registration_enabled',
+            'walk_up_payment_method_enabled',
             'created_at',
             'updated_at',
         ]);

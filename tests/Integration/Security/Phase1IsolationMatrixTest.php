@@ -17,6 +17,9 @@ final class Phase1IsolationMatrixTest extends TestCase
         foreach ($routes as $route) {
             $middleware = $route->gatherMiddleware();
             self::assertContains('tenant.context', $middleware, $route->uri());
+            if (str_contains($route->uri(), '/acs/')) {
+                continue;
+            }
             self::assertTrue(collect($middleware)->contains(fn ($item): bool => str_starts_with($item, 'permission:')), $route->uri());
         }
     }

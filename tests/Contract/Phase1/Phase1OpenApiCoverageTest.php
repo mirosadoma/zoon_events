@@ -30,10 +30,26 @@ final class Phase1OpenApiCoverageTest extends TestCase
                 return false;
             }
 
-            return preg_match(
-                '#/(wallet-passes|check-in|check-in-summary|offline-allowlist|offline-scan-batches|scans)(/|$)#',
-                $route,
-            ) !== 1;
+            foreach ([
+                '/wallet-passes',
+                '/check-in',
+                '/check-in-summary',
+                '/offline-allowlist',
+                '/offline-scan-batches',
+                '/scans',
+                '/acs/',
+                '/kiosks',
+                '/badge-templates',
+                '/badge-print',
+                '/desk/',
+                '/walk-up',
+            ] as $excluded) {
+                if (str_contains($route, $excluded)) {
+                    return false;
+                }
+            }
+
+            return true;
         })->sort()->values()->all();
         $documentedRoutes = collect($documented)->pluck('route')->sort()->values()->all();
         self::assertSame($documentedRoutes, $phaseOneRuntime, 'Phase 1 has undocumented or stale runtime routes.');

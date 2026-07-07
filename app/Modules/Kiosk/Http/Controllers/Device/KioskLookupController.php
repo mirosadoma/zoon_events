@@ -3,7 +3,6 @@
 namespace App\Modules\Kiosk\Http\Controllers\Device;
 
 use App\Http\Controllers\Controller;
-use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\Credentials\Application\Validation\CredentialValidator;
 use App\Modules\Kiosk\Domain\Context\KioskSessionContextStore;
 use App\Modules\Notifications\Application\NotificationAdapterRegistry;
@@ -13,7 +12,6 @@ use App\Modules\Scanning\Application\Queries\LookupAttendeesQuery;
 use App\Modules\Scanning\Http\Requests\AttendeeLookupRequest;
 use App\Modules\Scanning\Http\Resources\AttendeeLookupResource;
 use App\Modules\Scanning\Infrastructure\Persistence\Models\EventCheckInSetting;
-use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
 use App\Modules\Shared\Http\Problems\Phase3Problem;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
 use Illuminate\Http\JsonResponse;
@@ -29,7 +27,6 @@ final class KioskLookupController extends Controller
         private readonly CredentialValidator $credentials,
         private readonly LookupAttendeesQuery $lookup,
         private readonly NotificationAdapterRegistry $notifications,
-        private readonly PersonalDataCipher $cipher,
     ) {}
 
     public function store(AttendeeLookupRequest $request): JsonResponse
@@ -115,29 +112,8 @@ final class KioskLookupController extends Controller
 
     private function deliverLookupCode(string $tenantId, string $eventId, string $attendeeId, string $code): void
     {
-        $attendee = Attendee::query()
-            ->where('tenant_id', $tenantId)
-            ->where('event_id', $eventId)
-            ->find($attendeeId);
-
-        if ($attendee === null) {
-            return;
-        }
-
-        $scope = "{$tenantId}:{$eventId}:attendee";
-        $destination = null;
-        try {
-            if ($attendee->email_ciphertext !== null && $attendee->encryption_key_id !== null) {
-                $destination = $this->cipher->decrypt([
-                    'ciphertext' => $attendee->email_ciphertext,
-                    'key_id' => $attendee->encryption_key_id,
-                ], $scope);
-            }
-        } catch (\Throwable) {
-            $destination = null;
-        }
-
-        $destination ??= 'kiosk.lookup@example.invalid';
+        $destination = $this->lookup->emailDestinationForAttendee($tenantId, $eventId, $attendeeId)
+            ?? 'kiosk.lookup@example.invalid';
         $adapterKey = (string) config('notifications.email_adapter', 'log');
 
         $this->notifications->get($adapterKey)->send(new NotificationRequest(
