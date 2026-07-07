@@ -4,6 +4,7 @@ namespace App\Modules\AccessControl\Application\Support;
 
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\AccessEvent;
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\AntiPassbackState;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Str;
 
 final class AntiPassbackService
@@ -32,32 +33,53 @@ final class AntiPassbackService
 
         $newState = $event->event_type === 'entry' ? 'inside' : 'outside';
 
-        $existing = AntiPassbackState::query()
-            ->where('tenant_id', $event->tenant_id)
-            ->where('event_id', $event->event_id)
-            ->where('credential_id', $event->credential_id)
-            ->where('zone_id', $event->zone_id)
-            ->first();
+        $keys = [
+            'tenant_id' => $event->tenant_id,
+            'event_id' => $event->event_id,
+            'credential_id' => $event->credential_id,
+            'zone_id' => $event->zone_id,
+        ];
 
-        if ($existing !== null
-            && $existing->last_transition_at !== null
-            && $event->occurred_at < $existing->last_transition_at) {
+        // Atomically advance an existing state row only for a strictly newer
+        // event, so concurrent / out-of-order entry+exit callbacks cannot regress
+        // newer state and enable a passback (data-model.md invariant 5).
+        if ($this->advance($keys, $newState, $event) > 0) {
             return;
         }
 
-        AntiPassbackState::query()->updateOrCreate(
-            [
-                'tenant_id' => $event->tenant_id,
-                'event_id' => $event->event_id,
-                'credential_id' => $event->credential_id,
-                'zone_id' => $event->zone_id,
-            ],
-            [
-                'id' => $existing?->id ?? (string) Str::ulid(),
+        // No row advanced: either none exists, or the existing row is newer/equal.
+        if (AntiPassbackState::query()->where($keys)->exists()) {
+            return;
+        }
+
+        try {
+            AntiPassbackState::query()->create(array_merge($keys, [
+                'id' => (string) Str::ulid(),
                 'state' => $newState,
                 'last_access_event_id' => $event->id,
                 'last_transition_at' => $event->occurred_at,
-            ],
-        );
+            ]));
+        } catch (UniqueConstraintViolationException) {
+            // A concurrent writer inserted the first row; re-apply conditionally.
+            $this->advance($keys, $newState, $event);
+        }
+    }
+
+    /**
+     * @param  array<string, string>  $keys
+     */
+    private function advance(array $keys, string $newState, AccessEvent $event): int
+    {
+        return AntiPassbackState::query()
+            ->where($keys)
+            ->where(function ($query) use ($event): void {
+                $query->whereNull('last_transition_at')
+                    ->orWhere('last_transition_at', '<', $event->occurred_at);
+            })
+            ->update([
+                'state' => $newState,
+                'last_access_event_id' => $event->id,
+                'last_transition_at' => $event->occurred_at,
+            ]);
     }
 }

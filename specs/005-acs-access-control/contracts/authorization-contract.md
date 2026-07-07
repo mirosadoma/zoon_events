@@ -31,7 +31,8 @@ determines the deny reason; success at every step yields `allow`/`allowed`.
      - unmapped lane / cross-scope  -> reject as unknown target
        (acs_lane_unmapped / acs_event_out_of_scope)
 2. Emergency short-circuit: if an EmergencyEvent is active for the lane's
-   zone and the zone is emergency_egress_mode = fail_open:
+   zone and the zone is emergency_egress_mode = fail_open, for BOTH entry and
+   exit presentations:
      -> allow, reason = emergency_fail_open   (skip steps 3-6)
 3. Credential validity (Phase 1 validation + Phase 2 scan decision order,
    unchanged):

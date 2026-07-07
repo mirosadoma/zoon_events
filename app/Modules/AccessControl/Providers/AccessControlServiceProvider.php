@@ -14,6 +14,7 @@ use App\Modules\AccessControl\Domain\Events\EmergencyCleared;
 use App\Modules\AccessControl\Domain\Events\EmergencyRaised;
 use App\Modules\AccessControl\Domain\Events\GateAuthorized;
 use App\Modules\AccessControl\Domain\Events\GateDenied;
+use App\Modules\AccessControl\Infrastructure\Adapters\MockAcsAdapter;
 use App\Modules\AccessControl\Testing\FakeAcsAdapter;
 use App\Modules\Audit\Application\Listeners\Phase4\AccessEventAuditListener;
 use App\Modules\Audit\Application\Listeners\Phase4\AcsConfigAuditListener;
@@ -31,7 +32,7 @@ final class AccessControlServiceProvider extends ServiceProvider
 
         $this->app->bind(AcsAdapter::class, function ($app): AcsAdapter {
             return match (config('acs.default_acs_adapter', 'mock')) {
-                default => $app->make(FakeAcsAdapter::class),
+                default => $app->make(MockAcsAdapter::class),
             };
         });
     }

@@ -29,6 +29,11 @@ final class FakeAcsAdapter implements AcsAdapter
         return $this->unavailable;
     }
 
+    public function isAvailable(): bool
+    {
+        return ! $this->unavailable;
+    }
+
     public function health(): AcsHealthResult
     {
         $this->calls[] = ['operation' => 'health'];

@@ -13,6 +13,7 @@ use App\Modules\Credentials\Application\Validation\CredentialValidator;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
 use App\Modules\Shared\Http\Problems\Phase4Problem;
 use DateTimeInterface;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Str;
 
 final readonly class IngestAccessEventAction
@@ -41,10 +42,7 @@ final readonly class IngestAccessEventAction
             throw Phase4Problem::make('acs_event_out_of_scope');
         }
 
-        $existing = AccessEvent::query()
-            ->where('tenant_id', $ctx->tenantId)
-            ->where('external_event_id', $externalEventId)
-            ->first();
+        $existing = $this->findByExternalEventId($ctx, $externalEventId);
 
         if ($existing !== null) {
             return $existing;
@@ -52,44 +50,61 @@ final readonly class IngestAccessEventAction
 
         $credentialId = $this->resolveCredentialId($ctx, $credentialReference);
 
-        return $this->audited->run(
-            function () use ($ctx, $externalEventId, $lane, $eventType, $occurredAt, $credentialId): AccessEvent {
-                $accessEvent = AccessEvent::query()->create([
-                    'id' => (string) Str::ulid(),
-                    'tenant_id' => $ctx->tenantId,
-                    'event_id' => $ctx->eventId,
-                    'event_type' => $eventType,
-                    'credential_id' => $credentialId,
-                    'zone_id' => $lane->zone_id,
-                    'lane_id' => $lane->id,
-                    'direction' => $eventType,
-                    'decision' => 'n/a',
-                    'reason_code' => $eventType,
-                    'source' => 'acs_gate',
-                    'external_event_id' => $externalEventId,
-                    'occurred_at' => $occurredAt,
-                ]);
+        try {
+            return $this->audited->run(
+                function () use ($ctx, $externalEventId, $lane, $eventType, $occurredAt, $credentialId): AccessEvent {
+                    $accessEvent = AccessEvent::query()->create([
+                        'id' => (string) Str::ulid(),
+                        'tenant_id' => $ctx->tenantId,
+                        'event_id' => $ctx->eventId,
+                        'event_type' => $eventType,
+                        'credential_id' => $credentialId,
+                        'zone_id' => $lane->zone_id,
+                        'lane_id' => $lane->id,
+                        'direction' => $eventType,
+                        'decision' => 'n/a',
+                        'reason_code' => $eventType,
+                        'source' => 'acs_gate',
+                        'external_event_id' => $externalEventId,
+                        'occurred_at' => $occurredAt,
+                    ]);
 
-                if ($lane->last_seen_at === null || $occurredAt > $lane->last_seen_at) {
-                    $lane->forceFill(['last_seen_at' => $occurredAt])->save();
-                }
+                    if ($lane->last_seen_at === null || $occurredAt > $lane->last_seen_at) {
+                        $lane->forceFill(['last_seen_at' => $occurredAt])->save();
+                    }
 
-                if ($credentialId !== null) {
-                    $this->antiPassback->applyEvent($accessEvent);
-                }
+                    if ($credentialId !== null) {
+                        $this->antiPassback->applyEvent($accessEvent);
+                    }
 
-                return $accessEvent;
-            },
-            fn (AccessEvent $event): mixed => event(new AccessEventIngested(
-                $ctx->tenantId,
-                $ctx->eventId,
-                $event->id,
-                $lane->id,
-                $lane->zone_id,
-                $credentialId,
-                $eventType,
-            )),
-        );
+                    return $accessEvent;
+                },
+                fn (AccessEvent $event): mixed => event(new AccessEventIngested(
+                    $ctx->tenantId,
+                    $ctx->eventId,
+                    $event->id,
+                    $lane->id,
+                    $lane->zone_id,
+                    $credentialId,
+                    $eventType,
+                )),
+            );
+        } catch (UniqueConstraintViolationException) {
+            // A concurrent duplicate callback (same tenant + external_event_id)
+            // won the race; the whole transaction rolled back, so this is an
+            // idempotent no-op returning the already-recorded event
+            // (data-model.md invariant 4 / authorization-contract test 8).
+            return $this->findByExternalEventId($ctx, $externalEventId)
+                ?? throw Phase4Problem::make('acs_event_out_of_scope');
+        }
+    }
+
+    private function findByExternalEventId(AcsIntegrationContext $ctx, string $externalEventId): ?AccessEvent
+    {
+        return AccessEvent::query()
+            ->where('tenant_id', $ctx->tenantId)
+            ->where('external_event_id', $externalEventId)
+            ->first();
     }
 
     private function resolveCredentialId(AcsIntegrationContext $ctx, ?string $credentialReference): ?string

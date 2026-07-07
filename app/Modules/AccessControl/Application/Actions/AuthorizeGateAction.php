@@ -14,13 +14,13 @@ use App\Modules\AccessControl\Domain\ValueObjects\AcsIntegrationContext;
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\AccessEvent;
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\AcsLane;
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\AcsZone;
-use App\Modules\AccessControl\Testing\FakeAcsAdapter;
 use App\Modules\Audit\Application\AuditedTransaction;
 use App\Modules\Credentials\Application\Validation\CredentialValidator;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
 use App\Modules\Scanning\Application\Actions\SubmitScanAction;
 use App\Modules\Scanning\Domain\ValueObjects\ScanContext;
 use App\Modules\Shared\Http\Problems\Phase4Problem;
+use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketType;
 use Illuminate\Support\Str;
 
 final readonly class AuthorizeGateAction
@@ -62,8 +62,7 @@ final readonly class AuthorizeGateAction
             throw Phase4Problem::make('acs_lane_unmapped');
         }
 
-        if ($direction === 'entry'
-            && $this->emergencyState->isActiveForZone($ctx->tenantId, $ctx->eventId, $zone->id)
+        if ($this->emergencyState->isActiveForZone($ctx->tenantId, $ctx->eventId, $zone->id)
             && $zone->emergency_egress_mode === 'fail_open') {
             return $this->recordDecision(
                 $ctx,
@@ -130,11 +129,17 @@ final readonly class AuthorizeGateAction
             );
         }
 
+        $attendeeType = TicketType::query()
+            ->where('tenant_id', $ctx->tenantId)
+            ->where('event_id', $ctx->eventId)
+            ->where('id', $credential->ticket_type_id)
+            ->value('attendee_type');
+
         $ruleFailure = $this->rules->evaluate(
             $ctx->tenantId,
             $ctx->eventId,
             $credential->ticket_type_id,
-            null,
+            $attendeeType,
             $zone->id,
             $lane->id,
             $direction,
@@ -159,7 +164,7 @@ final readonly class AuthorizeGateAction
                 $ctx->tenantId,
                 $ctx->eventId,
                 $credential->ticket_type_id,
-                null,
+                $attendeeType,
                 $zone->id,
                 $lane->id,
                 $direction,
@@ -177,7 +182,7 @@ final readonly class AuthorizeGateAction
             );
         }
 
-        if ($this->adapter instanceof FakeAcsAdapter && $this->adapter->isUnavailable()) {
+        if (! $this->adapter->isAvailable()) {
             if ($zone->unavailability_mode === 'fail_open') {
                 return $this->recordDecision(
                     $ctx,

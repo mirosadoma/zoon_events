@@ -164,8 +164,8 @@ behavior (`all_plan.md` §19.5).
 
 Index: `(tenant_id, event_id, cleared_at)` for "currently active emergencies"
 lookup. While an emergency is active (`cleared_at IS NULL`) for a zone
-configured `emergency_egress_mode = fail_open`, entry decisions at affected
-lanes return `allow` with reason `emergency_fail_open`.
+configured `emergency_egress_mode = fail_open`, entry and exit decisions at
+affected lanes return `allow` with reason `emergency_fail_open`.
 
 ## AcsIntegrationCredential (M2M)
 
@@ -223,8 +223,8 @@ is introduced.
 6. A `decision` with `decision = deny` always carries a specific
    `reason_code`; an `allow` may carry `allowed`, `emergency_fail_open`, or
    `acs_unavailable_fail_open`.
-7. While an emergency is active for a zone configured `fail_open`, entry
-   decisions at affected lanes return `allow`/`emergency_fail_open`
+7. While an emergency is active for a zone configured `fail_open`, entry and
+   exit decisions at affected lanes return `allow`/`emergency_fail_open`
    regardless of anti-passback or time-window rules; the emergency event and
    each affected decision are auditable.
 8. The external ACS never receives signing keys, a raw credential payload, or

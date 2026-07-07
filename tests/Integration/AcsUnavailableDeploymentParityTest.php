@@ -3,6 +3,7 @@
 namespace Tests\Integration;
 
 use App\Modules\AccessControl\Application\Actions\RegisterAcsIntegrationCredentialAction;
+use App\Modules\AccessControl\Contracts\AcsAdapter;
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\AccessEvent;
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\AcsAuthorizationRule;
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\AcsLane;
@@ -71,6 +72,7 @@ final class AcsUnavailableDeploymentParityTest extends Phase4MySqlTestCase
 
         $adapter = app(FakeAcsAdapter::class);
         $adapter->forceUnavailable(true);
+        $this->app->instance(AcsAdapter::class, $adapter);
         self::assertSame(0, count($adapter->calls()));
 
         $allow = $this->postJson('/api/v1/acs/v1/authorize', [

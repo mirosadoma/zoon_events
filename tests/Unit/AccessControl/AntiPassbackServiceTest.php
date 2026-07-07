@@ -21,7 +21,6 @@ final class AntiPassbackServiceTest extends Phase4MySqlTestCase
     use CreatesPhase2ScanFixture;
     use CreatesPhase4AcsFixture;
     use DatabaseTransactions;
-    use DatabaseTransactions;
 
     public function test_is_inside_reads_materialized_state(): void
     {

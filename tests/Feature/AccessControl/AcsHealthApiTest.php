@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\AccessControl;
 
+use App\Modules\AccessControl\Contracts\AcsAdapter;
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\AcsLane;
 use App\Modules\AccessControl\Testing\FakeAcsAdapter;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -40,7 +41,9 @@ final class AcsHealthApiTest extends Phase4MySqlTestCase
             'health_status' => 'online',
         ]);
 
-        app(FakeAcsAdapter::class)->forceHealth('degraded', 'mock_latency');
+        $fake = app(FakeAcsAdapter::class);
+        $fake->forceHealth('degraded', 'mock_latency');
+        $this->app->instance(AcsAdapter::class, $fake);
 
         $this->getJson($url)->assertUnauthorized();
 
