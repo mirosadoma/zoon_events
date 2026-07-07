@@ -1,0 +1,911 @@
+openapi: 3.1.0
+info:
+  title: Zonetec Phase 4 ACS and Access Control API
+  version: 1.0.0
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+  description: >
+    Authoritative versioned contract for Phase 4 ACS zone/lane/rule
+    management, the gate authorization request, entry/exit event callbacks,
+    emergency egress, ACS integration credential registration, and the
+    gate-event and ACS/lane health views. This is the review contract for
+    this feature; implementation merges it into the authoritative
+    `specs/001-project-foundation/contracts/openapi.yaml`. Event admission at
+    an ACS gate reuses the existing Phase 2 `submitScan` operation via
+    `scanner_type = 'acs_gate'` rather than a new check-in operation.
+servers:
+  - url: https://{host}/api/v1
+    variables:
+      host:
+        default: example.test
+tags:
+  - name: ACS Configuration
+    description: Organizer/operations management of zones, lanes, authorization rules, and the ACS integration credential.
+  - name: ACS Integration
+    description: Machine-to-machine operations called by the external ACS (authorization, event callbacks, emergency).
+  - name: Gate Events
+    description: Authorized read views of gate events and ACS/lane health.
+  - name: Emergency
+    description: Operator-initiated emergency egress raise/clear.
+paths:
+  /tenant/events/{event_id}/acs/zones:
+    post:
+      tags: [ACS Configuration]
+      operationId: createAcsZone
+      summary: Create an ACS zone mapped to an external ACS zone id
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/AcceptLanguage'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcsZoneRequest'
+      responses:
+        '201':
+          description: Zone created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcsZoneEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+    get:
+      tags: [ACS Configuration]
+      operationId: listAcsZones
+      summary: List ACS zones for an event
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Zone list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcsZoneListEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/acs/zones/{zone_id}:
+    patch:
+      tags: [ACS Configuration]
+      operationId: updateAcsZone
+      summary: Update an ACS zone (modes, status, name)
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/ZoneId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcsZoneRequest'
+      responses:
+        '200':
+          description: Zone updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcsZoneEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/acs/lanes:
+    post:
+      tags: [ACS Configuration]
+      operationId: createAcsLane
+      summary: Create an ACS lane within a zone, mapped to an external ACS lane id
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcsLaneRequest'
+      responses:
+        '201':
+          description: Lane created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcsLaneEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+    get:
+      tags: [ACS Configuration]
+      operationId: listAcsLanes
+      summary: List ACS lanes and their health for an event
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Lane list with health
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcsLaneListEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/acs/rules:
+    post:
+      tags: [ACS Configuration]
+      operationId: createAcsAuthorizationRule
+      summary: Create an authorization rule mapping ticket/attendee type to zone/lane/direction/window
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcsRuleRequest'
+      responses:
+        '201':
+          description: Rule created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcsRuleEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+    get:
+      tags: [ACS Configuration]
+      operationId: listAcsAuthorizationRules
+      summary: List authorization rules for an event
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Rule list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcsRuleListEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/acs/integration-credentials:
+    post:
+      tags: [ACS Configuration]
+      operationId: registerAcsIntegrationCredential
+      summary: Register or rotate the M2M ACS integration credential; secret shown exactly once
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcsIntegrationCredentialRequest'
+      responses:
+        '201':
+          description: Credential registered/rotated; secret returned exactly once
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcsIntegrationCredentialEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /acs/v1/authorize:
+    post:
+      tags: [ACS Integration]
+      operationId: requestGateAuthorization
+      summary: External ACS requests an allow/deny decision for a credential at a lane
+      security:
+        - AcsIntegrationAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthorizationRequest'
+      responses:
+        '200':
+          description: Authorization decision (allow or deny with a stable reason code)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationDecisionEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /acs/v1/events:
+    post:
+      tags: [ACS Integration]
+      operationId: ingestAccessEvent
+      summary: External ACS posts an entry or exit event callback (idempotent by external_event_id)
+      security:
+        - AcsIntegrationAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessEventCallbackRequest'
+      responses:
+        '202':
+          description: Event accepted or already processed (idempotent no-op)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessEventEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /acs/v1/emergency:
+    post:
+      tags: [ACS Integration]
+      operationId: ingestEmergencySignal
+      summary: External ACS posts an emergency egress signal for a zone or event-wide
+      security:
+        - AcsIntegrationAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmergencySignalRequest'
+      responses:
+        '202':
+          description: Emergency signal accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmergencyEventEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/acs/emergency:
+    post:
+      tags: [Emergency]
+      operationId: raiseOrClearEmergency
+      summary: Operator raises or clears an emergency egress for a zone or event-wide
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OperatorEmergencyRequest'
+      responses:
+        '200':
+          description: Emergency raised or cleared
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmergencyEventEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '422':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/acs/gate-events:
+    get:
+      tags: [Gate Events]
+      operationId: listGateEvents
+      summary: Bounded, tenant/event-scoped feed of gate decisions and entry/exit/emergency events
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+        - name: since
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        '200':
+          description: Gate event feed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GateEventListEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+  /tenant/events/{event_id}/acs/health:
+    get:
+      tags: [Gate Events]
+      operationId: getAcsHealth
+      summary: ACS integration and per-lane health for an event
+      security:
+        - TenantSession: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: ACS and lane health
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcsHealthEnvelope'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/Problem'
+components:
+  securitySchemes:
+    TenantSession:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Bearer token or session cookie plus required X-Tenant-ID.
+    AcsIntegrationAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: 'AcsIntegration {secret} M2M credential scoped to one event and its mapped lanes.'
+  parameters:
+    AcceptLanguage:
+      name: Accept-Language
+      in: header
+      required: false
+      schema:
+        type: string
+        enum: [en, ar]
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+    TenantId:
+      name: X-Tenant-ID
+      in: header
+      required: true
+      schema:
+        type: string
+    EventId:
+      name: event_id
+      in: path
+      required: true
+      schema:
+        type: string
+    ZoneId:
+      name: zone_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    Problem:
+      description: Problem Details error
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status, code, correlation_id]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        code:
+          type: string
+          description: >
+            Stable error code, e.g. acs_zone_unmapped, acs_lane_unmapped,
+            acs_unavailable, acs_event_out_of_scope, emergency_active.
+        detail:
+          type: string
+        correlation_id:
+          type: string
+    ReasonCode:
+      type: string
+      enum:
+        - allowed
+        - credential_expired
+        - credential_revoked
+        - credential_unknown
+        - zone_not_permitted
+        - lane_not_permitted
+        - outside_time_window
+        - anti_passback_violation
+        - acs_unavailable_fail_open
+        - acs_unavailable_fail_closed
+        - emergency_fail_open
+    AcsZoneRequest:
+      type: object
+      required: [name, external_acs_zone_id]
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        external_acs_zone_id:
+          type: string
+          maxLength: 160
+        anti_passback_enabled:
+          type: boolean
+          default: false
+        unavailability_mode:
+          type: string
+          enum: [fail_open, fail_closed]
+          default: fail_closed
+        emergency_egress_mode:
+          type: string
+          enum: [fail_open, fail_closed]
+          default: fail_open
+        status:
+          type: string
+          enum: [active, inactive]
+          default: active
+    AcsZoneEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/AcsZone'
+    AcsZoneListEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AcsZone'
+    AcsZone:
+      type: object
+      required: [id, name, external_acs_zone_id, status]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        external_acs_zone_id:
+          type: string
+        anti_passback_enabled:
+          type: boolean
+        unavailability_mode:
+          type: string
+          enum: [fail_open, fail_closed]
+        emergency_egress_mode:
+          type: string
+          enum: [fail_open, fail_closed]
+        status:
+          type: string
+          enum: [active, inactive]
+    AcsLaneRequest:
+      type: object
+      required: [zone_id, name, external_acs_lane_id, gate_type, access_direction]
+      properties:
+        zone_id:
+          type: string
+        name:
+          type: string
+          maxLength: 120
+        external_acs_lane_id:
+          type: string
+          maxLength: 160
+        gate_type:
+          type: string
+          enum: [turnstile, door, speedgate, manual]
+        access_direction:
+          type: string
+          enum: [entry, exit, bidirectional]
+        is_admission_lane:
+          type: boolean
+          default: false
+        status:
+          type: string
+          enum: [active, inactive]
+          default: active
+    AcsLaneEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/AcsLane'
+    AcsLaneListEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AcsLane'
+    AcsLane:
+      type: object
+      required: [id, zone_id, name, external_acs_lane_id, gate_type, access_direction, status, health_status]
+      properties:
+        id:
+          type: string
+        zone_id:
+          type: string
+        name:
+          type: string
+        external_acs_lane_id:
+          type: string
+        gate_type:
+          type: string
+          enum: [turnstile, door, speedgate, manual]
+        access_direction:
+          type: string
+          enum: [entry, exit, bidirectional]
+        is_admission_lane:
+          type: boolean
+        status:
+          type: string
+          enum: [active, inactive]
+        health_status:
+          type: string
+          enum: [online, degraded, offline]
+        last_seen_at:
+          type: [string, 'null']
+          format: date-time
+    AcsRuleRequest:
+      type: object
+      required: [zone_id, access_direction]
+      properties:
+        ticket_type_id:
+          type: [string, 'null']
+        attendee_type:
+          type: [string, 'null']
+          enum: [attendee, staff, vip, vendor, null]
+        zone_id:
+          type: string
+        lane_id:
+          type: [string, 'null']
+        access_direction:
+          type: string
+          enum: [entry, exit, bidirectional]
+        anti_passback_exempt:
+          type: boolean
+          default: false
+        valid_from:
+          type: [string, 'null']
+          format: date-time
+        valid_until:
+          type: [string, 'null']
+          format: date-time
+        status:
+          type: string
+          enum: [active, inactive]
+          default: active
+    AcsRuleEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/AcsRule'
+    AcsRuleListEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AcsRule'
+    AcsRule:
+      type: object
+      required: [id, zone_id, access_direction, status]
+      properties:
+        id:
+          type: string
+        ticket_type_id:
+          type: [string, 'null']
+        attendee_type:
+          type: [string, 'null']
+        zone_id:
+          type: string
+        lane_id:
+          type: [string, 'null']
+        access_direction:
+          type: string
+          enum: [entry, exit, bidirectional]
+        anti_passback_exempt:
+          type: boolean
+        valid_from:
+          type: [string, 'null']
+          format: date-time
+        valid_until:
+          type: [string, 'null']
+          format: date-time
+        status:
+          type: string
+          enum: [active, inactive]
+    AcsIntegrationCredentialRequest:
+      type: object
+      required: [name, capabilities]
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        capabilities:
+          type: array
+          items:
+            type: string
+            enum: [authorize, event.ingest, emergency.ingest]
+          minItems: 1
+    AcsIntegrationCredentialEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [id, name, secret, capabilities, expires_at]
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            secret:
+              type: string
+              description: Raw M2M secret, shown exactly once and never retrievable again.
+            capabilities:
+              type: array
+              items:
+                type: string
+            expires_at:
+              type: string
+              format: date-time
+    AuthorizationRequest:
+      type: object
+      required: [external_acs_lane_id, direction]
+      properties:
+        credential_reference:
+          type: string
+          maxLength: 512
+          description: Credential or identity reference presented at the lane.
+        external_acs_lane_id:
+          type: string
+          maxLength: 160
+        direction:
+          type: string
+          enum: [entry, exit]
+    AuthorizationDecisionEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [decision, reason_code, access_event_id]
+          properties:
+            decision:
+              type: string
+              enum: [allow, deny]
+            reason_code:
+              $ref: '#/components/schemas/ReasonCode'
+            access_event_id:
+              type: string
+            scan_event_id:
+              type: [string, 'null']
+              description: Set when an admission lane also recorded a Phase 2 check-in.
+    AccessEventCallbackRequest:
+      type: object
+      required: [external_event_id, external_acs_lane_id, event_type, occurred_at]
+      properties:
+        external_event_id:
+          type: string
+          maxLength: 160
+          description: ACS-supplied idempotency key.
+        external_acs_lane_id:
+          type: string
+          maxLength: 160
+        credential_reference:
+          type: [string, 'null']
+          maxLength: 512
+        event_type:
+          type: string
+          enum: [entry, exit]
+        occurred_at:
+          type: string
+          format: date-time
+    AccessEventEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/AccessEvent'
+    AccessEvent:
+      type: object
+      required: [id, event_type, reason_code, occurred_at]
+      properties:
+        id:
+          type: string
+        event_type:
+          type: string
+          enum: [decision, entry, exit, emergency]
+        decision:
+          type: [string, 'null']
+          enum: [allow, deny, null]
+        reason_code:
+          $ref: '#/components/schemas/ReasonCode'
+        direction:
+          type: string
+          enum: [entry, exit, none]
+        zone_id:
+          type: [string, 'null']
+        lane_id:
+          type: [string, 'null']
+        credential_id:
+          type: [string, 'null']
+        occurred_at:
+          type: string
+          format: date-time
+    EmergencySignalRequest:
+      type: object
+      required: [action, occurred_at]
+      properties:
+        action:
+          type: string
+          enum: [raise, clear]
+        external_acs_zone_id:
+          type: [string, 'null']
+          description: Target zone; null for an event-wide emergency.
+        signal_source:
+          type: string
+          enum: [acs, fire_alarm, system]
+        occurred_at:
+          type: string
+          format: date-time
+    OperatorEmergencyRequest:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [raise, clear]
+        zone_id:
+          type: [string, 'null']
+          description: Target zone; null for an event-wide emergency.
+    EmergencyEventEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/EmergencyEvent'
+    EmergencyEvent:
+      type: object
+      required: [id, signal_source, behavior_applied, raised_at]
+      properties:
+        id:
+          type: string
+        zone_id:
+          type: [string, 'null']
+        signal_source:
+          type: string
+          enum: [operator, acs, fire_alarm, system]
+        behavior_applied:
+          type: string
+          enum: [fail_open, fail_closed]
+        raised_at:
+          type: string
+          format: date-time
+        cleared_at:
+          type: [string, 'null']
+          format: date-time
+    GateEventListEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessEvent'
+    AcsHealthEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [integration_status, lanes]
+          properties:
+            integration_status:
+              type: string
+              enum: [online, degraded, offline]
+            active_emergency:
+              type: boolean
+              default: false
+            lanes:
+              type: array
+              items:
+                type: object
+                required: [lane_id, health_status]
+                properties:
+                  lane_id:
+                    type: string
+                  health_status:
+                    type: string
+                    enum: [online, degraded, offline]
+                  last_seen_at:
+                    type: [string, 'null']
+                    format: date-time
