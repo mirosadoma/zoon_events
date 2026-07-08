@@ -15,6 +15,7 @@ use App\Modules\AdminConsole\Http\Controllers\Tenant\Events\EventOperationsContr
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Kiosk\EventKioskController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\ManualDesk\ManualDeskController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Reports\EventReportController;
+use App\Modules\IdentityVerification\Http\Controllers\Public\IdentityVerifyPageController;
 use App\Modules\Operations\Http\Controllers\ApiDocsController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
@@ -26,6 +27,10 @@ Route::middleware('guest')->group(function (): void {
     Route::get('/login', [SessionController::class, 'create'])->name('login');
     Route::post('/login', [SessionController::class, 'store'])->middleware('throttle:auth');
 });
+
+Route::get('/identity/{event_slug}/{order_token}', [IdentityVerifyPageController::class, 'show'])
+    ->middleware('throttle:public-event')
+    ->name('public.identity.verify');
 
 Route::middleware(['kiosk.session.clear', 'kiosk.session'])->group(function (): void {
     Route::get('/kiosk/{device_code}', [KioskModeController::class, 'show'])->name('kiosk.mode');
@@ -52,6 +57,9 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/{event_id}', [EventDashboardController::class, 'show'])->name('tenant.events.show');
         Route::get('/{event_id}/edit', [EventDashboardController::class, 'edit'])->name('tenant.events.edit');
         Route::get('/{event_id}/registration-form', [EventDashboardController::class, 'registrationForm'])->name('tenant.registration.builder');
+        Route::get('/{event_id}/identity', [EventDashboardController::class, 'identityRequirements'])->name('tenant.identity.requirements');
+        Route::get('/{event_id}/identity/review', [EventDashboardController::class, 'identityReview'])->name('tenant.identity.review');
+        Route::get('/{event_id}/identity/verifications/{verification_id}', [EventDashboardController::class, 'identityVerificationDetail'])->name('tenant.identity.verification');
         Route::get('/{event_id}/registration-preview', [EventDashboardController::class, 'registrationPreview'])->name('tenant.registration.preview');
         Route::get('/{event_id}/ticket-types', [EventDashboardController::class, 'ticketTypes'])->name('tenant.ticket-types.index');
         Route::get('/{event_id}/price-tiers', [EventDashboardController::class, 'priceTiers'])->name('tenant.price-tiers.index');

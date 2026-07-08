@@ -11,7 +11,9 @@ The executable source is `Database\Seeders\PermissionSeeder::definitions()`. Ten
 `registration.manage`, `ticketing.manage`,
 `order.view`, `order.manage`, `payment.refund`, `attendee.view`,
 `attendee.manage`, `credential.view`, `credential.validate`,
-`credential.revoke`, and `credential.reissue`. Phase 2 tenant keys:
+`credential.revoke`, `credential.reissue`, `identity.configure`,
+`identity.review`, `identity.data.view`, and `identity.data.manage`.
+Phase 2 tenant keys:
 `wallet.pass.view`, `wallet.pass.generate`, `wallet.pass.manage`,
 `checkin.scan.submit`, `checkin.scan.override`, and `checkin.dashboard.view`.
 Platform keys cover tenant, user,
@@ -44,3 +46,8 @@ Phase 4 tenant keys: `acs.configure`, `acs.events.view`, `acs.health.view`, and
 `acs.emergency.manage`. ACS integrations authenticate with M2M credentials and
 capability lists (`authorize`, `event.ingest`, `emergency.ingest`), not workforce
 RBAC. Full Phase 4 tables live in `docs/security/permissions-phase4.md`.
+
+Phase 5 tenant keys: `identity.configure`, `identity.review`,
+`identity.data.view`, and `identity.data.manage`. Public attendee identity flows
+authenticate with the order access token rather than workforce RBAC. Full Phase 5
+tables live in `docs/security/permissions-phase5.md`.

@@ -9,7 +9,7 @@ final class CheckPhaseBoundary extends Command
 {
     protected $signature = 'zonetec:phase-boundary:check';
 
-    protected $description = 'Reject container files and product implementation beyond the active Phase 4 scope.';
+    protected $description = 'Reject container files and product implementation beyond the active Phase 5 scope.';
 
     /** @var list<string> */
     private array $allowedProductPaths = [
@@ -18,12 +18,15 @@ final class CheckPhaseBoundary extends Command
         'app/Modules/Kiosk',
         'app/Modules/BadgePrinting',
         'app/Modules/AccessControl',
+        'app/Modules/IdentityVerification',
         'app/Modules/AdminConsole',
         'app/Modules/Authorization/Policies/Phase2',
         'app/Modules/Authorization/Policies/Phase3',
         'app/Modules/Authorization/Policies/Phase4',
+        'app/Modules/Authorization/Policies/Phase5',
         'app/Modules/Audit/Application/Listeners/Phase3',
         'app/Modules/Audit/Application/Listeners/Phase4',
+        'app/Modules/Audit/Application/Listeners/Phase5',
         'app/Modules/Operations/Application/Health/Checks/AppleWalletHealthCheck.php',
         'app/Modules/Operations/Application/Health/Checks/GoogleWalletHealthCheck.php',
         'app/Modules/Operations/Application/Health/Checks/KioskFleetHealthCheck.php',
@@ -39,6 +42,7 @@ final class CheckPhaseBoundary extends Command
         'resources/js/pages/tenant/gate-events',
         'resources/js/pages/tenant/acs',
         'resources/js/pages/tenant/acs-health',
+        'resources/js/pages/tenant/identity',
         'resources/js/pages/admin',
         'resources/js/pages/tenant/reports',
         'resources/js/navigation',
@@ -52,14 +56,17 @@ final class CheckPhaseBoundary extends Command
         'resources/js/components/gate-events',
         'resources/js/components/acs',
         'resources/js/components/acs-health',
+        'resources/js/components/identity',
         'resources/js/types/phase2.ts',
         'resources/js/types/phase3.ts',
         'resources/js/types/phase4.ts',
+        'resources/js/types/phase5.ts',
         'tests/Feature/WalletPasses',
         'tests/Feature/Scanning',
         'tests/Feature/Kiosk',
         'tests/Feature/BadgePrinting',
         'tests/Feature/AccessControl',
+        'tests/Feature/IdentityVerification',
         'tests/Contract/Phase2',
         'tests/Contract/Phase3',
         'tests/Contract/Phase4',
@@ -68,11 +75,14 @@ final class CheckPhaseBoundary extends Command
         'tests/Architecture/Phase2ModuleBoundaryTest.php',
         'tests/Architecture/Phase3ModuleBoundaryTest.php',
         'tests/Architecture/Phase4ModuleBoundaryTest.php',
+        'tests/Architecture/Phase5ModuleBoundaryTest.php',
         'tests/Feature/Authorization/Phase2PermissionMatrixTest.php',
         'tests/Feature/Authorization/Phase4PermissionMatrixTest.php',
+        'tests/Feature/Authorization/Phase5PermissionMatrixTest.php',
         'tests/Support/Phase2MySqlTestCase.php',
         'tests/Support/Phase3MySqlTestCase.php',
         'tests/Support/Phase4MySqlTestCase.php',
+        'tests/Support/Phase5MySqlTestCase.php',
         'tests/Support/CreatesPhase4AcsFixture.php',
         'lang/en/phase2.php',
         'lang/ar/phase2.php',
@@ -80,9 +90,12 @@ final class CheckPhaseBoundary extends Command
         'lang/ar/phase3.php',
         'lang/en/phase4.php',
         'lang/ar/phase4.php',
+        'lang/en/phase5.php',
+        'lang/ar/phase5.php',
         'config/wallet.php',
         'config/acs.php',
         'config/printing.php',
+        'config/identity-verification.php',
         'database/migrations/2026_07_07_000001_create_acs_integration_credentials_table.php',
         'database/migrations/2026_07_07_000002_add_acs_gate_scanner_type.php',
         'database/migrations/2026_07_07_000003_create_acs_zones_table.php',
@@ -93,16 +106,21 @@ final class CheckPhaseBoundary extends Command
         'database/migrations/2026_07_07_000007_fix_idempotency_actor_id_for_integration_auth.php',
         'database/migrations/2026_07_07_000008_create_anti_passback_states_table.php',
         'database/migrations/2026_07_07_000009_create_emergency_events_table.php',
+        'database/migrations/2026_07_08_000001_create_identity_verification_requirements_table.php',
+        'database/migrations/2026_07_08_000002_create_identity_verifications_table.php',
+        'database/migrations/2026_07_08_000003_create_identity_consents_table.php',
+        'database/migrations/2026_07_08_000004_create_identity_biometric_artifacts_table.php',
     ];
 
     /** @return list<string> */
-    private function forbiddenPhaseFiveNames(): array
+    private function forbiddenPhaseSixNames(): array
     {
         return [
-            'Identity'.'Verification',
-            'Identity'.'Assurance',
             'Market'.'place',
             'Venue'.'Listing',
+            'Venue'.'Asset',
+            'Rental',
+            'Hardware',
         ];
     }
 
@@ -146,7 +164,7 @@ final class CheckPhaseBoundary extends Command
             }
 
             $contents = File::get($file->getPathname());
-            foreach ($this->forbiddenPhaseFiveNames() as $name) {
+            foreach ($this->forbiddenPhaseSixNames() as $name) {
                 if (preg_match('/\b'.preg_quote($name, '/').'\b/i', $relative) === 1
                     || preg_match('/\b'.preg_quote($name, '/').'\b/i', $contents) === 1) {
                     $failures[] = "{$relative} contains {$name}";

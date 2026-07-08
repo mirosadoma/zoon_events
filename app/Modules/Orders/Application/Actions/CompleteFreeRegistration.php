@@ -84,31 +84,35 @@ final readonly class CompleteFreeRegistration
                 $allocation->ticketTypeId, $input->credentialExpiresAt,
             );
             $this->tickets->linkAndConvert($input->tenantId, $allocation->holdId, $order->id);
-            $this->notifications->create(
-                $input->tenantId, $input->eventId, $attendee->id, $order->id,
-                $credential->id, $input->attendee['email'], $input->locale,
-                $input->attendee['phone'] ?? null,
-            );
+            if ($credential !== null) {
+                $this->notifications->create(
+                    $input->tenantId, $input->eventId, $attendee->id, $order->id,
+                    $credential->id, $input->attendee['email'], $input->locale,
+                    $input->attendee['phone'] ?? null,
+                );
+            }
             $this->audit->write(
                 'tenant', $input->tenantId, 'registration.free_completed', 'succeeded',
                 targetType: 'order', targetId: $order->id,
                 metadata: ['event_id' => $input->eventId],
             );
-            event(new FreeRegistrationCompleted(
-                $input->tenantId,
-                $input->eventId,
-                $order->id,
-                $attendee->id,
-                $credential->id,
-            ));
+            if ($credential !== null) {
+                event(new FreeRegistrationCompleted(
+                    $input->tenantId,
+                    $input->eventId,
+                    $order->id,
+                    $attendee->id,
+                    $credential->id,
+                ));
+            }
 
             return new CompletedRegistration(
                 $order->id,
                 $reference,
                 $accessToken,
-                $credential->id,
-                $credential->token,
-                $credential->expiresAt,
+                $credential?->id,
+                $credential?->token,
+                $credential?->expiresAt,
                 false,
             );
         }, 3);

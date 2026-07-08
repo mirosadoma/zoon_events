@@ -1,7 +1,7 @@
 # Audit event catalog
 
 Owner: Security Engineering  
-Last reviewed: 2026-07-03
+Last reviewed: 2026-07-08
 
 Catalog categories include authentication/session/token outcomes, authorization denial,
 tenant/user/membership lifecycle, role/permission/assignment changes, privileged recovery,
@@ -64,3 +64,18 @@ Phase 4 required action families:
 Gate decision evidence is synchronous inside the audited transaction. Integration
 secrets and credential payloads never enter audit metadata. Full Phase 4 tables live
 in `docs/security/audit-catalog-phase4.md`.
+
+Phase 5 required action families:
+
+- `identity_requirement.configured`;
+- `identity_consent.captured`;
+- `identity_verification.started|result_recorded`;
+- `identity_face_capture.submitted`;
+- `identity_review.approved|rejected` (rejection records reviewer reason metadata, not raw biometrics);
+- `identity_data.viewed|deleted|purged`.
+
+Identity evidence records tenant, event, attendee, and verification identifiers plus
+stable status/reason metadata. Raw biometric templates, encrypted storage references,
+government provider payloads, and provider callback bodies never enter audit metadata.
+Full Phase 5 tables live in `docs/security/permissions-phase5.md` (permissions) and
+the Phase 5 spec audit notes in `specs/007-identity-verification/research.md`.

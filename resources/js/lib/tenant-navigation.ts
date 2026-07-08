@@ -6,6 +6,8 @@ export function tenantEventNavigation(eventId: string): NavigationItem[] {
   return [
     { key: 'event-detail', label: 'eventDetail', href: base, permission: 'event.view' },
     { key: 'registration-form', label: 'registrationForm', href: `${base}/registration-form`, permission: 'registration.manage' },
+    { key: 'identity-requirements', label: 'identityRequirements', href: `${base}/identity`, permission: 'identity.configure' },
+    { key: 'identity-review', label: 'identityReviewQueue', href: `${base}/identity/review`, permission: 'identity.review' },
     { key: 'ticket-types', label: 'ticketTypes', href: `${base}/ticket-types`, permission: 'ticketing.manage' },
     { key: 'price-tiers', label: 'priceTiers', href: `${base}/price-tiers`, permission: 'ticketing.manage' },
     { key: 'orders', label: 'orders', href: `${base}/orders`, permission: 'order.view' },

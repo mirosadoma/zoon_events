@@ -7,7 +7,9 @@ use App\Modules\Credentials\Contracts\CredentialIssuer;
 use App\Modules\Credentials\Domain\Events\CredentialLifecycleChanged;
 use App\Modules\Credentials\Domain\IssuedCredential;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
+use App\Modules\IdentityVerification\Domain\ValueObjects\IdentityReasonCode;
 use App\Modules\Shared\Http\Problems\Phase1Problem;
+use App\Modules\Shared\Http\Problems\Phase5Problem;
 use App\Modules\Tenancy\Domain\Context\TenantContext;
 use Illuminate\Support\Facades\DB;
 
@@ -43,6 +45,9 @@ final readonly class ReissueCredential
                 $credential->ticket_type_id,
                 $credential->expires_at,
             );
+            if ($replacement === null) {
+                throw Phase5Problem::make(IdentityReasonCode::NOT_VERIFIED);
+            }
             $credential->forceFill(['superseded_by_id' => $replacement->id])->save();
             $this->audit->writeTenant(
                 'credential.reissued',

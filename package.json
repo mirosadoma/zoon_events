@@ -11,6 +11,7 @@
         "openapi:phase2": "redocly lint specs/003-wallet-passes-scanning/contracts/openapi.yaml",
         "openapi:phase3": "redocly lint specs/004-kiosk-badge-printing-manual-desk/contracts/openapi.yaml",
         "openapi:phase4": "redocly lint specs/005-acs-access-control/contracts/openapi.yaml",
+        "openapi:phase5": "redocly lint specs/007-identity-verification/contracts/openapi.yaml",
         "openapi:sync": "php scripts/sync-openapi.php --check",
         "test": "vitest run",
         "test:browser": "vitest run resources/js/__tests__/*-browser.test.tsx",

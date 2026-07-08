@@ -14,6 +14,7 @@ class ModuleBoundaryTest extends TestCase
         'app/Modules/Kiosk',
         'app/Modules/BadgePrinting',
         'app/Modules/AccessControl',
+        'app/Modules/IdentityVerification',
         'app/Modules/AdminConsole',
         'app/Console/Commands/CheckDocumentation.php',
         'app/Console/Commands/RefreshCheckInSummary.php',
@@ -36,6 +37,7 @@ class ModuleBoundaryTest extends TestCase
         'config/wallet.php',
         'config/acs.php',
         'config/printing.php',
+        'config/identity-verification.php',
     ];
 
     #[Test]

@@ -16,7 +16,7 @@ trait CreatesPhase2ScanFixture
 {
     use BuildsTenantFixtures;
 
-    /** @return array{fixture:array<string,mixed>,token:string,credential:Credential,membership:TenantMembership,scanner:User} */
+    /** @return array{fixture:array<string,mixed>,token:string,credential:Credential,membership:TenantMembership,scanner:User,accessToken:string} */
     protected function createIssuedCredentialScanFixture(array $permissions = ['checkin.scan.submit']): array
     {
         $this->seed(PermissionCatalogSeeder::class);
@@ -39,6 +39,7 @@ trait CreatesPhase2ScanFixture
         return [
             'fixture' => $fixture,
             'token' => $response->json('data.credential.qr_payload'),
+            'accessToken' => (string) $response->json('data.access_token'),
             'credential' => Credential::query()->where('event_id', $fixture['event']->id)->firstOrFail(),
             'membership' => $membership,
             'scanner' => $scanner,

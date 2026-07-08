@@ -23,6 +23,7 @@ Route::prefix('v1')->group(function (): void {
     require base_path('app/Modules/Payments/Routes/api.php');
     require base_path('app/Modules/Attendees/Routes/api.php');
     require base_path('app/Modules/Credentials/Routes/api.php');
+    require base_path('app/Modules/IdentityVerification/Routes/api.php');
     require base_path('app/Modules/Notifications/Routes/api.php');
     require base_path('app/Modules/WalletPasses/Routes/api.php');
     require base_path('app/Modules/Scanning/Routes/api.php');

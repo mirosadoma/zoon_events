@@ -136,6 +136,7 @@ paths:
   /identity/providers/government/callback:
     post:
       tags: [identity-attendee]
+      security: []
       summary: Provider-neutral government verification callback (signed; adapter handleCallback). No RBAC.
       responses:
         '200': { description: Processed idempotently }

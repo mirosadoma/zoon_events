@@ -7,9 +7,9 @@ info:
     name: Proprietary
     identifier: LicenseRef-Proprietary
   description: |
-    Contract-first API for Zonetec Phase 0 and Phase 1. Kiosks/scanners, check-in,
+    Contract-first API for Zonetec Phase 0 through Phase 5. Kiosks/scanners, check-in,
     wallets, ACS, identity verification, marketplace behavior, and venue-asset
-    rentals are not included.
+    rentals beyond the merged Phase 5 identity surface are not included.
 servers:
   - url: /api/v1
     description: Current deployment
@@ -66,6 +66,14 @@ tags:
     description: Authorized read views of gate events and ACS/lane health.
   - name: Emergency
     description: Operator-initiated emergency egress raise/clear.
+  - name: Identity Configuration
+    description: Organizer identity requirement configuration for events and ticket tiers.
+  - name: Identity Attendee
+    description: Attendee self-service consent, verification, and face-capture fallback via order access token.
+  - name: Identity Review
+    description: Reviewer queue and manual approve/reject decisions.
+  - name: Identity Compliance
+    description: Audited sensitive-data access and permitted deletion.
 paths:
   /public/events/{event_slug}:
     $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1public~1events~1{event_slug}'
@@ -149,6 +157,22 @@ paths:
     $ref: '../../005-acs-access-control/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1acs~1gate-events'
   /tenant/events/{event_id}/acs/health:
     $ref: '../../005-acs-access-control/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1acs~1health'
+  /tenant/events/{event_id}/identity/requirements:
+    $ref: '../../007-identity-verification/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1identity~1requirements'
+  /tenant/events/{event_id}/attendees/{attendee_id}/identity/consent:
+    $ref: '../../007-identity-verification/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1attendees~1{attendee_id}~1identity~1consent'
+  /tenant/events/{event_id}/attendees/{attendee_id}/identity/verification:
+    $ref: '../../007-identity-verification/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1attendees~1{attendee_id}~1identity~1verification'
+  /identity/providers/government/callback:
+    $ref: '../../007-identity-verification/contracts/openapi.yaml#/paths/~1identity~1providers~1government~1callback'
+  /tenant/events/{event_id}/attendees/{attendee_id}/identity/face-capture:
+    $ref: '../../007-identity-verification/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1attendees~1{attendee_id}~1identity~1face-capture'
+  /tenant/events/{event_id}/identity/review:
+    $ref: '../../007-identity-verification/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1identity~1review'
+  /tenant/events/{event_id}/identity/verifications/{verification_id}/review:
+    $ref: '../../007-identity-verification/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1identity~1verifications~1{verification_id}~1review'
+  /tenant/events/{event_id}/attendees/{attendee_id}/identity/data:
+    $ref: '../../007-identity-verification/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1attendees~1{attendee_id}~1identity~1data'
   /health/live:
     get:
       tags: [Health]
@@ -1495,6 +1519,10 @@ components:
       $ref: '../../003-wallet-passes-scanning/contracts/openapi.yaml#/components/securitySchemes/ApplePassAuth'
     AcsIntegrationAuth:
       $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/securitySchemes/AcsIntegrationAuth'
+    sessionTenant:
+      $ref: '../../007-identity-verification/contracts/openapi.yaml#/components/securitySchemes/sessionTenant'
+    orderAccessToken:
+      $ref: '../../007-identity-verification/contracts/openapi.yaml#/components/securitySchemes/orderAccessToken'
   headers:
     CorrelationId:
       description: Effective request correlation identifier
@@ -2666,3 +2694,11 @@ components:
       $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/GateEventListEnvelope'
     AcsHealthEnvelope:
       $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/schemas/AcsHealthEnvelope'
+    IdentityRequirement:
+      $ref: '../../007-identity-verification/contracts/openapi.yaml#/components/schemas/Requirement'
+    IdentityConsentRequest:
+      $ref: '../../007-identity-verification/contracts/openapi.yaml#/components/schemas/ConsentRequest'
+    IdentityVerificationStatus:
+      $ref: '../../007-identity-verification/contracts/openapi.yaml#/components/schemas/VerificationStatus'
+    IdentityReviewDecision:
+      $ref: '../../007-identity-verification/contracts/openapi.yaml#/components/schemas/ReviewDecision'
