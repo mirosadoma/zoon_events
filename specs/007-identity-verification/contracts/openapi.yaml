@@ -1,0 +1,195 @@
+openapi: 3.1.0
+info:
+  title: Zonetec — Phase 5 Identity Verification (review contract)
+  version: 0.1.0
+  description: >
+    Review-stage contract for Phase 5 Identity Verification. Merges into the
+    authoritative versioned API on acceptance. All tenant routes require
+    authenticated tenant context; write routes require the `Idempotency-Key`
+    header. Attendee self-service routes authenticate with the public order/
+    registration access token, not workforce RBAC. Sensitive identity/biometric
+    data and raw government payloads are never returned.
+servers:
+  - url: /api/v1
+tags:
+  - name: identity-config
+  - name: identity-attendee
+  - name: identity-review
+  - name: identity-compliance
+
+components:
+  securitySchemes:
+    sessionTenant: { type: apiKey, in: cookie, name: zonetec_session }
+    orderAccessToken: { type: http, scheme: bearer, bearerFormat: opaque }
+  parameters:
+    EventId: { name: event_id, in: path, required: true, schema: { type: string } }
+    AttendeeId: { name: attendee_id, in: path, required: true, schema: { type: string } }
+    VerificationId: { name: verification_id, in: path, required: true, schema: { type: string } }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string }
+  schemas:
+    Requirement:
+      type: object
+      properties:
+        id: { type: string }
+        event_id: { type: string }
+        ticket_type_id: { type: [string, "null"] }
+        level:
+          type: string
+          enum: [not_required, optional, required_before_credential, required_before_gate, required_vip, required_vvip]
+        face_fallback_enabled: { type: boolean }
+    ConsentRequest:
+      type: object
+      required: [notice_version, residency_mode, consented]
+      properties:
+        notice_version: { type: string }
+        residency_mode: { type: string, enum: [on_premise, saas] }
+        consented: { type: boolean }
+    VerificationStatus:
+      type: object
+      description: Non-sensitive status projection only.
+      properties:
+        id: { type: string }
+        attendee_id: { type: string }
+        method: { type: string, enum: [email_otp, phone_otp, gov_identity, face_capture, manual_review] }
+        status:
+          type: string
+          enum: [not_required, pending, gov_verified, face_verified, manually_approved, rejected, expired]
+        verified_name: { type: [string, "null"] }
+        verified_nationality: { type: [string, "null"] }
+        verified_at: { type: [string, "null"], format: date-time }
+        rejection_reason: { type: [string, "null"] }
+    ReviewDecision:
+      type: object
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [approve, reject] }
+        reason: { type: string, description: required when decision=reject }
+    Problem:
+      type: object
+      properties:
+        type: { type: string }
+        title: { type: string }
+        detail: { type: string }
+        reason_code:
+          type: string
+          enum: [identity_not_verified, identity_expired, identity_rejected, identity_consent_missing, identity_provider_unavailable]
+
+paths:
+  /tenant/events/{event_id}/identity/requirements:
+    parameters: [{ $ref: '#/components/parameters/EventId' }]
+    get:
+      tags: [identity-config]
+      security: [{ sessionTenant: [] }]
+      summary: List identity requirements (event default + tier overrides). Requires identity.configure.
+      responses:
+        '200': { description: OK }
+        '403': { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/Problem' } } } }
+    put:
+      tags: [identity-config]
+      security: [{ sessionTenant: [] }]
+      summary: Upsert an identity requirement for the event or a tier. Requires identity.configure.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/Requirement' } } }
+      responses:
+        '200': { description: Saved }
+        '403': { description: Forbidden }
+        '422': { description: Validation error }
+
+  /tenant/events/{event_id}/attendees/{attendee_id}/identity/consent:
+    parameters: [{ $ref: '#/components/parameters/EventId' }, { $ref: '#/components/parameters/AttendeeId' }]
+    post:
+      tags: [identity-attendee]
+      security: [{ orderAccessToken: [] }]
+      summary: Capture attendee consent before any identity capture. Declining stores nothing sensitive.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ConsentRequest' } } }
+      responses:
+        '201': { description: Consent stored }
+        '409': { description: Consent missing/withdrawn conflict, content: { application/json: { schema: { $ref: '#/components/schemas/Problem' } } } }
+
+  /tenant/events/{event_id}/attendees/{attendee_id}/identity/verification:
+    parameters: [{ $ref: '#/components/parameters/EventId' }, { $ref: '#/components/parameters/AttendeeId' }]
+    get:
+      tags: [identity-attendee]
+      security: [{ orderAccessToken: [] }, { sessionTenant: [] }]
+      summary: Read non-sensitive verification status.
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/VerificationStatus' } } } }
+    post:
+      tags: [identity-attendee]
+      security: [{ orderAccessToken: [] }]
+      summary: Start government identity verification through the adapter (requires stored consent).
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      responses:
+        '202': { description: Verification started (adapter startVerification) }
+        '409': { description: Consent missing, content: { application/json: { schema: { $ref: '#/components/schemas/Problem' } } } }
+        '503': { description: Provider unavailable — offer fallback/retry }
+
+  /identity/providers/government/callback:
+    post:
+      tags: [identity-attendee]
+      summary: Provider-neutral government verification callback (signed; adapter handleCallback). No RBAC.
+      responses:
+        '200': { description: Processed idempotently }
+
+  /tenant/events/{event_id}/attendees/{attendee_id}/identity/face-capture:
+    parameters: [{ $ref: '#/components/parameters/EventId' }, { $ref: '#/components/parameters/AttendeeId' }]
+    post:
+      tags: [identity-attendee]
+      security: [{ orderAccessToken: [] }]
+      summary: Submit a face capture fallback (adapter submitCapture; template preferred; requires consent).
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      responses:
+        '202': { description: Submitted for review }
+        '409': { description: Consent missing }
+
+  /tenant/events/{event_id}/identity/review:
+    parameters: [{ $ref: '#/components/parameters/EventId' }]
+    get:
+      tags: [identity-review]
+      security: [{ sessionTenant: [] }]
+      summary: List pending review items (face/manual). Requires identity.review.
+      responses:
+        '200': { description: OK }
+        '403': { description: Forbidden }
+
+  /tenant/events/{event_id}/identity/verifications/{verification_id}/review:
+    parameters: [{ $ref: '#/components/parameters/EventId' }, { $ref: '#/components/parameters/VerificationId' }]
+    post:
+      tags: [identity-review]
+      security: [{ sessionTenant: [] }]
+      summary: Approve or reject a review item. Requires identity.review; reason required on reject.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ReviewDecision' } } }
+      responses:
+        '200': { description: Decision recorded and audited }
+        '403': { description: Forbidden }
+        '422': { description: Missing rejection reason }
+
+  /tenant/events/{event_id}/attendees/{attendee_id}/identity/data:
+    parameters: [{ $ref: '#/components/parameters/EventId' }, { $ref: '#/components/parameters/AttendeeId' }]
+    get:
+      tags: [identity-compliance]
+      security: [{ sessionTenant: [] }]
+      summary: View sensitive identity metadata (audited access). Requires identity.data.view. Never returns raw biometrics/gov payloads.
+      responses:
+        '200': { description: OK (access audited) }
+        '403': { description: Forbidden }
+    delete:
+      tags: [identity-compliance]
+      security: [{ sessionTenant: [] }]
+      summary: Delete sensitive identity data on a permitted request (audited). Requires identity.data.manage.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      responses:
+        '200': { description: Deleted and audited }
+        '403': { description: Forbidden }
