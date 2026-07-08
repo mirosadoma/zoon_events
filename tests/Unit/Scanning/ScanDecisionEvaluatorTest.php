@@ -39,7 +39,6 @@ final class ScanDecisionEvaluatorTest extends Phase2MySqlTestCase
         $context = $this->contextFor($scan);
         $evaluator->evaluate($context);
         ScanEvent::query()->create([
-            'id' => '01SCANEVENTDUPLICATE000001',
             'tenant_id' => $scan['fixture']['tenant']->id,
             'event_id' => $scan['fixture']['event']->id,
             'attendee_id' => $scan['credential']->attendee_id,
@@ -61,7 +60,6 @@ final class ScanDecisionEvaluatorTest extends Phase2MySqlTestCase
     {
         $scan = $this->createIssuedCredentialScanFixture(['checkin.scan.submit', 'checkin.scan.override']);
         ScanEvent::query()->create([
-            'id' => '01SCANEVENTOVERRIDE000001',
             'tenant_id' => $scan['fixture']['tenant']->id,
             'event_id' => $scan['fixture']['event']->id,
             'attendee_id' => $scan['credential']->attendee_id,

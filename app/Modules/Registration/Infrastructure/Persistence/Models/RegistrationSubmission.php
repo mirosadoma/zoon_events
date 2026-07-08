@@ -2,14 +2,11 @@
 
 namespace App\Modules\Registration\Infrastructure\Persistence\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
 final class RegistrationSubmission extends Model
 {
-    use HasUlids;
-
     public $timestamps = false;
 
     protected $fillable = [

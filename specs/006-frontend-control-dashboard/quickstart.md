@@ -65,3 +65,27 @@ composer quality      # Pint, PHPUnit, OpenAPI sync/lint, docs & phase-boundary 
 - No cross-tenant props; no credential/secret material in props or HTML.
 - Any `api-integration-map.md` GAP screen renders its placeholder cleanly and the
   gap is recorded there and in `spec.md`'s Missing Backend API Requirements.
+
+## Validation Record: 2026-07-08
+
+- `npm run lint`: passed.
+- `npm run typecheck`: passed.
+- `npm run build`: passed.
+- Targeted frontend validation passed:
+  `foundation-accessibility.test.tsx`, `phase6-accessibility-browser.test.tsx`,
+  `phase6-responsive-browser.test.tsx`, `event-report.test.tsx`,
+  `admin-users-audit.test.tsx`, and `ticketing-pricing.test.tsx` (12 tests).
+- `php artisan test tests/Feature/AdminConsole/CrossTenantPropsTest.php`: passed
+  (2 tests, 19 assertions).
+- `php artisan test tests/Unit/AccessControl tests/Unit/Scanning`: passed after
+  aligning numeric ID handling with the current schema (29 tests, 108 assertions).
+- `php scripts/sync-openapi.php --check`, `npm run openapi:phase1`,
+  `php artisan zonetec:docs:check`, and
+  `php artisan zonetec:phase-boundary:check`: passed when run individually.
+- `composer quality`: not yet green. After disabling Composer's nested process
+  timeout, the run completed the PHP suite with 401 passing tests and 68 failures.
+  Remaining blockers are broader than the Phase 10 UI sweep: suite ordering leaves
+  later-phase tables missing after phase scaffold/browser tests, ACS config
+  contract cases return 422 where the contract expects success/404 responses, and
+  architecture boundary tests still flag AdminConsole dashboard composition across
+  Phase 2-4 modules.

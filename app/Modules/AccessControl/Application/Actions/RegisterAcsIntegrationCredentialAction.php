@@ -6,7 +6,6 @@ use App\Modules\AccessControl\Domain\Events\AcsIntegrationCredentialRegistered;
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\AcsIntegrationCredential;
 use App\Modules\Audit\Application\AuditedTransaction;
 use App\Modules\Shared\Http\Problems\Phase4Problem;
-use Illuminate\Support\Str;
 
 final readonly class RegisterAcsIntegrationCredentialAction
 {
@@ -54,7 +53,6 @@ final readonly class RegisterAcsIntegrationCredentialAction
                     ])->save());
 
                 $credential = AcsIntegrationCredential::create([
-                    'id' => (string) Str::ulid(),
                     'tenant_id' => $tenantId,
                     'event_id' => $eventId,
                     'name' => $name,

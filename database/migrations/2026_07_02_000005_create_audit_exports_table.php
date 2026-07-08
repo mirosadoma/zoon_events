@@ -10,10 +10,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('audit_exports', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
+            $table->id();
             $table->string('scope', 16);
-            $table->char('tenant_id', 26)->nullable();
-            $table->char('requested_by_user_id', 26);
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('requested_by_user_id')->nullable();
             $table->json('filters');
             $table->string('status', 24)->default('pending');
             $table->string('storage_path', 500)->nullable();

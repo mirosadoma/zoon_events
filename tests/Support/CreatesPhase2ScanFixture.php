@@ -67,7 +67,6 @@ trait CreatesPhase2ScanFixture
         }
 
         DB::table('tenant_role_assignments')->insert([
-            'id' => (string) Str::ulid(),
             'tenant_id' => $tenant->id,
             'tenant_membership_id' => $membership->id,
             'tenant_role_id' => $role->id,

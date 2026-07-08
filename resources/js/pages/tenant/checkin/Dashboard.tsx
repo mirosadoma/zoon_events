@@ -1,44 +1,41 @@
-import { CheckInCounters, type CheckInSummaryView } from '@/components/checkin/CheckInCounters'
-import { CHECK_IN_SUMMARY_POLL_INTERVAL_MS } from '@/lib/checkin-polling'
+import { Link } from '@inertiajs/react'
 import { useEffect, useState } from 'react'
+import DashboardLayout from '@/layouts/DashboardLayout'
+import { CheckInCounters, type CheckInSummaryView } from '@/components/checkin/CheckInCounters'
+import { EmptyState, ErrorState } from '@/components/feedback'
+import { PageContent, PageHeader } from '@/components/layout'
+import { useLocale } from '@/hooks/useLocale'
+import { CHECK_IN_SUMMARY_POLL_INTERVAL_MS } from '@/lib/checkin-polling'
 
-interface CheckInDashboardProps {
-  eventId: string
+type EventRow = {
+  id: string
+  name: { en: string; ar: string }
+}
+
+type Props = {
+  event: EventRow
   tenantId: string
-  locale?: 'en' | 'ar'
   initialSummary?: CheckInSummaryView | null
   pollIntervalMs?: number
 }
 
-const emptySummary: CheckInSummaryView = {
-  registered_count: 0,
-  checked_in_count: 0,
-  rejected_count: 0,
-  duplicate_count: 0,
-  last_scan_at: null,
-}
-
 export default function CheckInDashboard({
-  eventId,
+  event,
   tenantId,
-  locale = 'en',
   initialSummary = null,
   pollIntervalMs = CHECK_IN_SUMMARY_POLL_INTERVAL_MS,
-}: CheckInDashboardProps) {
+}: Props) {
+  const { locale } = useLocale()
   const [summary, setSummary] = useState<CheckInSummaryView | null>(initialSummary)
   const [loading, setLoading] = useState(initialSummary === null)
   const [error, setError] = useState<string | null>(null)
-
-  const title = locale === 'ar' ? 'لوحة تسجيل الحضور' : 'Check-in dashboard'
-  const emptyLabel = locale === 'ar' ? 'لا توجد عمليات مسح بعد' : 'No scans yet'
-  const errorLabel = locale === 'ar' ? 'تعذر تحميل ملخص تسجيل الحضور' : 'Unable to load check-in summary'
 
   useEffect(() => {
     let active = true
 
     async function loadSummary() {
       try {
-        const response = await fetch(`/api/v1/tenant/events/${eventId}/check-in-summary`, {
+        const response = await fetch(`/api/v1/tenant/events/${event.id}/check-in-summary`, {
           credentials: 'include',
           headers: {
             Accept: 'application/json',
@@ -57,7 +54,7 @@ export default function CheckInDashboard({
         }
       } catch {
         if (active) {
-          setError(errorLabel)
+          setError(locale === 'ar' ? 'تعذر تحميل ملخص تسجيل الحضور' : 'Unable to load check-in summary')
         }
       } finally {
         if (active) {
@@ -75,7 +72,7 @@ export default function CheckInDashboard({
       active = false
       window.clearInterval(timer)
     }
-  }, [eventId, tenantId, pollIntervalMs, errorLabel])
+  }, [event.id, tenantId, pollIntervalMs, locale])
 
   const isEmpty = summary !== null
     && summary.checked_in_count === 0
@@ -83,19 +80,36 @@ export default function CheckInDashboard({
     && summary.duplicate_count === 0
 
   return (
-    <main lang={locale} dir={locale === 'ar' ? 'rtl' : 'ltr'}>
-      <h1>{title}</h1>
-      {loading ? <p role="status">{locale === 'ar' ? 'جارٍ التحميل…' : 'Loading…'}</p> : null}
-      {error ? <p role="alert">{error}</p> : null}
-      {!loading && !error && summary !== null && isEmpty ? (
-        <p role="status">{emptyLabel}</p>
-      ) : null}
-      {!loading && !error && summary !== null && !isEmpty ? (
-        <CheckInCounters summary={summary} locale={locale} />
-      ) : null}
-      {!loading && !error && summary !== null && isEmpty ? (
-        <CheckInCounters summary={emptySummary} locale={locale} />
-      ) : null}
-    </main>
+    <DashboardLayout title={locale === 'ar' ? 'لوحة تسجيل الحضور' : 'Check-in dashboard'}>
+      <PageHeader
+        title={locale === 'ar' ? 'لوحة تسجيل الحضور' : 'Check-in dashboard'}
+        description={event.name[locale]}
+        breadcrumbs={[
+          { label: locale === 'ar' ? 'نظرة عامة' : 'Overview', href: '/dashboard' },
+          { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: event.name[locale], href: `/tenant/events/${event.id}` },
+          { label: locale === 'ar' ? 'لوحة تسجيل الحضور' : 'Check-in dashboard' },
+        ]}
+        actions={(
+          <div className="flex flex-wrap gap-2">
+            <Link className="button-secondary" href={`/tenant/events/${event.id}/scanner`}>{locale === 'ar' ? 'الماسح' : 'Scanner'}</Link>
+            <Link className="button-secondary" href={`/tenant/events/${event.id}/scan-events`}>{locale === 'ar' ? 'أحداث المسح' : 'Scan events'}</Link>
+          </div>
+        )}
+      />
+      <PageContent>
+        {loading ? <p role="status">{locale === 'ar' ? 'جارٍ التحميل…' : 'Loading…'}</p> : null}
+        {error ? <ErrorState title={error} /> : null}
+        {!loading && !error && summary !== null && isEmpty ? (
+          <EmptyState
+            title={locale === 'ar' ? 'لا توجد عمليات مسح بعد' : 'No scans yet'}
+            detail={locale === 'ar' ? 'ستظهر العدادات عند أول مسح.' : 'Counters will populate after the first scan.'}
+          />
+        ) : null}
+        {!loading && !error && summary !== null ? (
+          <CheckInCounters summary={summary} locale={locale} />
+        ) : null}
+      </PageContent>
+    </DashboardLayout>
   )
 }

@@ -7,7 +7,6 @@ use App\Modules\Authorization\Infrastructure\Persistence\Models\PlatformRole;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 use RuntimeException;
 
 final class BootstrapPlatformAdministrator extends Command
@@ -40,7 +39,7 @@ final class BootstrapPlatformAdministrator extends Command
 
             DB::table('platform_role_assignments')->updateOrInsert(
                 ['user_id' => $user->id, 'platform_role_id' => $role->id, 'revoked_at' => null],
-                ['id' => (string) Str::ulid(), 'granted_by_user_id' => $user->id, 'expires_at' => null, 'revoked_by_user_id' => null, 'created_at' => now(), 'updated_at' => now()],
+                ['granted_by_user_id' => $user->id, 'expires_at' => null, 'revoked_by_user_id' => null, 'created_at' => now(), 'updated_at' => now()],
             );
         });
 

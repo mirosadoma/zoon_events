@@ -10,7 +10,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('permissions', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
+            $table->id();
             $table->string('key', 120)->unique();
             $table->string('module', 80);
             $table->string('description', 500);
@@ -20,12 +20,12 @@ return new class extends Migration
         });
 
         Schema::create('tenant_roles', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
             $table->string('name', 100);
             $table->string('description', 500)->nullable();
             $table->boolean('is_system')->default(false);
-            $table->char('created_by_user_id', 26);
+            $table->unsignedBigInteger('created_by_user_id')->nullable();
             $table->timestamps();
 
             $table->foreign('tenant_id')->references('id')->on('tenants')->restrictOnDelete();
@@ -36,13 +36,13 @@ return new class extends Migration
         });
 
         Schema::create('tenant_role_permissions', function (Blueprint $table): void {
-            $table->char('tenant_id', 26);
-            $table->char('tenant_role_id', 26);
-            $table->char('permission_id', 26);
-            $table->char('granted_by_user_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('tenant_role_id')->nullable();
+            $table->unsignedBigInteger('permission_id')->nullable();
+            $table->unsignedBigInteger('granted_by_user_id')->nullable();
             $table->timestamp('created_at')->useCurrent();
 
-            $table->primary(['tenant_role_id', 'permission_id']);
             $table->foreign('tenant_id')->references('id')->on('tenants')->restrictOnDelete();
             $table->foreign(['tenant_id', 'tenant_role_id'], 'tenant_role_permissions_role_tenant_fk')
                 ->references(['tenant_id', 'id'])->on('tenant_roles')->restrictOnDelete();
@@ -52,14 +52,14 @@ return new class extends Migration
         });
 
         Schema::create('tenant_role_assignments', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('tenant_membership_id', 26);
-            $table->char('tenant_role_id', 26);
-            $table->char('granted_by_user_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('tenant_membership_id')->nullable();
+            $table->unsignedBigInteger('tenant_role_id')->nullable();
+            $table->unsignedBigInteger('granted_by_user_id')->nullable();
             $table->timestamp('expires_at')->nullable();
             $table->timestamp('revoked_at')->nullable();
-            $table->char('revoked_by_user_id', 26)->nullable();
+            $table->unsignedBigInteger('revoked_by_user_id')->nullable();
             $table->timestamps();
 
             $table->foreign('tenant_id')->references('id')->on('tenants')->restrictOnDelete();
@@ -73,36 +73,36 @@ return new class extends Migration
         });
 
         Schema::create('platform_roles', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
+            $table->id();
             $table->string('name', 100)->unique();
             $table->string('description', 500)->nullable();
             $table->boolean('is_system')->default(false);
-            $table->char('created_by_user_id', 26);
+            $table->unsignedBigInteger('created_by_user_id')->nullable();
             $table->timestamps();
 
             $table->foreign('created_by_user_id')->references('id')->on('users')->restrictOnDelete();
         });
 
         Schema::create('platform_role_permissions', function (Blueprint $table): void {
-            $table->char('platform_role_id', 26);
-            $table->char('permission_id', 26);
-            $table->char('granted_by_user_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('platform_role_id')->nullable();
+            $table->unsignedBigInteger('permission_id')->nullable();
+            $table->unsignedBigInteger('granted_by_user_id')->nullable();
             $table->timestamp('created_at')->useCurrent();
 
-            $table->primary(['platform_role_id', 'permission_id']);
             $table->foreign('platform_role_id')->references('id')->on('platform_roles')->restrictOnDelete();
             $table->foreign('permission_id')->references('id')->on('permissions')->restrictOnDelete();
             $table->foreign('granted_by_user_id')->references('id')->on('users')->restrictOnDelete();
         });
 
         Schema::create('platform_role_assignments', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('user_id', 26);
-            $table->char('platform_role_id', 26);
-            $table->char('granted_by_user_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->unsignedBigInteger('platform_role_id')->nullable();
+            $table->unsignedBigInteger('granted_by_user_id')->nullable();
             $table->timestamp('expires_at')->nullable();
             $table->timestamp('revoked_at')->nullable();
-            $table->char('revoked_by_user_id', 26)->nullable();
+            $table->unsignedBigInteger('revoked_by_user_id')->nullable();
             $table->timestamps();
 
             $table->foreign('user_id')->references('id')->on('users')->restrictOnDelete();

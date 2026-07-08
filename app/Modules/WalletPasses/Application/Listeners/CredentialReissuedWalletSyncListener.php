@@ -33,7 +33,6 @@ final readonly class CredentialReissuedWalletSyncListener
             ->get()
             ->each(function (WalletPass $pass) use ($event, $credential): void {
                 $replacementPass = WalletPass::query()->create([
-                    'id' => (string) Str::ulid(),
                     'tenant_id' => $pass->tenant_id,
                     'event_id' => $pass->event_id,
                     'attendee_id' => $credential->attendee_id,

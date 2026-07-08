@@ -3,14 +3,12 @@
 namespace App\Modules\AccessControl\Infrastructure\Persistence\Models;
 
 use Database\Factories\EmergencyEventFactory;
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 final class EmergencyEvent extends Model
 {
     use HasFactory;
-    use HasUlids;
 
     protected $fillable = [
         'tenant_id',

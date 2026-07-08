@@ -10,11 +10,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('idempotency_records', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
+            $table->id();
             $table->string('scope', 16);
-            $table->char('tenant_id', 26)->nullable();
+            $table->unsignedBigInteger('tenant_id')->nullable();
             $table->string('scope_identifier', 26);
-            $table->char('actor_id', 26);
+            $table->unsignedBigInteger('actor_id')->nullable();
             $table->string('operation', 160);
             $table->char('key_hash', 64);
             $table->char('request_hash', 64);

@@ -2,10 +2,8 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\User;
-use Database\Seeders\PermissionSeeder;
+use App\Modules\AdminConsole\Application\SessionContextBuilder;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Gate;
 use Inertia\Middleware;
 
 final class HandleInertiaRequests extends Middleware
@@ -14,29 +12,18 @@ final class HandleInertiaRequests extends Middleware
 
     public function share(Request $request): array
     {
-        $user = $request->user();
-        $permissions = $user instanceof User
-            ? collect(PermissionSeeder::definitions())
-                ->where('scope', 'platform')
-                ->pluck('key')
-                ->filter(fn (string $permission): bool => Gate::forUser($user)->allows($permission))
-                ->values()
-                ->all()
-            : [];
+        $context = app(SessionContextBuilder::class)->build($request);
 
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $user instanceof User ? [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'preferred_locale' => $user->preferred_locale,
-                ] : null,
+                'user' => $context['session']['user'] ?? null,
             ],
+            'session' => $context['session'],
+            'can' => $context['can'],
             'locale' => app()->getLocale(),
             'direction' => app()->getLocale() === 'ar' ? 'rtl' : 'ltr',
-            'permissions' => $permissions,
+            'permissions' => $context['permissions'],
             'flash' => ['status' => fn () => $request->session()->get('status')],
         ];
     }

@@ -2,13 +2,10 @@
 
 namespace App\Modules\Shared\Infrastructure\Persistence\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 
 final class IdempotencyRecord extends Model
 {
-    use HasUlids;
-
     protected $fillable = [
         'scope',
         'tenant_id',

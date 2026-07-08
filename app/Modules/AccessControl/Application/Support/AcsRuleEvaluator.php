@@ -104,7 +104,7 @@ final class AcsRuleEvaluator
 
     private function matchesTicketAndAttendee(AcsAuthorizationRule $rule, string $ticketTypeId, ?string $attendeeType): bool
     {
-        if ($rule->ticket_type_id !== null && $rule->ticket_type_id !== $ticketTypeId) {
+        if ($rule->ticket_type_id !== null && (string) $rule->ticket_type_id !== $ticketTypeId) {
             return false;
         }
 
@@ -122,7 +122,7 @@ final class AcsRuleEvaluator
 
     private function matchesLane(AcsAuthorizationRule $rule, string $laneId): bool
     {
-        return $rule->lane_id === null || $rule->lane_id === $laneId;
+        return $rule->lane_id === null || (string) $rule->lane_id === $laneId;
     }
 
     private function withinWindow(AcsAuthorizationRule $rule, DateTimeInterface $now): bool

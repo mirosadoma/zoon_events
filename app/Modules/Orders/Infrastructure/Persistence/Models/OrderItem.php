@@ -2,14 +2,11 @@
 
 namespace App\Modules\Orders\Infrastructure\Persistence\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
 final class OrderItem extends Model
 {
-    use HasUlids;
-
     protected $fillable = [
         'tenant_id', 'event_id', 'order_id', 'ticket_type_id', 'attendee_id',
         'quantity', 'unit_price_minor', 'tax_minor', 'fees_minor', 'total_minor',

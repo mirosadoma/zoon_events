@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('orders', function (Blueprint $table): void {
-            $table->char('submission_id', 26)->nullable()->after('inventory_hold_id');
+            $table->unsignedBigInteger('submission_id')->nullable()->after('inventory_hold_id');
             $table->longText('fulfillment_payload_ciphertext')->nullable()->after('submission_id');
             $table->string('fulfillment_encryption_key_id', 64)->nullable()->after('fulfillment_payload_ciphertext');
             $table->timestamp('credential_expires_at', 6)->nullable()->after('fulfillment_encryption_key_id');

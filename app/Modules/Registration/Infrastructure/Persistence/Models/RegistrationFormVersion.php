@@ -2,14 +2,11 @@
 
 namespace App\Modules\Registration\Infrastructure\Persistence\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
 final class RegistrationFormVersion extends Model
 {
-    use HasUlids;
-
     protected $fillable = [
         'tenant_id', 'event_id', 'registration_form_id', 'version', 'status', 'fields',
         'schema_hash', 'privacy_notice_version', 'terms_version', 'published_by_user_id',

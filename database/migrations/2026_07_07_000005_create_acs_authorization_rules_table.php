@@ -10,13 +10,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('acs_authorization_rules', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('event_id', 26);
-            $table->char('ticket_type_id', 26)->nullable();
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('event_id')->nullable();
+            $table->unsignedBigInteger('ticket_type_id')->nullable();
             $table->string('attendee_type', 20)->nullable();
-            $table->char('zone_id', 26);
-            $table->char('lane_id', 26)->nullable();
+            $table->unsignedBigInteger('zone_id')->nullable();
+            $table->unsignedBigInteger('lane_id')->nullable();
             $table->string('access_direction', 20);
             $table->boolean('anti_passback_exempt')->default(false);
             $table->timestamp('valid_from', 6)->nullable();

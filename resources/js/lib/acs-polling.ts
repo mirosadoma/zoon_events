@@ -1,0 +1,1 @@
+export const ACS_HEALTH_POLL_INTERVAL_MS = 15000

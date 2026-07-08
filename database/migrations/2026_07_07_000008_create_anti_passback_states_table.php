@@ -10,13 +10,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('anti_passback_states', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('event_id', 26);
-            $table->char('credential_id', 26);
-            $table->char('zone_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('event_id')->nullable();
+            $table->unsignedBigInteger('credential_id')->nullable();
+            $table->unsignedBigInteger('zone_id')->nullable();
             $table->string('state', 10)->default('outside');
-            $table->char('last_access_event_id', 26)->nullable();
+            $table->unsignedBigInteger('last_access_event_id')->nullable();
             $table->timestamp('last_transition_at', 6)->nullable();
             $table->timestamps(6);
 

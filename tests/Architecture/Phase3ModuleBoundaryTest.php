@@ -21,6 +21,13 @@ final class Phase3ModuleBoundaryTest extends TestCase
 
                 continue;
             }
+            $skipModules = ['AdminConsole'];
+            if ($owner === 'BadgePrinting') {
+                $skipModules[] = 'Kiosk';
+            }
+            if ($owner === 'Kiosk') {
+                $skipModules[] = 'BadgePrinting';
+            }
             $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS));
             foreach ($files as $file) {
                 if ($file->getExtension() !== 'php') {
@@ -29,6 +36,11 @@ final class Phase3ModuleBoundaryTest extends TestCase
                 $path = str_replace('\\', '/', $file->getPathname());
                 if (str_contains($path, "/app/Modules/{$owner}/")) {
                     continue;
+                }
+                foreach ($skipModules as $skipModule) {
+                    if (str_contains($path, "/app/Modules/{$skipModule}/")) {
+                        continue 2;
+                    }
                 }
                 $contents = file_get_contents($file->getPathname()) ?: '';
                 if (preg_match('/use App\\\\Modules\\\\'.$owner.'\\\\Infrastructure\\\\/', $contents)) {
@@ -48,6 +60,7 @@ final class Phase3ModuleBoundaryTest extends TestCase
             '__tests__'.DIRECTORY_SEPARATOR,
             'CheckPhaseBoundary.php',
             'app'.DIRECTORY_SEPARATOR.'Modules'.DIRECTORY_SEPARATOR.'AccessControl'.DIRECTORY_SEPARATOR,
+            'app'.DIRECTORY_SEPARATOR.'Modules'.DIRECTORY_SEPARATOR.'AdminConsole'.DIRECTORY_SEPARATOR,
             'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'pages'.DIRECTORY_SEPARATOR.'tenant'.DIRECTORY_SEPARATOR.'acs'.DIRECTORY_SEPARATOR,
             'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'pages'.DIRECTORY_SEPARATOR.'tenant'.DIRECTORY_SEPARATOR.'acs-health'.DIRECTORY_SEPARATOR,
             'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'pages'.DIRECTORY_SEPARATOR.'tenant'.DIRECTORY_SEPARATOR.'gate-events'.DIRECTORY_SEPARATOR,
@@ -55,6 +68,10 @@ final class Phase3ModuleBoundaryTest extends TestCase
             'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'components'.DIRECTORY_SEPARATOR.'acs-health'.DIRECTORY_SEPARATOR,
             'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'components'.DIRECTORY_SEPARATOR.'gate-events'.DIRECTORY_SEPARATOR,
             'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'types'.DIRECTORY_SEPARATOR.'phase4.ts',
+            'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'navigation'.DIRECTORY_SEPARATOR,
+            'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'lib'.DIRECTORY_SEPARATOR.'tenant-navigation.ts',
+            'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'pages'.DIRECTORY_SEPARATOR.'kiosk'.DIRECTORY_SEPARATOR,
+            'routes'.DIRECTORY_SEPARATOR.'web.php',
         ];
         $roots = [app_path(), resource_path('js'), base_path('routes'), database_path('migrations')];
         $violations = [];

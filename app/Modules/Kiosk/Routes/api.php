@@ -21,6 +21,10 @@ Route::prefix('tenant/events/{event_id}')
             ->middleware(['permission:kiosk.health.view,tenant'])
             ->name('api.v1.tenant.kiosks.index');
 
+        Route::get('/kiosks/{kiosk_id}', [KioskController::class, 'show'])
+            ->middleware(['permission:kiosk.health.view,tenant'])
+            ->name('api.v1.tenant.kiosks.show');
+
         Route::post('/kiosks/{kiosk_id}/retire', [KioskController::class, 'retire'])
             ->middleware(['permission:kiosk.manage,tenant', 'idempotency'])
             ->name('api.v1.tenant.kiosks.retire');

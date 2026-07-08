@@ -6,7 +6,6 @@ use App\Modules\AccessControl\Application\Support\AntiPassbackService;
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\AccessEvent;
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\AntiPassbackState;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
-use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Group;
 use Tests\Support\CreatesPhase1RegistrationFixture;
 use Tests\Support\CreatesPhase2ScanFixture;
@@ -38,7 +37,6 @@ final class AntiPassbackServiceTest extends Phase4MySqlTestCase
         ));
 
         AntiPassbackState::query()->create([
-            'id' => (string) Str::ulid(),
             'tenant_id' => $acs['event']->tenant_id,
             'event_id' => $acs['event']->id,
             'credential_id' => $acs['credential']->id,

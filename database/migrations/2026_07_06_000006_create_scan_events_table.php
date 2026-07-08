@@ -10,11 +10,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('scan_events', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('event_id', 26);
-            $table->char('attendee_id', 26)->nullable();
-            $table->char('credential_id', 26)->nullable();
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('event_id')->nullable();
+            $table->unsignedBigInteger('attendee_id')->nullable();
+            $table->unsignedBigInteger('credential_id')->nullable();
             $table->string('scanner_type', 32);
             $table->string('scanner_id', 80);
             $table->string('gate_id', 80)->nullable();

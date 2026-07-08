@@ -3,6 +3,7 @@ import type { Kiosk } from '@/types/phase3'
 
 interface HealthTableProps {
   eventId: string
+  tenantId: string
   pollIntervalMs?: number
 }
 
@@ -14,7 +15,7 @@ const STATUS_LABELS: Record<string, string> = {
   pending: 'Pending',
 }
 
-export function HealthTable({ eventId, pollIntervalMs = 15000 }: HealthTableProps) {
+export function HealthTable({ eventId, tenantId, pollIntervalMs = 15000 }: HealthTableProps) {
   const [kiosks, setKiosks] = useState<Kiosk[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -24,7 +25,10 @@ export function HealthTable({ eventId, pollIntervalMs = 15000 }: HealthTableProp
 
     const poll = async () => {
       try {
-        const res = await fetch(`/api/v1/tenant/events/${eventId}/kiosks`)
+        const res = await fetch(`/api/v1/tenant/events/${eventId}/kiosks`, {
+          credentials: 'include',
+          headers: { Accept: 'application/json', 'X-Tenant-ID': tenantId },
+        })
         if (!res.ok) throw new Error('Failed to fetch kiosk health')
         const data = await res.json()
         if (cancelled) return
@@ -49,7 +53,7 @@ export function HealthTable({ eventId, pollIntervalMs = 15000 }: HealthTableProp
       cancelled = true
       clearInterval(interval)
     }
-  }, [eventId, pollIntervalMs])
+  }, [eventId, tenantId, pollIntervalMs])
 
   if (loading) return <p>Loading kiosk health…</p>
   if (error) return <p role="alert">{error}</p>

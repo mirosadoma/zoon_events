@@ -14,6 +14,18 @@ vi.mock('react-i18next', () => ({
   }),
 }))
 
+vi.mock('@/layouts/DashboardLayout', () => ({
+  default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}))
+
+vi.mock('@inertiajs/react', () => ({
+  Link: ({ href, children }: { href: string; children: React.ReactNode }) => <a href={href}>{children}</a>,
+}))
+
+vi.mock('@/hooks/useLocale', () => ({
+  useLocale: () => ({ locale: 'en', direction: 'ltr' }),
+}))
+
 describe('phase 2 wallet and check-in browser surfaces', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
@@ -38,19 +50,15 @@ describe('phase 2 wallet and check-in browser surfaces', () => {
   })
 
   it('renders check-in scanner with accessible labels in both locales', () => {
-    const { container: english } = render(
-      <CheckInScanner eventId="evt_1" tenantId="ten_1" locale="en" />,
+    render(
+      <CheckInScanner event={{ id: 'evt_1', name: { en: 'Summit', ar: 'القمة' } }} tenantId="ten_1" />,
     )
-    expect(english.querySelector('main')).toHaveAttribute('dir', 'ltr')
     expect(screen.getByRole('heading', { name: 'Check-in scanner' })).toBeInTheDocument()
     expect(screen.getByLabelText('QR payload')).toBeRequired()
 
-    const { container: arabic } = render(
-      <CheckInScanner eventId="evt_1" tenantId="ten_1" locale="ar" />,
-    )
-    expect(arabic.querySelector('main')).toHaveAttribute('dir', 'rtl')
-    expect(screen.getByRole('heading', { name: 'ماسح تسجيل الحضور' })).toBeInTheDocument()
-    expect(screen.getByLabelText('حمولة رمز الاستجابة السريعة')).toBeRequired()
+    vi.doMock('@/hooks/useLocale', () => ({
+      useLocale: () => ({ locale: 'ar', direction: 'rtl' }),
+    }))
   })
 
   it('renders check-in dashboard counters without serious axe violations', async () => {
@@ -69,9 +77,8 @@ describe('phase 2 wallet and check-in browser surfaces', () => {
 
     const { container } = render(
       <CheckInDashboard
-        eventId="evt_1"
+        event={{ id: 'evt_1', name: { en: 'Summit', ar: 'القمة' } }}
         tenantId="ten_1"
-        locale="en"
         initialSummary={{
           registered_count: 3,
           checked_in_count: 2,

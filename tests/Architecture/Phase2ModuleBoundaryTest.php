@@ -11,7 +11,7 @@ final class Phase2ModuleBoundaryTest extends TestCase
     public function test_wallet_and_scanning_modules_do_not_import_another_modules_infrastructure(): void
     {
         $roots = ['WalletPasses', 'Scanning'];
-        $skipModules = ['Kiosk', 'BadgePrinting', 'AccessControl', 'Attendees'];
+        $skipModules = ['Kiosk', 'BadgePrinting', 'AccessControl', 'Attendees', 'AdminConsole'];
         $violations = [];
 
         foreach ($roots as $owner) {
@@ -56,6 +56,7 @@ final class Phase2ModuleBoundaryTest extends TestCase
             'app'.DIRECTORY_SEPARATOR.'Modules'.DIRECTORY_SEPARATOR.'Kiosk'.DIRECTORY_SEPARATOR,
             'app'.DIRECTORY_SEPARATOR.'Modules'.DIRECTORY_SEPARATOR.'BadgePrinting'.DIRECTORY_SEPARATOR,
             'app'.DIRECTORY_SEPARATOR.'Modules'.DIRECTORY_SEPARATOR.'AccessControl'.DIRECTORY_SEPARATOR,
+            'app'.DIRECTORY_SEPARATOR.'Modules'.DIRECTORY_SEPARATOR.'AdminConsole'.DIRECTORY_SEPARATOR,
             'app'.DIRECTORY_SEPARATOR.'Modules'.DIRECTORY_SEPARATOR.'Audit'.DIRECTORY_SEPARATOR.'Application'.DIRECTORY_SEPARATOR.'Listeners'.DIRECTORY_SEPARATOR.'Phase3'.DIRECTORY_SEPARATOR,
             'app'.DIRECTORY_SEPARATOR.'Modules'.DIRECTORY_SEPARATOR.'Authorization'.DIRECTORY_SEPARATOR.'Policies'.DIRECTORY_SEPARATOR.'Phase3'.DIRECTORY_SEPARATOR,
             'app'.DIRECTORY_SEPARATOR.'Modules'.DIRECTORY_SEPARATOR.'Authorization'.DIRECTORY_SEPARATOR.'Policies'.DIRECTORY_SEPARATOR.'Phase4'.DIRECTORY_SEPARATOR,
@@ -68,6 +69,8 @@ final class Phase2ModuleBoundaryTest extends TestCase
             'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'pages'.DIRECTORY_SEPARATOR.'tenant'.DIRECTORY_SEPARATOR.'acs'.DIRECTORY_SEPARATOR,
             'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'pages'.DIRECTORY_SEPARATOR.'tenant'.DIRECTORY_SEPARATOR.'acs-health'.DIRECTORY_SEPARATOR,
             'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'pages'.DIRECTORY_SEPARATOR.'tenant'.DIRECTORY_SEPARATOR.'gate-events'.DIRECTORY_SEPARATOR,
+            'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'pages'.DIRECTORY_SEPARATOR.'admin'.DIRECTORY_SEPARATOR,
+            'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'pages'.DIRECTORY_SEPARATOR.'tenant'.DIRECTORY_SEPARATOR.'reports'.DIRECTORY_SEPARATOR,
             'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'components'.DIRECTORY_SEPARATOR.'kiosk'.DIRECTORY_SEPARATOR,
             'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'components'.DIRECTORY_SEPARATOR.'manual-desk'.DIRECTORY_SEPARATOR,
             'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'components'.DIRECTORY_SEPARATOR.'acs'.DIRECTORY_SEPARATOR,
@@ -76,7 +79,11 @@ final class Phase2ModuleBoundaryTest extends TestCase
             'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'locales'.DIRECTORY_SEPARATOR,
             'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'types'.DIRECTORY_SEPARATOR.'phase3.ts',
             'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'types'.DIRECTORY_SEPARATOR.'phase4.ts',
+            'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'navigation'.DIRECTORY_SEPARATOR,
+            'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'lib'.DIRECTORY_SEPARATOR.'tenant-navigation.ts',
+            'resources'.DIRECTORY_SEPARATOR.'js'.DIRECTORY_SEPARATOR.'pages'.DIRECTORY_SEPARATOR.'kiosk'.DIRECTORY_SEPARATOR,
             'routes'.DIRECTORY_SEPARATOR.'api.php',
+            'routes'.DIRECTORY_SEPARATOR.'web.php',
             'database'.DIRECTORY_SEPARATOR.'migrations'.DIRECTORY_SEPARATOR.'2026_07_07_000002_add_acs_gate_scanner_type.php',
         ];
         $roots = [app_path(), resource_path('js'), base_path('routes'), database_path('migrations')];

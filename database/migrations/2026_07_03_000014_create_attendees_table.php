@@ -10,13 +10,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('attendees', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('event_id', 26);
-            $table->char('order_id', 26);
-            $table->char('order_item_id', 26)->unique();
-            $table->char('ticket_type_id', 26);
-            $table->char('submission_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('event_id')->nullable();
+            $table->unsignedBigInteger('order_id')->nullable();
+            $table->unsignedBigInteger('order_item_id')->unique();
+            $table->unsignedBigInteger('ticket_type_id')->nullable();
+            $table->unsignedBigInteger('submission_id')->nullable();
             $table->text('first_name_ciphertext');
             $table->text('last_name_ciphertext');
             $table->text('email_ciphertext');

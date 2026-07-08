@@ -10,9 +10,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('ticket_types', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('event_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('event_id')->nullable();
             $table->string('code', 64);
             $table->string('name_en', 160);
             $table->string('name_ar', 160);
@@ -24,7 +24,7 @@ return new class extends Migration
             $table->timestamp('sale_starts_at', 6);
             $table->timestamp('sale_ends_at', 6);
             $table->string('status', 24)->default('draft');
-            $table->char('created_by_user_id', 26);
+            $table->unsignedBigInteger('created_by_user_id')->nullable();
             $table->timestamps(6);
 
             $table->unique(['tenant_id', 'event_id', 'id'], 'ticket_types_scope_unique');

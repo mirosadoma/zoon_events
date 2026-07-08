@@ -2,13 +2,10 @@
 
 namespace App\Modules\Credentials\Infrastructure\Persistence\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 
 final class Credential extends Model
 {
-    use HasUlids;
-
     protected $fillable = [
         'id', 'tenant_id', 'event_id', 'attendee_id', 'ticket_type_id', 'status',
         'token_version', 'key_id', 'nonce_hash', 'token_digest', 'presentation_token_ciphertext', 'issued_at',

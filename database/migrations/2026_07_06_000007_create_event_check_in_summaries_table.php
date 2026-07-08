@@ -9,8 +9,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('event_check_in_summaries', function (Blueprint $table): void {
-            $table->char('tenant_id', 26);
-            $table->char('event_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('event_id')->nullable();
             $table->unsignedInteger('registered_count')->default(0);
             $table->unsignedInteger('checked_in_count')->default(0);
             $table->unsignedInteger('rejected_count')->default(0);
@@ -18,7 +19,6 @@ return new class extends Migration
             $table->timestamp('last_scan_at', 6)->nullable();
             $table->timestamp('updated_at', 6)->useCurrent()->useCurrentOnUpdate();
 
-            $table->primary(['tenant_id', 'event_id']);
             $table->foreign('tenant_id')->references('id')->on('tenants')->restrictOnDelete();
             $table->foreign(['tenant_id', 'event_id'])->references(['tenant_id', 'id'])->on('events')->restrictOnDelete();
         });

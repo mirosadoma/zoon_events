@@ -2,13 +2,10 @@
 
 namespace App\Modules\Ticketing\Infrastructure\Persistence\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 
 final class TicketType extends Model
 {
-    use HasUlids;
-
     protected $fillable = [
         'tenant_id', 'event_id', 'code', 'name_en', 'name_ar', 'description_en',
         'description_ar', 'attendee_type', 'base_price_minor', 'currency',

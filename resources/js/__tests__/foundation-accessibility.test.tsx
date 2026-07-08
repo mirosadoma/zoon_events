@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import axe from 'axe-core'
-import { ConflictState, EmptyState, ErrorState, ForbiddenState, LoadingState, QueuedState } from '@/components/foundation/States'
+import { ConflictState, EmptyState, ErrorState, ForbiddenState, LoadingState, QueuedState } from '@/components/feedback/States'
 import { platformNavigation } from '@/lib/navigation'
 import en from '@/locales/en'
 import ar from '@/locales/ar'

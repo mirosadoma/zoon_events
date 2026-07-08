@@ -9,7 +9,6 @@ use App\Modules\AccessControl\Infrastructure\Persistence\Models\AcsZone;
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\EmergencyEvent;
 use App\Modules\Audit\Application\AuditedTransaction;
 use DateTimeInterface;
-use Illuminate\Support\Str;
 
 final readonly class RaiseEmergencyAction
 {
@@ -30,7 +29,6 @@ final readonly class RaiseEmergencyAction
         return $this->audited->run(
             function () use ($tenantId, $eventId, $zoneId, $signalSource, $raisedAt, $behavior): EmergencyEvent {
                 $emergency = EmergencyEvent::query()->create([
-                    'id' => (string) Str::ulid(),
                     'tenant_id' => $tenantId,
                     'event_id' => $eventId,
                     'zone_id' => $zoneId,
@@ -40,7 +38,6 @@ final readonly class RaiseEmergencyAction
                 ]);
 
                 AccessEvent::query()->create([
-                    'id' => (string) Str::ulid(),
                     'tenant_id' => $tenantId,
                     'event_id' => $eventId,
                     'event_type' => 'emergency',

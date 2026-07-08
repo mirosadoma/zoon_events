@@ -10,26 +10,26 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('ticket_inventories', function (Blueprint $table): void {
-            $table->char('tenant_id', 26);
-            $table->char('event_id', 26);
-            $table->char('ticket_type_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('event_id')->nullable();
+            $table->unsignedBigInteger('ticket_type_id')->nullable();
             $table->unsignedInteger('capacity');
             $table->unsignedInteger('held_quantity')->default(0);
             $table->unsignedInteger('sold_quantity')->default(0);
             $table->unsignedBigInteger('version')->default(0);
             $table->timestamps(6);
 
-            $table->primary(['tenant_id', 'event_id', 'ticket_type_id']);
             $table->foreign(['tenant_id', 'event_id', 'ticket_type_id'], 'ticket_inventory_ticket_fk')
                 ->references(['tenant_id', 'event_id', 'id'])->on('ticket_types')->restrictOnDelete();
             $table->index(['tenant_id', 'event_id', 'capacity', 'held_quantity', 'sold_quantity'], 'ticket_inventory_availability_idx');
         });
 
         Schema::create('price_tiers', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('event_id', 26);
-            $table->char('ticket_type_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('event_id')->nullable();
+            $table->unsignedBigInteger('ticket_type_id')->nullable();
             $table->string('name', 160);
             $table->unsignedBigInteger('price_minor');
             $table->char('currency', 3);
@@ -48,15 +48,15 @@ return new class extends Migration
         });
 
         Schema::create('inventory_holds', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('event_id', 26);
-            $table->char('ticket_type_id', 26);
-            $table->char('order_id', 26)->nullable()->unique();
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('event_id')->nullable();
+            $table->unsignedBigInteger('ticket_type_id')->nullable();
+            $table->unsignedBigInteger('order_id')->nullable()->unique();
             $table->unsignedInteger('quantity');
             $table->unsignedBigInteger('quoted_price_minor');
             $table->char('currency', 3);
-            $table->char('price_tier_id', 26)->nullable();
+            $table->unsignedBigInteger('price_tier_id')->nullable();
             $table->string('status', 24)->default('active');
             $table->timestamp('expires_at', 6);
             $table->string('released_reason_code', 64)->nullable();

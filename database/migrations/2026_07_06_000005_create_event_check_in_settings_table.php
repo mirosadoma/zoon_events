@@ -10,13 +10,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('event_check_in_settings', function (Blueprint $table): void {
-            $table->char('tenant_id', 26);
-            $table->char('event_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('event_id')->nullable();
             $table->boolean('single_entry_enabled')->default(true);
             $table->string('single_entry_scope', 24)->default('event');
             $table->timestamps(6);
 
-            $table->primary(['tenant_id', 'event_id']);
             $table->foreign('tenant_id')->references('id')->on('tenants')->restrictOnDelete();
             $table->foreign(['tenant_id', 'event_id'])->references(['tenant_id', 'id'])->on('events')->restrictOnDelete();
         });

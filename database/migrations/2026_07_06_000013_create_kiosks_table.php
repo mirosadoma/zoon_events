@@ -10,9 +10,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('kiosks', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('event_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('event_id')->nullable();
             $table->string('device_name', 120);
             $table->string('device_code', 40);
             $table->string('location_label', 160)->nullable();

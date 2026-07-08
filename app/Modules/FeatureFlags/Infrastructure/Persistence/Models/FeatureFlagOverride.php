@@ -2,14 +2,11 @@
 
 namespace App\Modules\FeatureFlags\Infrastructure\Persistence\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class FeatureFlagOverride extends Model
 {
-    use HasUlids;
-
     protected $fillable = ['tenant_id', 'feature_flag_id', 'value', 'status', 'reason', 'created_by_user_id', 'expires_at'];
 
     protected function casts(): array

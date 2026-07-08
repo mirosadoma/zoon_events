@@ -21,7 +21,6 @@ use App\Modules\Scanning\Application\Actions\SubmitScanAction;
 use App\Modules\Scanning\Domain\ValueObjects\ScanContext;
 use App\Modules\Shared\Http\Problems\Phase4Problem;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketType;
-use Illuminate\Support\Str;
 
 final readonly class AuthorizeGateAction
 {
@@ -249,7 +248,6 @@ final readonly class AuthorizeGateAction
                 }
 
                 $accessEvent = AccessEvent::query()->create([
-                    'id' => (string) Str::ulid(),
                     'tenant_id' => $ctx->tenantId,
                     'event_id' => $ctx->eventId,
                     'event_type' => 'decision',

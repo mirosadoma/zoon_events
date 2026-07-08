@@ -402,16 +402,19 @@ introduced by this phase):
 
 ## Missing Backend API Requirements
 
-This section is the running record required by the source plan (§23). It is
-populated during planning and implementation as endpoint gaps are discovered while
-wiring each screen to the existing backend.
+This section mirrors `api-integration-map.md` and records endpoint/read-projection
+gaps discovered while wiring each screen to the existing backend. No new backend
+business module is created to fill a gap; confirmed rows are satisfied through
+AdminConsole ViewModels or existing owning-module APIs.
 
-- *(To be filled during `/speckit.plan` and implementation.)* For each gap, record:
-  the screen/feature affected, the completed phase it belongs to, the expected
-  contract (method, path, request/response shape), and the temporary UI treatment
-  (mock-safe adapter or placeholder/empty state). No new backend business module is
-  created to fill a gap — only a documented endpoint needed to make an already
-  completed phase visible.
+| ID | Screen | Required read projection | Final treatment |
+|---|---|---|---|
+| GAP-1 | Price tiers | Price tier rows including `is_active_now` | Confirmed through `EventDashboardViewModel`; empty state renders when no tiers exist. |
+| GAP-2 | Wallet pass detail | Wallet pass detail including `last_pushed_at` and optional pass URL | Confirmed through AdminConsole wallet pass detail ViewModel. |
+| GAP-3 | Scan events | Event scan rows with filters | Confirmed through AdminConsole scan-events ViewModel. |
+| GAP-4 | Kiosk detail | Kiosk detail with recent check-ins/print jobs | Confirmed through AdminConsole ViewModel plus Kiosk API show operation. |
+| GAP-5 | Badge print jobs | Event badge print job rows | Confirmed through AdminConsole ViewModel plus BadgePrinting API index operation. |
+| GAP-6 | Event report | Per-metric summary reads, including wallet adoption and first-scan success rate | Confirmed through `EventReportViewModel`; wallet adoption is computed, first-scan success rate is labelled not available yet. |
 
 ## Assumptions
 

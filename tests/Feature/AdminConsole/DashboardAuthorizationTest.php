@@ -18,10 +18,10 @@ class DashboardAuthorizationTest extends TestCase
         $password = 'Synthetic-Password-123!';
         $user = User::factory()->create(['password' => $password]);
 
-        $this->get('/')->assertRedirect('/login');
-        $this->post('/login', ['email' => $user->email, 'password' => $password])->assertRedirect('/');
-        $this->get('/')->assertOk()->assertInertia(fn (AssertableInertia $page) => $page->component('FoundationDashboard')->where('scope', 'platform'));
+        $this->get('/dashboard')->assertRedirect('/login');
+        $this->post('/login', ['email' => $user->email, 'password' => $password])->assertRedirect('/dashboard');
+        $this->get('/dashboard')->assertOk()->assertInertia(fn (AssertableInertia $page) => $page->component('FoundationDashboard')->where('scope', 'platform'));
         $this->post('/logout')->assertRedirect('/login');
-        $this->get('/')->assertRedirect('/login');
+        $this->get('/dashboard')->assertRedirect('/login');
     }
 }

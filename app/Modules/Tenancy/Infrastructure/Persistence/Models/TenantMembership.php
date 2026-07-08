@@ -6,7 +6,6 @@ use App\Models\User;
 use App\Modules\Authorization\Infrastructure\Persistence\Models\TenantRoleAssignment;
 use App\Modules\Shared\Domain\LifecycleStatus;
 use Database\Factories\TenantMembershipFactory;
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,8 +15,6 @@ class TenantMembership extends Model
 {
     /** @use HasFactory<TenantMembershipFactory> */
     use HasFactory;
-
-    use HasUlids;
 
     protected $fillable = [
         'tenant_id',

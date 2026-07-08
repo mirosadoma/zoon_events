@@ -1,0 +1,76 @@
+<?php
+
+require __DIR__.'/../vendor/autoload.php';
+
+$app = require __DIR__.'/../bootstrap/app.php';
+$app->make(Kernel::class)->bootstrap();
+
+use App\Models\User;
+use App\Modules\Authorization\Application\PermissionEvaluator;
+use App\Modules\Tenancy\Domain\Context\TenantContext;
+use App\Modules\Tenancy\Infrastructure\Persistence\Models\TenantMembership;
+use Database\Seeders\PermissionSeeder;
+use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Support\Facades\DB;
+
+$evaluator = app(PermissionEvaluator::class);
+$definitions = PermissionSeeder::definitions();
+
+echo "=== Seeded user credentials & permission audit ===\n\n";
+
+$credentials = [
+    'platform.admin@admin.com' => config('zonetec.bootstrap_admin_password'),
+    'fixture.creator@example.test' => 'synthetic-only-creator-password',
+    'fixture.alpha@example.test' => 'synthetic-only-alpha-password',
+    'fixture.bravo@example.test' => 'synthetic-only-bravo-password',
+];
+
+foreach (User::query()->orderBy('email')->get() as $user) {
+    $password = $credentials[$user->email] ?? '(unknown — check .env or seeder)';
+    echo "User: {$user->name}\n";
+    echo "  Email:    {$user->email}\n";
+    echo "  Password: {$password}\n";
+
+    $platformRoles = DB::table('platform_role_assignments as a')
+        ->join('platform_roles as r', 'r.id', '=', 'a.platform_role_id')
+        ->where('a.user_id', $user->id)
+        ->whereNull('a.revoked_at')
+        ->pluck('r.name');
+
+    echo '  Platform roles: '.($platformRoles->isEmpty() ? 'NONE' : $platformRoles->implode(', '))."\n";
+
+    $memberships = TenantMembership::query()->with('tenant')->where('user_id', $user->id)->get();
+
+    if ($memberships->isEmpty()) {
+        echo "  Tenant memberships: NONE\n";
+    }
+
+    foreach ($memberships as $membership) {
+        $tenantRoles = DB::table('tenant_role_assignments as a')
+            ->join('tenant_roles as r', 'r.id', '=', 'a.tenant_role_id')
+            ->where('a.tenant_membership_id', $membership->id)
+            ->whereNull('a.revoked_at')
+            ->pluck('r.name');
+
+        echo "  Tenant {$membership->tenant->slug}: roles=".($tenantRoles->isEmpty() ? 'NONE ⚠' : $tenantRoles->implode(', '))."\n";
+
+        if ($tenantRoles->isEmpty()) {
+            continue;
+        }
+
+        $context = new TenantContext($membership->tenant, $membership, $user);
+        $tenantPerms = collect($definitions)->where('scope', 'tenant');
+        $granted = $tenantPerms->filter(fn (array $d): bool => $evaluator->hasTenantPermission($context, $d['key']))->pluck('key');
+        echo "    Effective tenant permissions: {$granted->count()} / {$tenantPerms->count()}\n";
+    }
+
+    $platformPerms = collect($definitions)->where('scope', 'platform');
+    $grantedPlatform = $platformPerms->filter(fn (array $d): bool => $evaluator->hasPlatformPermission($user, $d['key']))->pluck('key');
+    echo "  Effective platform permissions: {$grantedPlatform->count()} / {$platformPerms->count()}\n";
+    echo "\n";
+}
+
+echo "=== SystemRoleSeeder role definitions (expected) ===\n\n";
+echo "Platform roles: Platform Administrator, Security Auditor, Operations Viewer\n";
+echo "Tenant roles (per tenant): Tenant Administrator, Event Manager, Ticketing Manager, On-Site Staff, ACS Operator\n";
+echo "\nRun after `php artisan db:seed` to verify assignments.\n";

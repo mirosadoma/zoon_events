@@ -2,14 +2,11 @@
 
 namespace App\Modules\Attendees\Infrastructure\Persistence\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 final class Attendee extends Model
 {
-    use HasUlids;
-
     protected $fillable = [
         'tenant_id', 'event_id', 'order_id', 'order_item_id', 'ticket_type_id',
         'submission_id', 'first_name_ciphertext', 'last_name_ciphertext',

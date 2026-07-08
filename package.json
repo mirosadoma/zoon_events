@@ -13,6 +13,7 @@
         "openapi:phase4": "redocly lint specs/005-acs-access-control/contracts/openapi.yaml",
         "openapi:sync": "php scripts/sync-openapi.php --check",
         "test": "vitest run",
+        "test:browser": "vitest run resources/js/__tests__/*-browser.test.tsx",
         "typecheck": "tsc --noEmit"
     },
     "dependencies": {

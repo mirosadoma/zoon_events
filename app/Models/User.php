@@ -6,7 +6,6 @@ use App\Modules\Authorization\Infrastructure\Persistence\Models\PlatformRoleAssi
 use App\Modules\Shared\Domain\LifecycleStatus;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\TenantMembership;
 use Database\Factories\UserFactory;
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -19,7 +18,6 @@ class User extends Authenticatable
     use HasApiTokens;
 
     use HasFactory;
-    use HasUlids;
     use Notifiable;
 
     protected $fillable = [

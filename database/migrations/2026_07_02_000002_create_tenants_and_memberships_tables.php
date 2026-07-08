@@ -10,7 +10,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('tenants', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
+            $table->id();
             $table->string('name', 160);
             $table->string('slug', 100)->unique();
             $table->string('status', 24)->default('active');
@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('timezone', 64);
             $table->string('data_residency_region', 64);
             $table->json('policy_profile')->nullable();
-            $table->char('created_by_user_id', 26);
+            $table->unsignedBigInteger('created_by_user_id')->nullable();
             $table->timestamp('suspended_at')->nullable();
             $table->timestamp('deactivated_at')->nullable();
             $table->timestamps();
@@ -28,11 +28,11 @@ return new class extends Migration
         });
 
         Schema::create('tenant_memberships', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('user_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('user_id')->nullable();
             $table->string('status', 24)->default('active');
-            $table->char('created_by_user_id', 26);
+            $table->unsignedBigInteger('created_by_user_id')->nullable();
             $table->timestamp('suspended_at')->nullable();
             $table->timestamp('deactivated_at')->nullable();
             $table->timestamps();

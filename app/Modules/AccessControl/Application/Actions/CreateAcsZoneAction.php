@@ -6,7 +6,6 @@ use App\Modules\AccessControl\Domain\Events\AcsZoneCreated;
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\AcsZone;
 use App\Modules\Audit\Application\AuditedTransaction;
 use App\Modules\Shared\Http\Problems\Phase4Problem;
-use Illuminate\Support\Str;
 
 final readonly class CreateAcsZoneAction
 {
@@ -34,7 +33,6 @@ final readonly class CreateAcsZoneAction
 
         return $this->audited->run(
             fn (): AcsZone => AcsZone::query()->create([
-                'id' => (string) Str::ulid(),
                 'tenant_id' => $tenantId,
                 'event_id' => $eventId,
                 'name' => $data['name'],

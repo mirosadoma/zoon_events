@@ -9,7 +9,6 @@ use App\Modules\AccessControl\Infrastructure\Persistence\Models\AcsZone;
 use App\Modules\Audit\Application\AuditedTransaction;
 use App\Modules\Shared\Http\Problems\Phase4Problem;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketType;
-use Illuminate\Support\Str;
 
 final readonly class CreateAcsRuleAction
 {
@@ -73,7 +72,6 @@ final readonly class CreateAcsRuleAction
 
         return $this->audited->run(
             fn (): AcsAuthorizationRule => AcsAuthorizationRule::query()->create([
-                'id' => (string) Str::ulid(),
                 'tenant_id' => $tenantId,
                 'event_id' => $eventId,
                 'ticket_type_id' => $data['ticket_type_id'] ?? null,

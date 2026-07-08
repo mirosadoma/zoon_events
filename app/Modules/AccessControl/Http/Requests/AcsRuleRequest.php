@@ -17,10 +17,10 @@ final class AcsRuleRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'ticket_type_id' => ['sometimes', 'nullable', 'string'],
+            'ticket_type_id' => ['sometimes', 'nullable', 'integer'],
             'attendee_type' => ['sometimes', 'nullable', 'string', Rule::in(['attendee', 'staff', 'vip', 'vendor'])],
-            'zone_id' => ['required', 'string'],
-            'lane_id' => ['sometimes', 'nullable', 'string'],
+            'zone_id' => ['required', 'integer'],
+            'lane_id' => ['sometimes', 'nullable', 'integer'],
             'access_direction' => ['required', 'string', Rule::in(['entry', 'exit', 'bidirectional'])],
             'anti_passback_exempt' => ['sometimes', 'boolean'],
             'valid_from' => ['sometimes', 'nullable', 'date'],

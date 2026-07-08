@@ -2,13 +2,10 @@
 
 namespace App\Modules\Events\Infrastructure\Persistence\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 
 final class EventBranding extends Model
 {
-    use HasUlids;
-
     protected $table = 'event_branding';
 
     protected $fillable = [

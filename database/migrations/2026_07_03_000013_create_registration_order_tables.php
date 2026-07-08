@@ -10,10 +10,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('registration_submissions', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('event_id', 26);
-            $table->char('form_version_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('event_id')->nullable();
+            $table->unsignedBigInteger('form_version_id')->nullable();
             $table->char('submission_key_hash', 64);
             $table->longText('answers_ciphertext');
             $table->string('encryption_key_id', 64);
@@ -29,9 +29,9 @@ return new class extends Migration
         });
 
         Schema::create('orders', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('event_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('event_id')->nullable();
             $table->string('public_reference', 80);
             $table->char('access_token_hash', 64);
             $table->string('status', 32);
@@ -46,7 +46,7 @@ return new class extends Migration
             $table->unsignedBigInteger('fees_minor')->default(0);
             $table->unsignedBigInteger('total_minor');
             $table->char('currency', 3);
-            $table->char('inventory_hold_id', 26);
+            $table->unsignedBigInteger('inventory_hold_id')->nullable();
             $table->char('locale', 2);
             $table->timestamp('paid_at', 6)->nullable();
             $table->timestamp('cancelled_at', 6)->nullable();
@@ -65,19 +65,19 @@ return new class extends Migration
         });
 
         Schema::create('order_items', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('event_id', 26);
-            $table->char('order_id', 26);
-            $table->char('ticket_type_id', 26);
-            $table->char('attendee_id', 26)->nullable()->unique();
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('event_id')->nullable();
+            $table->unsignedBigInteger('order_id')->nullable();
+            $table->unsignedBigInteger('ticket_type_id')->nullable();
+            $table->unsignedBigInteger('attendee_id')->nullable()->unique();
             $table->unsignedInteger('quantity');
             $table->unsignedBigInteger('unit_price_minor');
             $table->unsignedBigInteger('tax_minor')->default(0);
             $table->unsignedBigInteger('fees_minor')->default(0);
             $table->unsignedBigInteger('total_minor');
             $table->char('currency', 3);
-            $table->char('price_tier_id', 26)->nullable();
+            $table->unsignedBigInteger('price_tier_id')->nullable();
             $table->json('ticket_name_snapshot');
             $table->timestamps(6);
 

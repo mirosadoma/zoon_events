@@ -9,6 +9,7 @@ interface WalkUpFormData {
 
 interface WalkUpFormPanelProps {
   eventId: string
+  tenantId: string
   ticketTypeId: string
   onSuccess: (attendeeId: string) => void
   onCancel: () => void
@@ -16,7 +17,7 @@ interface WalkUpFormPanelProps {
 
 const empty = (): WalkUpFormData => ({ first_name: '', last_name: '', email: '', phone: '' })
 
-export function WalkUpFormPanel({ eventId, ticketTypeId, onSuccess, onCancel }: WalkUpFormPanelProps) {
+export function WalkUpFormPanel({ eventId, tenantId, ticketTypeId, onSuccess, onCancel }: WalkUpFormPanelProps) {
   const [buyer, setBuyer] = useState<WalkUpFormData>(empty())
   const [attendee, setAttendee] = useState<WalkUpFormData>(empty())
   const [sameAsBuyer, setSameAsBuyer] = useState(true)
@@ -41,7 +42,13 @@ export function WalkUpFormPanel({ eventId, ticketTypeId, onSuccess, onCancel }: 
     try {
       const res = await fetch(`/api/v1/tenant/events/${eventId}/walk-up-registrations`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-Tenant-ID': tenantId,
+          'Idempotency-Key': `walk-up-${Date.now()}`,
+        },
         body: JSON.stringify({
           ticket_type_id: ticketTypeId,
           form_version_id: 'default',

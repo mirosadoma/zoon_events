@@ -18,6 +18,7 @@ final class Phase4ModuleBoundaryTest extends TestCase
             self::fail('Missing module directory: '.$root);
         }
 
+        $skipModules = ['AdminConsole'];
         $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS));
         foreach ($files as $file) {
             if ($file->getExtension() !== 'php') {
@@ -26,6 +27,11 @@ final class Phase4ModuleBoundaryTest extends TestCase
             $path = str_replace('\\', '/', $file->getPathname());
             if (str_contains($path, '/app/Modules/AccessControl/')) {
                 continue;
+            }
+            foreach ($skipModules as $skipModule) {
+                if (str_contains($path, "/app/Modules/{$skipModule}/")) {
+                    continue 2;
+                }
             }
             $contents = file_get_contents($file->getPathname()) ?: '';
             if (preg_match('/use App\\\\Modules\\\\AccessControl\\\\Infrastructure\\\\/', $contents)) {

@@ -4,12 +4,14 @@ namespace App\Modules\Kiosk\Http\Controllers\Management;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Authorization\Policies\Phase3\Phase3Policy;
+use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgePrintJob;
 use App\Modules\Kiosk\Application\Actions\RegisterKioskAction;
 use App\Modules\Kiosk\Application\Actions\RetireKioskAction;
 use App\Modules\Kiosk\Domain\KioskStatusDeriver;
 use App\Modules\Kiosk\Http\Requests\RegisterKioskRequest;
 use App\Modules\Kiosk\Infrastructure\Persistence\Models\Kiosk;
 use App\Modules\Scanning\Infrastructure\Persistence\Models\EventCheckInSetting;
+use App\Modules\Scanning\Infrastructure\Persistence\Models\ScanEvent;
 use App\Modules\Shared\Contracts\Clock;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
 use App\Modules\Tenancy\Domain\Context\TenantContextStore;
@@ -80,6 +82,72 @@ final class KioskController extends Controller
             ->all();
 
         return $this->success($kiosks);
+    }
+
+    public function show(Request $request, string $eventId, string $kioskId): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user === null || (! $this->policy->allows($user, 'manageKiosk') && ! $this->policy->allows($user, 'viewKioskHealth'))) {
+            abort(403);
+        }
+
+        $context = $this->contexts->current();
+        $tenantId = $context->tenant->id;
+
+        $settings = EventCheckInSetting::query()
+            ->where('tenant_id', $tenantId)
+            ->where('event_id', $eventId)
+            ->first();
+
+        $threshold = $settings?->kiosk_offline_threshold_seconds
+            ?? (int) config('printing.kiosk.default_offline_threshold_seconds', 120);
+
+        /** @var Kiosk $kiosk */
+        $kiosk = Kiosk::query()
+            ->where('tenant_id', $tenantId)
+            ->where('event_id', $eventId)
+            ->findOrFail($kioskId);
+
+        $recentCheckins = ScanEvent::query()
+            ->where('tenant_id', $tenantId)
+            ->where('event_id', $eventId)
+            ->where('scanner_type', 'kiosk')
+            ->where('scanner_id', $kiosk->id)
+            ->latest('scanned_at')
+            ->limit(10)
+            ->get()
+            ->map(fn (ScanEvent $scan): array => [
+                'id' => $scan->id,
+                'result' => $scan->result,
+                'reason' => $scan->reason,
+                'scanned_at' => $scan->scanned_at?->toIso8601String(),
+            ])
+            ->values()
+            ->all();
+
+        $recentPrintJobs = BadgePrintJob::query()
+            ->where('tenant_id', $tenantId)
+            ->where('event_id', $eventId)
+            ->where('kiosk_id', $kiosk->id)
+            ->latest('created_at')
+            ->limit(10)
+            ->get()
+            ->map(fn (BadgePrintJob $job): array => [
+                'id' => $job->id,
+                'status' => $job->status,
+                'is_reprint' => $job->is_reprint,
+                'printed_at' => $job->printed_at?->toIso8601String(),
+            ])
+            ->values()
+            ->all();
+
+        return $this->success([
+            ...$this->kioskToArray($kiosk, $eventId, $tenantId, $threshold),
+            'location_label' => $kiosk->location_label,
+            'recent_checkins' => $recentCheckins,
+            'recent_print_jobs' => $recentPrintJobs,
+        ]);
     }
 
     public function retire(Request $request, string $eventId, string $kioskId, RetireKioskAction $action): JsonResponse

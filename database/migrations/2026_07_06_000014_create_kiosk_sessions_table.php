@@ -9,9 +9,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('kiosk_sessions', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('kiosk_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('kiosk_id')->nullable();
             $table->string('secret_hash', 255);
             $table->timestamp('confirmed_at', 6)->nullable();
             $table->timestamp('expires_at', 6);

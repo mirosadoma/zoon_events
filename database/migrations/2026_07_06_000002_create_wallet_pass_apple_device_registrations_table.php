@@ -9,9 +9,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('wallet_pass_apple_device_registrations', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('wallet_pass_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('wallet_pass_id')->nullable();
             $table->string('device_library_identifier', 120);
             $table->string('push_token', 120);
             $table->timestamp('registered_at', 6);

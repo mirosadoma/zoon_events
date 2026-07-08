@@ -17,7 +17,7 @@ final class AcsLaneRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'zone_id' => ['required', 'string'],
+            'zone_id' => ['required', 'integer'],
             'name' => ['required', 'string', 'max:120'],
             'external_acs_lane_id' => ['required', 'string', 'max:160'],
             'gate_type' => ['required', 'string', Rule::in(['turnstile', 'door', 'speedgate', 'manual'])],

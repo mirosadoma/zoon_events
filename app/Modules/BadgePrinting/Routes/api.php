@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('tenant/events/{event_id}')
     ->middleware(['auth:sanctum', 'throttle:phase1-organizer', 'tenant.context.clear', 'tenant.context'])
     ->group(function (): void {
+        Route::get('/badge-print-jobs', [BadgePrintJobController::class, 'index'])
+            ->middleware(['permission:badge.print,tenant']);
+
         Route::post('/badge-print-jobs', [BadgePrintJobController::class, 'store'])
             ->middleware(['permission:badge.print,tenant', 'idempotency']);
         Route::post('/badge-print-jobs/{badge_print_job_id}/reprint', [BadgePrintJobController::class, 'reprint'])

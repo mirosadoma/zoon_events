@@ -10,18 +10,18 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('wallet_passes', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('event_id', 26);
-            $table->char('attendee_id', 26);
-            $table->char('credential_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('event_id')->nullable();
+            $table->unsignedBigInteger('attendee_id')->nullable();
+            $table->unsignedBigInteger('credential_id')->nullable();
             $table->string('provider', 16);
             $table->string('pass_serial_number', 80);
             $table->string('pass_url', 2048)->nullable();
             $table->string('status', 24)->default('created');
             $table->timestamp('last_pushed_at', 6)->nullable();
             $table->string('last_push_reason_code', 120)->nullable();
-            $table->char('superseded_by_id', 26)->nullable();
+            $table->unsignedBigInteger('superseded_by_id')->nullable();
             $table->timestamps(6);
 
             $table->unique(['tenant_id', 'event_id', 'id'], 'wallet_passes_scope_unique');

@@ -3,7 +3,6 @@
 namespace App\Modules\Scanning\Infrastructure\Persistence\Models;
 
 use Database\Factories\OfflineScanReconciliationBatchFactory;
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -11,8 +10,6 @@ final class OfflineScanReconciliationBatch extends Model
 {
     /** @use HasFactory<OfflineScanReconciliationBatchFactory> */
     use HasFactory;
-
-    use HasUlids;
 
     public const UPDATED_AT = null;
 

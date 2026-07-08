@@ -1,8 +1,94 @@
-export default function WalletPassesStatus({ eventId }: { eventId: string; tenantId: string }) {
+import { Link } from '@inertiajs/react'
+import DashboardLayout from '@/layouts/DashboardLayout'
+import { EmptyState } from '@/components/feedback'
+import { PageContent, PageHeader } from '@/components/layout'
+import StatusBadge from '@/components/status/StatusBadge'
+import DataTable from '@/components/tables/DataTable'
+import { useLocale } from '@/hooks/useLocale'
+
+type EventRow = {
+  id: string
+  name: { en: string; ar: string }
+}
+
+type WalletPassRow = {
+  id: string
+  provider: string
+  serial: string
+  attendee_id: string
+  status: string
+  pass_url?: string | null
+  last_pushed_at?: string | null
+}
+
+type Props = {
+  event: EventRow
+  walletPasses: WalletPassRow[]
+}
+
+export default function WalletPasses({ event, walletPasses }: Props) {
+  const { locale } = useLocale()
+
   return (
-    <main>
-      <h1>Wallet passes</h1>
-      <p>Event {eventId}</p>
-    </main>
+    <DashboardLayout title={locale === 'ar' ? 'تذاكر المحفظة' : 'Wallet passes'}>
+      <PageHeader
+        title={locale === 'ar' ? 'تذاكر المحفظة' : 'Wallet passes'}
+        description={event.name[locale]}
+        breadcrumbs={[
+          { label: locale === 'ar' ? 'نظرة عامة' : 'Overview', href: '/dashboard' },
+          { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: event.name[locale], href: `/tenant/events/${event.id}` },
+          { label: locale === 'ar' ? 'تذاكر المحفظة' : 'Wallet passes' },
+        ]}
+      />
+      <PageContent>
+        {walletPasses.length === 0 ? (
+          <EmptyState
+            title={locale === 'ar' ? 'لا توجد تذاكر محفظة' : 'No wallet passes yet'}
+            detail={locale === 'ar' ? 'ستظهر التذاكر بعد الإصدار.' : 'Passes will appear after generation.'}
+          />
+        ) : (
+          <DataTable
+            rows={walletPasses as unknown as Record<string, unknown>[]}
+            getRowKey={(row) => String(row.id)}
+            columns={[
+              {
+                key: 'serial',
+                header: locale === 'ar' ? 'الرقم التسلسلي' : 'Serial',
+                render: (row) => {
+                  const pass = row as unknown as WalletPassRow
+
+                  return (
+                    <Link href={`/tenant/events/${event.id}/wallet-passes/${pass.id}`} className="font-medium text-sky-700 hover:underline">
+                      {pass.serial}
+                    </Link>
+                  )
+                },
+              },
+              { key: 'provider', header: locale === 'ar' ? 'المزود' : 'Provider' },
+              {
+                key: 'status',
+                header: locale === 'ar' ? 'الحالة' : 'Status',
+                render: (row) => <StatusBadge status={String(row.status)} />,
+              },
+              {
+                key: 'attendee_id',
+                header: locale === 'ar' ? 'الحاضر' : 'Attendee',
+                render: (row) => {
+                  const pass = row as unknown as WalletPassRow
+
+                  return (
+                    <Link href={`/tenant/events/${event.id}/attendees/${pass.attendee_id}`} className="text-sky-700 hover:underline">
+                      {pass.attendee_id.slice(-8)}
+                    </Link>
+                  )
+                },
+              },
+              { key: 'last_pushed_at', header: locale === 'ar' ? 'آخر دفع' : 'Last pushed' },
+            ]}
+          />
+        )}
+      </PageContent>
+    </DashboardLayout>
   )
 }

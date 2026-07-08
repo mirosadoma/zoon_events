@@ -18,7 +18,7 @@ if (!el) {
 const initialPage = JSON.parse(el.getAttribute('data-page')!)
 
 createInertiaApp({
-  page: initialPage, // 👈 أهم سطر
+  page: initialPage,
 
   resolve: (name) => {
     const page = pages[`./pages/${name}.tsx`]

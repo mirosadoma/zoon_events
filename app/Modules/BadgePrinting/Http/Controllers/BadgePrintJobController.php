@@ -13,6 +13,7 @@ use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgePrintJob;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
 use App\Modules\Tenancy\Domain\Context\TenantContextStore;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 final class BadgePrintJobController extends Controller
 {
@@ -22,6 +23,34 @@ final class BadgePrintJobController extends Controller
         private readonly TenantContextStore $contexts,
         private readonly Phase3Policy $policy,
     ) {}
+
+    public function index(Request $request, string $eventId): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user === null || (! $this->policy->allows($user, 'printBadge') && ! $this->policy->allows($user, 'reprintBadge'))) {
+            abort(403);
+        }
+
+        $context = $this->contexts->current();
+
+        $query = BadgePrintJob::query()
+            ->where('tenant_id', $context->tenant->id)
+            ->where('event_id', $eventId)
+            ->latest('created_at')
+            ->limit(200);
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->string('status')->toString());
+        }
+
+        $jobs = $query->get()
+            ->map(fn (BadgePrintJob $job): array => (new BadgePrintJobResource($job))->resolve())
+            ->values()
+            ->all();
+
+        return $this->success($jobs);
+    }
 
     public function store(
         CreateBadgePrintJobRequest $request,

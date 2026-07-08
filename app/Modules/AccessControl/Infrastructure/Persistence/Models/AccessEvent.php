@@ -3,14 +3,12 @@
 namespace App\Modules\AccessControl\Infrastructure\Persistence\Models;
 
 use Database\Factories\AccessEventFactory;
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 final class AccessEvent extends Model
 {
     use HasFactory;
-    use HasUlids;
 
     public const UPDATED_AT = null;
 

@@ -10,8 +10,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('events', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
             $table->string('slug', 100);
             $table->string('name_en', 160);
             $table->string('name_ar', 160);
@@ -29,9 +29,9 @@ return new class extends Migration
             $table->string('location_address_en', 500)->nullable();
             $table->string('location_address_ar', 500)->nullable();
             $table->unsignedInteger('capacity')->nullable();
-            $table->char('active_form_version_id', 26)->nullable();
-            $table->char('created_by_user_id', 26);
-            $table->char('published_by_user_id', 26)->nullable();
+            $table->unsignedBigInteger('active_form_version_id')->nullable();
+            $table->unsignedBigInteger('created_by_user_id')->nullable();
+            $table->unsignedBigInteger('published_by_user_id')->nullable();
             $table->timestamp('published_at', 6)->nullable();
             $table->timestamp('cancelled_at', 6)->nullable();
             $table->timestamp('archived_at', 6)->nullable();
@@ -47,9 +47,9 @@ return new class extends Migration
         });
 
         Schema::create('event_branding', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('event_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('event_id')->nullable();
             $table->string('brand_reference', 120);
             $table->string('domain_reference', 255);
             $table->json('content_en');

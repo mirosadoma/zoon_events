@@ -5,7 +5,6 @@ namespace App\Modules\AccessControl\Application\Support;
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\AccessEvent;
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\AntiPassbackState;
 use Illuminate\Database\UniqueConstraintViolationException;
-use Illuminate\Support\Str;
 
 final class AntiPassbackService
 {
@@ -54,7 +53,6 @@ final class AntiPassbackService
 
         try {
             AntiPassbackState::query()->create(array_merge($keys, [
-                'id' => (string) Str::ulid(),
                 'state' => $newState,
                 'last_access_event_id' => $event->id,
                 'last_transition_at' => $event->occurred_at,

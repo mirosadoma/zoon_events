@@ -10,12 +10,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('registration_forms', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('event_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('event_id')->nullable();
             $table->string('name', 160);
             $table->string('status', 24)->default('draft');
-            $table->char('created_by_user_id', 26);
+            $table->unsignedBigInteger('created_by_user_id')->nullable();
             $table->timestamps(6);
 
             $table->unique(['tenant_id', 'event_id', 'id'], 'registration_forms_scope_unique');
@@ -25,17 +25,17 @@ return new class extends Migration
         });
 
         Schema::create('registration_form_versions', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('event_id', 26);
-            $table->char('registration_form_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('event_id')->nullable();
+            $table->unsignedBigInteger('registration_form_id')->nullable();
             $table->unsignedInteger('version');
             $table->string('status', 24)->default('draft');
             $table->json('fields');
             $table->char('schema_hash', 64);
             $table->string('privacy_notice_version', 64)->nullable();
             $table->string('terms_version', 64)->nullable();
-            $table->char('published_by_user_id', 26)->nullable();
+            $table->unsignedBigInteger('published_by_user_id')->nullable();
             $table->timestamp('published_at', 6)->nullable();
             $table->timestamps(6);
 

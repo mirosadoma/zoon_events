@@ -20,7 +20,6 @@ use App\Modules\Scanning\Infrastructure\Persistence\Models\ScanEvent;
 use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketType;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 final readonly class SubmitScanAction
 {
@@ -69,7 +68,6 @@ final readonly class SubmitScanAction
         }
 
         $scanEvent = ScanEvent::query()->create([
-            'id' => (string) Str::ulid(),
             'tenant_id' => $context->tenantId,
             'event_id' => $context->eventId,
             'attendee_id' => $decision->attendeeId,

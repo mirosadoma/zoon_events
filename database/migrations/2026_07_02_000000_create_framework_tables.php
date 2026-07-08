@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('sessions', function (Blueprint $table): void {
             $table->string('id')->primary();
-            $table->char('user_id', 26)->nullable()->index();
+            $table->foreignId('user_id')->nullable()->index();
             $table->string('ip_address', 45)->nullable();
             $table->text('user_agent')->nullable();
             $table->longText('payload');
@@ -41,7 +41,7 @@ return new class extends Migration
         });
 
         Schema::create('job_batches', function (Blueprint $table): void {
-            $table->string('id')->primary();
+            $table->id();
             $table->string('name');
             $table->integer('total_jobs');
             $table->integer('pending_jobs');

@@ -10,11 +10,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('audit_logs', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
+            $table->id();
             $table->string('scope', 16);
-            $table->char('tenant_id', 26)->nullable();
+            $table->unsignedBigInteger('tenant_id')->nullable();
             $table->string('actor_type', 32);
-            $table->char('actor_id', 26)->nullable();
+            $table->unsignedBigInteger('actor_id')->nullable();
             $table->string('action', 160);
             $table->string('target_type', 120)->nullable();
             $table->string('target_id', 64)->nullable();
@@ -47,14 +47,14 @@ return new class extends Migration
         DB::statement("ALTER TABLE audit_logs ADD CONSTRAINT audit_logs_outcome_chk CHECK (outcome IN ('succeeded', 'denied', 'failed'))");
 
         Schema::create('tenant_configurations', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
             $table->string('key', 80);
             $table->unsignedInteger('schema_version');
             $table->json('value');
             $table->string('status', 16)->default('draft');
-            $table->char('created_by_user_id', 26);
-            $table->char('activated_by_user_id', 26)->nullable();
+            $table->unsignedBigInteger('created_by_user_id')->nullable();
+            $table->unsignedBigInteger('activated_by_user_id')->nullable();
             $table->timestamp('activated_at')->nullable();
             $table->timestamps();
 
@@ -66,7 +66,7 @@ return new class extends Migration
         });
 
         Schema::create('feature_flags', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
+            $table->id();
             $table->string('key', 120)->unique();
             $table->string('name', 160);
             $table->string('description', 500);
@@ -75,20 +75,20 @@ return new class extends Migration
             $table->json('default_value');
             $table->string('status', 16)->default('draft');
             $table->string('security_class', 24)->default('optional_capability');
-            $table->char('created_by_user_id', 26);
+            $table->unsignedBigInteger('created_by_user_id')->nullable();
             $table->timestamps();
 
             $table->foreign('created_by_user_id')->references('id')->on('users')->restrictOnDelete();
         });
 
         Schema::create('feature_flag_overrides', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('feature_flag_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('feature_flag_id')->nullable();
             $table->json('value');
             $table->string('status', 16)->default('active');
             $table->string('reason', 500);
-            $table->char('created_by_user_id', 26);
+            $table->unsignedBigInteger('created_by_user_id')->nullable();
             $table->timestamp('expires_at')->nullable();
             $table->timestamps();
 

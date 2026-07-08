@@ -11,7 +11,6 @@ use App\Modules\Tenancy\Domain\Events\TenantCreated;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\Tenant;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\TenantMembership;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 final class CreateTenant
 {
@@ -42,7 +41,7 @@ final class CreateTenant
                 DB::table('tenant_role_permissions')->insert(['tenant_id' => $tenant->id, 'tenant_role_id' => $role->id, 'permission_id' => $permissionId, 'granted_by_user_id' => $actor->id, 'created_at' => now()]);
             }
             DB::table('tenant_role_assignments')->insert([
-                'id' => (string) Str::ulid(), 'tenant_id' => $tenant->id,
+                'tenant_id' => $tenant->id,
                 'tenant_membership_id' => $membership->id, 'tenant_role_id' => $role->id,
                 'granted_by_user_id' => $actor->id, 'created_at' => now(), 'updated_at' => now(),
             ]);

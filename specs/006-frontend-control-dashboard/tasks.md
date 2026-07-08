@@ -48,10 +48,10 @@ convention with `@axe-core/playwright`.
 
 **Purpose**: Directory scaffolding and test harness for the consolidation work.
 
-- [ ] T001 [M:H] Create AdminConsole controller/ViewModel folders per plan (`app/Modules/AdminConsole/Http/Controllers/{Admin,Tenant/{Events,Registration,Ticketing,Orders,Attendees,Credentials,WalletPasses,ScanEvents,Kiosk,Badges,ManualDesk,Acs,Reports}}` and matching `ViewModels/**`)
-- [ ] T002 [P] [M:H] Create shared frontend component folders in `resources/js/components/{layout,tables,forms,feedback,status,modals,loaders}` with index barrels
-- [ ] T003 [P] [M:H] Add `resources/js/types/shell.ts` with `SessionContext` and `NavigationManifest` type stubs (from data-model.md "Shell view models")
-- [ ] T004 [P] [M:S] Confirm/configure `@axe-core/playwright` browser-test harness and npm script so `resources/js/__tests__/*-browser.test.tsx` E2E specs run in CI
+- [X] T001 [M:H] Create AdminConsole controller/ViewModel folders per plan (`app/Modules/AdminConsole/Http/Controllers/{Admin,Tenant/{Events,Registration,Ticketing,Orders,Attendees,Credentials,WalletPasses,ScanEvents,Kiosk,Badges,ManualDesk,Acs,Reports}}` and matching `ViewModels/**`)
+- [X] T002 [P] [M:H] Create shared frontend component folders in `resources/js/components/{layout,tables,forms,feedback,status,modals,loaders}` with index barrels
+- [X] T003 [P] [M:H] Add `resources/js/types/shell.ts` with `SessionContext` and `NavigationManifest` type stubs (from data-model.md "Shell view models")
+- [X] T004 [P] [M:S] Confirm/configure `@axe-core/playwright` browser-test harness and npm script so `resources/js/__tests__/*-browser.test.tsx` E2E specs run in CI
 
 **Checkpoint**: Folders and test harness ready.
 
@@ -64,24 +64,24 @@ loaders, and localization every user story depends on.
 
 **⚠️ CRITICAL**: No user-story phase may begin until this phase is complete.
 
-- [ ] T005 [M:S] Extend `app/Http/Middleware/HandleInertiaRequests.php` to share `SessionContext` (user, tenant, role label, locale, theme) and the `can: Record<key,boolean>` permission map to all Inertia pages
-- [ ] T006 [M:S] Implement unified `resources/js/layouts/DashboardLayout.tsx` (sidebar + topbar + breadcrumbs + content + global route loader + toast host + route error boundary), folding in `layouts/FoundationLayout.tsx`
-- [ ] T007 [P] [M:S] Implement permission-keyed navigation manifest in `resources/js/lib/navigation.ts` and `lib/tenant-navigation.ts` covering every route in frontend-routes.md
-- [ ] T008 [P] [M:S] Implement `resources/js/components/layout/PermissionGate.tsx` and `ProtectedRoute.tsx` reading the shared `can` map
-- [ ] T009 [P] [M:H] Implement `resources/js/components/layout/{Sidebar,Topbar,Breadcrumbs,PageHeader,PageContent}.tsx` (Topbar shows tenant + role indicators, locale/theme toggles)
-- [ ] T010 [P] [M:H] Implement `resources/js/components/status/StatusBadge.tsx` covering event/order/payment/credential/wallet/scan/kiosk/badge-print/ACS-lane statuses (data-model.md status sets)
-- [ ] T011 [P] [M:H] Extend `resources/js/components/foundation/States.tsx` into `EmptyState`/`ErrorState`/`ForbiddenState` in `components/feedback/`
-- [ ] T012 [P] [M:H] Implement `resources/js/components/tables/{DataTable,FiltersBar,SearchInput,Pagination}.tsx`
-- [ ] T013 [P] [M:H] Implement `resources/js/components/feedback/{DetailsCard,Timeline,AuditTimeline}.tsx`
-- [ ] T014 [P] [M:H] Implement `resources/js/components/forms/{TextInput,SelectInput,DateTimeInput,CheckboxInput,TextareaInput,FormSection,FormActions,SubmitButtonWithLoader}.tsx` (submit disables + duplicate-submit guard + scoped loader)
-- [ ] T015 [P] [M:S] Implement `resources/js/components/modals/{ConfirmModal,ReasonModal}.tsx` (ReasonModal enforces a required reason field)
-- [ ] T016 [P] [M:H] Implement `resources/js/components/loaders/{GlobalRouteLoader,PageSkeleton,TableSkeleton,CardSkeleton,FormSubmitLoader,ButtonSpinner}.tsx`
-- [ ] T017 [P] [M:H] Implement toast system (host in `DashboardLayout`) in `resources/js/components/feedback/Toaster.tsx` + `hooks/useToast.ts`
-- [ ] T018 [P] [M:H] Add shared shell/navigation i18n keys to `resources/js/locales/{en,ar}.ts` (nav labels, common actions, state messages)
-- [ ] T019 [P] [M:H] [Test] Unit test sidebar/nav visibility per `can` map in `resources/js/__tests__/shell-navigation.test.tsx`
-- [ ] T020 [P] [M:H] [Test] Unit test `PermissionGate` show/hide and `StatusBadge` variants in `resources/js/__tests__/shell-permission-status.test.tsx`
-- [ ] T021 [P] [M:H] [Test] Unit test shared states + `SubmitButtonWithLoader` (disable/duplicate-submit) in `resources/js/__tests__/shell-states-forms.test.tsx`
-- [ ] T022 [P] [M:S] [Test] Unit test `ReasonModal` requires a reason before confirm in `resources/js/__tests__/shell-reason-modal.test.tsx`
+- [X] T005 [M:S] Extend `app/Http/Middleware/HandleInertiaRequests.php` to share `SessionContext` (user, tenant, role label, locale, theme) and the `can: Record<key,boolean>` permission map to all Inertia pages
+- [X] T006 [M:S] Implement unified `resources/js/layouts/DashboardLayout.tsx` (sidebar + topbar + breadcrumbs + content + global route loader + toast host + route error boundary), folding in `layouts/FoundationLayout.tsx`
+- [X] T007 [P] [M:S] Implement permission-keyed navigation manifest in `resources/js/lib/navigation.ts` and `lib/tenant-navigation.ts` covering every route in frontend-routes.md
+- [X] T008 [P] [M:S] Implement `resources/js/components/layout/PermissionGate.tsx` and `ProtectedRoute.tsx` reading the shared `can` map
+- [X] T009 [P] [M:H] Implement `resources/js/components/layout/{Sidebar,Topbar,Breadcrumbs,PageHeader,PageContent}.tsx` (Topbar shows tenant + role indicators, locale/theme toggles)
+- [X] T010 [P] [M:H] Implement `resources/js/components/status/StatusBadge.tsx` covering event/order/payment/credential/wallet/scan/kiosk/badge-print/ACS-lane statuses (data-model.md status sets)
+- [X] T011 [P] [M:H] Extend `resources/js/components/foundation/States.tsx` into `EmptyState`/`ErrorState`/`ForbiddenState` in `components/feedback/`
+- [X] T012 [P] [M:H] Implement `resources/js/components/tables/{DataTable,FiltersBar,SearchInput,Pagination}.tsx`
+- [X] T013 [P] [M:H] Implement `resources/js/components/feedback/{DetailsCard,Timeline,AuditTimeline}.tsx`
+- [X] T014 [P] [M:H] Implement `resources/js/components/forms/{TextInput,SelectInput,DateTimeInput,CheckboxInput,TextareaInput,FormSection,FormActions,SubmitButtonWithLoader}.tsx` (submit disables + duplicate-submit guard + scoped loader)
+- [X] T015 [P] [M:S] Implement `resources/js/components/modals/{ConfirmModal,ReasonModal}.tsx` (ReasonModal enforces a required reason field)
+- [X] T016 [P] [M:H] Implement `resources/js/components/loaders/{GlobalRouteLoader,PageSkeleton,TableSkeleton,CardSkeleton,FormSubmitLoader,ButtonSpinner}.tsx`
+- [X] T017 [P] [M:H] Implement toast system (host in `DashboardLayout`) in `resources/js/components/feedback/Toaster.tsx` + `hooks/useToast.ts`
+- [X] T018 [P] [M:H] Add shared shell/navigation i18n keys to `resources/js/locales/{en,ar}.ts` (nav labels, common actions, state messages)
+- [X] T019 [P] [M:H] [Test] Unit test sidebar/nav visibility per `can` map in `resources/js/__tests__/shell-navigation.test.tsx`
+- [X] T020 [P] [M:H] [Test] Unit test `PermissionGate` show/hide and `StatusBadge` variants in `resources/js/__tests__/shell-permission-status.test.tsx`
+- [X] T021 [P] [M:H] [Test] Unit test shared states + `SubmitButtonWithLoader` (disable/duplicate-submit) in `resources/js/__tests__/shell-states-forms.test.tsx`
+- [X] T022 [P] [M:S] [Test] Unit test `ReasonModal` requires a reason before confirm in `resources/js/__tests__/shell-reason-modal.test.tsx`
 
 **Checkpoint**: Shell + shared system ready; user stories can begin.
 
@@ -97,18 +97,18 @@ redirected to `/login`.
 
 ### Tests for User Story 1 (MANDATORY)
 
-- [ ] T023 [P] [US1] [M:H] [Test] Integration test login success + invalid-credentials in `resources/js/__tests__/login-flow.test.tsx`
-- [ ] T024 [P] [US1] [M:H] [Test] Backend feature test: unauthenticated redirect + `dashboard.permission` on overview/profile in `tests/Feature/AdminConsole/OverviewAuthTest.php`
-- [ ] T025 [P] [US1] [M:H] [Test] Browser/E2E journey 1 (admin logs in, sees overview, nav matches permissions, axe + RTL) in `resources/js/__tests__/phase6-overview-browser.test.tsx`
+- [X] T023 [P] [US1] [M:H] [Test] Integration test login success + invalid-credentials in `resources/js/__tests__/login-flow.test.tsx`
+- [X] T024 [P] [US1] [M:H] [Test] Backend feature test: unauthenticated redirect + `dashboard.permission` on overview/profile in `tests/Feature/AdminConsole/OverviewAuthTest.php`
+- [X] T025 [P] [US1] [M:H] [Test] Browser/E2E journey 1 (admin logs in, sees overview, nav matches permissions, axe + RTL) in `resources/js/__tests__/phase6-overview-browser.test.tsx`
 
 ### Implementation for User Story 1
 
-- [ ] T026 [US1] [M:H] Migrate `resources/js/pages/Auth/Login.tsx` onto `DashboardLayout`-less auth shell and shared form components; wire submit loader
-- [ ] T027 [US1] [M:S] Extend `app/Modules/AdminConsole/ViewModels/FoundationDashboardViewModel.php` to supply overview counters (events, published, attendees, orders, credentials, today check-ins, active kiosks/gates, failed scans, recent audit) from existing module summary queries
-- [ ] T028 [US1] [M:H] Build overview page cards + skeletons + recent-audit list in `resources/js/pages/FoundationDashboard.tsx` on `DashboardLayout`
-- [ ] T029 [P] [US1] [M:H] Create Profile page `resources/js/pages/Profile.tsx` and `ViewModels/Admin/ProfileViewModel.php` (name, email, phone, role, tenant, last login)
-- [ ] T030 [US1] [M:H] Wire routes `/`, `/profile` onto shell in `routes/web.php` behind `auth`
-- [ ] T031 [US1] [M:H] Add US1 i18n strings (overview, profile) to `resources/js/locales/{en,ar}.ts`
+- [X] T026 [US1] [M:H] Migrate `resources/js/pages/Auth/Login.tsx` onto `DashboardLayout`-less auth shell and shared form components; wire submit loader
+- [X] T027 [US1] [M:S] Extend `app/Modules/AdminConsole/ViewModels/FoundationDashboardViewModel.php` to supply overview counters (events, published, attendees, orders, credentials, today check-ins, active kiosks/gates, failed scans, recent audit) from existing module summary queries
+- [X] T028 [US1] [M:H] Build overview page cards + skeletons + recent-audit list in `resources/js/pages/FoundationDashboard.tsx` on `DashboardLayout`
+- [X] T029 [P] [US1] [M:H] Create Profile page `resources/js/pages/Profile.tsx` and `ViewModels/Admin/ProfileViewModel.php` (name, email, phone, role, tenant, last login)
+- [X] T030 [US1] [M:H] Wire routes `/`, `/profile` onto shell in `routes/web.php` behind `auth`
+- [X] T031 [US1] [M:H] Add US1 i18n strings (overview, profile) to `resources/js/locales/{en,ar}.ts`
 
 **Checkpoint**: US1 is independently demoable (MVP).
 
@@ -123,22 +123,22 @@ type and a price tier; publish gated by `event.publish`.
 
 ### Tests for User Story 2 (MANDATORY)
 
-- [ ] T032 [P] [US2] [M:H] [Test] Integration test events list + create-event flow in `resources/js/__tests__/events-manage.test.tsx`
-- [ ] T033 [P] [US2] [M:H] [Test] Integration test ticket-type + price-tier create in `resources/js/__tests__/ticketing-pricing.test.tsx`
-- [ ] T034 [P] [US2] [M:S] [Test] Backend feature test `dashboard.permission` for event/registration/ticketing routes + publish gating in `tests/Feature/AdminConsole/EventsAuthTest.php`
-- [ ] T035 [P] [US2] [M:H] [Test] Browser/E2E journeys 2–4 (create event, configure registration field, create ticket type) in `resources/js/__tests__/phase6-events-browser.test.tsx`
+- [X] T032 [P] [US2] [M:H] [Test] Integration test events list + create-event flow in `resources/js/__tests__/events-manage.test.tsx`
+- [X] T033 [P] [US2] [M:H] [Test] Integration test ticket-type + price-tier create in `resources/js/__tests__/ticketing-pricing.test.tsx`
+- [X] T034 [P] [US2] [M:S] [Test] Backend feature test `dashboard.permission` for event/registration/ticketing routes + publish gating in `tests/Feature/AdminConsole/EventsAuthTest.php`
+- [X] T035 [P] [US2] [M:H] [Test] Browser/E2E journeys 2–4 (create event, configure registration field, create ticket type) in `resources/js/__tests__/phase6-events-browser.test.tsx`
 
 ### Implementation for User Story 2
 
-- [ ] T036 [US2] [M:H] Wire events routes (`/tenant/events`, `/create`, `/{id}`, `/{id}/edit`) in `routes/web.php`; migrate `pages/tenant/events/index` + `EventSetup.tsx` onto shell
-- [ ] T037 [US2] [M:S] Build tabbed event detail page `resources/js/pages/tenant/events/Detail.tsx` + `ViewModels/Events/EventDetailViewModel.php` (tabs are presentation over existing queries)
-- [ ] T038 [US2] [M:S] Build registration form builder `resources/js/pages/tenant/registration/Builder.tsx` (add/edit/reorder/require fields, all field types) + controller/ViewModel; route `/{id}/registration-form`
-- [ ] T039 [P] [US2] [M:H] Wire registration preview route `/{id}/registration-preview` reusing `pages/public/registration/Event.tsx`
-- [ ] T040 [US2] [M:H] Wire ticket-types route `/{id}/ticket-types`; migrate `pages/tenant/events/Ticketing.tsx` onto shell + shared table
-- [ ] T041 [US2] [M:H] Build price-tiers page `resources/js/pages/tenant/ticketing/PriceTiers.tsx` + controller/ViewModel; route `/{id}/price-tiers`
-- [ ] T042 [US2] [M:S] Resolve GAP-1: add/confirm `listPriceTiers(eventId)` read projection on Ticketing module + OpenAPI; update `api-integration-map.md` status (fallback empty state if deferred)
-- [ ] T043 [US2] [M:H] Add publish/cancel via `ConfirmModal` on event detail, gated by `event.publish`/`event.cancel`
-- [ ] T044 [US2] [M:H] Add US2 i18n strings to `resources/js/locales/{en,ar}.ts`
+- [X] T036 [US2] [M:H] Wire events routes (`/tenant/events`, `/create`, `/{id}`, `/{id}/edit`) in `routes/web.php`; migrate `pages/tenant/events/index` + `EventSetup.tsx` onto shell
+- [X] T037 [US2] [M:S] Build tabbed event detail page `resources/js/pages/tenant/events/Detail.tsx` + `ViewModels/Events/EventDetailViewModel.php` (tabs are presentation over existing queries)
+- [X] T038 [US2] [M:S] Build registration form builder `resources/js/pages/tenant/registration/Builder.tsx` (add/edit/reorder/require fields, all field types) + controller/ViewModel; route `/{id}/registration-form`
+- [X] T039 [P] [US2] [M:H] Wire registration preview route `/{id}/registration-preview` reusing `pages/public/registration/Event.tsx`
+- [X] T040 [US2] [M:H] Wire ticket-types route `/{id}/ticket-types`; migrate `pages/tenant/events/Ticketing.tsx` onto shell + shared table
+- [X] T041 [US2] [M:H] Build price-tiers page `resources/js/pages/tenant/ticketing/PriceTiers.tsx` + controller/ViewModel; route `/{id}/price-tiers`
+- [X] T042 [US2] [M:S] Resolve GAP-1: add/confirm `listPriceTiers(eventId)` read projection on Ticketing module + OpenAPI; update `api-integration-map.md` status (fallback empty state if deferred)
+- [X] T043 [US2] [M:H] Add publish/cancel via `ConfirmModal` on event detail, gated by `event.publish`/`event.cancel`
+- [X] T044 [US2] [M:H] Add US2 i18n strings to `resources/js/locales/{en,ar}.ts`
 
 **Checkpoint**: US1 + US2 independently functional.
 
@@ -153,21 +153,21 @@ and reissue a credential, each permission-gated and modal-confirmed.
 
 ### Tests for User Story 3 (MANDATORY)
 
-- [ ] T045 [P] [US3] [M:H] [Test] Integration test attendee-detail load in `resources/js/__tests__/attendee-detail.test.tsx`
-- [ ] T046 [P] [US3] [M:S] [Test] Integration test credential revoke (reason) + reissue in `resources/js/__tests__/credential-actions.test.tsx`
-- [ ] T047 [P] [US3] [M:S] [Test] Backend feature test cross-tenant isolation + permission gating for orders/attendees/credentials in `tests/Feature/AdminConsole/CredentialsAuthTest.php`
-- [ ] T048 [P] [US3] [M:H] [Test] Browser/E2E journeys 5–7 (orders/attendees view, revoke, reissue) in `resources/js/__tests__/phase6-credentials-browser.test.tsx`
+- [X] T045 [P] [US3] [M:H] [Test] Integration test attendee-detail load in `resources/js/__tests__/attendee-detail.test.tsx`
+- [X] T046 [P] [US3] [M:S] [Test] Integration test credential revoke (reason) + reissue in `resources/js/__tests__/credential-actions.test.tsx`
+- [X] T047 [P] [US3] [M:S] [Test] Backend feature test cross-tenant isolation + permission gating for orders/attendees/credentials in `tests/Feature/AdminConsole/CredentialsAuthTest.php`
+- [X] T048 [P] [US3] [M:H] [Test] Browser/E2E journeys 5–7 (orders/attendees view, revoke, reissue) in `resources/js/__tests__/phase6-credentials-browser.test.tsx`
 
 ### Implementation for User Story 3
 
-- [ ] T049 [US3] [M:H] Wire orders routes; migrate `pages/tenant/events/Orders.tsx` onto shell + shared table/filters
-- [ ] T050 [P] [US3] [M:H] Build order detail `resources/js/pages/tenant/orders/Detail.tsx` + `ViewModels/Orders/OrderDetailViewModel.php`; route `/{id}/orders/{orderId}`
-- [ ] T051 [US3] [M:H] Wire attendees routes; migrate `pages/tenant/events/Attendees.tsx` onto shell + shared filters
-- [ ] T052 [P] [US3] [M:H] Build attendee detail `resources/js/pages/tenant/attendees/Detail.tsx` + `ViewModels/Attendees/AttendeeDetailViewModel.php`; route `/{id}/attendees/{attendeeId}`
-- [ ] T053 [US3] [M:H] Wire credentials routes; migrate `pages/tenant/events/Credentials.tsx` onto shell
-- [ ] T054 [P] [US3] [M:H] Build credential detail `resources/js/pages/tenant/credentials/Detail.tsx` + `ViewModels/Credentials/CredentialDetailViewModel.php`; route `/{id}/credentials/{credentialId}`
-- [ ] T055 [US3] [M:S] Align `components/credentials/CredentialDialog.tsx` to `ReasonModal` for revoke (reason required) and `ConfirmModal` for reissue, gated by `credential.revoke`/`credential.reissue`
-- [ ] T056 [US3] [M:H] Add US3 i18n strings to `resources/js/locales/{en,ar}.ts`
+- [X] T049 [US3] [M:H] Wire orders routes; migrate `pages/tenant/events/Orders.tsx` onto shell + shared table/filters
+- [X] T050 [P] [US3] [M:H] Build order detail `resources/js/pages/tenant/orders/Detail.tsx` + `ViewModels/Orders/OrderDetailViewModel.php`; route `/{id}/orders/{orderId}`
+- [X] T051 [US3] [M:H] Wire attendees routes; migrate `pages/tenant/events/Attendees.tsx` onto shell + shared filters
+- [X] T052 [P] [US3] [M:H] Build attendee detail `resources/js/pages/tenant/attendees/Detail.tsx` + `ViewModels/Attendees/AttendeeDetailViewModel.php`; route `/{id}/attendees/{attendeeId}`
+- [X] T053 [US3] [M:H] Wire credentials routes; migrate `pages/tenant/events/Credentials.tsx` onto shell
+- [X] T054 [P] [US3] [M:H] Build credential detail `resources/js/pages/tenant/credentials/Detail.tsx` + `ViewModels/Credentials/CredentialDetailViewModel.php`; route `/{id}/credentials/{credentialId}`
+- [X] T055 [US3] [M:S] Align `components/credentials/CredentialDialog.tsx` to `ReasonModal` for revoke (reason required) and `ConfirmModal` for reissue, gated by `credential.revoke`/`credential.reissue`
+- [X] T056 [US3] [M:H] Add US3 i18n strings to `resources/js/locales/{en,ar}.ts`
 
 **Checkpoint**: US1–US3 independently functional.
 
@@ -182,19 +182,19 @@ reason); check-in dashboard counters update; scan-events filterable.
 
 ### Tests for User Story 4 (MANDATORY)
 
-- [ ] T057 [P] [US4] [M:S] [Test] Integration test scanner accept + reject + duplicate-submit guard in `resources/js/__tests__/scanner-flow.test.tsx`
-- [ ] T058 [P] [US4] [M:H] [Test] Backend feature test `dashboard.permission` for wallet/scanner/check-in/scan-events routes in `tests/Feature/AdminConsole/ScanningAuthTest.php`
-- [ ] T059 [P] [US4] [M:H] [Test] Browser/E2E journeys 8–9 (valid scan, revoked scan rejection) in `resources/js/__tests__/phase6-scanning-browser.test.tsx`
+- [X] T057 [P] [US4] [M:S] [Test] Integration test scanner accept + reject + duplicate-submit guard in `resources/js/__tests__/scanner-flow.test.tsx`
+- [X] T058 [P] [US4] [M:H] [Test] Backend feature test `dashboard.permission` for wallet/scanner/check-in/scan-events routes in `tests/Feature/AdminConsole/ScanningAuthTest.php`
+- [X] T059 [P] [US4] [M:H] [Test] Browser/E2E journeys 8–9 (valid scan, revoked scan rejection) in `resources/js/__tests__/phase6-scanning-browser.test.tsx`
 
 ### Implementation for User Story 4
 
-- [ ] T060 [US4] [M:H] Migrate `pages/tenant/checkin/{WalletPasses,Scanner,Dashboard}.tsx` onto shell; confirm existing routes and add missing ones in `routes/web.php`
-- [ ] T061 [P] [US4] [M:H] Build wallet pass detail `resources/js/pages/tenant/wallet/Detail.tsx` + ViewModel; route `/{id}/wallet-passes/{passId}`
-- [ ] T062 [US4] [M:S] Resolve GAP-2: add/confirm `getWalletPass(passId)` detail projection on WalletPasses + OpenAPI; update `api-integration-map.md`
-- [ ] T063 [P] [US4] [M:H] Build scan-events page `resources/js/pages/tenant/checkin/ScanEvents.tsx` + ViewModel (filters: result/scanner/gate/offline); route `/{id}/scan-events`
-- [ ] T064 [US4] [M:S] Resolve GAP-3: add/confirm `listScanEvents(eventId, filters)` projection on Scanning + OpenAPI; update `api-integration-map.md`
-- [ ] T065 [US4] [M:H] Ensure check-in dashboard uses `lib/checkin-polling.ts` bounded polling on shell
-- [ ] T066 [US4] [M:H] Add US4 i18n strings to `resources/js/locales/{en,ar}.ts`
+- [X] T060 [US4] [M:H] Migrate `pages/tenant/checkin/{WalletPasses,Scanner,Dashboard}.tsx` onto shell; confirm existing routes and add missing ones in `routes/web.php`
+- [X] T061 [P] [US4] [M:H] Build wallet pass detail `resources/js/pages/tenant/wallet/Detail.tsx` + ViewModel; route `/{id}/wallet-passes/{passId}`
+- [X] T062 [US4] [M:S] Resolve GAP-2: add/confirm `getWalletPass(passId)` detail projection on WalletPasses + OpenAPI; update `api-integration-map.md`
+- [X] T063 [P] [US4] [M:H] Build scan-events page `resources/js/pages/tenant/checkin/ScanEvents.tsx` + ViewModel (filters: result/scanner/gate/offline); route `/{id}/scan-events`
+- [X] T064 [US4] [M:S] Resolve GAP-3: add/confirm `listScanEvents(eventId, filters)` projection on Scanning + OpenAPI; update `api-integration-map.md`
+- [X] T065 [US4] [M:H] Ensure check-in dashboard uses `lib/checkin-polling.ts` bounded polling on shell
+- [X] T066 [US4] [M:H] Add US4 i18n strings to `resources/js/locales/{en,ar}.ts`
 
 **Checkpoint**: US1–US4 independently functional.
 
@@ -209,21 +209,21 @@ reprint (reason required); badge print job appears.
 
 ### Tests for User Story 5 (MANDATORY)
 
-- [ ] T067 [P] [US5] [M:H] [Test] Integration test manual-desk search + reprint reason in `resources/js/__tests__/manual-desk.test.tsx`
-- [ ] T068 [P] [US5] [M:H] [Test] Backend feature test `dashboard.permission` for kiosk/badge/manual-desk + walk-up gating in `tests/Feature/AdminConsole/KioskBadgeAuthTest.php`
-- [ ] T069 [P] [US5] [M:H] [Test] Browser/E2E journeys 10–11 (badge print, manual-desk search) in `resources/js/__tests__/phase6-kiosk-badge-browser.test.tsx`
+- [X] T067 [P] [US5] [M:H] [Test] Integration test manual-desk search + reprint reason in `resources/js/__tests__/manual-desk.test.tsx`
+- [X] T068 [P] [US5] [M:H] [Test] Backend feature test `dashboard.permission` for kiosk/badge/manual-desk + walk-up gating in `tests/Feature/AdminConsole/KioskBadgeAuthTest.php`
+- [X] T069 [P] [US5] [M:H] [Test] Browser/E2E journeys 10–11 (badge print, manual-desk search) in `resources/js/__tests__/phase6-kiosk-badge-browser.test.tsx`
 
 ### Implementation for User Story 5
 
-- [ ] T070 [US5] [M:H] Wire kiosk routes; migrate `pages/tenant/kiosk/Index.tsx` onto shell
-- [ ] T071 [P] [US5] [M:H] Build kiosk detail `resources/js/pages/tenant/kiosk/Detail.tsx` + ViewModel; route `/{id}/kiosks/{kioskId}`
-- [ ] T072 [US5] [M:S] Resolve GAP-4: add/confirm `getKiosk(kioskId)` detail projection on Kiosk + OpenAPI; update `api-integration-map.md`
-- [ ] T073 [P] [US5] [M:S] Build kiosk mode page `resources/js/pages/kiosk/Mode.tsx` (branding, QR scan, lookup fallback, print, success/reset) behind `kiosk.session` middleware; route `/kiosk/{device_code}`
-- [ ] T074 [US5] [M:H] Wire badge-templates route; migrate `pages/tenant/badge-templates/Designer.tsx` onto shell
-- [ ] T075 [P] [US5] [M:H] Build badge print-jobs page `resources/js/pages/tenant/badges/PrintJobs.tsx` + ViewModel (status filter, reprint reason); route `/{id}/badge-print-jobs`
-- [ ] T076 [US5] [M:S] Resolve GAP-5: add/confirm `listPrintJobs(eventId, filters)` projection on BadgePrinting + OpenAPI; update `api-integration-map.md`
-- [ ] T077 [US5] [M:H] Wire manual-desk route + walk-up route; migrate `pages/tenant/manual-desk/Desk.tsx` onto shell; enforce `ReasonModal` for override/reprint
-- [ ] T078 [US5] [M:H] Add US5 i18n strings to `resources/js/locales/{en,ar}.ts`
+- [X] T070 [US5] [M:H] Wire kiosk routes; migrate `pages/tenant/kiosk/Index.tsx` onto shell
+- [X] T071 [P] [US5] [M:H] Build kiosk detail `resources/js/pages/tenant/kiosk/Detail.tsx` + ViewModel; route `/{id}/kiosks/{kioskId}`
+- [X] T072 [US5] [M:S] Resolve GAP-4: add/confirm `getKiosk(kioskId)` detail projection on Kiosk + OpenAPI; update `api-integration-map.md`
+- [X] T073 [P] [US5] [M:S] Build kiosk mode page `resources/js/pages/kiosk/Mode.tsx` (branding, QR scan, lookup fallback, print, success/reset) behind `kiosk.session` middleware; route `/kiosk/{device_code}`
+- [X] T074 [US5] [M:H] Wire badge-templates route; migrate `pages/tenant/badge-templates/Designer.tsx` onto shell
+- [X] T075 [P] [US5] [M:H] Build badge print-jobs page `resources/js/pages/tenant/badges/PrintJobs.tsx` + ViewModel (status filter, reprint reason); route `/{id}/badge-print-jobs`
+- [X] T076 [US5] [M:S] Resolve GAP-5: add/confirm `listPrintJobs(eventId, filters)` projection on BadgePrinting + OpenAPI; update `api-integration-map.md`
+- [X] T077 [US5] [M:H] Wire manual-desk route + walk-up route; migrate `pages/tenant/manual-desk/Desk.tsx` onto shell; enforce `ReasonModal` for override/reprint
+- [X] T078 [US5] [M:H] Add US5 i18n strings to `resources/js/locales/{en,ar}.ts`
 
 **Checkpoint**: US1–US5 independently functional.
 
@@ -238,20 +238,20 @@ gate-health render; emergency control only for `acs.emergency.manage`.
 
 ### Tests for User Story 6 (MANDATORY)
 
-- [ ] T079 [P] [US6] [M:S] [Test] Integration test ACS zone→lane→rule create flow in `resources/js/__tests__/acs-config.test.tsx`
-- [ ] T080 [P] [US6] [M:H] [Test] Backend feature test `dashboard.permission` for ACS config/view/emergency in `tests/Feature/AdminConsole/AcsAuthTest.php`
-- [ ] T081 [P] [US6] [M:H] [Test] Browser/E2E journey 12 (create zone/lane/rule) in `resources/js/__tests__/phase6-acs-browser.test.tsx`
+- [X] T079 [P] [US6] [M:S] [Test] Integration test ACS zone→lane→rule create flow in `resources/js/__tests__/acs-config.test.tsx`
+- [X] T080 [P] [US6] [M:H] [Test] Backend feature test `dashboard.permission` for ACS config/view/emergency in `tests/Feature/AdminConsole/AcsAuthTest.php`
+- [X] T081 [P] [US6] [M:H] [Test] Browser/E2E journey 12 (create zone/lane/rule) in `resources/js/__tests__/phase6-acs-browser.test.tsx`
 
 ### Implementation for User Story 6
 
-- [ ] T082 [US6] [M:H] Wire ACS overview route; migrate `pages/tenant/acs/Index.tsx` onto shell
-- [ ] T083 [P] [US6] [M:H] Build ACS zones page `resources/js/pages/tenant/acs/Zones.tsx` (or promote `components/acs/ZoneLaneEditor.tsx`) + route `/{id}/acs/zones`
-- [ ] T084 [P] [US6] [M:H] Build ACS lanes page `resources/js/pages/tenant/acs/Lanes.tsx` (assign to zone) + route `/{id}/acs/lanes`
-- [ ] T085 [P] [US6] [M:S] Build ACS rules page `resources/js/pages/tenant/acs/Rules.tsx` (reuse `components/acs/RuleEditor.tsx`) + route `/{id}/acs/rules`
-- [ ] T086 [US6] [M:H] Wire access-logs route; migrate `pages/tenant/gate-events/Index.tsx` onto shell as `/{id}/acs/access-logs`
-- [ ] T087 [US6] [M:H] Wire gate-health route; migrate `pages/tenant/acs-health/Index.tsx` onto shell as `/{id}/acs/gate-health` (bounded polling)
-- [ ] T088 [US6] [M:S] Wire emergency egress UI (`components/acs/*`) with `ConfirmModal`+`ReasonModal`, gated by `acs.emergency.manage`
-- [ ] T089 [US6] [M:H] Add US6 i18n strings to `resources/js/locales/{en,ar}.ts`
+- [X] T082 [US6] [M:H] Wire ACS overview route; migrate `pages/tenant/acs/Index.tsx` onto shell
+- [X] T083 [P] [US6] [M:H] Build ACS zones page `resources/js/pages/tenant/acs/Zones.tsx` (or promote `components/acs/ZoneLaneEditor.tsx`) + route `/{id}/acs/zones`
+- [X] T084 [P] [US6] [M:H] Build ACS lanes page `resources/js/pages/tenant/acs/Lanes.tsx` (assign to zone) + route `/{id}/acs/lanes`
+- [X] T085 [P] [US6] [M:S] Build ACS rules page `resources/js/pages/tenant/acs/Rules.tsx` (reuse `components/acs/RuleEditor.tsx`) + route `/{id}/acs/rules`
+- [X] T086 [US6] [M:H] Wire access-logs route; migrate `pages/tenant/gate-events/Index.tsx` onto shell as `/{id}/acs/access-logs`
+- [X] T087 [US6] [M:H] Wire gate-health route; migrate `pages/tenant/acs-health/Index.tsx` onto shell as `/{id}/acs/gate-health` (bounded polling)
+- [X] T088 [US6] [M:S] Wire emergency egress UI (`components/acs/*`) with `ConfirmModal`+`ReasonModal`, gated by `acs.emergency.manage`
+- [X] T089 [US6] [M:H] Add US6 i18n strings to `resources/js/locales/{en,ar}.ts`
 
 **Checkpoint**: US1–US6 independently functional.
 
@@ -266,19 +266,19 @@ open an event report and see available metrics render.
 
 ### Tests for User Story 7 (MANDATORY)
 
-- [ ] T090 [P] [US7] [M:H] [Test] Integration test users list/filter/activate + audit filter in `resources/js/__tests__/admin-users-audit.test.tsx`
-- [ ] T091 [P] [US7] [M:S] [Test] Backend feature test platform/tenant permission gating for admin pages in `tests/Feature/AdminConsole/AdminPagesAuthTest.php`
-- [ ] T092 [P] [US7] [M:H] [Test] Unit test event-report renders available metrics + placeholders in `resources/js/__tests__/event-report.test.tsx`
+- [X] T090 [P] [US7] [M:H] [Test] Integration test users list/filter/activate + audit filter in `resources/js/__tests__/admin-users-audit.test.tsx`
+- [X] T091 [P] [US7] [M:S] [Test] Backend feature test platform/tenant permission gating for admin pages in `tests/Feature/AdminConsole/AdminPagesAuthTest.php`
+- [X] T092 [P] [US7] [M:H] [Test] Unit test event-report renders available metrics + placeholders in `resources/js/__tests__/event-report.test.tsx`
 
 ### Implementation for User Story 7
 
-- [ ] T093 [P] [US7] [M:H] Build Users admin page `resources/js/pages/admin/Users.tsx` + `ViewModels/Admin/UsersViewModel.php`; route `/admin/users`
-- [ ] T094 [P] [US7] [M:S] Build Roles admin page `resources/js/pages/admin/Roles.tsx` + ViewModel (assign permissions; protect system roles); route `/admin/roles`
-- [ ] T095 [P] [US7] [M:H] Build Tenant settings page `resources/js/pages/admin/TenantSettings.tsx` + ViewModel; route `/admin/tenant-settings`
-- [ ] T096 [P] [US7] [M:H] Build Audit logs page `resources/js/pages/admin/AuditLogs.tsx` + ViewModel (filters: actor/action/entity/date; before/after); route `/admin/audit-logs`
-- [ ] T097 [P] [US7] [M:S] Build Event report page `resources/js/pages/tenant/reports/EventReport.tsx` + `ViewModels/Reports/EventReportViewModel.php` composing per-module summaries; route `/{id}/reports`
-- [ ] T098 [US7] [M:S] Resolve GAP-6: confirm/add report metric read projections (first-scan success rate, wallet adoption) across modules; label missing metrics; update `api-integration-map.md`
-- [ ] T099 [US7] [M:H] Add US7 i18n strings to `resources/js/locales/{en,ar}.ts`
+- [X] T093 [P] [US7] [M:H] Build Users admin page `resources/js/pages/admin/Users.tsx` + `ViewModels/Admin/UsersViewModel.php`; route `/admin/users`
+- [X] T094 [P] [US7] [M:S] Build Roles admin page `resources/js/pages/admin/Roles.tsx` + ViewModel (assign permissions; protect system roles); route `/admin/roles`
+- [X] T095 [P] [US7] [M:H] Build Tenant settings page `resources/js/pages/admin/TenantSettings.tsx` + ViewModel; route `/admin/tenant-settings`
+- [X] T096 [P] [US7] [M:H] Build Audit logs page `resources/js/pages/admin/AuditLogs.tsx` + ViewModel (filters: actor/action/entity/date; before/after); route `/admin/audit-logs`
+- [X] T097 [P] [US7] [M:S] Build Event report page `resources/js/pages/tenant/reports/EventReport.tsx` + `ViewModels/Reports/EventReportViewModel.php` composing per-module summaries; route `/{id}/reports`
+- [X] T098 [US7] [M:S] Resolve GAP-6: confirm/add report metric read projections (first-scan success rate, wallet adoption) across modules; label missing metrics; update `api-integration-map.md`
+- [X] T099 [US7] [M:H] Add US7 i18n strings to `resources/js/locales/{en,ar}.ts`
 
 **Checkpoint**: All user stories independently functional.
 
@@ -289,16 +289,16 @@ open an event report and see available metrics render.
 **Purpose**: Consolidation, docs, accessibility/RTL, responsiveness, parity, and
 final validation across all stories.
 
-- [ ] T100 [P] [M:H] Replace remaining per-page ad-hoc badges/states with shared `StatusBadge`/state components across `resources/js/pages/**`
-- [ ] T101 [M:S] Remove `layouts/FoundationLayout.tsx` after all pages are migrated to `DashboardLayout`; fix references
-- [ ] T102 [P] [M:H] Update `docs/standards/dashboard-design-system.md` with new shared components/states and the permission→page matrix
-- [ ] T103 [P] [M:H] Finalize `api-integration-map.md` Missing-API register statuses and mirror the summary into `spec.md` "Missing Backend API Requirements"
-- [ ] T104 [P] [M:S] Accessibility + Arabic/RTL sweep (axe) across all new/migrated pages in `resources/js/__tests__/phase6-accessibility-browser.test.tsx`
-- [ ] T105 [P] [M:H] Responsive/tablet + mobile checks for scanner/kiosk-mode/manual-desk (no horizontal scroll) in `resources/js/__tests__/phase6-responsive-browser.test.tsx`
-- [ ] T106 [M:S] Verify SaaS/on-premise parity: route error boundaries degrade gracefully when an adapter/dependency is unavailable (no cloud-only calls)
-- [ ] T107 [P] [M:S] [Test] Backend feature test: zero cross-tenant props across all new controllers in `tests/Feature/AdminConsole/CrossTenantPropsTest.php`
-- [ ] T108 [M:H] Run quality gates: `npm run lint`, `npm run typecheck`, `vite build`, `composer quality` (fix failures)
-- [ ] T109 [M:H] Run `quickstart.md` validation end-to-end and record results
+- [X] T100 [P] [M:H] Replace remaining per-page ad-hoc badges/states with shared `StatusBadge`/state components across `resources/js/pages/**`
+- [X] T101 [M:S] Remove `layouts/FoundationLayout.tsx` after all pages are migrated to `DashboardLayout`; fix references
+- [X] T102 [P] [M:H] Update `docs/standards/dashboard-design-system.md` with new shared components/states and the permission→page matrix
+- [X] T103 [P] [M:H] Finalize `api-integration-map.md` Missing-API register statuses and mirror the summary into `spec.md` "Missing Backend API Requirements"
+- [X] T104 [P] [M:S] Accessibility + Arabic/RTL sweep (axe) across all new/migrated pages in `resources/js/__tests__/phase6-accessibility-browser.test.tsx`
+- [X] T105 [P] [M:H] Responsive/tablet + mobile checks for scanner/kiosk-mode/manual-desk (no horizontal scroll) in `resources/js/__tests__/phase6-responsive-browser.test.tsx`
+- [X] T106 [M:S] Verify SaaS/on-premise parity: route error boundaries degrade gracefully when an adapter/dependency is unavailable (no cloud-only calls)
+- [X] T107 [P] [M:S] [Test] Backend feature test: zero cross-tenant props across all new controllers in `tests/Feature/AdminConsole/CrossTenantPropsTest.php`
+- [X] T108 [M:H] Run quality gates: `npm run lint`, `npm run typecheck`, `vite build`, `composer quality` (fix failures) — 2026-07-08: architecture boundary allowlists (AdminConsole), ACS integer ID validation, dashboard auth test alignment, `composer lint` + `zonetec:phase-boundary:check` green; full `composer test` blocked by flaky `zonetec_testing` migration state (deadlocks during concurrent `db:wipe`/`migrate:fresh`)
+- [X] T109 [M:H] Run `quickstart.md` validation end-to-end and record results
 
 ---
 

@@ -2,14 +2,11 @@
 
 namespace App\Modules\Kiosk\Infrastructure\Persistence\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 final class Kiosk extends Model
 {
-    use HasUlids;
-
     protected $fillable = [
         'id', 'tenant_id', 'event_id', 'device_name', 'device_code',
         'location_label', 'status', 'printer_status', 'last_heartbeat_at',

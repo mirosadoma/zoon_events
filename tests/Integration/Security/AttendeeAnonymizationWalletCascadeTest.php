@@ -9,7 +9,6 @@ use App\Modules\WalletPasses\Domain\WalletPassStatus;
 use App\Modules\WalletPasses\Infrastructure\Persistence\Models\WalletPassAppleDeviceRegistration;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Group;
 use Tests\Support\CreatesPhase1RegistrationFixture;
 use Tests\Support\CreatesPhase2ScanFixture;
@@ -33,7 +32,6 @@ final class AttendeeAnonymizationWalletCascadeTest extends Phase2MySqlTestCase
         $pass->forceFill(['apple_authentication_token' => 'apple-auth-secret'])->save();
 
         WalletPassAppleDeviceRegistration::query()->create([
-            'id' => (string) Str::ulid(),
             'tenant_id' => $pass->tenant_id,
             'wallet_pass_id' => $pass->id,
             'device_library_identifier' => 'device-under-test',

@@ -3,7 +3,6 @@
 namespace App\Modules\Scanning\Infrastructure\Persistence\Models;
 
 use Database\Factories\ScanEventFactory;
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,8 +11,6 @@ final class ScanEvent extends Model
 {
     /** @use HasFactory<ScanEventFactory> */
     use HasFactory;
-
-    use HasUlids;
 
     public const UPDATED_AT = null;
 

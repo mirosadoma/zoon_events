@@ -3,23 +3,35 @@
 namespace App\Modules\AdminConsole\Http\Controllers\Tenant\CheckIn;
 
 use App\Http\Controllers\Controller;
-use App\Modules\Events\Infrastructure\Persistence\Models\Event;
-use App\Modules\Tenancy\Domain\Context\TenantContextStore;
+use App\Modules\AdminConsole\Application\SessionContextBuilder;
+use App\Modules\AdminConsole\Http\Controllers\Tenant\CheckIn\Concerns\AuthorizesTenantEventPage;
+use App\Modules\AdminConsole\ViewModels\CheckIn\CheckInDashboardViewModel;
+use App\Modules\Authorization\Application\PermissionEvaluator;
 use Inertia\Inertia;
 use Inertia\Response;
 
 final class ScannerController extends Controller
 {
-    public function __construct(private readonly TenantContextStore $contexts) {}
+    use AuthorizesTenantEventPage;
+
+    public function __construct(
+        private readonly SessionContextBuilder $sessions,
+        private readonly PermissionEvaluator $permissions,
+        private readonly CheckInDashboardViewModel $viewModel,
+    ) {}
 
     public function show(string $eventId): Response
     {
-        $tenant = $this->contexts->current()->tenant;
-        Event::query()->where('tenant_id', $tenant->id)->findOrFail($eventId);
+        [$context, $event] = $this->authorizeTenantEvent(
+            $this->sessions,
+            $this->permissions,
+            $eventId,
+            'checkin.scan.submit',
+        );
 
-        return Inertia::render('tenant/checkin/Scanner', [
-            'eventId' => $eventId,
-            'tenantId' => $tenant->id,
-        ]);
+        return Inertia::render(
+            'tenant/checkin/Scanner',
+            $this->viewModel->make($event, $context->tenant->id),
+        );
     }
 }

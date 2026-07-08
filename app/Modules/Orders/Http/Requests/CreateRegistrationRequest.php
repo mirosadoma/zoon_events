@@ -9,8 +9,8 @@ final class CreateRegistrationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'form_version_id' => ['required', 'string', 'size:26'],
-            'ticket_type_id' => ['required', 'string', 'size:26'],
+            'form_version_id' => ['required'],
+            'ticket_type_id' => ['required'],
             'buyer' => ['required', 'array:first_name,last_name,email,phone,preferred_locale'],
             'attendee' => ['required', 'array:first_name,last_name,email,phone,preferred_locale'],
             'buyer.first_name' => ['required', 'string', 'max:120'],

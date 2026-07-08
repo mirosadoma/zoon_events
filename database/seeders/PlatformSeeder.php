@@ -9,7 +9,6 @@ use App\Modules\Shared\Domain\LifecycleStatus;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 class PlatformSeeder extends Seeder
 {
@@ -62,7 +61,6 @@ class PlatformSeeder extends Seeder
             DB::table('platform_role_assignments')->updateOrInsert(
                 ['user_id' => $bootstrapUser->id, 'platform_role_id' => $platformRole->id, 'revoked_at' => null],
                 [
-                    'id' => (string) Str::ulid(),
                     'granted_by_user_id' => $bootstrapUser->id,
                     'expires_at' => null,
                     'revoked_by_user_id' => null,

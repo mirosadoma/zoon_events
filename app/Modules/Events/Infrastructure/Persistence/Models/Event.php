@@ -2,14 +2,11 @@
 
 namespace App\Modules\Events\Infrastructure\Persistence\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 final class Event extends Model
 {
-    use HasUlids;
-
     protected $fillable = [
         'tenant_id', 'slug', 'name_en', 'name_ar', 'description_en', 'description_ar',
         'tier', 'status', 'timezone', 'start_at', 'end_at', 'registration_opens_at',

@@ -22,17 +22,8 @@ final readonly class CredentialIssuerService implements CredentialIssuer
 
     public function issue(string $tenantId, string $eventId, string $attendeeId, string $ticketTypeId, CarbonImmutable $expiresAt): IssuedCredential
     {
-        $id = (string) Str::ulid();
         $issuedAt = CarbonImmutable::now();
         $nonce = sodium_bin2base64(random_bytes(16), SODIUM_BASE64_VARIANT_URLSAFE_NO_PADDING);
-        $token = $this->tokens->issue([
-            'cid' => $id,
-            'eid' => $eventId,
-            'exp' => $expiresAt->getTimestamp(),
-            'iat' => $issuedAt->getTimestamp(),
-            'nonce' => $nonce,
-            'tid' => $tenantId,
-        ]);
         $key = config('credentials.key_ring.'.$this->keys->currentKeyId());
         CredentialSigningKey::query()->firstOrCreate(
             ['key_id' => $this->keys->currentKeyId()],
@@ -43,8 +34,7 @@ final readonly class CredentialIssuerService implements CredentialIssuer
                 'not_before' => now(),
             ],
         );
-        Credential::query()->create([
-            'id' => $id,
+        $credential = Credential::query()->create([
             'tenant_id' => $tenantId,
             'event_id' => $eventId,
             'attendee_id' => $attendeeId,
@@ -53,11 +43,22 @@ final readonly class CredentialIssuerService implements CredentialIssuer
             'token_version' => 'zt1',
             'key_id' => $this->keys->currentKeyId(),
             'nonce_hash' => hash('sha256', $nonce),
-            'token_digest' => hash('sha256', $token),
+            'token_digest' => hash('sha256', (string) Str::ulid()),
             'issued_at' => $issuedAt,
             'expires_at' => $expiresAt,
         ]);
-        $credential = Credential::query()->findOrFail($id);
+
+        $id = (string) $credential->id;
+        $token = $this->tokens->issue([
+            'cid' => $id,
+            'eid' => $eventId,
+            'exp' => $expiresAt->getTimestamp(),
+            'iat' => $issuedAt->getTimestamp(),
+            'nonce' => $nonce,
+            'tid' => $tenantId,
+        ]);
+
+        $credential->forceFill(['token_digest' => hash('sha256', $token)])->save();
         $this->presentationTokens->store($credential, $token);
 
         return new IssuedCredential($id, $token, $expiresAt);

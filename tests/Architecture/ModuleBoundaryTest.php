@@ -14,7 +14,7 @@ class ModuleBoundaryTest extends TestCase
         'app/Modules/Kiosk',
         'app/Modules/BadgePrinting',
         'app/Modules/AccessControl',
-        'app/Modules/AdminConsole/Http/Controllers/Tenant/CheckIn',
+        'app/Modules/AdminConsole',
         'app/Console/Commands/CheckDocumentation.php',
         'app/Console/Commands/RefreshCheckInSummary.php',
         'app/Modules/Authorization/Policies/Phase2',

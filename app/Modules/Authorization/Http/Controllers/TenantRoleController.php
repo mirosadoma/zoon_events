@@ -13,7 +13,6 @@ use App\Modules\Tenancy\Domain\Context\TenantContextStore;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\TenantMembership;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class TenantRoleController extends Controller
 {
@@ -144,9 +143,7 @@ class TenantRoleController extends Controller
         TenantRole::query()->where('tenant_id', $context->tenant->id)->findOrFail($validated['role_id']);
 
         $assignmentId = DB::transaction(function () use ($validated, $context): string {
-            $assignmentId = (string) Str::ulid();
-            DB::table('tenant_role_assignments')->insert([
-                'id' => $assignmentId,
+            $assignmentId = DB::table('tenant_role_assignments')->insertGetId([
                 'tenant_id' => $context->tenant->id,
                 'tenant_membership_id' => $validated['membership_id'],
                 'tenant_role_id' => $validated['role_id'],

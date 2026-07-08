@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Modules\WalletPasses\Application\Support\ApplePassAuthenticator;
 use App\Modules\WalletPasses\Infrastructure\Persistence\Models\WalletPassAppleDeviceRegistration;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 final class RegisterDeviceController extends Controller
@@ -31,7 +30,6 @@ final class RegisterDeviceController extends Controller
         WalletPassAppleDeviceRegistration::query()->updateOrCreate(
             ['wallet_pass_id' => $pass->id, 'device_library_identifier' => $deviceLibraryIdentifier],
             [
-                'id' => $existing?->id ?? (string) Str::ulid(),
                 'tenant_id' => $pass->tenant_id,
                 'push_token' => $pushToken,
                 'registered_at' => now(),

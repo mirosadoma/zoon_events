@@ -13,7 +13,6 @@ use App\Modules\Scanning\Infrastructure\Persistence\Models\OfflineScanReconcilia
 use App\Modules\Scanning\Infrastructure\Persistence\Models\ScanEvent;
 use App\Modules\Shared\Contracts\Clock;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 final readonly class ReconcileOfflineScanBatchAction
 {
@@ -39,7 +38,6 @@ final readonly class ReconcileOfflineScanBatchAction
         $allowlist = $this->allowlists->execute($tenantId, $eventId);
 
         $batch = OfflineScanReconciliationBatch::query()->create([
-            'id' => (string) Str::ulid(),
             'tenant_id' => $tenantId,
             'event_id' => $eventId,
             'device_reference' => $deviceReference,

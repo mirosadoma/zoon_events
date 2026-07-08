@@ -13,7 +13,6 @@ use App\Modules\Tenancy\Infrastructure\Persistence\Models\TenantMembership;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use LogicException;
 use PHPUnit\Framework\Attributes\Group;
 use RuntimeException;
@@ -45,7 +44,6 @@ class FoundationCriticalRegressionTest extends TestCase
         $this->expectException(QueryException::class);
 
         DB::table('tenant_role_assignments')->insert([
-            'id' => (string) Str::ulid(),
             'tenant_id' => $tenantA->id,
             'tenant_membership_id' => $membershipA->id,
             'tenant_role_id' => $roleB->id,

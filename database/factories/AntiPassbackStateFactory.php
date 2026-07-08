@@ -6,7 +6,6 @@ use App\Modules\AccessControl\Infrastructure\Persistence\Models\AcsZone;
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\AntiPassbackState;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Str;
 
 /** @extends Factory<AntiPassbackState> */
 final class AntiPassbackStateFactory extends Factory
@@ -16,7 +15,6 @@ final class AntiPassbackStateFactory extends Factory
     public function definition(): array
     {
         return [
-            'id' => (string) Str::ulid(),
             'tenant_id' => fn (array $attributes) => AcsZone::query()->findOrFail($attributes['zone_id'])->tenant_id,
             'event_id' => fn (array $attributes) => AcsZone::query()->findOrFail($attributes['zone_id'])->event_id,
             'credential_id' => Credential::factory(),

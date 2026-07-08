@@ -3,14 +3,11 @@
 namespace App\Modules\Authorization\Infrastructure\Persistence\Models;
 
 use App\Models\User;
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PlatformRoleAssignment extends Model
 {
-    use HasUlids;
-
     protected $fillable = ['user_id', 'platform_role_id', 'granted_by_user_id', 'expires_at', 'revoked_at', 'revoked_by_user_id'];
 
     protected function casts(): array

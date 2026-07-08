@@ -7,7 +7,6 @@ use App\Modules\Tenancy\Infrastructure\Persistence\Models\Tenant;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\AssertsTenantSchema;
@@ -74,7 +73,6 @@ class TenantSchemaTest extends MySqlTestCase
 
         DB::table('tenant_roles')->insert([
             [
-                'id' => (string) Str::ulid(),
                 'tenant_id' => $tenantA->id,
                 'name' => 'Operations',
                 'description' => null,
@@ -84,7 +82,6 @@ class TenantSchemaTest extends MySqlTestCase
                 'updated_at' => now(),
             ],
             [
-                'id' => (string) Str::ulid(),
                 'tenant_id' => $tenantB->id,
                 'name' => 'Operations',
                 'description' => null,
@@ -107,7 +104,6 @@ class TenantSchemaTest extends MySqlTestCase
         $tenant = Tenant::factory()->create(['created_by_user_id' => $creator->id]);
 
         DB::table('tenant_roles')->insert([
-            'id' => (string) Str::ulid(),
             'tenant_id' => $tenant->id,
             'name' => 'Finance',
             'description' => null,
@@ -120,7 +116,6 @@ class TenantSchemaTest extends MySqlTestCase
         $this->expectException(QueryException::class);
 
         DB::table('tenant_roles')->insert([
-            'id' => (string) Str::ulid(),
             'tenant_id' => $tenant->id,
             'name' => 'Finance',
             'description' => null,

@@ -12,7 +12,7 @@ return new class extends Migration
         Schema::table('attendees', function (Blueprint $table): void {
             $table->string('checkin_status', 24)->default('not_checked_in')->after('preferred_locale');
             $table->timestamp('first_checked_in_at', 6)->nullable()->after('checkin_status');
-            $table->char('last_scan_event_id', 26)->nullable()->after('first_checked_in_at');
+            $table->unsignedBigInteger('last_scan_event_id')->nullable()->after('first_checked_in_at');
         });
 
         Schema::table('attendees', function (Blueprint $table): void {

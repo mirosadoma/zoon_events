@@ -10,10 +10,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('acs_lanes', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('event_id', 26);
-            $table->char('zone_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('event_id')->nullable();
+            $table->unsignedBigInteger('zone_id')->nullable();
             $table->string('name', 120);
             $table->string('external_acs_lane_id', 160);
             $table->string('gate_type', 20);

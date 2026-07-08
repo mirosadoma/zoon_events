@@ -2,14 +2,11 @@
 
 namespace App\Modules\BadgePrinting\Infrastructure\Persistence\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 final class BadgePrintJob extends Model
 {
-    use HasUlids;
-
     protected $fillable = [
         'id', 'tenant_id', 'event_id', 'attendee_id', 'credential_id',
         'badge_template_id', 'kiosk_id', 'printed_by_user_id',

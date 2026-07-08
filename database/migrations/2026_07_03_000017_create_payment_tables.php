@@ -10,8 +10,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('payment_accounts', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
             $table->string('adapter_key', 32);
             $table->string('secret_reference', 160);
             $table->string('account_reference', 160);
@@ -26,11 +26,11 @@ return new class extends Migration
         });
 
         Schema::create('payment_attempts', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('event_id', 26);
-            $table->char('order_id', 26);
-            $table->char('payment_account_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('event_id')->nullable();
+            $table->unsignedBigInteger('order_id')->nullable();
+            $table->unsignedBigInteger('payment_account_id')->nullable();
             $table->unsignedInteger('attempt_number');
             $table->text('provider_payment_id')->nullable();
             $table->char('provider_payment_id_hash', 64)->nullable();
@@ -54,8 +54,8 @@ return new class extends Migration
         });
 
         Schema::create('payment_webhook_receipts', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('payment_account_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('payment_account_id')->nullable();
             $table->string('provider_event_id', 160);
             $table->char('payload_digest', 64);
             $table->string('status', 24);
@@ -69,16 +69,16 @@ return new class extends Migration
         });
 
         Schema::create('refunds', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('event_id', 26);
-            $table->char('order_id', 26);
-            $table->char('payment_attempt_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('event_id')->nullable();
+            $table->unsignedBigInteger('order_id')->nullable();
+            $table->unsignedBigInteger('payment_attempt_id')->nullable();
             $table->unsignedBigInteger('amount_minor');
             $table->char('currency', 3);
             $table->string('status', 24);
             $table->string('reason', 500);
-            $table->char('requested_by_user_id', 26);
+            $table->unsignedBigInteger('requested_by_user_id')->nullable();
             $table->string('provider_refund_id', 160)->nullable();
             $table->char('idempotency_key_hash', 64);
             $table->timestamp('last_reconciled_at', 6)->nullable();

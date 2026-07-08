@@ -12,7 +12,6 @@ use App\Modules\Shared\Application\Pagination\CursorPaginator;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class PlatformRoleController extends Controller
 {
@@ -116,9 +115,7 @@ class PlatformRoleController extends Controller
         $actor = $request->user();
 
         $assignmentId = DB::transaction(function () use ($validated, $actor): string {
-            $assignmentId = (string) Str::ulid();
-            DB::table('platform_role_assignments')->insert([
-                'id' => $assignmentId,
+            $assignmentId = DB::table('platform_role_assignments')->insertGetId([
                 'user_id' => $validated['user_id'],
                 'platform_role_id' => $validated['role_id'],
                 'granted_by_user_id' => $actor->id,

@@ -33,26 +33,26 @@ empty state. No gap is closed with a new business module (Constitution VI).
 | Registration form builder | Registration query | Registration field actions | EXISTS |
 | Registration preview | public event query | test-submit action | EXISTS |
 | Ticket types | Ticketing query | Ticketing actions | EXISTS |
-| Price tiers | Ticketing price-tier query | price-tier actions | **GAP-1** (confirm read projection) |
+| Price tiers | Ticketing price-tier query | price-tier actions | Confirmed (AdminConsole ViewModel incl. `is_active_now`) |
 | Orders list/detail | Orders query | order/refund actions | EXISTS |
 | Attendees list/detail | Attendees query | attendee actions | EXISTS |
 | Credentials list/detail | Credentials query | revoke/reissue actions | EXISTS |
 | Wallet passes list | WalletPasses query | wallet manage actions | EXISTS |
-| Wallet pass detail | WalletPasses detail query | update/revoke actions | **GAP-2** (confirm detail projection) |
+| Wallet pass detail | WalletPasses detail query | update/revoke actions | EXISTS (AdminConsole ViewModel) |
 | Scanner | — | `SubmitScanAction` | EXISTS |
 | Check-in dashboard | check-in summary query | — | EXISTS |
-| Scan events | Scanning events query | — | **GAP-3** (confirm list/filter projection) |
+| Scan events | Scanning events query | — | EXISTS (AdminConsole ViewModel) |
 | Kiosks list | Kiosk query | register/activate actions | EXISTS |
-| Kiosk detail | Kiosk detail query | activate/deactivate | **GAP-4** (confirm detail projection) |
+| Kiosk detail | Kiosk detail query | activate/deactivate | Confirmed (AdminConsole ViewModel + API show) |
 | Kiosk mode | kiosk-session read | print/lookup actions | EXISTS (device-session) |
 | Badge templates | BadgePrinting template query | template actions | EXISTS |
-| Badge print jobs | BadgePrinting job query | reprint action | **GAP-5** (confirm job list projection) |
+| Badge print jobs | BadgePrinting job query | reprint action | Confirmed (AdminConsole ViewModel + API index) |
 | Manual desk | ManualDesk query | check-in/print/override/walk-up | EXISTS |
 | ACS overview | AccessControl summary query | — | EXISTS |
 | ACS zones/lanes/rules | AccessControl config queries | config actions | EXISTS (editors) — promote to pages |
 | ACS access logs | AccessControl events query | — | EXISTS (gate-events) |
 | Gate health | AccessControl health query | emergency actions | EXISTS |
-| Event report | composed summary queries | — | **GAP-6** (some metrics may lack a source) |
+| Event report | composed summary queries | — | Confirmed (available metrics + documented placeholder) |
 
 ## Missing Backend API Register
 
@@ -64,12 +64,12 @@ Backend API Requirements section.
 
 | ID | Screen | Owning phase/module | Expected read projection | Temp UI treatment | Status |
 |---|---|---|---|---|---|
-| GAP-1 | Price tiers | Phase 1 / Ticketing | `listPriceTiers(eventId)` → PriceTierRow[] incl. `is_active_now` | Empty state + "pricing read pending" note | To confirm |
-| GAP-2 | Wallet pass detail | Phase 2 / WalletPasses | `getWalletPass(passId)` → WalletPassDetail incl. `last_pushed_at`, `pass_url?` | Detail card placeholder | To confirm |
-| GAP-3 | Scan events | Phase 2 / Scanning | `listScanEvents(eventId, filters)` → ScanEventRow[] | Empty state + link to check-in dashboard | To confirm |
-| GAP-4 | Kiosk detail | Phase 3 / Kiosk | `getKiosk(kioskId)` → KioskDetail incl. recent checkins/print jobs | Summary from list row only | To confirm |
-| GAP-5 | Badge print jobs | Phase 3 / BadgePrinting | `listPrintJobs(eventId, filters)` → BadgePrintJobRow[] | Empty state | To confirm |
-| GAP-6 | Event report | Phases 1–4 (rollup) | per-metric summary reads (first-scan success rate, wallet adoption) | Cards show available metrics; missing ones labelled "not available yet" | To confirm |
+| GAP-1 | Price tiers | Phase 1 / Ticketing | `listPriceTiers(eventId)` → PriceTierRow[] incl. `is_active_now` | Empty state when no tiers exist | Confirmed (AdminConsole ViewModel incl. `is_active_now`) |
+| GAP-2 | Wallet pass detail | Phase 2 / WalletPasses | `getWalletPass(passId)` → WalletPassDetail incl. `last_pushed_at`, `pass_url?` | Detail card placeholder | Confirmed (AdminConsole ViewModel) |
+| GAP-3 | Scan events | Phase 2 / Scanning | `listScanEvents(eventId, filters)` → ScanEventRow[] | Empty state + link to check-in dashboard | Confirmed (AdminConsole ViewModel) |
+| GAP-4 | Kiosk detail | Phase 3 / Kiosk | `getKiosk(kioskId)` → KioskDetail incl. recent checkins/print jobs | Summary from list row only | Confirmed (AdminConsole ViewModel + API show) |
+| GAP-5 | Badge print jobs | Phase 3 / BadgePrinting | `listPrintJobs(eventId, filters)` → BadgePrintJobRow[] | Empty state | Confirmed (AdminConsole ViewModel + API index) |
+| GAP-6 | Event report | Phases 1–4 (rollup) | per-metric summary reads (first-scan success rate, wallet adoption) | Cards show available metrics; missing ones labelled "not available yet" | Confirmed (AdminConsole ViewModel: wallet_adoption computed; first_scan_success_rate placeholder) |
 
 Rules for closing a gap:
 - Add the query method to the owning module's Application layer + its OpenAPI read

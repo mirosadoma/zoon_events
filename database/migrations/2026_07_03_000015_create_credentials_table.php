@@ -20,11 +20,11 @@ return new class extends Migration
         });
 
         Schema::create('credentials', function (Blueprint $table): void {
-            $table->char('id', 26)->primary();
-            $table->char('tenant_id', 26);
-            $table->char('event_id', 26);
-            $table->char('attendee_id', 26);
-            $table->char('ticket_type_id', 26);
+            $table->id();
+            $table->unsignedBigInteger('tenant_id')->nullable();
+            $table->unsignedBigInteger('event_id')->nullable();
+            $table->unsignedBigInteger('attendee_id')->nullable();
+            $table->unsignedBigInteger('ticket_type_id')->nullable();
             $table->string('status', 24)->default('active');
             $table->string('token_version', 16);
             $table->string('key_id', 64);
@@ -33,10 +33,10 @@ return new class extends Migration
             $table->timestamp('issued_at', 6);
             $table->timestamp('expires_at', 6);
             $table->timestamp('revoked_at', 6)->nullable();
-            $table->char('revoked_by_user_id', 26)->nullable();
+            $table->unsignedBigInteger('revoked_by_user_id')->nullable();
             $table->string('revocation_reason', 500)->nullable();
-            $table->char('superseded_by_id', 26)->nullable();
-            $table->char('active_attendee_id', 26)->nullable()->virtualAs("IF(status = 'active', attendee_id, NULL)");
+            $table->unsignedBigInteger('superseded_by_id')->nullable();
+            $table->unsignedBigInteger('active_attendee_id')->nullable()->virtualAs("IF(status = 'active', attendee_id, NULL)");
             $table->timestamps(6);
 
             $table->unique(['tenant_id', 'event_id', 'id'], 'credentials_scope_unique');

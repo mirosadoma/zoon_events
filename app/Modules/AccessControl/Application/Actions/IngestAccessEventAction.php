@@ -14,7 +14,6 @@ use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
 use App\Modules\Shared\Http\Problems\Phase4Problem;
 use DateTimeInterface;
 use Illuminate\Database\UniqueConstraintViolationException;
-use Illuminate\Support\Str;
 
 final readonly class IngestAccessEventAction
 {
@@ -54,7 +53,6 @@ final readonly class IngestAccessEventAction
             return $this->audited->run(
                 function () use ($ctx, $externalEventId, $lane, $eventType, $occurredAt, $credentialId): AccessEvent {
                     $accessEvent = AccessEvent::query()->create([
-                        'id' => (string) Str::ulid(),
                         'tenant_id' => $ctx->tenantId,
                         'event_id' => $ctx->eventId,
                         'event_type' => $eventType,

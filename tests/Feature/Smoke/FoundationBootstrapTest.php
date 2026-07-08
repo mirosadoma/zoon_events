@@ -6,11 +6,10 @@ use Tests\TestCase;
 
 class FoundationBootstrapTest extends TestCase
 {
-    public function test_root_endpoint_requires_authenticated_dashboard_session(): void
+    public function test_public_home_is_available_and_dashboard_requires_authentication(): void
     {
-        $response = $this->get('/');
-
-        $response->assertRedirect('/login');
+        $this->get('/')->assertOk();
+        $this->get('/dashboard')->assertRedirect('/login');
     }
 
     public function test_localized_foundation_message_is_available_in_supported_locales(): void

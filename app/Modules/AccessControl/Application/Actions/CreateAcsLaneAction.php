@@ -7,7 +7,6 @@ use App\Modules\AccessControl\Infrastructure\Persistence\Models\AcsLane;
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\AcsZone;
 use App\Modules\Audit\Application\AuditedTransaction;
 use App\Modules\Shared\Http\Problems\Phase4Problem;
-use Illuminate\Support\Str;
 
 final readonly class CreateAcsLaneAction
 {
@@ -46,7 +45,6 @@ final readonly class CreateAcsLaneAction
 
         return $this->audited->run(
             fn (): AcsLane => AcsLane::query()->create([
-                'id' => (string) Str::ulid(),
                 'tenant_id' => $tenantId,
                 'event_id' => $eventId,
                 'zone_id' => $zone->id,

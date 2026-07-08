@@ -5,7 +5,6 @@ namespace Tests\Feature\Scanning;
 use App\Modules\Scanning\Infrastructure\Persistence\Models\EventCheckInSummary;
 use App\Modules\Scanning\Infrastructure\Persistence\Models\ScanEvent;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
-use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Group;
 use Tests\Support\AssertsProblemDetails;
 use Tests\Support\BuildsTenantFixtures;
@@ -53,7 +52,6 @@ final class CheckInSummaryTest extends Phase2MySqlTestCase
 
         foreach (['rejected', 'revoked', 'expired'] as $result) {
             ScanEvent::query()->create([
-                'id' => (string) Str::ulid(),
                 'tenant_id' => $scan['fixture']['tenant']->id,
                 'event_id' => $eventId,
                 'scanner_id' => $scan['scanner']->id,

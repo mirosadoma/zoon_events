@@ -8,7 +8,6 @@ use App\Modules\AccessControl\Infrastructure\Persistence\Models\EmergencyEvent;
 use App\Modules\Audit\Application\AuditedTransaction;
 use DateTimeInterface;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 
 final readonly class ClearEmergencyAction
 {
@@ -37,7 +36,6 @@ final readonly class ClearEmergencyAction
                 }
 
                 AccessEvent::query()->create([
-                    'id' => (string) Str::ulid(),
                     'tenant_id' => $tenantId,
                     'event_id' => $eventId,
                     'event_type' => 'emergency',
