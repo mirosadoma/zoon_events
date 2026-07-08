@@ -94,16 +94,18 @@ final readonly class CompletePaidRegistration implements OrderPaymentPort
                 $order->credential_expires_at,
             );
             $this->tickets->linkAndConvert($order->tenant_id, $order->inventory_hold_id, $order->id);
-            $this->notifications->create(
-                $order->tenant_id,
-                $order->event_id,
-                $attendee->id,
-                $order->id,
-                $credential->id,
-                $identity['email'],
-                $order->locale,
-                $identity['phone'] ?? null,
-            );
+            if ($credential !== null) {
+                $this->notifications->create(
+                    $order->tenant_id,
+                    $order->event_id,
+                    $attendee->id,
+                    $order->id,
+                    $credential->id,
+                    $identity['email'],
+                    $order->locale,
+                    $identity['phone'] ?? null,
+                );
+            }
             $order->forceFill([
                 'status' => 'paid',
                 'paid_at' => now(),
@@ -120,7 +122,7 @@ final readonly class CompletePaidRegistration implements OrderPaymentPort
                 metadata: ['event_id' => $order->event_id],
             );
 
-            return new PaidOrderResult($order->id, 'paid', $credential->id, $credential->token);
+            return new PaidOrderResult($order->id, 'paid', $credential?->id, $credential?->token);
         }, 3);
     }
 }

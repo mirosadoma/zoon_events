@@ -17,6 +17,7 @@ use App\Modules\AccessControl\Infrastructure\Persistence\Models\AcsZone;
 use App\Modules\Audit\Application\AuditedTransaction;
 use App\Modules\Credentials\Application\Validation\CredentialValidator;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
+use App\Modules\IdentityVerification\Application\Queries\IdentityGate;
 use App\Modules\Scanning\Application\Actions\SubmitScanAction;
 use App\Modules\Scanning\Domain\ValueObjects\ScanContext;
 use App\Modules\Shared\Http\Problems\Phase4Problem;
@@ -32,6 +33,7 @@ final readonly class AuthorizeGateAction
         private AcsAdapter $adapter,
         private SubmitScanAction $submitScan,
         private AuditedTransaction $audited,
+        private IdentityGate $identityGate,
     ) {}
 
     public function execute(
@@ -125,6 +127,24 @@ final readonly class AuthorizeGateAction
                 null,
                 'deny',
                 'credential_unknown',
+            );
+        }
+
+        $identity = $this->identityGate->evaluate(
+            $ctx->tenantId,
+            $ctx->eventId,
+            (string) $credential->attendee_id,
+            'gate',
+        );
+        if (! $identity->satisfied && $identity->reasonCode !== null) {
+            return $this->recordDecision(
+                $ctx,
+                $lane,
+                $zone,
+                $direction,
+                $credential->id,
+                'deny',
+                $identity->reasonCode,
             );
         }
 

@@ -69,6 +69,8 @@ class CrossTenantPropsTest extends TestCase
             "/tenant/events/{$otherEvent->id}/manual-desk",
             "/tenant/events/{$otherEvent->id}/acs",
             "/tenant/events/{$otherEvent->id}/reports",
+            "/tenant/events/{$otherEvent->id}/identity",
+            "/tenant/events/{$otherEvent->id}/identity/review",
         ] as $path) {
             $this->get($path)->assertNotFound();
         }

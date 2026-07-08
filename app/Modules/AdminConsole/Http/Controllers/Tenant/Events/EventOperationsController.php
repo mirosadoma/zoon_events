@@ -12,6 +12,7 @@ use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\Authorization\Application\PermissionEvaluator;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
+use App\Modules\IdentityVerification\Application\Queries\IdentityGate;
 use App\Modules\Notifications\Infrastructure\Persistence\Models\Notification;
 use App\Modules\Orders\Infrastructure\Persistence\Models\Order;
 use App\Modules\Orders\Infrastructure\Persistence\Models\OrderItem;
@@ -108,6 +109,7 @@ final class EventOperationsController extends Controller
         return Inertia::render('tenant/attendees/Detail', [
             ...$this->attendees->detail($event, $attendee, $credential),
             'tenantId' => $context->tenant->id,
+            'identity' => $this->identityState($context->tenant->id, $event->id, $attendee->id, 'credential'),
         ]);
     }
 
@@ -135,7 +137,21 @@ final class EventOperationsController extends Controller
         return Inertia::render('tenant/credentials/Detail', [
             ...$this->credentials->detail($event, $credential),
             'tenantId' => $context->tenant->id,
+            'identity' => $this->identityState($context->tenant->id, $event->id, $credential->attendee_id, 'credential'),
         ]);
+    }
+
+    /** @return array{status:string,pending:bool,reason_code:?string,requirement_level:string} */
+    private function identityState(string $tenantId, string $eventId, string $attendeeId, string $boundary): array
+    {
+        $gate = app(IdentityGate::class)->evaluate($tenantId, $eventId, $attendeeId, $boundary);
+
+        return [
+            'status' => $gate->status,
+            'pending' => ! $gate->satisfied,
+            'reason_code' => $gate->reasonCode,
+            'requirement_level' => $gate->requirementLevel,
+        ];
     }
 
     private function authorizeTenant(string $permission): TenantContext

@@ -12,6 +12,7 @@ use App\Modules\Credentials\Providers\CredentialsServiceProvider;
 use App\Modules\Events\Providers\EventsServiceProvider;
 use App\Modules\FeatureFlags\Providers\FeatureFlagsServiceProvider;
 use App\Modules\Identity\Providers\IdentityServiceProvider;
+use App\Modules\IdentityVerification\Providers\IdentityVerificationServiceProvider;
 use App\Modules\Integrations\Providers\IntegrationServiceProvider;
 use App\Modules\Kiosk\Providers\KioskServiceProvider;
 use App\Modules\Notifications\Providers\NotificationServiceProvider;
@@ -48,6 +49,7 @@ class ModuleServiceProvider extends ServiceProvider
         PaymentsServiceProvider::class,
         AttendeesServiceProvider::class,
         CredentialsServiceProvider::class,
+        IdentityVerificationServiceProvider::class,
         NotificationServiceProvider::class,
         WalletPassesServiceProvider::class,
         ScanningServiceProvider::class,

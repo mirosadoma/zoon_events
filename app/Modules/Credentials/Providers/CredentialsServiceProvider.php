@@ -2,7 +2,7 @@
 
 namespace App\Modules\Credentials\Providers;
 
-use App\Modules\Credentials\Application\CredentialIssuerService;
+use App\Modules\Credentials\Application\GatedCredentialIssuer;
 use App\Modules\Credentials\Application\Signing\CanonicalCredentialToken;
 use App\Modules\Credentials\Application\Signing\CredentialKeyRing;
 use App\Modules\Credentials\Application\Signing\EnvironmentSecretReferenceLoader;
@@ -23,7 +23,7 @@ final class CredentialsServiceProvider extends ServiceProvider
             $app->make(SecretReferenceLoader::class),
         ));
         $this->app->singleton(CanonicalCredentialToken::class);
-        $this->app->bind(CredentialIssuer::class, CredentialIssuerService::class);
+        $this->app->bind(CredentialIssuer::class, GatedCredentialIssuer::class);
         $this->app->bind(CredentialPersonalDataAnonymizer::class, DatabaseCredentialPersonalDataAnonymizer::class);
     }
 }

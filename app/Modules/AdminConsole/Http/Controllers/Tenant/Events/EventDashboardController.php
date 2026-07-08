@@ -9,6 +9,10 @@ use App\Modules\AdminConsole\ViewModels\Events\EventDashboardViewModel;
 use App\Modules\AdminConsole\ViewModels\Events\EventSetupViewModel;
 use App\Modules\Authorization\Application\PermissionEvaluator;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
+use App\Modules\IdentityVerification\Application\Actions\ViewIdentityDataAction;
+use App\Modules\IdentityVerification\Application\Queries\PendingReviewQueue;
+use App\Modules\IdentityVerification\Infrastructure\Persistence\Models\IdentityVerification;
+use App\Modules\IdentityVerification\Infrastructure\Persistence\Models\IdentityVerificationRequirement;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationForm;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationFormVersion;
 use App\Modules\Tenancy\Domain\Context\TenantContext;
@@ -106,6 +110,91 @@ final class EventDashboardController extends Controller
             'event' => $this->events->detail($event)['event'],
             'tenantId' => $context->tenant->id,
             ...$formState,
+        ]);
+    }
+
+    public function identityRequirements(string $eventId): Response
+    {
+        $context = $this->authorizeTenant('identity.configure');
+        $event = $this->event($context, $eventId);
+        $ticketTypes = TicketType::query()
+            ->where('tenant_id', $context->tenant->id)
+            ->where('event_id', $event->id)
+            ->orderBy('created_at')
+            ->get();
+        $requirements = IdentityVerificationRequirement::query()
+            ->where('tenant_id', $context->tenant->id)
+            ->where('event_id', $event->id)
+            ->orderByRaw('ticket_type_id IS NULL DESC')
+            ->orderBy('ticket_type_id')
+            ->get();
+
+        return Inertia::render('tenant/identity/Requirements', [
+            'tenantId' => $context->tenant->id,
+            'event' => $this->events->detail($event)['event'],
+            'ticketTypes' => $ticketTypes->map(fn (TicketType $ticket): array => [
+                'id' => (string) $ticket->id,
+                'code' => $ticket->code,
+                'name' => ['en' => $ticket->name_en, 'ar' => $ticket->name_ar],
+            ])->values()->all(),
+            'requirements' => $requirements->map(fn (IdentityVerificationRequirement $requirement): array => [
+                'id' => (string) $requirement->id,
+                'event_id' => (string) $requirement->event_id,
+                'ticket_type_id' => $requirement->ticket_type_id !== null ? (string) $requirement->ticket_type_id : null,
+                'level' => (string) $requirement->level,
+                'face_fallback_enabled' => (bool) $requirement->face_fallback_enabled,
+            ])->values()->all(),
+            'canManage' => $this->permissions->hasTenantPermission($context, 'identity.configure'),
+        ]);
+    }
+
+    public function identityReview(string $eventId): Response
+    {
+        $context = $this->authorizeTenant('identity.review');
+        $event = $this->event($context, $eventId);
+        $items = app(PendingReviewQueue::class)
+            ->forEvent((string) $context->tenant->id, $event->id)
+            ->map(fn ($row): array => [
+                'id' => (string) $row->id,
+                'attendee_id' => (string) $row->attendee_id,
+                'method' => (string) $row->method,
+                'status' => (string) $row->status,
+                'provider_reference' => $row->provider_reference,
+                'submitted_at' => $row->updated_at?->toIso8601String(),
+            ])
+            ->values()
+            ->all();
+
+        return Inertia::render('tenant/identity/ReviewQueue', [
+            'tenantId' => $context->tenant->id,
+            'event' => $this->events->detail($event)['event'],
+            'items' => $items,
+            'canReview' => $this->permissions->hasTenantPermission($context, 'identity.review'),
+        ]);
+    }
+
+    public function identityVerificationDetail(string $eventId, string $verificationId, ViewIdentityDataAction $viewAction): Response
+    {
+        $context = $this->authorizeTenant('identity.data.view');
+        $event = $this->event($context, $eventId);
+        $verification = IdentityVerification::query()
+            ->where('tenant_id', $context->tenant->id)
+            ->where('event_id', $event->id)
+            ->findOrFail($verificationId);
+
+        $detail = $viewAction->execute(
+            $context,
+            (string) $event->id,
+            (string) $verification->attendee_id,
+        );
+
+        return Inertia::render('tenant/identity/VerificationDetail', [
+            'tenantId' => $context->tenant->id,
+            'event' => $this->events->detail($event)['event'],
+            'verificationId' => (string) $verification->id,
+            'attendeeId' => (string) $verification->attendee_id,
+            'detail' => $detail,
+            'canManage' => $this->permissions->hasTenantPermission($context, 'identity.data.manage'),
         ]);
     }
 

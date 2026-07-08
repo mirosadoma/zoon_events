@@ -36,14 +36,22 @@ type AttendeeDetail = {
   credential?: CredentialSummary | null
 }
 
+type IdentityState = {
+  status: string
+  pending: boolean
+  reason_code?: string | null
+  requirement_level: string
+}
+
 type Props = {
   event: EventRow
   attendee: AttendeeDetail
   tenantId: string
+  identity?: IdentityState | null
 }
 
-export default function AttendeeDetailPage({ event, attendee, tenantId }: Props) {
-  const { locale } = useLocale()
+export default function AttendeeDetailPage({ event, attendee, tenantId, identity }: Props) {
+  const { locale, t } = useLocale()
   const { toast } = useToast()
   const [busyAction, setBusyAction] = useState<'revoke' | 'reissue' | 'print' | 'checkin' | null>(null)
   const apiHeaders = {
@@ -178,6 +186,15 @@ export default function AttendeeDetailPage({ event, attendee, tenantId }: Props)
         ]}
       />
       <PageContent>
+        {identity?.pending ? (
+          <section className="state-panel mb-6 border-amber-200 bg-amber-50" role="status">
+            <div className="flex flex-wrap items-center gap-3">
+              <StatusBadge status={identity.status} />
+              <p className="text-sm text-amber-900">{t('identityPendingIssuanceBanner')}</p>
+            </div>
+          </section>
+        ) : null}
+
         <DetailsCard
           title={locale === 'ar' ? 'ملف الحاضر' : 'Attendee profile'}
           items={[

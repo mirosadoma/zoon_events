@@ -7,5 +7,11 @@ use Carbon\CarbonImmutable;
 
 interface CredentialIssuer
 {
-    public function issue(string $tenantId, string $eventId, string $attendeeId, string $ticketTypeId, CarbonImmutable $expiresAt): IssuedCredential;
+    public function issue(
+        string $tenantId,
+        string $eventId,
+        string $attendeeId,
+        string $ticketTypeId,
+        CarbonImmutable $expiresAt,
+    ): ?IssuedCredential;
 }

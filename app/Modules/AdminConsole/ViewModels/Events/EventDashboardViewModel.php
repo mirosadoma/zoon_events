@@ -30,6 +30,7 @@ final readonly class EventDashboardViewModel
             'event' => $this->eventRow($event),
             'tabs' => [
                 ['label' => 'Registration form', 'href' => "/tenant/events/{$event->id}/registration-form"],
+                ['label' => 'Identity requirements', 'href' => "/tenant/events/{$event->id}/identity"],
                 ['label' => 'Ticket types', 'href' => "/tenant/events/{$event->id}/ticket-types"],
                 ['label' => 'Price tiers', 'href' => "/tenant/events/{$event->id}/price-tiers"],
                 ['label' => 'Orders', 'href' => "/tenant/events/{$event->id}/orders"],
