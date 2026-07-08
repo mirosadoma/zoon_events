@@ -344,8 +344,8 @@ report and confirm summary metrics render.
   navigation/actions, status badges, form validation, submit loaders, empty/error
   states), integration tests (login, events list/create, ticket-type create,
   attendee detail load, credential revoke/reissue, QR scan, manual-desk search, ACS
-  rule create), and end-to-end tests for the twelve critical journeys in §20.3 of
-  the source plan (admin dashboard, event creation, registration-form config,
+  rule create), and browser-simulated journey tests for the twelve critical flows
+  in §20.3 of the source plan (admin dashboard, event creation, registration-form config,
   ticket creation, orders/attendees view, credential revoke/reissue, valid and
   revoked scan, badge print, manual-desk search, ACS zone/lane/rule).
 - **CR-010 Phase Alignment**: This is a frontend consolidation phase that exposes
@@ -406,6 +406,12 @@ This section mirrors `api-integration-map.md` and records endpoint/read-projecti
 gaps discovered while wiring each screen to the existing backend. No new backend
 business module is created to fill a gap; confirmed rows are satisfied through
 AdminConsole ViewModels or existing owning-module APIs.
+
+Action flows that were previously UI stubs during remediation (event publish/cancel,
+event create/edit, registration builder save/publish, credential revoke/reissue,
+ticket-type create/edit/disable, price-tier create/edit/disable, attendee
+reissue/revoke/print/check-in) are now wired to their real APIs and are no longer
+tracked as backend-gap rows.
 
 | ID | Screen | Required read projection | Final treatment |
 |---|---|---|---|

@@ -34,7 +34,7 @@ tiers, order/attendee/credential detail), Phase 2 (wallet-pass detail, scan
 events), Phase 3 (kiosk detail, kiosk mode, badge print jobs), Phase 4 (ACS zones,
 lanes, rules, access logs pages), and per-event reports. It reuses the existing
 Inertia data path, `react-i18next` Arabic/English localization with logical-RTL
-Tailwind, the project-owned design system, and the Vitest/Testing-Library/Playwright
+Tailwind, the project-owned design system, and the Vitest/Testing-Library
 + axe test stack. It introduces no separate SPA, no new REST `/src/api` client
 layer, no Docker, and no cloud-only dependency, preserving SaaS/on-premise parity.
 
@@ -56,8 +56,8 @@ read through existing module application queries and rendered as Inertia props.
 No new table, migration, or persisted frontend state is introduced
 
 **Testing**: Vitest + React Testing Library + `@testing-library/jest-dom` for
-component/unit, `@axe-core/playwright` + Playwright browser tests for
-accessibility/RTL/responsive and end-to-end journeys, plus PHPUnit feature tests
+component/unit, Vitest jsdom "browser-simulated" tests using `axe-core` for
+accessibility/RTL/responsive journey coverage, plus PHPUnit feature tests
 for the thin AdminConsole controllers/ViewModels and `dashboard.permission`
 route authorization; ESLint, TypeScript `tsc --noEmit`, Pint, and the existing
 `composer quality` gates (OpenAPI sync/lint, docs check, phase-boundary check)
@@ -106,7 +106,7 @@ and [component-map.md](component-map.md); no new domain tables
 | GCC/KSA and PDPL | The UI displays only backend-returned, tenant/permission-scoped data, persists no personal data beyond session/cache, and shows minimal fields on operational feeds (e.g., gate events show credential reference, not full PII). Retention/residency/deletion remain backend responsibilities. | PASS |
 | White-label/localization | Shell and public-style surfaces honor tenant branding; all user-visible content is Arabic/English via `react-i18next` with logical-RTL Tailwind and locale-aware date/number/currency formatting (existing `useLocale`, `formatMoney`, `formatters`). | PASS |
 | Modularity/adapters | Only `AdminConsole` (presentation) and `resources/js` change. No domain module's internals are read directly; cross-module data flows through published query contracts. No hardware/vendor adapter is added by this phase. | PASS |
-| Automated tests | Unit (permission-gated nav/actions, status badges, form validation, submit loaders, empty/error/forbidden states), integration (login, events list/create, ticket-type create, attendee detail load, credential revoke/reissue, QR scan, manual-desk search, ACS rule create), and 12 E2E journeys per CR-009/[test-plan.md](test-plan.md). | PASS |
+| Automated tests | Unit (permission-gated nav/actions, status badges, form validation, submit loaders, empty/error/forbidden states), integration (login, events list/create, ticket-type create, attendee detail load, credential revoke/reissue, QR scan, manual-desk search, ACS rule create), and 12 browser-simulated jsdom journeys per CR-009/[test-plan.md](test-plan.md). | PASS |
 | Phased delivery | Frontend consolidation over the accepted Phase 0–4 core; adds no new product capability and MUST complete before Phase 5. Phase-boundary check keeps Phase 5+ surfaces absent. | PASS |
 
 No constitution exception is required. Every genuine backend gap is a documented
@@ -157,8 +157,10 @@ Detailed decisions and alternatives are in [research.md](research.md):
 ### AdminConsole (extended — presentation only)
 
 Owns the dashboard shell, Inertia page controllers, and read-only ViewModels that
-assemble props by calling other modules' **published application queries**. This
-phase extends it with:
+should assemble props through other modules' **published application queries**.
+Current state keeps a documented temporary deviation: some AdminConsole reads still
+query other modules' Eloquent models directly (tracked in
+`api-integration-map.md`, R11/F-12). This phase extends it with:
 
 - shell/navigation ViewModels (permission-filtered navigation manifest, tenant/
   role indicators, breadcrumbs);
@@ -294,7 +296,7 @@ routes/
 tests/
 ├── Feature/AdminConsole/                             # controller/ViewModel + dashboard.permission authz
 └── (frontend) resources/js/__tests__/**              # Vitest unit/integration
-   + Playwright browser/E2E for the 12 journeys
+  + browser-simulated Vitest journey tests for the 12 critical flows
 ```
 
 **Structure Decision**: Keep the single Laravel + Inertia/React deployment. All
@@ -319,7 +321,7 @@ Required tests (see [test-plan.md](test-plan.md)):
 - **Backend feature (PHPUnit)**: each new AdminConsole controller/ViewModel returns
   correctly scoped props; `dashboard.permission:<key>` denies without the permission
   (403) and allows with it; zero cross-tenant props.
-- **Browser/E2E (Playwright + axe)**: the 12 journeys in spec §User Story acceptance
+- **Browser-simulated journeys (Vitest jsdom + axe-core)**: the 12 journeys in spec §User Story acceptance
   and source-plan §20.3 (admin dashboard, event creation, registration-form config,
   ticket creation, orders/attendees view, credential revoke, credential reissue,
   valid scan, revoked scan rejection, badge print, manual-desk search, ACS zone/

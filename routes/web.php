@@ -27,7 +27,9 @@ Route::middleware('guest')->group(function (): void {
     Route::post('/login', [SessionController::class, 'store'])->middleware('throttle:auth');
 });
 
-Route::get('/kiosk/{device_code}', [KioskModeController::class, 'show'])->name('kiosk.mode');
+Route::middleware(['kiosk.session.clear', 'kiosk.session'])->group(function (): void {
+    Route::get('/kiosk/{device_code}', [KioskModeController::class, 'show'])->name('kiosk.mode');
+});
 
 Route::middleware('auth')->group(function (): void {
     Route::post('/logout', [SessionController::class, 'destroy'])->name('logout');

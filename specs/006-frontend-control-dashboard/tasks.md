@@ -10,7 +10,7 @@ description: "Task list for Frontend Control Dashboard for Completed Core Phases
 frontend-routes.md, component-map.md, api-integration-map.md, test-plan.md
 
 **Tests**: MANDATORY (Constitution VII / CR-009). Unit, integration, backend
-feature (RBAC/tenant), and browser/E2E tasks are included per user story.
+feature (RBAC/tenant), and browser-simulated journey tasks are included per user story.
 
 **Organization**: Grouped by user story (US1–US7 from spec.md) for independent
 implementation and testing.
@@ -39,8 +39,9 @@ implementation and testing.
 Laravel + Inertia/React monolith: backend in `app/Modules/AdminConsole/**` and
 `routes/web.php`; frontend in `resources/js/**`; frontend tests in
 `resources/js/__tests__/**`; backend tests in `tests/Feature/AdminConsole/**`.
-Browser/E2E follow the existing `resources/js/__tests__/*-browser.test.tsx`
-convention with `@axe-core/playwright`.
+Browser-simulated journeys follow the existing
+`resources/js/__tests__/*-browser.test.tsx` convention with `axe-core` in Vitest
+jsdom.
 
 ---
 
@@ -51,7 +52,7 @@ convention with `@axe-core/playwright`.
 - [X] T001 [M:H] Create AdminConsole controller/ViewModel folders per plan (`app/Modules/AdminConsole/Http/Controllers/{Admin,Tenant/{Events,Registration,Ticketing,Orders,Attendees,Credentials,WalletPasses,ScanEvents,Kiosk,Badges,ManualDesk,Acs,Reports}}` and matching `ViewModels/**`)
 - [X] T002 [P] [M:H] Create shared frontend component folders in `resources/js/components/{layout,tables,forms,feedback,status,modals,loaders}` with index barrels
 - [X] T003 [P] [M:H] Add `resources/js/types/shell.ts` with `SessionContext` and `NavigationManifest` type stubs (from data-model.md "Shell view models")
-- [X] T004 [P] [M:S] Confirm/configure `@axe-core/playwright` browser-test harness and npm script so `resources/js/__tests__/*-browser.test.tsx` E2E specs run in CI
+- [X] T004 [P] [M:S] Confirm/configure Vitest jsdom browser-simulated test harness and npm script so `resources/js/__tests__/*-browser.test.tsx` journey specs run in CI
 
 **Checkpoint**: Folders and test harness ready.
 
@@ -99,7 +100,7 @@ redirected to `/login`.
 
 - [X] T023 [P] [US1] [M:H] [Test] Integration test login success + invalid-credentials in `resources/js/__tests__/login-flow.test.tsx`
 - [X] T024 [P] [US1] [M:H] [Test] Backend feature test: unauthenticated redirect + `dashboard.permission` on overview/profile in `tests/Feature/AdminConsole/OverviewAuthTest.php`
-- [X] T025 [P] [US1] [M:H] [Test] Browser/E2E journey 1 (admin logs in, sees overview, nav matches permissions, axe + RTL) in `resources/js/__tests__/phase6-overview-browser.test.tsx`
+- [X] T025 [P] [US1] [M:H] [Test] Browser-simulated journey 1 (admin logs in, sees overview, nav matches permissions, axe + RTL) in `resources/js/__tests__/phase6-overview-browser.test.tsx`
 
 ### Implementation for User Story 1
 
@@ -126,7 +127,7 @@ type and a price tier; publish gated by `event.publish`.
 - [X] T032 [P] [US2] [M:H] [Test] Integration test events list + create-event flow in `resources/js/__tests__/events-manage.test.tsx`
 - [X] T033 [P] [US2] [M:H] [Test] Integration test ticket-type + price-tier create in `resources/js/__tests__/ticketing-pricing.test.tsx`
 - [X] T034 [P] [US2] [M:S] [Test] Backend feature test `dashboard.permission` for event/registration/ticketing routes + publish gating in `tests/Feature/AdminConsole/EventsAuthTest.php`
-- [X] T035 [P] [US2] [M:H] [Test] Browser/E2E journeys 2–4 (create event, configure registration field, create ticket type) in `resources/js/__tests__/phase6-events-browser.test.tsx`
+- [X] T035 [P] [US2] [M:H] [Test] Browser-simulated journeys 2–4 (create event, configure registration field, create ticket type) in `resources/js/__tests__/phase6-events-browser.test.tsx`
 
 ### Implementation for User Story 2
 
@@ -156,7 +157,7 @@ and reissue a credential, each permission-gated and modal-confirmed.
 - [X] T045 [P] [US3] [M:H] [Test] Integration test attendee-detail load in `resources/js/__tests__/attendee-detail.test.tsx`
 - [X] T046 [P] [US3] [M:S] [Test] Integration test credential revoke (reason) + reissue in `resources/js/__tests__/credential-actions.test.tsx`
 - [X] T047 [P] [US3] [M:S] [Test] Backend feature test cross-tenant isolation + permission gating for orders/attendees/credentials in `tests/Feature/AdminConsole/CredentialsAuthTest.php`
-- [X] T048 [P] [US3] [M:H] [Test] Browser/E2E journeys 5–7 (orders/attendees view, revoke, reissue) in `resources/js/__tests__/phase6-credentials-browser.test.tsx`
+- [X] T048 [P] [US3] [M:H] [Test] Browser-simulated journeys 5–7 (orders/attendees view, revoke, reissue) in `resources/js/__tests__/phase6-credentials-browser.test.tsx`
 
 ### Implementation for User Story 3
 
@@ -184,7 +185,7 @@ reason); check-in dashboard counters update; scan-events filterable.
 
 - [X] T057 [P] [US4] [M:S] [Test] Integration test scanner accept + reject + duplicate-submit guard in `resources/js/__tests__/scanner-flow.test.tsx`
 - [X] T058 [P] [US4] [M:H] [Test] Backend feature test `dashboard.permission` for wallet/scanner/check-in/scan-events routes in `tests/Feature/AdminConsole/ScanningAuthTest.php`
-- [X] T059 [P] [US4] [M:H] [Test] Browser/E2E journeys 8–9 (valid scan, revoked scan rejection) in `resources/js/__tests__/phase6-scanning-browser.test.tsx`
+- [X] T059 [P] [US4] [M:H] [Test] Browser-simulated journeys 8–9 (valid scan, revoked scan rejection) in `resources/js/__tests__/phase6-scanning-browser.test.tsx`
 
 ### Implementation for User Story 4
 
@@ -211,7 +212,7 @@ reprint (reason required); badge print job appears.
 
 - [X] T067 [P] [US5] [M:H] [Test] Integration test manual-desk search + reprint reason in `resources/js/__tests__/manual-desk.test.tsx`
 - [X] T068 [P] [US5] [M:H] [Test] Backend feature test `dashboard.permission` for kiosk/badge/manual-desk + walk-up gating in `tests/Feature/AdminConsole/KioskBadgeAuthTest.php`
-- [X] T069 [P] [US5] [M:H] [Test] Browser/E2E journeys 10–11 (badge print, manual-desk search) in `resources/js/__tests__/phase6-kiosk-badge-browser.test.tsx`
+- [X] T069 [P] [US5] [M:H] [Test] Browser-simulated journeys 10–11 (badge print, manual-desk search) in `resources/js/__tests__/phase6-kiosk-badge-browser.test.tsx`
 
 ### Implementation for User Story 5
 
@@ -240,7 +241,7 @@ gate-health render; emergency control only for `acs.emergency.manage`.
 
 - [X] T079 [P] [US6] [M:S] [Test] Integration test ACS zone→lane→rule create flow in `resources/js/__tests__/acs-config.test.tsx`
 - [X] T080 [P] [US6] [M:H] [Test] Backend feature test `dashboard.permission` for ACS config/view/emergency in `tests/Feature/AdminConsole/AcsAuthTest.php`
-- [X] T081 [P] [US6] [M:H] [Test] Browser/E2E journey 12 (create zone/lane/rule) in `resources/js/__tests__/phase6-acs-browser.test.tsx`
+- [X] T081 [P] [US6] [M:H] [Test] Browser-simulated journey 12 (create zone/lane/rule) in `resources/js/__tests__/phase6-acs-browser.test.tsx`
 
 ### Implementation for User Story 6
 

@@ -8,16 +8,26 @@ vi.mock('@/layouts/DashboardLayout', () => ({
 
 vi.mock('@inertiajs/react', () => ({
   Link: ({ href, children }: { href: string; children: React.ReactNode }) => <a href={href}>{children}</a>,
+  router: { reload: vi.fn(), visit: vi.fn() },
 }))
 
 vi.mock('@/hooks/useLocale', () => ({
   useLocale: () => ({ locale: 'en', direction: 'ltr' }),
 }))
 
+vi.mock('@/hooks/useToast', () => ({
+  useToast: () => ({ toast: vi.fn() }),
+}))
+
+vi.mock('@/components/layout/PermissionGate', () => ({
+  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}))
+
 describe('attendee detail', () => {
   it('renders attendee profile with linked credential', () => {
     render(
       <AttendeeDetailPage
+        tenantId="ten_1"
         event={{ id: 'evt_1', name: { en: 'Summit', ar: 'القمة' } }}
         attendee={{
           id: 'attendee_1',
@@ -38,5 +48,7 @@ describe('attendee detail', () => {
     expect(screen.getByRole('heading', { name: 'ndee_1' })).toBeInTheDocument()
     expect(screen.getByText('Attendee profile')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'cred_1' })).toHaveAttribute('href', '/tenant/events/evt_1/credentials/cred_1')
+    expect(screen.getByRole('button', { name: 'Print badge' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Manual check-in' })).toBeInTheDocument()
   })
 })

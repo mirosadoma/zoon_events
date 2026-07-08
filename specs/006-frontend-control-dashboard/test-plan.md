@@ -1,7 +1,7 @@
 # Test Plan (source-plan §23 deliverable)
 
 Reuses the existing stack: **Vitest + React Testing Library** (unit/integration),
-**Playwright + @axe-core/playwright** (browser/E2E/a11y/RTL/responsive), and
+**Vitest jsdom + axe-core** (browser-simulated journey/a11y/RTL/responsive), and
 **PHPUnit** (AdminConsole controller/ViewModel + `dashboard.permission` route
 authorization). Wired into existing gates: npm `test`/`typecheck`/`lint`, and
 `composer quality`. Every user-visible surface must pass Arabic/English + RTL and
@@ -44,7 +44,7 @@ axe checks (CR-007/CR-009).
   kiosk mode, badge print jobs, ACS zones/lanes/rules/access-logs, reports).
 - Zero cross-tenant props: a user in tenant A never receives tenant B records.
 
-## 4. Browser / E2E (Playwright + axe) — 12 critical journeys
+## 4. Browser-simulated journeys (Vitest jsdom + axe-core) — 12 critical journeys
 
 Maps to spec User Story acceptance scenarios and source-plan §20.3:
 
@@ -61,7 +61,7 @@ Maps to spec User Story acceptance scenarios and source-plan §20.3:
 11. Manual desk searches an attendee.
 12. ACS operator creates a zone, a lane, and a rule.
 
-Each E2E run also asserts: axe-clean, keyboard operability, Arabic/RTL rendering,
+Each run also asserts: axe-clean, keyboard operability, Arabic/RTL rendering,
 and tablet-width responsive layout without horizontal scroll.
 
 ## 5. Non-functional checks

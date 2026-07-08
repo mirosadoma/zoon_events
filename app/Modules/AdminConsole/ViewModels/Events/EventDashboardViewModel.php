@@ -52,11 +52,12 @@ final readonly class EventDashboardViewModel
     /**
      * @param  Collection<int, TicketType>  $tickets
      * @param  Collection<string, TicketInventory>  $inventory
-     * @return array{event:array<string,mixed>,tickets:list<array<string,mixed>>}
+     * @return array{tenantId:string,event:array<string,mixed>,tickets:list<array<string,mixed>>}
      */
-    public function ticketing(Event $event, Collection $tickets, Collection $inventory): array
+    public function ticketing(Event $event, string $tenantId, Collection $tickets, Collection $inventory): array
     {
         return [
+            'tenantId' => $tenantId,
             'event' => $this->eventRow($event),
             'tickets' => $tickets->map(function (TicketType $ticket) use ($inventory): array {
                 $stock = $inventory->get($ticket->id);
@@ -65,9 +66,15 @@ final readonly class EventDashboardViewModel
                     'id' => $ticket->id,
                     'code' => $ticket->code,
                     'name' => ['en' => $ticket->name_en, 'ar' => $ticket->name_ar],
+                    'description' => ['en' => $ticket->description_en ?? '', 'ar' => $ticket->description_ar ?? ''],
+                    'attendee_type' => $ticket->attendee_type,
                     'price_minor' => $ticket->base_price_minor,
                     'currency' => $ticket->currency,
+                    'capacity' => $stock?->capacity ?? 0,
                     'remaining_quantity' => $stock?->remaining() ?? 0,
+                    'sale_starts_at' => $ticket->sale_starts_at?->toIso8601String(),
+                    'sale_ends_at' => $ticket->sale_ends_at?->toIso8601String(),
+                    'status' => $ticket->status,
                     'state' => $this->availability($ticket, $stock),
                 ];
             })->values()->all(),
@@ -76,12 +83,20 @@ final readonly class EventDashboardViewModel
 
     /**
      * @param  Collection<int, PriceTier>  $tiers
-     * @return array{event:array<string,mixed>,priceTiers:list<array<string,mixed>>}
+     * @param  Collection<int, TicketType>  $ticketTypes
+     * @return array{tenantId:string,event:array<string,mixed>,ticketTypes:list<array<string,mixed>>,priceTiers:list<array<string,mixed>>}
      */
-    public function priceTiers(Event $event, Collection $tiers): array
+    public function priceTiers(Event $event, string $tenantId, Collection $tiers, Collection $ticketTypes): array
     {
         return [
+            'tenantId' => $tenantId,
             'event' => $this->eventRow($event),
+            'ticketTypes' => $ticketTypes->map(fn (TicketType $ticket): array => [
+                'id' => $ticket->id,
+                'code' => $ticket->code,
+                'name' => ['en' => $ticket->name_en, 'ar' => $ticket->name_ar],
+                'currency' => $ticket->currency,
+            ])->values()->all(),
             'priceTiers' => $tiers->map(fn (PriceTier $tier): array => [
                 'id' => $tier->id,
                 'name' => $tier->name,

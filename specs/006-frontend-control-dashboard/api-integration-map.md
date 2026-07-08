@@ -9,9 +9,9 @@ empty state. No gap is closed with a new business module (Constitution VI).
 
 ## How integration works here
 
-- **Reads**: `AdminConsole` controller → read-only ViewModel → owning module's
-  published Application Query → Inertia props. Tenant scope from `tenant.context`;
-  never a client-supplied tenant id.
+- **Reads (target architecture)**: `AdminConsole` controller → read-only ViewModel
+  → owning module's published Application Query → Inertia props. Tenant scope from
+  `tenant.context`; never a client-supplied tenant id.
 - **Writes/actions**: Inertia `router`/form submit → `AdminConsole` controller →
   owning module's Application **Action** (same one the API uses) → audited txn →
   redirect/prop refresh. Validation errors surface from the standard envelope.
@@ -29,14 +29,14 @@ empty state. No gap is closed with a new business module (Constitution VI).
 | Roles admin | role query | role assign/manage actions | EXISTS |
 | Tenant settings | tenant/configuration query | configuration actions | EXISTS |
 | Audit logs | Audit query | export action | EXISTS |
-| Events list/detail | Events query | Events actions (create/update/publish/cancel) | EXISTS |
-| Registration form builder | Registration query | Registration field actions | EXISTS |
+| Events list/detail | Events query | Events actions (create/update/publish/cancel) | EXISTS (R2/R3 remediated: publish/cancel + create/edit call real APIs) |
+| Registration form builder | Registration query | Registration field actions | EXISTS (R4 remediated: builder CRUD/reorder/required persisted via real API) |
 | Registration preview | public event query | test-submit action | EXISTS |
-| Ticket types | Ticketing query | Ticketing actions | EXISTS |
-| Price tiers | Ticketing price-tier query | price-tier actions | Confirmed (AdminConsole ViewModel incl. `is_active_now`) |
+| Ticket types | Ticketing query | Ticketing actions | EXISTS (R6 remediated: create/edit/disable wired to ticketing API) |
+| Price tiers | Ticketing price-tier query | price-tier actions | Confirmed (R7 remediated: create/edit/disable wired; ViewModel incl. `is_active_now`) |
 | Orders list/detail | Orders query | order/refund actions | EXISTS |
-| Attendees list/detail | Attendees query | attendee actions | EXISTS |
-| Credentials list/detail | Credentials query | revoke/reissue actions | EXISTS |
+| Attendees list/detail | Attendees query | attendee actions | EXISTS (R8 remediated: reissue/revoke/print/check-in from attendee detail) |
+| Credentials list/detail | Credentials query | revoke/reissue actions | EXISTS (R1 remediated: revoke/reissue call lifecycle API) |
 | Wallet passes list | WalletPasses query | wallet manage actions | EXISTS |
 | Wallet pass detail | WalletPasses detail query | update/revoke actions | EXISTS (AdminConsole ViewModel) |
 | Scanner | — | `SubmitScanAction` | EXISTS |
@@ -74,5 +74,16 @@ Backend API Requirements section.
 Rules for closing a gap:
 - Add the query method to the owning module's Application layer + its OpenAPI read
   operation; run `composer quality` (OpenAPI sync/lint) and the phase-boundary check.
-- Never read another module's persistence from `AdminConsole`.
+- Prefer published query contracts over direct persistence reads from
+  `AdminConsole`; if a direct read is retained temporarily, document the deviation
+  explicitly in `plan.md` and keep the affected rows in this map aligned.
 - Never introduce a new domain module or business rule to satisfy a display need.
+
+## Documented architecture deviation (R11 / F-12)
+
+The codebase currently keeps a temporary deviation from the target read path in a
+subset of `AdminConsole` controllers/ViewModels: they still query other modules'
+Eloquent models directly for read props. This is tracked as an explicit deviation
+in `plan.md` so docs no longer claim full query-contract conformance. The target
+remains to progressively move those reads to published module queries without
+introducing new business modules.

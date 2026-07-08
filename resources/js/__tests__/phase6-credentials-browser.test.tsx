@@ -16,6 +16,10 @@ vi.mock('@/hooks/useLocale', () => ({
   useLocale: () => ({ locale: 'en', direction: 'ltr' }),
 }))
 
+vi.mock('@/hooks/useToast', () => ({
+  useToast: () => ({ toast: vi.fn() }),
+}))
+
 vi.mock('@/components/layout/PermissionGate', () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
@@ -49,6 +53,7 @@ describe('phase 6 credentials browser journeys', () => {
   it('renders credential detail with revoke action', () => {
     render(
       <CredentialDetailPage
+        tenantId="ten_1"
         event={event}
         credential={{
           id: 'cred_1',

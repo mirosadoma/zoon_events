@@ -2,6 +2,7 @@
 
 namespace App\Modules\AdminConsole\Application;
 
+use App\Modules\AccessControl\Infrastructure\Persistence\Models\AcsLane;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\Audit\Infrastructure\Persistence\Models\AuditLog;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
@@ -68,7 +69,10 @@ final class DashboardOverviewBuilder
                 ->where('tenant_id', $tenantId)
                 ->where('status', 'active')
                 ->count(),
-            'gates_active' => 0,
+            'gates_active' => AcsLane::query()
+                ->where('tenant_id', $tenantId)
+                ->where('status', 'active')
+                ->count(),
             'scans_failed' => ScanEvent::query()
                 ->whereIn('event_id', $eventIds)
                 ->where('result', 'rejected')

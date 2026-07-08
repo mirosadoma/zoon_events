@@ -235,21 +235,21 @@ cannot be completed. This is the bulk of the missing work.
 
 Do these in order; run `npm run lint && npm run typecheck && npm run test` after each.
 
-- [ ] **R1** [M:S] F-1 — wire credential revoke/reissue to the API (real audit, real failure handling)
-- [ ] **R2** [M:H] F-2 — wire event publish/cancel to the API
-- [ ] **R3** [M:S] F-3 — wire create/edit event form (POST/PATCH) with validation errors
-- [ ] **R4** [M:S] F-4 — implement registration form builder CRUD/reorder/require + load existing fields
-- [ ] **R5** [M:H] F-5 — load real fields/branding into registration preview (after R4)
-- [ ] **R6** [M:H] F-6 — wire ticket-type create/edit/disable
-- [ ] **R7** [M:H] F-7 — wire price-tier create/edit/disable
-- [ ] **R8** [M:H] F-8 — add attendee-detail actions (reissue/revoke/print/check-in)
-- [ ] **R9** [M:S] F-9 — apply `kiosk.session` middleware + device-token check to `/kiosk/{device_code}`
-- [ ] **R10** [M:H] F-10 — compute real `gates_active` in the overview
-- [ ] **R11** [M:S] F-12 — route AdminConsole reads through module queries (or document the deviation)
-- [ ] **R12** [M:S] F-13 — real Playwright E2E harness (or correct the docs to match reality)
-- [ ] **R13** [M:H] F-14 — harden integration tests to assert real endpoint calls + failure paths
+- [X] **R1** [M:S] F-1 — wire credential revoke/reissue to the API (real audit, real failure handling)
+- [X] **R2** [M:H] F-2 — wire event publish/cancel to the API
+- [X] **R3** [M:S] F-3 — wire create/edit event form (POST/PATCH) with validation errors
+- [X] **R4** [M:S] F-4 — implement registration form builder CRUD/reorder/require + load existing fields
+- [X] **R5** [M:H] F-5 — load real fields/branding into registration preview (after R4)
+- [X] **R6** [M:H] F-6 — wire ticket-type create/edit/disable
+- [X] **R7** [M:H] F-7 — wire price-tier create/edit/disable
+- [X] **R8** [M:H] F-8 — add attendee-detail actions (reissue/revoke/print/check-in)
+- [X] **R9** [M:S] F-9 — apply `kiosk.session` middleware + device-token check to `/kiosk/{device_code}`
+- [X] **R10** [M:H] F-10 — compute real `gates_active` in the overview
+- [X] **R11** [M:S] F-12 — route AdminConsole reads through module queries (or document the deviation)
+- [X] **R12** [M:S] F-13 — real Playwright E2E harness (or correct the docs to match reality)
+- [X] **R13** [M:H] F-14 — harden integration tests to assert real endpoint calls + failure paths
 - [ ] **R14** [M:S] F-15 — stabilize test DB and confirm `composer test` (Feature/AdminConsole) is green
-- [ ] **R15** [M:H] Fix `api-integration-map.md` rows that claim EXISTS/Confirmed for flows that were stubbed (registration builder, credential/event/ticket/price actions), and re-mirror into spec.md.
+- [X] **R15** [M:H] Fix `api-integration-map.md` rows that claim EXISTS/Confirmed for flows that were stubbed (registration builder, credential/event/ticket/price actions), and re-mirror into spec.md.
 
 ### Verified as actually working (no action needed)
 Manual desk (lookup/scan/print/reprint), walk-up registration, browser scanner

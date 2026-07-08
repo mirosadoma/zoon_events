@@ -118,12 +118,13 @@ CLARIFICATION` items. The decisions below record the choices that shape the desi
   Tailwind properties, locale-aware date/number/currency formatting, visible focus,
   skip links, and axe-clean markup; browser tests assert Arabic/RTL parity.
 - **Rationale**: CR-007 and the design-system standard require it; the existing
-  `foundation-accessibility.test.tsx` + `@axe-core/playwright` provide the harness.
+  `foundation-accessibility.test.tsx` + `axe-core` (via Vitest jsdom browser-simulated
+  tests) provide the harness.
 
 ## Decision 10 — Testing stack reuse
 
-- **Decision**: Vitest + RTL for unit/integration, Playwright + axe for
-  browser/E2E, PHPUnit for AdminConsole controller/ViewModel + `dashboard.permission`
+- **Decision**: Vitest + RTL for unit/integration, Vitest jsdom + axe-core for
+  browser-simulated journeys, and PHPUnit for AdminConsole controller/ViewModel + `dashboard.permission`
   authorization; wire into existing `composer quality` and npm `test`/`typecheck`/
   `lint` gates.
 - **Rationale**: The stack is already present (`package.json`, `tests/**`,

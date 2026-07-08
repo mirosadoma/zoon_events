@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react'
+import { Link, router } from '@inertiajs/react'
 import { useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { DetailsCard } from '@/components/feedback'
@@ -7,6 +7,7 @@ import PermissionGate from '@/components/layout/PermissionGate'
 import ConfirmModal from '@/components/modals/ConfirmModal'
 import StatusBadge from '@/components/status/StatusBadge'
 import { useLocale } from '@/hooks/useLocale'
+import { useToast } from '@/hooks/useToast'
 
 type EventRow = {
   id: string
@@ -22,12 +23,68 @@ type EventRow = {
 type Props = {
   event: EventRow
   tabs: Array<{ label: string; href: string }>
+  tenantId: string
 }
 
-export default function EventDetail({ event, tabs }: Props) {
+export default function EventDetail({ event, tabs, tenantId }: Props) {
   const { locale } = useLocale()
+  const { toast } = useToast()
   const [publishOpen, setPublishOpen] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
+  const [submitting, setSubmitting] = useState<'publish' | 'cancel' | null>(null)
+
+  const apiHeaders = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    'X-Tenant-ID': tenantId,
+  }
+
+  function extractError(body: unknown, fallback: string): string {
+    if (typeof body !== 'object' || body === null) {
+      return fallback
+    }
+    const maybe = body as { detail?: string; message?: string; title?: string; code?: string }
+    return maybe.detail ?? maybe.message ?? maybe.title ?? maybe.code ?? fallback
+  }
+
+  async function runStatusAction(action: 'publish' | 'cancel') {
+    setSubmitting(action)
+    try {
+      const response = await fetch(`/api/v1/tenant/events/${event.id}/${action}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { ...apiHeaders, 'Idempotency-Key': crypto.randomUUID() },
+      })
+      const body = await response.json()
+      if (!response.ok) {
+        toast(
+          extractError(body, action === 'publish'
+            ? (locale === 'ar' ? 'تعذر نشر الفعالية.' : 'Failed to publish event.')
+            : (locale === 'ar' ? 'تعذر إلغاء الفعالية.' : 'Failed to cancel event.')),
+          'error',
+        )
+        return
+      }
+      toast(
+        action === 'publish'
+          ? (locale === 'ar' ? 'تم نشر الفعالية.' : 'Event published.')
+          : (locale === 'ar' ? 'تم إلغاء الفعالية.' : 'Event cancelled.'),
+        'success',
+      )
+      setPublishOpen(false)
+      setCancelOpen(false)
+      router.reload({ only: ['event'] })
+    } catch {
+      toast(
+        action === 'publish'
+          ? (locale === 'ar' ? 'تعذر نشر الفعالية.' : 'Failed to publish event.')
+          : (locale === 'ar' ? 'تعذر إلغاء الفعالية.' : 'Failed to cancel event.'),
+        'error',
+      )
+    } finally {
+      setSubmitting(null)
+    }
+  }
 
   return (
     <DashboardLayout title={event.name[locale]}>
@@ -79,7 +136,8 @@ export default function EventDetail({ event, tabs }: Props) {
         title={locale === 'ar' ? 'نشر الفعالية' : 'Publish event'}
         message={locale === 'ar' ? 'سيتم نشر الفعالية للمشتركين.' : 'This will publish the event for attendees.'}
         confirmLabel={locale === 'ar' ? 'نشر' : 'Publish'}
-        onConfirm={() => setPublishOpen(false)}
+        loading={submitting !== null}
+        onConfirm={() => void runStatusAction('publish')}
         onCancel={() => setPublishOpen(false)}
       />
       <ConfirmModal
@@ -87,7 +145,8 @@ export default function EventDetail({ event, tabs }: Props) {
         title={locale === 'ar' ? 'إلغاء الفعالية' : 'Cancel event'}
         message={locale === 'ar' ? 'سيتم إيقاف التسجيل والعمليات المرتبطة.' : 'This will stop registration and related operations.'}
         confirmLabel={locale === 'ar' ? 'تأكيد الإلغاء' : 'Confirm cancel'}
-        onConfirm={() => setCancelOpen(false)}
+        loading={submitting !== null}
+        onConfirm={() => void runStatusAction('cancel')}
         onCancel={() => setCancelOpen(false)}
       />
     </DashboardLayout>

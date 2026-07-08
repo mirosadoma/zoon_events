@@ -20,6 +20,7 @@ final class TicketTypeWriteRequest extends FormRequest
             'currency' => ['required', 'regex:/^[A-Z]{3}$/'],
             'sale_starts_at' => ['required', 'date'],
             'sale_ends_at' => ['required', 'date', 'after:sale_starts_at'],
+            'status' => ['sometimes', 'string', 'in:draft,active,paused,retired'],
         ];
     }
 
@@ -40,7 +41,7 @@ final class TicketTypeWriteRequest extends FormRequest
             'currency' => $data['currency'],
             'sale_starts_at' => $data['sale_starts_at'],
             'sale_ends_at' => $data['sale_ends_at'],
-            'status' => 'active',
+            'status' => $data['status'] ?? 'active',
         ];
     }
 }

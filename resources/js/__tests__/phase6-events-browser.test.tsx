@@ -16,6 +16,10 @@ vi.mock('@/hooks/useLocale', () => ({
   useLocale: () => ({ locale: 'en', direction: 'ltr' }),
 }))
 
+vi.mock('@/hooks/useToast', () => ({
+  useToast: () => ({ toast: vi.fn() }),
+}))
+
 vi.mock('@/components/layout/PermissionGate', () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
@@ -33,6 +37,7 @@ describe('phase 6 events browser journeys', () => {
   it('renders event detail with publish controls without serious axe violations', async () => {
     const { container } = render(
       <EventDetail
+        tenantId="ten_1"
         event={event}
         tabs={[
           { label: 'Registration form', href: '/tenant/events/evt_1/registration-form' },
@@ -49,7 +54,16 @@ describe('phase 6 events browser journeys', () => {
   })
 
   it('renders registration builder empty state', () => {
-    render(<RegistrationBuilder event={event} fields={[]} />)
+    render(
+      <RegistrationBuilder
+        event={event}
+        tenantId="ten_1"
+        formName="Default form"
+        privacyNoticeVersion="v1"
+        termsVersion="v1"
+        fields={[]}
+      />,
+    )
 
     expect(screen.getByRole('heading', { name: 'Registration form' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Preview' })).toHaveAttribute('href', '/tenant/events/evt_1/registration-preview')

@@ -105,7 +105,10 @@ final class EventOperationsController extends Controller
             ->latest('issued_at')
             ->first();
 
-        return Inertia::render('tenant/attendees/Detail', $this->attendees->detail($event, $attendee, $credential));
+        return Inertia::render('tenant/attendees/Detail', [
+            ...$this->attendees->detail($event, $attendee, $credential),
+            'tenantId' => $context->tenant->id,
+        ]);
     }
 
     public function credentials(string $eventId): Response
@@ -129,7 +132,10 @@ final class EventOperationsController extends Controller
         $event = $this->event($context, $eventId);
         $credential = $this->credential($context, $event, $credentialId);
 
-        return Inertia::render('tenant/credentials/Detail', $this->credentials->detail($event, $credential));
+        return Inertia::render('tenant/credentials/Detail', [
+            ...$this->credentials->detail($event, $credential),
+            'tenantId' => $context->tenant->id,
+        ]);
     }
 
     private function authorizeTenant(string $permission): TenantContext

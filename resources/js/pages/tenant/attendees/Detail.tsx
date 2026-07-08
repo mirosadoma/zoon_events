@@ -1,9 +1,13 @@
-import { Link } from '@inertiajs/react'
+import { Link, router } from '@inertiajs/react'
+import { useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { DetailsCard } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
+import { CredentialDialog } from '@/components/credentials/CredentialDialog'
+import PermissionGate from '@/components/layout/PermissionGate'
 import StatusBadge from '@/components/status/StatusBadge'
 import { useLocale } from '@/hooks/useLocale'
+import { useToast } from '@/hooks/useToast'
 
 type EventRow = {
   id: string
@@ -35,10 +39,130 @@ type AttendeeDetail = {
 type Props = {
   event: EventRow
   attendee: AttendeeDetail
+  tenantId: string
 }
 
-export default function AttendeeDetailPage({ event, attendee }: Props) {
+export default function AttendeeDetailPage({ event, attendee, tenantId }: Props) {
   const { locale } = useLocale()
+  const { toast } = useToast()
+  const [busyAction, setBusyAction] = useState<'revoke' | 'reissue' | 'print' | 'checkin' | null>(null)
+  const apiHeaders = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    'X-Tenant-ID': tenantId,
+  }
+
+  function extractError(body: unknown, fallback: string): string {
+    if (typeof body !== 'object' || body === null) {
+      return fallback
+    }
+    const maybe = body as { detail?: string; message?: string; title?: string; code?: string }
+    return maybe.detail ?? maybe.message ?? maybe.title ?? maybe.code ?? fallback
+  }
+
+  async function handleRevoke(reason: string) {
+    if (!attendee.credential) return false
+    setBusyAction('revoke')
+    try {
+      const response = await fetch(`/api/v1/tenant/events/${event.id}/credentials/${attendee.credential.id}/revoke`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { ...apiHeaders, 'Idempotency-Key': crypto.randomUUID() },
+        body: JSON.stringify({ reason }),
+      })
+      const body = await response.json()
+      if (!response.ok) {
+        toast(extractError(body, locale === 'ar' ? 'تعذر إلغاء بيانات الدخول.' : 'Failed to revoke credential.'), 'error')
+        return false
+      }
+      toast(locale === 'ar' ? 'تم إلغاء بيانات الدخول.' : 'Credential revoked.', 'success')
+      router.reload({ only: ['attendee'] })
+      return true
+    } catch {
+      toast(locale === 'ar' ? 'تعذر إلغاء بيانات الدخول.' : 'Failed to revoke credential.', 'error')
+      return false
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function handleReissue(reason: string) {
+    if (!attendee.credential) return false
+    setBusyAction('reissue')
+    try {
+      const response = await fetch(`/api/v1/tenant/events/${event.id}/credentials/${attendee.credential.id}/reissue`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { ...apiHeaders, 'Idempotency-Key': crypto.randomUUID() },
+        body: JSON.stringify({ reason }),
+      })
+      const body = await response.json()
+      if (!response.ok) {
+        toast(extractError(body, locale === 'ar' ? 'تعذر إعادة إصدار بيانات الدخول.' : 'Failed to reissue credential.'), 'error')
+        return false
+      }
+      toast(locale === 'ar' ? 'تمت إعادة إصدار بيانات الدخول.' : 'Credential reissued.', 'success')
+      router.reload({ only: ['attendee'] })
+      return true
+    } catch {
+      toast(locale === 'ar' ? 'تعذر إعادة إصدار بيانات الدخول.' : 'Failed to reissue credential.', 'error')
+      return false
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function handlePrintBadge() {
+    if (!attendee.credential) return
+    setBusyAction('print')
+    try {
+      const response = await fetch(`/api/v1/tenant/events/${event.id}/badge-print-jobs`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { ...apiHeaders, 'Idempotency-Key': crypto.randomUUID() },
+        body: JSON.stringify({ attendee_id: attendee.id, credential_id: attendee.credential.id }),
+      })
+      const body = await response.json()
+      if (!response.ok) {
+        toast(extractError(body, locale === 'ar' ? 'تعذرت طباعة البطاقة.' : 'Failed to print badge.'), 'error')
+        return
+      }
+      toast(locale === 'ar' ? 'تم إنشاء مهمة طباعة البطاقة.' : 'Badge print job created.', 'success')
+    } catch {
+      toast(locale === 'ar' ? 'تعذرت طباعة البطاقة.' : 'Failed to print badge.', 'error')
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function handleManualCheckIn() {
+    if (!attendee.credential) return
+    setBusyAction('checkin')
+    try {
+      const response = await fetch(`/api/v1/tenant/events/${event.id}/scans`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { ...apiHeaders, 'Idempotency-Key': crypto.randomUUID() },
+        body: JSON.stringify({
+          scanner_type: 'manual_desk',
+          credential_id: attendee.credential.id,
+          override: false,
+          override_reason: null,
+        }),
+      })
+      const body = await response.json()
+      if (!response.ok) {
+        toast(extractError(body, locale === 'ar' ? 'تعذر تسجيل الحضور يدويًا.' : 'Failed to check in attendee manually.'), 'error')
+        return
+      }
+      toast(locale === 'ar' ? 'تم تسجيل الحضور.' : 'Attendee checked in.', 'success')
+      router.reload({ only: ['attendee'] })
+    } catch {
+      toast(locale === 'ar' ? 'تعذر تسجيل الحضور يدويًا.' : 'Failed to check in attendee manually.', 'error')
+    } finally {
+      setBusyAction(null)
+    }
+  }
 
   return (
     <DashboardLayout title={attendee.label}>
@@ -93,6 +217,33 @@ export default function AttendeeDetailPage({ event, attendee }: Props) {
               </div>
             </dl>
           </section>
+        )}
+
+        {attendee.credential && (
+          <section className="state-panel mt-6">
+            <h2 className="text-lg font-semibold">{locale === 'ar' ? 'إجراءات الحاضر' : 'Attendee actions'}</h2>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <PermissionGate permission="badge.print">
+                <button type="button" className="button-secondary" onClick={() => void handlePrintBadge()} disabled={busyAction !== null}>
+                  {locale === 'ar' ? 'طباعة البطاقة' : 'Print badge'}
+                </button>
+              </PermissionGate>
+              <PermissionGate permission="checkin.desk.perform">
+                <button type="button" className="button-secondary" onClick={() => void handleManualCheckIn()} disabled={busyAction !== null}>
+                  {locale === 'ar' ? 'تسجيل حضور يدوي' : 'Manual check-in'}
+                </button>
+              </PermissionGate>
+            </div>
+          </section>
+        )}
+
+        {attendee.credential && (
+          <CredentialDialog
+            status={attendee.credential.status}
+            loading={busyAction !== null}
+            onRevoked={handleRevoke}
+            onReissued={handleReissue}
+          />
         )}
       </PageContent>
     </DashboardLayout>
