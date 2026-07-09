@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useMemo, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
@@ -9,6 +9,7 @@ import FiltersBar from '@/components/tables/FiltersBar'
 import SelectInput from '@/components/forms/SelectInput'
 import CheckboxInput from '@/components/forms/CheckboxInput'
 import { useLocale } from '@/hooks/useLocale'
+import { scanReasonLabel } from '@/lib/scanLabels'
 
 type EventRow = {
   id: string
@@ -20,7 +21,9 @@ type ScanEventRow = {
   result: string
   scanner_type: string
   gate_id?: string | null
+  gate_name?: string | null
   zone_id?: string | null
+  zone_name?: string | null
   offline: boolean
   attendee_id?: string | null
   reason?: string | null
@@ -67,7 +70,7 @@ export default function ScanEvents({ event, scanEvents }: Props) {
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: locale === 'ar' ? 'أحداث المسح' : 'Scan events' },
         ]}
-        actions={<Link className="button-secondary" href={`/tenant/events/${event.id}/check-in-dashboard`}>{locale === 'ar' ? 'لوحة تسجيل الحضور' : 'Check-in dashboard'}</Link>}
+        actions={<LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/check-in-dashboard`}>{locale === 'ar' ? 'لوحة تسجيل الحضور' : 'Check-in dashboard'}</LocalizedLink>}
       />
       <PageContent>
         <FiltersBar>
@@ -109,14 +112,32 @@ export default function ScanEvents({ event, scanEvents }: Props) {
                 render: (row) => <StatusBadge status={String(row.result)} />,
               },
               { key: 'scanner_type', header: locale === 'ar' ? 'الماسح' : 'Scanner' },
-              { key: 'gate_id', header: locale === 'ar' ? 'البوابة' : 'Gate' },
-              { key: 'zone_id', header: locale === 'ar' ? 'المنطقة' : 'Zone' },
+              {
+                key: 'gate_id',
+                header: locale === 'ar' ? 'البوابة' : 'Gate',
+                render: (row) => {
+                  const scan = row as unknown as ScanEventRow
+                  return scan.gate_name ?? scan.gate_id ?? '—'
+                },
+              },
+              {
+                key: 'zone_id',
+                header: locale === 'ar' ? 'المنطقة' : 'Zone',
+                render: (row) => {
+                  const scan = row as unknown as ScanEventRow
+                  return scan.zone_name ?? scan.zone_id ?? '—'
+                },
+              },
               {
                 key: 'offline',
                 header: locale === 'ar' ? 'غير متصل' : 'Offline',
                 render: (row) => (row.offline ? (locale === 'ar' ? 'نعم' : 'Yes') : '—'),
               },
-              { key: 'reason', header: locale === 'ar' ? 'السبب' : 'Reason' },
+              {
+                key: 'reason',
+                header: locale === 'ar' ? 'السبب' : 'Reason',
+                render: (row) => scanReasonLabel(String(row.reason ?? ''), locale),
+              },
               { key: 'scanned_at', header: locale === 'ar' ? 'وقت المسح' : 'Scanned at' },
             ]}
           />

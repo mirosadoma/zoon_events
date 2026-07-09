@@ -2,6 +2,7 @@
 
 namespace App\Modules\Events\Application\Actions;
 
+use App\Modules\AdminConsole\Application\Actions\SyncEventVenues;
 use App\Modules\Audit\Application\AuditWriter;
 use App\Modules\Events\Domain\Events\EventUpdated;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
@@ -11,14 +12,18 @@ use Illuminate\Support\Facades\DB;
 
 final readonly class UpdateEvent
 {
-    public function __construct(private AuditWriter $audit) {}
+    public function __construct(
+        private AuditWriter $audit,
+        private SyncEventVenues $venues,
+    ) {}
 
     /** @param array<string,mixed> $attributes */
     public function execute(TenantContext $context, Event $event, array $attributes): Event
     {
         return DB::transaction(function () use ($context, $event, $attributes): Event {
             $branding = array_intersect_key($attributes, array_flip(['brand_reference', 'domain_reference']));
-            unset($attributes['brand_reference'], $attributes['domain_reference']);
+            $venueRows = $attributes['venues'] ?? null;
+            unset($attributes['brand_reference'], $attributes['domain_reference'], $attributes['venues']);
             $before = $event->only(array_keys($attributes));
             $event->fill($attributes);
             if ($event->status === 'draft') {
@@ -37,6 +42,9 @@ final readonly class UpdateEvent
                         'status' => 'active',
                     ],
                 );
+            }
+            if (is_array($venueRows)) {
+                $this->venues->execute($context->tenant->id, $event, $venueRows);
             }
             $this->audit->writeTenant('event.updated', 'succeeded', $context, targetType: 'event', targetId: $event->id, changeSummary: ['before' => $before, 'after' => $event->only(array_keys($attributes))]);
 

@@ -1,28 +1,47 @@
-import type { NavigationItem } from '@/types/shell'
+import type { NavigationGroup, NavigationItem } from '@/types/shell'
 
-export const platformNavigation: NavigationItem[] = [
-  { key: 'overview', label: 'overview', href: '/', permission: null },
-  { key: 'profile', label: 'profile', href: '/profile', permission: null },
+export type { NavigationGroup }
+
+export const platformNavigationGroups: NavigationGroup[] = [
   {
-    key: 'admin',
-    label: 'administration',
-    href: '/admin/users',
-    permission: null,
-    children: [
-      { key: 'admin-users', label: 'users', href: '/admin/users', permission: 'membership.manage' },
-      { key: 'admin-roles', label: 'roles', href: '/admin/roles', permission: 'role.manage' },
-      { key: 'admin-tenant-settings', label: 'tenantSettings', href: '/admin/tenant-settings', permission: 'tenant.view' },
-      { key: 'admin-audit', label: 'audit', href: '/admin/audit-logs', permission: 'audit.view' },
+    key: 'menu',
+    label: 'navGroupMenu',
+    items: [
+      { key: 'overview', label: 'overview', href: '/dashboard', icon: 'overview', permission: null },
+      { key: 'events', label: 'events', href: '/tenant/events', icon: 'events', permission: 'event.view' },
+      { key: 'profile', label: 'profile', href: '/profile', icon: 'profile', permission: null },
     ],
   },
-  { key: 'tenants', label: 'tenants', href: '/platform/tenants', permission: 'platform.tenant.view' },
-  { key: 'platform-users', label: 'users', href: '/platform/users', permission: 'platform.user.view' },
-  { key: 'platform-roles', label: 'roles', href: '/platform/roles', permission: 'platform.role.view' },
-  { key: 'platform-audit', label: 'audit', href: '/platform/audit', permission: 'platform.audit.view' },
-  { key: 'health', label: 'health', href: '/platform/health', permission: 'operations.health.view' },
-  { key: 'featureFlags', label: 'featureFlags', href: '/platform/feature-flags', permission: 'platform.feature_flag.view' },
-  { key: 'configuration', label: 'configuration', href: '/platform/configuration', permission: 'platform.configuration.view' },
+  {
+    key: 'administration',
+    label: 'navGroupAdministration',
+    items: [
+      { key: 'admin-users', label: 'users', href: '/admin/users', icon: 'admin-users', permission: 'membership.view' },
+      { key: 'admin-roles', label: 'roles', href: '/admin/roles', icon: 'admin-roles', permission: 'role.view' },
+      { key: 'admin-tenant-settings', label: 'tenantSettings', href: '/admin/tenant-settings', icon: 'admin-tenant-settings', permission: 'tenant.view' },
+      { key: 'admin-audit', label: 'audit', href: '/admin/audit-logs', icon: 'admin-audit', permission: 'audit.view' },
+    ],
+  },
+  {
+    key: 'platform',
+    label: 'navGroupPlatform',
+    items: [
+      { key: 'tenants', label: 'tenants', href: '/platform/tenants', icon: 'tenants', permission: 'platform.tenant.view' },
+      { key: 'platform-users', label: 'users', href: '/platform/users', icon: 'platform-users', permission: 'platform.user.view' },
+      { key: 'organizer-requests', label: 'organizerRequests', href: '/platform/organizer-requests', icon: 'organizer-requests', permission: 'platform.user.manage' },
+      { key: 'site-settings', label: 'siteSettings', href: '/platform/site-settings', icon: 'site-settings', permission: 'platform.configuration.view' },
+      { key: 'geography', label: 'geography', href: '/platform/geography', icon: 'geography', permission: 'platform.configuration.view' },
+      { key: 'platform-roles', label: 'roles', href: '/platform/roles', icon: 'platform-roles', permission: 'platform.role.view' },
+      { key: 'platform-audit', label: 'audit', href: '/platform/audit', icon: 'platform-audit', permission: 'platform.audit.view' },
+      { key: 'health', label: 'health', href: '/platform/health', icon: 'health', permission: 'operations.health.view' },
+      { key: 'featureFlags', label: 'featureFlags', href: '/platform/feature-flags', icon: 'featureFlags', permission: 'platform.feature_flag.view' },
+      { key: 'configuration', label: 'configuration', href: '/platform/configuration', icon: 'configuration', permission: 'platform.configuration.view' },
+    ],
+  },
 ]
+
+/** @deprecated Use platformNavigationGroups */
+export const platformNavigation: NavigationItem[] = platformNavigationGroups.flatMap((group) => group.items)
 
 export function filterNavigation(
   items: NavigationItem[],
@@ -49,6 +68,21 @@ export function filterNavigation(
   return filtered
 }
 
-export function resolveLabel(messages: Record<string, string>, key: string): string {
-  return messages[key] ?? key
+export function filterNavigationGroups(
+  groups: NavigationGroup[],
+  can: Record<string, boolean>,
+): NavigationGroup[] {
+  return groups
+    .map((group) => ({
+      ...group,
+      items: filterNavigation(group.items, can),
+    }))
+    .filter((group) => group.items.length > 0)
+}
+
+import type { LocaleMessages } from '@/components/layout/SidebarSection'
+
+export function resolveLabel(messages: LocaleMessages, key: string): string {
+  const value = messages[key as keyof LocaleMessages]
+  return typeof value === 'string' ? value : key
 }

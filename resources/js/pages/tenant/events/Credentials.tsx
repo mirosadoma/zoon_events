@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useMemo, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
@@ -94,9 +94,9 @@ export default function Credentials({ event, credentials }: Props) {
                   const credential = row as unknown as CredentialRow
 
                   return (
-                    <Link href={`/tenant/events/${event.id}/credentials/${credential.id}`} className="font-medium text-sky-700 hover:underline">
+                    <LocalizedLink href={`/tenant/events/${event.id}/credentials/${credential.id}`} className="font-medium text-sky-700 hover:underline">
                       {credential.code}
-                    </Link>
+                    </LocalizedLink>
                   )
                 },
               },
@@ -112,9 +112,9 @@ export default function Credentials({ event, credentials }: Props) {
                   const credential = row as unknown as CredentialRow
 
                   return (
-                    <Link href={`/tenant/events/${event.id}/attendees/${credential.attendee_id}`} className="text-sky-700 hover:underline">
+                    <LocalizedLink href={`/tenant/events/${event.id}/attendees/${credential.attendee_id}`} className="text-sky-700 hover:underline">
                       {credential.attendee_id.slice(-8)}
-                    </Link>
+                    </LocalizedLink>
                   )
                 },
               },

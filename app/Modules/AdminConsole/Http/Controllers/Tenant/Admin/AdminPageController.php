@@ -3,6 +3,8 @@
 namespace App\Modules\AdminConsole\Http\Controllers\Tenant\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Modules\AdminConsole\Application\MembershipVisibility;
 use App\Modules\AdminConsole\Application\SessionContextBuilder;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Admin\Concerns\AuthorizesTenantAdminPage;
 use App\Modules\AdminConsole\ViewModels\Admin\AuditLogsViewModel;
@@ -26,6 +28,7 @@ final class AdminPageController extends Controller
     public function __construct(
         private readonly SessionContextBuilder $sessions,
         private readonly PermissionEvaluator $permissions,
+        private readonly MembershipVisibility $membershipVisibility,
         private readonly UsersViewModel $users,
         private readonly RolesViewModel $roles,
         private readonly TenantSettingsViewModel $tenantSettings,
@@ -36,10 +39,15 @@ final class AdminPageController extends Controller
     public function users(Request $request): Response
     {
         $context = $this->authorizeTenantAdmin($this->sessions, $this->permissions, 'membership.view');
+        $user = $request->user();
+        abort_unless($user instanceof User, 403);
 
-        $query = TenantMembership::query()
-            ->with('user')
-            ->where('tenant_id', $context->tenant->id);
+        $query = $this->membershipVisibility
+            ->scopeVisibleMemberships(
+                TenantMembership::query()->with('user'),
+                $context,
+                $user,
+            );
 
         if ($status = $request->string('status')->toString()) {
             $query->where('status', $status);
@@ -47,24 +55,35 @@ final class AdminPageController extends Controller
 
         $memberships = $query->orderByDesc('created_at')->limit(200)->get();
 
-        return Inertia::render('admin/Users', $this->users->index($context->tenant->id, $memberships));
+        return Inertia::render('admin/Users', $this->users->index($context->tenant->id, $memberships, (int) $user->id));
     }
 
     public function roles(): Response
     {
         $context = $this->authorizeTenantAdmin($this->sessions, $this->permissions, 'role.view');
+        $user = request()->user();
+        abort_unless($user instanceof User, 403);
 
         $roles = TenantRole::query()
             ->withoutGlobalScopes()
             ->with('permissions')
             ->where('tenant_id', $context->tenant->id)
+            ->where('is_system', false)
+            ->where('created_by_user_id', $user->id)
+            ->orderBy('name_en')
             ->orderBy('name')
             ->get();
 
         $availablePermissions = Permission::query()
             ->where('scope', 'tenant')
+            ->orderBy('module')
             ->orderBy('key')
-            ->pluck('key')
+            ->get(['key', 'module'])
+            ->map(fn (Permission $permission): array => [
+                'key' => $permission->key,
+                'module' => $permission->module,
+            ])
+            ->values()
             ->all();
 
         return Inertia::render('admin/Roles', [

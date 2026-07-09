@@ -13,3 +13,4 @@ Schedule::command('zonetec:ticketing:expire-holds')->everyMinute()->withoutOverl
 Schedule::command('zonetec:payments:reconcile')->everyMinute()->withoutOverlapping();
 Schedule::command('zonetec:notifications:deliver-due')->everyMinute()->withoutOverlapping();
 Schedule::command('zonetec:identity:purge-expired')->daily()->withoutOverlapping();
+Schedule::command('zonetec:identity:expire-stale')->daily()->withoutOverlapping();

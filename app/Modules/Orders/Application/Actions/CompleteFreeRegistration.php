@@ -4,6 +4,7 @@ namespace App\Modules\Orders\Application\Actions;
 
 use App\Modules\Attendees\Contracts\AttendeeCreator;
 use App\Modules\Audit\Contracts\AuditWriter;
+use App\Modules\Credentials\Application\CredentialIssuerService;
 use App\Modules\Credentials\Contracts\CredentialIssuer;
 use App\Modules\Notifications\Contracts\ConfirmationIntentCreator;
 use App\Modules\Orders\Domain\CompletedRegistration;
@@ -24,6 +25,7 @@ final readonly class CompleteFreeRegistration
         private FreeTicketAllocator $tickets,
         private AttendeeCreator $attendees,
         private CredentialIssuer $credentials,
+        private CredentialIssuerService $directCredentials,
         private ConfirmationIntentCreator $notifications,
         private PersonalDataCipher $cipher,
         private BlindIndex $indexes,
@@ -79,7 +81,8 @@ final readonly class CompleteFreeRegistration
                 $allocation->ticketTypeId, $submission->id, $input->attendee, $input->locale,
             );
             $item->forceFill(['attendee_id' => $attendee->id])->save();
-            $credential = $this->credentials->issue(
+            $issuer = $input->bypassIdentityGateForCredential ? $this->directCredentials : $this->credentials;
+            $credential = $issuer->issue(
                 $input->tenantId, $input->eventId, $attendee->id,
                 $allocation->ticketTypeId, $input->credentialExpiresAt,
             );

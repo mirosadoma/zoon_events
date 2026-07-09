@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { PageContent, PageHeader } from '@/components/layout'
 import { useLocale } from '@/hooks/useLocale'
@@ -70,7 +70,7 @@ export default function EventReport({ event, report }: Props) {
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: messages.reports },
         ]}
-        actions={<Link className="button-secondary" href={`/tenant/events/${event.id}`}>{messages.eventDetail}</Link>}
+        actions={<LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}`}>{messages.eventDetail}</LocalizedLink>}
       />
       <PageContent>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

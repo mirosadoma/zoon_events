@@ -5,12 +5,12 @@ namespace App\Modules\AdminConsole\Http\Controllers\Tenant\Badges;
 use App\Http\Controllers\Controller;
 use App\Modules\AdminConsole\Application\SessionContextBuilder;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\CheckIn\Concerns\AuthorizesTenantEventPage;
+use App\Modules\AdminConsole\Http\Controllers\Tenant\Events\Concerns\ResolvesTenantEventFromRoute;
 use App\Modules\AdminConsole\ViewModels\Badges\BadgePrintJobsViewModel;
 use App\Modules\AdminConsole\ViewModels\Badges\BadgeTemplatePageViewModel;
 use App\Modules\Authorization\Application\PermissionEvaluator;
 use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgePrintJob;
 use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgeTemplate;
-use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -18,6 +18,7 @@ use Inertia\Response;
 final class BadgePageController extends Controller
 {
     use AuthorizesTenantEventPage;
+    use ResolvesTenantEventFromRoute;
 
     public function __construct(
         private readonly SessionContextBuilder $sessions,
@@ -60,9 +61,7 @@ final class BadgePageController extends Controller
             403,
         );
 
-        $event = Event::query()
-            ->where('tenant_id', $context->tenant->id)
-            ->findOrFail($eventId);
+        $event = $this->event($context, $eventId);
 
         $query = BadgePrintJob::query()
             ->where('tenant_id', $context->tenant->id)

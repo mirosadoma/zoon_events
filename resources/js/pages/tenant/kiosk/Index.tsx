@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useCallback, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { HeartbeatIndicator } from '@/components/kiosk/HeartbeatIndicator'
@@ -79,9 +79,9 @@ export default function KioskIndex({ event, tenantId, kiosks: initialKiosks }: P
           <ul className="space-y-3">
             {kiosks.map((kiosk) => (
               <li key={kiosk.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-                <Link className="font-medium hover:underline" href={`/tenant/events/${event.id}/kiosks/${kiosk.id}`}>
+                <LocalizedLink className="font-medium hover:underline" href={`/tenant/events/${event.id}/kiosks/${kiosk.id}`}>
                   {kiosk.device_name}
-                </Link>
+                </LocalizedLink>
                 <HeartbeatIndicator kiosk={kiosk} />
                 <StatusBadge status={kiosk.status} />
                 <span className="text-sm text-slate-500">{kiosk.device_code}</span>

@@ -25,3 +25,10 @@ Notes:
   filing; likely satisfiable by reusing them.
 - Update this file (and mirror the summary into `spec.md` Missing Backend API
   Requirements) as gaps are confirmed or closed.
+
+## Demo / TailAdmin leftovers audit (T004)
+
+- **Removed / avoided**: TailAdmin sample pages are not shipped; shell uses Zonetec tokens (`resources/css/app.css`) and `Zonetec Foundation` branding.
+- **Intentional placeholders**: `NotificationDropdown` (GAP-A), partial `SearchCommand` empty state when API unavailable (GAP-B); real search wired via `/dashboard/search` when backend returns results.
+- **Demo seed data**: `database/seeders/DemoAccounts.php` + `FoundationSeeder` — dev/staging only; documented in `docs/demo-users-ar.md`.
+- **No action**: `public/landing/*.png` are product marketing assets, not TailAdmin kit leftovers.

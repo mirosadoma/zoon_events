@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { usePage } from '@inertiajs/react'
 import { describe, expect, it, vi } from 'vitest'
 import Sidebar from '@/components/layout/Sidebar'
+import { ShellLayoutProvider } from '@/contexts/ShellLayoutContext'
 
 vi.mock('@inertiajs/react', () => ({
   Link: ({ href, children }: { href: string; children: React.ReactNode }) => <a href={href}>{children}</a>,
@@ -18,9 +19,14 @@ describe('shell navigation visibility', () => {
           'event.view': true,
         },
       },
+      url: '/en/dashboard',
     } as unknown as ReturnType<typeof usePage>)
 
-    render(<Sidebar />)
+    render(
+      <ShellLayoutProvider>
+        <Sidebar />
+      </ShellLayoutProvider>,
+    )
 
     expect(screen.getByRole('link', { name: 'Overview' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Tenants' })).toBeInTheDocument()

@@ -7,6 +7,7 @@ use App\Modules\Notifications\Contracts\ConfirmationIntentCreator;
 use App\Modules\Notifications\Infrastructure\Persistence\Models\Notification;
 use App\Modules\Shared\Application\DataProtection\BlindIndex;
 use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
+use Illuminate\Support\Facades\DB;
 
 final readonly class ConfirmationIntentFactory implements ConfirmationIntentCreator
 {
@@ -32,12 +33,33 @@ final readonly class ConfirmationIntentFactory implements ConfirmationIntentCrea
                 $tenantId, $eventId, $attendeeId, $orderId, $credentialId,
                 'sms', $phone, $locale, $smsAdapter,
             );
-            DeliverNotificationJob::dispatch($sms->id);
+            $this->queueDelivery($sms->id);
         }
 
-        DeliverNotificationJob::dispatch($notification->id);
+        $this->queueDelivery($notification->id);
 
         return $notification->id;
+    }
+
+    private function queueDelivery(string $notificationId): void
+    {
+        $deliver = function () use ($notificationId): void {
+            if ((bool) config('notifications.dispatch_sync', false)) {
+                DeliverNotificationJob::dispatchSync($notificationId);
+
+                return;
+            }
+
+            DeliverNotificationJob::dispatch($notificationId);
+        };
+
+        if (DB::transactionLevel() > 0) {
+            DB::afterCommit($deliver);
+
+            return;
+        }
+
+        $deliver();
     }
 
     private function createChannel(

@@ -1,44 +1,75 @@
 import { clsx } from 'clsx'
+import { useLocale } from '@/hooks/useLocale'
+import en from '@/locales/en'
+import ar from '@/locales/ar'
 
-const VARIANTS: Record<string, string> = {
-  draft: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-100',
-  published: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100',
-  cancelled: 'bg-red-100 text-red-900 dark:bg-red-900/40 dark:text-red-100',
-  active: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100',
-  inactive: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-100',
-  pending: 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100',
-  not_required: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-100',
-  gov_verified: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100',
-  face_verified: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100',
-  manually_approved: 'bg-sky-100 text-sky-900 dark:bg-sky-900/40 dark:text-sky-100',
-  revoked: 'bg-red-100 text-red-900 dark:bg-red-900/40 dark:text-red-100',
-  expired: 'bg-orange-100 text-orange-900 dark:bg-orange-900/40 dark:text-orange-100',
-  reissued: 'bg-sky-100 text-sky-900 dark:bg-sky-900/40 dark:text-sky-100',
-  paid: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100',
-  failed: 'bg-red-100 text-red-900 dark:bg-red-900/40 dark:text-red-100',
-  printing: 'bg-sky-100 text-sky-900 dark:bg-sky-900/40 dark:text-sky-100',
-  printed: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100',
-  accepted: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100',
-  rejected: 'bg-red-100 text-red-900 dark:bg-red-900/40 dark:text-red-100',
-  duplicate: 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100',
-  offline: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-100',
-  healthy: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100',
-  degraded: 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100',
-  unknown: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-100',
+type BadgeTone = 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'emphasis'
+
+const STATUS_TONE: Record<string, BadgeTone> = {
+  draft: 'neutral',
+  published: 'success',
+  cancelled: 'danger',
+  active: 'success',
+  inactive: 'neutral',
+  pending: 'warning',
+  not_required: 'neutral',
+  gov_verified: 'success',
+  face_verified: 'success',
+  manually_approved: 'info',
+  revoked: 'danger',
+  expired: 'warning',
+  reissued: 'info',
+  paid: 'success',
+  failed: 'danger',
+  printing: 'info',
+  printed: 'success',
+  accepted: 'success',
+  rejected: 'danger',
+  duplicate: 'warning',
+  offline: 'neutral',
+  healthy: 'success',
+  degraded: 'warning',
+  unknown: 'neutral',
+  complete: 'success',
+  open: 'info',
+  closed: 'neutral',
+  paired: 'success',
+  unpaired: 'warning',
+}
+
+const TONE_CLASS: Record<BadgeTone, string> = {
+  primary: 'ta-badge-primary',
+  success: 'ta-badge-success',
+  warning: 'ta-badge-warning',
+  danger: 'ta-badge-danger',
+  info: 'ta-badge-info',
+  neutral: 'ta-badge-neutral',
+  emphasis: 'ta-badge-emphasis',
 }
 
 type StatusBadgeProps = {
   status: string
   label?: string
+  size?: 'sm' | 'md'
 }
 
-export default function StatusBadge({ status, label }: StatusBadgeProps) {
+export default function StatusBadge({ status, label, size = 'sm' }: StatusBadgeProps) {
+  const { locale } = useLocale()
+  const messages = locale === 'ar' ? ar : en
   const normalized = status.toLowerCase().replace(/\s+/g, '_')
-  const variant = VARIANTS[normalized] ?? VARIANTS.unknown
+  const tone = STATUS_TONE[normalized] ?? 'neutral'
+  const statusLabels = messages.statusLabels
+  const resolvedLabel = label ?? statusLabels[normalized as keyof typeof statusLabels] ?? status.replace(/_/g, ' ')
 
   return (
-    <span className={clsx('inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize', variant)}>
-      {label ?? status.replace(/_/g, ' ')}
+    <span
+      className={clsx(
+        'ta-badge',
+        TONE_CLASS[tone],
+        size === 'md' && 'px-3 py-1 text-sm',
+      )}
+    >
+      {resolvedLabel}
     </span>
   )
 }

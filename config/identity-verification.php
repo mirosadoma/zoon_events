@@ -12,6 +12,8 @@ return [
         'provider_payload_days' => (int) env('IDENTITY_PROVIDER_PAYLOAD_RETENTION_DAYS', 7),
     ],
 
+    'verification_validity_days' => (int) env('IDENTITY_VERIFICATION_VALIDITY_DAYS', 365),
+
     'consent_notice_version' => env('IDENTITY_CONSENT_NOTICE_VERSION', 'identity-v1'),
 
     'government_callback_secret' => env('IDENTITY_GOVERNMENT_CALLBACK_SECRET', 'identity-callback-test-secret'),

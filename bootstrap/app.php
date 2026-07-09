@@ -5,6 +5,7 @@ use App\Modules\AccessControl\Http\Middleware\ClearAcsIntegration;
 use App\Modules\AccessControl\Http\Middleware\RequireAcsCapability;
 use App\Modules\AccessControl\Http\Middleware\ResolveAcsIntegration;
 use App\Modules\AdminConsole\Http\Middleware\AuthorizeDashboardPage;
+use App\Modules\AdminConsole\Http\Middleware\EnsureSiteIsAvailable;
 use App\Modules\Authorization\Http\Middleware\RequirePermission;
 use App\Modules\Events\Http\Middleware\ClearPublicEventContext;
 use App\Modules\Events\Http\Middleware\ResolvePublicEventContext;
@@ -13,6 +14,7 @@ use App\Modules\Kiosk\Http\Middleware\ResolveKioskSession;
 use App\Modules\Operations\Application\Telemetry\RecordRequestTelemetry;
 use App\Modules\Shared\Http\Middleware\AssignRequestContext;
 use App\Modules\Shared\Http\Middleware\RequireIdempotencyKey;
+use App\Modules\Shared\Http\Middleware\RedirectToLocalizedUrl;
 use App\Modules\Shared\Http\Middleware\ResolveLocale;
 use App\Modules\Shared\Http\Middleware\SecurityHeaders;
 use App\Modules\Shared\Http\Problems\FoundationProblemRenderer;
@@ -25,6 +27,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Middleware\SubstituteBindings;
+use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withProviders([
@@ -58,13 +61,15 @@ return Application::configure(basePath: dirname(__DIR__))
             'acs.capability' => RequireAcsCapability::class,
         ]);
 
+        $middleware->prepend(RedirectToLocalizedUrl::class);
         $middleware->append([
             AssignRequestContext::class,
             ResolveLocale::class,
             SecurityHeaders::class,
             RecordRequestTelemetry::class,
         ]);
-        $middleware->web(append: [HandleInertiaRequests::class]);
+        $middleware->web(append: [HandleInertiaRequests::class, EnsureSiteIsAvailable::class]);
+        $middleware->api(prepend: [EnsureFrontendRequestsAreStateful::class]);
 
         $middleware->priority([
             AssignRequestContext::class,

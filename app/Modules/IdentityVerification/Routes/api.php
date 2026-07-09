@@ -34,6 +34,8 @@ Route::prefix('tenant/events/{event_id}/attendees/{attendee_id}/identity')
     ->group(function (): void {
         Route::post('/consent', [AttendeeIdentityController::class, 'storeConsent'])
             ->name('api.v1.tenant.identity.consent.store');
+        Route::delete('/consent', [AttendeeIdentityController::class, 'destroyConsent'])
+            ->name('api.v1.tenant.identity.consent.destroy');
         Route::get('/verification', [AttendeeIdentityController::class, 'showVerification'])
             ->name('api.v1.tenant.identity.verification.show');
         Route::post('/verification', [AttendeeIdentityController::class, 'startVerification'])

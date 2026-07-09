@@ -1,4 +1,5 @@
-import { Link, router } from '@inertiajs/react'
+import { router } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import { FormEvent, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import CheckboxInput from '@/components/forms/CheckboxInput'
@@ -8,6 +9,7 @@ import TextInput from '@/components/forms/TextInput'
 import { PageContent, PageHeader } from '@/components/layout'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
+import { ApiFetchError, apiFetch } from '@/lib/apiFetch'
 
 type EventRow = {
   id: string
@@ -79,11 +81,10 @@ export default function RegistrationBuilder({
     required: false,
   })
 
-  const apiHeaders = {
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
-    'X-Tenant-ID': tenantId,
-  }
+  const apiOptions = {
+    tenantId,
+    idempotency: true,
+  } as const
 
   function moveField(index: number, direction: -1 | 1) {
     const target = index + direction
@@ -162,25 +163,17 @@ export default function RegistrationBuilder({
     }
 
     try {
-      const response = await fetch(`/api/v1/tenant/events/${event.id}/registration-form`, {
+      await apiFetch(`/api/v1/tenant/events/${event.id}/registration-form`, {
         method: 'PUT',
-        credentials: 'include',
-        headers: { ...apiHeaders, 'Idempotency-Key': crypto.randomUUID() },
+        ...apiOptions,
         body: JSON.stringify(payload),
       })
-      const body = await response.json()
-
-      if (!response.ok) {
-        setError(body.detail ?? body.code ?? body.title ?? 'save_failed')
-        toast(locale === 'ar' ? 'تعذر حفظ النموذج.' : 'Failed to save form.', 'error')
-        setSubmitting(false)
-        return
-      }
 
       toast(locale === 'ar' ? 'تم حفظ مسودة النموذج.' : 'Form draft saved.', 'success')
       router.reload()
-    } catch {
-      setError('save_failed')
+    } catch (caught) {
+      const message = caught instanceof ApiFetchError ? caught.message : 'save_failed'
+      setError(message)
       toast(locale === 'ar' ? 'تعذر حفظ النموذج.' : 'Failed to save form.', 'error')
       setSubmitting(false)
     }
@@ -191,24 +184,16 @@ export default function RegistrationBuilder({
     setError(null)
 
     try {
-      const response = await fetch(`/api/v1/tenant/events/${event.id}/registration-form/publish`, {
+      await apiFetch(`/api/v1/tenant/events/${event.id}/registration-form/publish`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { ...apiHeaders, 'Idempotency-Key': crypto.randomUUID() },
+        ...apiOptions,
       })
-      const body = await response.json()
-
-      if (!response.ok) {
-        setError(body.detail ?? body.code ?? body.title ?? 'publish_failed')
-        toast(locale === 'ar' ? 'تعذر نشر النموذج.' : 'Failed to publish form.', 'error')
-        setPublishing(false)
-        return
-      }
 
       toast(locale === 'ar' ? 'تم نشر نموذج التسجيل.' : 'Registration form published.', 'success')
       router.reload()
-    } catch {
-      setError('publish_failed')
+    } catch (caught) {
+      const message = caught instanceof ApiFetchError ? caught.message : 'publish_failed'
+      setError(message)
       toast(locale === 'ar' ? 'تعذر نشر النموذج.' : 'Failed to publish form.', 'error')
       setPublishing(false)
     }
@@ -230,9 +215,9 @@ export default function RegistrationBuilder({
           { label: locale === 'ar' ? 'نموذج التسجيل' : 'Registration form' },
         ]}
         actions={
-          <Link className="button-secondary" href={`/tenant/events/${event.id}/registration-preview`}>
+          <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/registration-preview`}>
             {locale === 'ar' ? 'معاينة' : 'Preview'}
-          </Link>
+          </LocalizedLink>
         }
       />
       <PageContent>

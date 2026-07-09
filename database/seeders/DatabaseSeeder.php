@@ -8,11 +8,9 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->call(PermissionCatalogSeeder::class);
-        $this->call(PlatformSeeder::class);
-        $this->call(FoundationIsolationSeeder::class);
-        $this->call(SystemRoleSeeder::class);
-        $this->call(FixtureRoleAssignmentSeeder::class);
-        $this->call(Phase1RegistrationSeeder::class);
+        $this->call(TimezoneSeeder::class);
+        $this->call(GeographySeeder::class);
+        $this->call(FoundationSeeder::class);
+        $this->call(DemoContentSeeder::class);
     }
 }

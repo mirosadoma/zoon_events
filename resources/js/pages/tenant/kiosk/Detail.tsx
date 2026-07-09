@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { PageContent, PageHeader } from '@/components/layout'
 import StatusBadge from '@/components/status/StatusBadge'
@@ -60,9 +60,9 @@ export default function KioskDetailPage({ event, kiosk }: Props) {
           { label: kiosk.device_name },
         ]}
         actions={
-          <Link className="button-secondary" href={`/kiosk/${kiosk.device_code}`}>
+          <LocalizedLink className="button-secondary" href={`/kiosk/${kiosk.device_code}`}>
             {locale === 'ar' ? 'وضع الكشك' : 'Kiosk mode'}
-          </Link>
+          </LocalizedLink>
         }
       />
       <PageContent>

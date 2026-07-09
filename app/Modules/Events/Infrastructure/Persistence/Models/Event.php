@@ -2,7 +2,9 @@
 
 namespace App\Modules\Events\Infrastructure\Persistence\Models;
 
+use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 final class Event extends Model
@@ -31,5 +33,10 @@ final class Event extends Model
     public function branding(): HasOne
     {
         return $this->hasOne(EventBranding::class);
+    }
+
+    public function venues(): HasMany
+    {
+        return $this->hasMany(EventVenue::class);
     }
 }

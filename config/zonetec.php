@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'bootstrap_admin_email' => env('FOUNDATION_BOOTSTRAP_ADMIN_EMAIL', 'platform.admin@admin.com'),
+    'bootstrap_admin_email' => env('FOUNDATION_BOOTSTRAP_ADMIN_EMAIL', 'super.admin@admin.com'),
     'bootstrap_admin_password' => env('FOUNDATION_BOOTSTRAP_ADMIN_PASSWORD', 'admin1234'),
     'name' => env('ZONETEC_NAME', 'Zonetec'),
     'deployment_mode' => env('ZONETEC_DEPLOYMENT_MODE', 'saas'),

@@ -7,6 +7,7 @@ type SubmitButtonWithLoaderProps = {
   disabled?: boolean
   onClick?: () => void
   type?: 'button' | 'submit'
+  variant?: 'primary' | 'secondary' | 'danger'
 }
 
 export default function SubmitButtonWithLoader({
@@ -15,11 +16,18 @@ export default function SubmitButtonWithLoader({
   disabled = false,
   onClick,
   type = 'submit',
+  variant = 'primary',
 }: SubmitButtonWithLoaderProps) {
   const [submitted, setSubmitted] = useState(false)
+  const busy = loading || submitted
+  const className = variant === 'danger'
+    ? 'button-danger inline-flex items-center gap-2'
+    : variant === 'secondary'
+      ? 'button-secondary inline-flex items-center gap-2'
+      : 'button-primary inline-flex items-center gap-2'
 
   const handleClick = () => {
-    if (submitted || loading || disabled) {
+    if (busy || disabled) {
       return
     }
 
@@ -34,11 +42,12 @@ export default function SubmitButtonWithLoader({
   return (
     <button
       type={type}
-      className="button-primary inline-flex items-center gap-2"
-      disabled={disabled || loading || submitted}
+      className={className}
+      disabled={disabled || busy}
+      aria-busy={busy}
       onClick={type === 'button' ? handleClick : undefined}
     >
-      {loading && <ButtonSpinner />}
+      {busy && <ButtonSpinner />}
       {label}
     </button>
   )

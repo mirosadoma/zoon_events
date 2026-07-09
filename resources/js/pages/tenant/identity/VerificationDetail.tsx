@@ -1,5 +1,5 @@
-import { router } from '@inertiajs/react'
 import { useState } from 'react'
+import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
 import { DetailsCard } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
 import PermissionGate from '@/components/layout/PermissionGate'
@@ -62,6 +62,7 @@ export default function IdentityVerificationDetailPage({
   canManage,
 }: Props) {
   const { locale, t } = useLocale()
+  const localizedRouter = useLocalizedRouter()
   const { toast } = useToast()
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -98,7 +99,7 @@ export default function IdentityVerificationDetailPage({
         return
       }
       toast(t('identityDataDeletedToast'), 'success')
-      router.visit(`/tenant/events/${event.id}/identity/review`)
+      localizedRouter.visit(`/tenant/events/${event.id}/identity/review`)
     } catch {
       toast(t('identityDataDeleteFailed'), 'error')
     } finally {

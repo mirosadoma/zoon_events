@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useMemo, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
@@ -19,6 +19,7 @@ type EventRow = {
 type OrderRow = {
   id: string
   reference: string
+  buyer_name?: string | null
   status: string
   total: string
   notification_status?: string | null
@@ -35,7 +36,8 @@ export default function Orders({ event, orders }: Props) {
   const [statusFilter, setStatusFilter] = useState('')
 
   const filtered = useMemo(() => orders.filter((order) => {
-    const matchesSearch = search.trim() === '' || order.reference.toLowerCase().includes(search.trim().toLowerCase())
+    const haystack = `${order.reference} ${order.buyer_name ?? ''}`.toLowerCase()
+    const matchesSearch = search.trim() === '' || haystack.includes(search.trim().toLowerCase())
     const matchesStatus = statusFilter === '' || order.status === statusFilter
 
     return matchesSearch && matchesStatus
@@ -63,7 +65,7 @@ export default function Orders({ event, orders }: Props) {
           <SearchInput
             value={search}
             onChange={setSearch}
-            label={locale === 'ar' ? 'بحث بالمرجع' : 'Search reference'}
+            label={locale === 'ar' ? 'بحث بالاسم أو المرجع' : 'Search name or reference'}
             placeholder={locale === 'ar' ? 'ORD-…' : 'ORD-…'}
           />
           <SelectInput
@@ -86,17 +88,22 @@ export default function Orders({ event, orders }: Props) {
             getRowKey={(row) => String(row.id)}
             columns={[
               {
-                key: 'reference',
-                header: locale === 'ar' ? 'المرجع' : 'Reference',
+                key: 'buyer_name',
+                header: locale === 'ar' ? 'صاحب الطلب' : 'Order owner',
                 render: (row) => {
                   const order = row as unknown as OrderRow
 
                   return (
-                    <Link href={`/tenant/events/${event.id}/orders/${order.id}`} className="font-medium text-sky-700 hover:underline">
-                      {order.reference}
-                    </Link>
+                    <LocalizedLink href={`/tenant/events/${event.id}/orders/${order.id}`} className="font-medium text-sky-700 hover:underline">
+                      {order.buyer_name ?? order.reference}
+                    </LocalizedLink>
                   )
                 },
+              },
+              {
+                key: 'reference',
+                header: locale === 'ar' ? 'المرجع' : 'Reference',
+                render: (row) => String((row as unknown as OrderRow).reference),
               },
               {
                 key: 'status',

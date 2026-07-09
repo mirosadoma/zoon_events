@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useEffect, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmergencyControls } from '@/components/acs/EmergencyControls'
@@ -60,7 +60,7 @@ export default function AcsGateHealth({ event, tenantId, health: initialHealth }
           { label: 'ACS', href: `/tenant/events/${event.id}/acs` },
           { label: locale === 'ar' ? 'صحة البوابة' : 'Gate health' },
         ]}
-        actions={<Link className="button-secondary" href={`/tenant/events/${event.id}/acs/access-logs`}>{locale === 'ar' ? 'سجلات الوصول' : 'Access logs'}</Link>}
+        actions={<LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/acs/access-logs`}>{locale === 'ar' ? 'سجلات الوصول' : 'Access logs'}</LocalizedLink>}
       />
       <PageContent>
         <div className="flex flex-wrap items-center gap-3">

@@ -68,7 +68,7 @@ in `docs/security/audit-catalog-phase4.md`.
 Phase 5 required action families:
 
 - `identity_requirement.configured`;
-- `identity_consent.captured`;
+- `identity_consent.captured|withdrawn`;
 - `identity_verification.started|result_recorded`;
 - `identity_face_capture.submitted`;
 - `identity_review.approved|rejected` (rejection records reviewer reason metadata, not raw biometrics);

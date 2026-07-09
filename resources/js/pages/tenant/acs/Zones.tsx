@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import { FormEvent, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { ZoneLaneEditor } from '@/components/acs/ZoneLaneEditor'
@@ -66,7 +66,7 @@ export default function AcsZones({ event, tenantId, zones: initialZones }: Props
           { label: 'ACS', href: `/tenant/events/${event.id}/acs` },
           { label: locale === 'ar' ? 'المناطق' : 'Zones' },
         ]}
-        actions={<Link className="button-secondary" href={`/tenant/events/${event.id}/acs/lanes`}>{locale === 'ar' ? 'المسارات' : 'Lanes'}</Link>}
+        actions={<LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/acs/lanes`}>{locale === 'ar' ? 'المسارات' : 'Lanes'}</LocalizedLink>}
       />
       <PageContent>
         <ZoneLaneEditor zones={zones} lanes={[]} />

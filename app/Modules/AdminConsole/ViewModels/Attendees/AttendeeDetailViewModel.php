@@ -2,6 +2,7 @@
 
 namespace App\Modules\AdminConsole\ViewModels\Attendees;
 
+use App\Modules\AdminConsole\Application\PersonalDataReader;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
@@ -9,6 +10,7 @@ use Illuminate\Support\Collection;
 
 final readonly class AttendeeDetailViewModel
 {
+    public function __construct(private PersonalDataReader $personalData) {}
     /**
      * @param  Collection<int, Attendee>  $attendees
      * @param  array<string, string>  $credentialStatuses
@@ -64,12 +66,15 @@ final readonly class AttendeeDetailViewModel
     /** @return array<string, mixed> */
     private function attendeeRow(Attendee $attendee, ?string $credentialStatus): array
     {
+        $displayName = $this->personalData->attendeeDisplayName($attendee);
+
         return [
             'id' => $attendee->id,
             'status' => $attendee->checkin_status ?? 'not_checked_in',
             'locale' => $attendee->preferred_locale,
             'credential_status' => $credentialStatus,
-            'label' => substr($attendee->id, -8),
+            'label' => $displayName ?: substr($attendee->id, -8),
+            'display_name' => $displayName,
         ];
     }
 }

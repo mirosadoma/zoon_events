@@ -1,4 +1,5 @@
-import type { SelectHTMLAttributes } from 'react'
+import { useId, type SelectHTMLAttributes } from 'react'
+import { ValidationError } from './TextInput'
 
 type Option = { value: string; label: string }
 
@@ -6,20 +7,35 @@ type SelectInputProps = SelectHTMLAttributes<HTMLSelectElement> & {
   label: string
   options: Option[]
   error?: string
+  hint?: string
 }
 
-export default function SelectInput({ label, options, error, id, ...props }: SelectInputProps) {
-  const inputId = id ?? props.name
+export default function SelectInput({ label, options, error, hint, id, required, ...props }: SelectInputProps) {
+  const generatedId = useId()
+  const inputId = id ?? props.name ?? generatedId
+  const errorId = `${inputId}-error`
+  const hintId = `${inputId}-hint`
 
   return (
     <label className="grid gap-2 text-sm" htmlFor={inputId}>
-      <span>{label}</span>
-      <select id={inputId} className="control" {...props}>
+      <span className="font-medium text-[var(--ink)]">
+        {label}
+        {required ? <span className="ms-1 text-red-600">*</span> : null}
+      </span>
+      <select
+        id={inputId}
+        className="control focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]/20"
+        aria-invalid={error ? 'true' : undefined}
+        aria-describedby={[hint ? hintId : null, error ? errorId : null].filter(Boolean).join(' ') || undefined}
+        required={required}
+        {...props}
+      >
         {options.map((option) => (
           <option key={option.value} value={option.value}>{option.label}</option>
         ))}
       </select>
-      {error && <span role="alert" className="text-red-700">{error}</span>}
+      {hint ? <span id={hintId} className="text-xs text-[var(--muted)]">{hint}</span> : null}
+      {error ? <ValidationError id={errorId} message={error} /> : null}
     </label>
   )
 }

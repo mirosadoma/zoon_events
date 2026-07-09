@@ -1,5 +1,5 @@
 import { FormEvent, useMemo, useState } from 'react'
-import { router } from '@inertiajs/react'
+import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { PageContent, PageHeader } from '@/components/layout'
 import PermissionGate from '@/components/layout/PermissionGate'
@@ -7,13 +7,49 @@ import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
 import TextInput from '@/components/forms/TextInput'
 import TextareaInput from '@/components/forms/TextareaInput'
 import DateTimeInput from '@/components/forms/DateTimeInput'
-import SelectInput from '@/components/forms/SelectInput'
+import SearchableSelect from '@/components/forms/SearchableSelect'
+import VenueRepeater, { emptyVenueRow, venueRowsFromEvent, type VenueFormRow } from '@/components/forms/VenueRepeater'
 import StatusBadge from '@/components/status/StatusBadge'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
+import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
+
+type TimezoneOption = {
+  identifier: string
+  name_en: string
+  name_ar: string
+  region_en: string
+  country_en: string
+  country_ar: string
+  utc_offset: string
+}
+
+type CountryOption = {
+  id: string
+  code: string
+  name_en: string
+  name_ar: string
+  cities: Array<{ id: string; name_en: string; name_ar: string }>
+}
+
+type EventVenuePayload = {
+  id?: string
+  country_id: string
+  city_id: string
+  name: { en: string; ar: string }
+  location_address: string
+  latitude: string
+  longitude: string
+  start_at: string | null
+  end_at: string | null
+  registration_opens_at: string | null
+  registration_closes_at: string | null
+}
 
 type EventSetupProps = {
   tenantId: string
+  timezones?: TimezoneOption[]
+  countries?: CountryOption[]
   event: {
     id: string | null
     slug: string
@@ -27,10 +63,11 @@ type EventSetupProps = {
     registration_opens_at: string | null
     registration_closes_at: string | null
     capacity: number | null
-    location_name: { en: string; ar: string }
-    location_address: { en: string; ar: string }
+    location_name?: { en: string; ar: string }
+    location_address?: { en: string; ar: string }
     brand_reference: string | null
     domain_reference: string | null
+    venues?: EventVenuePayload[]
     readiness: string[]
   }
   can: {
@@ -47,17 +84,12 @@ type EventFormState = {
   name_ar: string
   description_en: string
   description_ar: string
-  tier: string
   timezone: string
   start_at: string
   end_at: string
   registration_opens_at: string
   registration_closes_at: string
   capacity: string
-  location_name_en: string
-  location_name_ar: string
-  location_address_en: string
-  location_address_ar: string
   brand_reference: string
   domain_reference: string
 }
@@ -67,63 +99,70 @@ function toLocalDateTime(value: string | null): string {
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return ''
   const pad = (n: number) => n.toString().padStart(2, '0')
+
   return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`
 }
 
-export default function EventSetup({ tenantId, event, can }: EventSetupProps) {
+function buildVenuePayload(venues: VenueFormRow[]) {
+  return venues
+    .filter((venue) => venue.name_en.trim() !== '' && venue.name_ar.trim() !== '')
+    .map((venue) => ({
+      id: venue.id ? Number(venue.id) : undefined,
+      country_id: venue.country_id ? Number(venue.country_id) : null,
+      city_id: venue.city_id ? Number(venue.city_id) : null,
+      name: { en: venue.name_en, ar: venue.name_ar },
+      location_address: venue.location_address || null,
+      latitude: venue.latitude === '' ? null : Number(venue.latitude),
+      longitude: venue.longitude === '' ? null : Number(venue.longitude),
+      start_at: venue.start_at || null,
+      end_at: venue.end_at || null,
+      registration_opens_at: venue.registration_opens_at || null,
+      registration_closes_at: venue.registration_closes_at || null,
+    }))
+}
+
+export default function EventSetup({ tenantId, event, timezones = [], countries = [], can }: EventSetupProps) {
   const { locale } = useLocale()
+  const localizedRouter = useLocalizedRouter()
   const { toast } = useToast()
   const title = event.id ? event.name[locale] : (locale === 'ar' ? 'فعالية جديدة' : 'New event')
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<EventSetupErrors>({})
+  const [venues, setVenues] = useState<VenueFormRow[]>(
+    () => venueRowsFromEvent(event.venues ?? []).length > 0 ? venueRowsFromEvent(event.venues ?? []) : [emptyVenueRow()],
+  )
   const [form, setForm] = useState<EventFormState>({
     slug: event.slug,
     name_en: event.name.en,
     name_ar: event.name.ar,
     description_en: event.description.en,
     description_ar: event.description.ar,
-    tier: event.tier,
     timezone: event.timezone,
     start_at: toLocalDateTime(event.start_at),
     end_at: toLocalDateTime(event.end_at),
     registration_opens_at: toLocalDateTime(event.registration_opens_at),
     registration_closes_at: toLocalDateTime(event.registration_closes_at),
     capacity: event.capacity === null ? '' : String(event.capacity),
-    location_name_en: event.location_name.en,
-    location_name_ar: event.location_name.ar,
-    location_address_en: event.location_address.en,
-    location_address_ar: event.location_address.ar,
     brand_reference: event.brand_reference ?? '',
     domain_reference: event.domain_reference ?? '',
   })
 
-  const tierOptions = useMemo(
-    () => [
-      { value: 'public', label: locale === 'ar' ? 'عام' : 'Public' },
-      { value: 'corporate', label: locale === 'ar' ? 'مؤسسي' : 'Corporate' },
-      { value: 'vip', label: 'VIP' },
-      { value: 'vvip', label: 'VVIP' },
-    ],
-    [locale],
+  const timezoneOptions = useMemo(
+    () => timezones.map((timezone) => {
+      const country = locale === 'ar' ? timezone.country_ar : timezone.country_en
+
+      return {
+        value: timezone.identifier,
+        label: locale === 'ar' ? timezone.name_ar : timezone.name_en,
+        hint: [timezone.region_en, country, `UTC${timezone.utc_offset}`].filter(Boolean).join(' · '),
+        searchText: `${timezone.name_en} ${timezone.name_ar} ${timezone.identifier} ${timezone.region_en} ${timezone.country_en} ${timezone.country_ar}`,
+      }
+    }),
+    [locale, timezones],
   )
 
   function fieldError(path: string): string | undefined {
     return errors[path]
-  }
-
-  function extractErrors(body: unknown): EventSetupErrors {
-    if (typeof body !== 'object' || body === null) return {}
-    const maybe = body as { errors?: Record<string, string[] | string> }
-    if (!maybe.errors) return {}
-    const mapped: EventSetupErrors = {}
-    Object.entries(maybe.errors).forEach(([key, value]) => {
-      if (Array.isArray(value)) {
-        mapped[key] = String(value[0] ?? '')
-      } else {
-        mapped[key] = String(value)
-      }
-    })
-    return mapped
   }
 
   async function handleSubmit(submitEvent: FormEvent<HTMLFormElement>) {
@@ -132,21 +171,20 @@ export default function EventSetup({ tenantId, event, can }: EventSetupProps) {
 
     setSubmitting(true)
     setErrors({})
+
     const payload = {
       slug: form.slug,
       name: { en: form.name_en, ar: form.name_ar },
       description: { en: form.description_en || null, ar: form.description_ar || null },
-      tier: form.tier,
       timezone: form.timezone,
       start_at: form.start_at || null,
       end_at: form.end_at || null,
       registration_opens_at: form.registration_opens_at || null,
       registration_closes_at: form.registration_closes_at || null,
       capacity: form.capacity === '' ? null : Number(form.capacity),
-      location_name: { en: form.location_name_en || null, ar: form.location_name_ar || null },
-      location_address: { en: form.location_address_en || null, ar: form.location_address_ar || null },
       brand_reference: form.brand_reference || null,
       domain_reference: form.domain_reference || null,
+      venues: buildVenuePayload(venues),
     }
 
     const isCreate = event.id === null
@@ -154,35 +192,27 @@ export default function EventSetup({ tenantId, event, can }: EventSetupProps) {
     const method = isCreate ? 'POST' : 'PATCH'
 
     try {
-      const response = await fetch(url, {
+      const body = await apiFetch<{ id?: string; data?: { id?: string } }>(url, {
         method,
-        credentials: 'include',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'X-Tenant-ID': tenantId,
-          'Idempotency-Key': crypto.randomUUID(),
-        },
+        tenantId,
+        idempotency: true,
         body: JSON.stringify(payload),
       })
-      const body = await response.json()
 
-      if (!response.ok) {
-        setErrors(extractErrors(body))
-        toast(locale === 'ar' ? 'تعذر حفظ الفعالية.' : 'Failed to save event.', 'error')
-        setSubmitting(false)
-        return
-      }
-
-      const createdId = String(body?.data?.id ?? event.id ?? '')
+      const createdId = String(body.data?.id ?? body.id ?? event.id ?? '')
       toast(locale === 'ar' ? 'تم حفظ الفعالية.' : 'Event saved.', 'success')
       if (createdId) {
-        router.visit(`/tenant/events/${createdId}`)
+        localizedRouter.visit(`/tenant/events/${createdId}`)
       } else {
-        router.visit('/tenant/events')
+        localizedRouter.visit('/tenant/events')
       }
-    } catch {
-      toast(locale === 'ar' ? 'تعذر حفظ الفعالية.' : 'Failed to save event.', 'error')
+    } catch (error) {
+      if (error instanceof ApiFetchError) {
+        setErrors(error.errors)
+        toast(error.message || (locale === 'ar' ? 'تعذر حفظ الفعالية.' : 'Failed to save event.'), 'error')
+      } else {
+        toast(locale === 'ar' ? 'تعذر حفظ الفعالية.' : 'Failed to save event.', 'error')
+      }
       setSubmitting(false)
     }
   }
@@ -198,27 +228,26 @@ export default function EventSetup({ tenantId, event, can }: EventSetupProps) {
         ]}
       />
       <PageContent>
-        <form className="state-panel space-y-4" onSubmit={handleSubmit}>
+        <form className="state-panel space-y-6" onSubmit={handleSubmit}>
           <div className="flex flex-wrap items-center gap-3">
             <StatusBadge status={event.status} />
-            <span className="text-sm text-slate-600">{event.tier}</span>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <TextInput
-              label={locale === 'ar' ? 'المعرّف المختصر' : 'Slug'}
+              label="Slug"
               name="slug"
               value={form.slug}
               onChange={(e) => setForm((current) => ({ ...current, slug: e.target.value }))}
               required
               error={fieldError('slug')}
             />
-            <SelectInput
-              label={locale === 'ar' ? 'الفئة' : 'Tier'}
-              name="tier"
-              value={form.tier}
-              onChange={(e) => setForm((current) => ({ ...current, tier: e.target.value }))}
-              options={tierOptions}
-              error={fieldError('tier')}
+            <SearchableSelect
+              label={locale === 'ar' ? 'المنطقة الزمنية' : 'Timezone'}
+              value={form.timezone}
+              onChange={(timezone) => setForm((current) => ({ ...current, timezone }))}
+              options={timezoneOptions}
+              placeholder={locale === 'ar' ? 'ابحث عن منطقة زمنية' : 'Search timezone'}
+              error={fieldError('timezone')}
             />
             <TextInput
               label={locale === 'ar' ? 'الاسم بالإنجليزية' : 'English name'}
@@ -235,14 +264,6 @@ export default function EventSetup({ tenantId, event, can }: EventSetupProps) {
               onChange={(e) => setForm((current) => ({ ...current, name_ar: e.target.value }))}
               required
               error={fieldError('name.ar')}
-            />
-            <TextInput
-              label={locale === 'ar' ? 'المنطقة الزمنية' : 'Timezone'}
-              name="timezone"
-              value={form.timezone}
-              onChange={(e) => setForm((current) => ({ ...current, timezone: e.target.value }))}
-              required
-              error={fieldError('timezone')}
             />
             <TextInput
               label={locale === 'ar' ? 'السعة' : 'Capacity'}
@@ -287,20 +308,6 @@ export default function EventSetup({ tenantId, event, can }: EventSetupProps) {
               error={fieldError('registration_closes_at')}
             />
             <TextInput
-              label={locale === 'ar' ? 'اسم الموقع (EN)' : 'Location name (EN)'}
-              name="location_name_en"
-              value={form.location_name_en}
-              onChange={(e) => setForm((current) => ({ ...current, location_name_en: e.target.value }))}
-              error={fieldError('location_name.en')}
-            />
-            <TextInput
-              label={locale === 'ar' ? 'اسم الموقع (AR)' : 'Location name (AR)'}
-              name="location_name_ar"
-              value={form.location_name_ar}
-              onChange={(e) => setForm((current) => ({ ...current, location_name_ar: e.target.value }))}
-              error={fieldError('location_name.ar')}
-            />
-            <TextInput
               label={locale === 'ar' ? 'مرجع العلامة التجارية' : 'Brand reference'}
               name="brand_reference"
               value={form.brand_reference}
@@ -328,33 +335,38 @@ export default function EventSetup({ tenantId, event, can }: EventSetupProps) {
               onChange={(e) => setForm((current) => ({ ...current, description_ar: e.target.value }))}
               error={fieldError('description.ar')}
             />
-            <TextareaInput
-              label={locale === 'ar' ? 'عنوان الموقع (EN)' : 'Location address (EN)'}
-              name="location_address_en"
-              value={form.location_address_en}
-              onChange={(e) => setForm((current) => ({ ...current, location_address_en: e.target.value }))}
-              error={fieldError('location_address.en')}
-            />
-            <TextareaInput
-              label={locale === 'ar' ? 'عنوان الموقع (AR)' : 'Location address (AR)'}
-              name="location_address_ar"
-              value={form.location_address_ar}
-              onChange={(e) => setForm((current) => ({ ...current, location_address_ar: e.target.value }))}
-              error={fieldError('location_address.ar')}
-            />
           </div>
+
+          <VenueRepeater
+            venues={venues}
+            countries={countries}
+            onChange={setVenues}
+            errors={errors}
+          />
+
           {event.readiness.length > 0 && (
             <section aria-labelledby="readiness-heading">
-              <h2 id="readiness-heading" className="text-lg font-semibold">{locale === 'ar' ? 'جاهزية النشر' : 'Publication readiness'}</h2>
+              <h2 id="readiness-heading" className="text-lg font-semibold">
+                {locale === 'ar' ? 'جاهزية النشر' : 'Publication readiness'}
+              </h2>
               <ul className="mt-2 list-disc ps-5 text-sm text-slate-600">
                 {event.readiness.map((item) => <li key={item}>{item}</li>)}
               </ul>
             </section>
           )}
           <div className="flex flex-wrap gap-3">
-            {can.manage && <SubmitButtonWithLoader label={locale === 'ar' ? 'حفظ التغييرات' : 'Save changes'} loading={submitting} />}
+            {can.manage && (
+              <SubmitButtonWithLoader
+                label={locale === 'ar' ? 'حفظ التغييرات' : 'Save changes'}
+                loading={submitting}
+              />
+            )}
             <PermissionGate permission="event.publish">
-              <SubmitButtonWithLoader label={locale === 'ar' ? 'نشر' : 'Publish'} type="button" disabled={event.readiness.length > 0} />
+              <SubmitButtonWithLoader
+                label={locale === 'ar' ? 'نشر' : 'Publish'}
+                type="button"
+                disabled={event.readiness.length > 0}
+              />
             </PermissionGate>
           </div>
         </form>

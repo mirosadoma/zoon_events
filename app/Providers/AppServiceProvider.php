@@ -5,6 +5,7 @@ namespace App\Providers;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -22,6 +23,25 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->app->booted(function (): void {
+            $request = request();
+            $locale = 'en';
+
+            if ($request instanceof Request) {
+                $routeLocale = $request->route('locale');
+
+                if (is_string($routeLocale) && in_array($routeLocale, ['en', 'ar'], true)) {
+                    $locale = $routeLocale;
+                } elseif (is_string($request->cookie('locale'))) {
+                    $locale = substr($request->cookie('locale'), 0, 2);
+                } elseif ($request->user()?->preferred_locale) {
+                    $locale = $request->user()->preferred_locale;
+                }
+            }
+
+            URL::defaults(['locale' => in_array($locale, ['en', 'ar'], true) ? $locale : 'en']);
+        });
+
         RateLimiter::for('tenant', fn (Request $request): Limit => Limit::perMinute(120)->by(($request->user()?->id ?? 'guest').'|'.($request->header('X-Tenant-ID') ?? 'none')));
         RateLimiter::for('platform', fn (Request $request): Limit => Limit::perMinute(60)->by($request->user()?->id ?? $request->ip()));
         RateLimiter::for('privileged-export', fn (Request $request): Limit => Limit::perMinute(5)->by(($request->user()?->id ?? 'guest').'|'.($request->header('X-Tenant-ID') ?? 'platform')));

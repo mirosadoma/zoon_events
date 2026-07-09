@@ -1,0 +1,85 @@
+import { randomUuid } from '@/lib/uuid'
+
+type ApiFetchOptions = Omit<RequestInit, 'body'> & {
+  tenantId?: string
+  idempotency?: boolean
+  body?: Record<string, unknown> | BodyInit | null
+}
+
+function readCsrfToken(): string | null {
+  const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/)
+
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+export class ApiFetchError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly code?: string,
+    public readonly errors: Record<string, string> = {},
+  ) {
+    super(message)
+    this.name = 'ApiFetchError'
+  }
+}
+
+function mapValidationErrors(body: Record<string, unknown>): Record<string, string> {
+  const errors = body.errors
+
+  if (typeof errors !== 'object' || errors === null) {
+    return {}
+  }
+
+  return Object.fromEntries(
+    Object.entries(errors as Record<string, string[] | string>).map(([key, value]) => [
+      key,
+      Array.isArray(value) ? String(value[0] ?? '') : String(value),
+    ]),
+  )
+}
+
+export async function apiFetch<T = unknown>(
+  url: string,
+  options: ApiFetchOptions = {},
+): Promise<T> {
+  const { tenantId, idempotency = false, headers: initHeaders, body, ...rest } = options
+  const headers = new Headers(initHeaders)
+
+  headers.set('Accept', 'application/json')
+  const resolvedBody = body && typeof body === 'object' && !(body instanceof FormData) && !(body instanceof URLSearchParams) && !(body instanceof Blob)
+    ? JSON.stringify(body)
+    : body
+
+  if (!headers.has('Content-Type') && resolvedBody) {
+    headers.set('Content-Type', 'application/json')
+  }
+  if (tenantId) {
+    headers.set('X-Tenant-ID', tenantId)
+  }
+  if (idempotency) {
+    headers.set('Idempotency-Key', randomUuid())
+  }
+
+  const csrfToken = readCsrfToken()
+
+  if (csrfToken) {
+    headers.set('X-XSRF-TOKEN', csrfToken)
+  }
+
+  const response = await fetch(url, {
+    credentials: 'include',
+    ...rest,
+    body: resolvedBody ?? undefined,
+    headers,
+  })
+
+  const payload = await response.json().catch(() => ({})) as Record<string, unknown>
+
+  if (!response.ok) {
+    const detail = String(payload.detail ?? payload.message ?? payload.title ?? payload.code ?? 'Request failed')
+    throw new ApiFetchError(detail, response.status, typeof payload.code === 'string' ? payload.code : undefined, mapValidationErrors(payload))
+  }
+
+  return (payload.data ?? payload) as T
+}

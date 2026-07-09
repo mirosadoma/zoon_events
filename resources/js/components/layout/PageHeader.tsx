@@ -15,8 +15,8 @@ export default function PageHeader({ title, description, breadcrumbs = [], actio
       {breadcrumbs.length > 0 && <Breadcrumbs items={breadcrumbs} />}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-          {description && <p className="mt-1 text-slate-600 dark:text-slate-300">{description}</p>}
+          <h1 className="text-2xl font-bold tracking-tight text-[var(--ink)]">{title}</h1>
+          {description && <p className="mt-1 text-sm text-[var(--muted)]">{description}</p>}
         </div>
         {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
       </div>

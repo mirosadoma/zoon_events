@@ -1,4 +1,5 @@
-import { Link, router } from '@inertiajs/react'
+import { router } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { DetailsCard } from '@/components/feedback'
@@ -207,9 +208,9 @@ export default function AttendeeDetailPage({ event, attendee, tenantId, identity
               label: locale === 'ar' ? 'الطلب' : 'Order',
               value: attendee.order_id
                 ? (
-                  <Link href={`/tenant/events/${event.id}/orders/${attendee.order_id}`} className="text-sky-700 hover:underline">
-                    {attendee.order_id.slice(-8)}
-                  </Link>
+                  <LocalizedLink href={`/tenant/events/${event.id}/orders/${String(attendee.order_id)}`} className="text-sky-700 hover:underline">
+                    {String(attendee.order_id).slice(-8)}
+                  </LocalizedLink>
                 )
                 : '—',
             },
@@ -227,9 +228,9 @@ export default function AttendeeDetailPage({ event, attendee, tenantId, identity
               <div>
                 <dt className="text-xs uppercase tracking-wide text-slate-500">{locale === 'ar' ? 'الرمز' : 'Credential'}</dt>
                 <dd className="mt-1">
-                  <Link href={`/tenant/events/${event.id}/credentials/${attendee.credential.id}`} className="text-sky-700 hover:underline">
+                  <LocalizedLink href={`/tenant/events/${event.id}/credentials/${attendee.credential.id}`} className="text-sky-700 hover:underline">
                     {attendee.credential.id.slice(-8)}
-                  </Link>
+                  </LocalizedLink>
                 </dd>
               </div>
             </dl>

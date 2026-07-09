@@ -10,10 +10,16 @@ final readonly class ScanEventsViewModel
 {
     /**
      * @param  Collection<int, ScanEvent>  $events
+     * @param  array<string, string>  $laneNames
+     * @param  array<string, string>  $zoneNames
      * @return array{event: array<string, mixed>, scanEvents: list<array<string, mixed>>}
      */
-    public function index(Event $event, Collection $events): array
-    {
+    public function index(
+        Event $event,
+        Collection $events,
+        array $laneNames = [],
+        array $zoneNames = [],
+    ): array {
         return [
             'event' => [
                 'id' => $event->id,
@@ -24,7 +30,9 @@ final readonly class ScanEventsViewModel
                 'result' => $scan->result,
                 'scanner_type' => $scan->scanner_type,
                 'gate_id' => $scan->gate_id,
+                'gate_name' => $scan->gate_id !== null ? ($laneNames[$scan->gate_id] ?? null) : null,
                 'zone_id' => $scan->zone_id,
+                'zone_name' => $scan->zone_id !== null ? ($zoneNames[$scan->zone_id] ?? null) : null,
                 'offline' => $scan->offline_mode,
                 'attendee_id' => $scan->attendee_id,
                 'reason' => $scan->reason,

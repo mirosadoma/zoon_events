@@ -3,6 +3,8 @@
 namespace Tests\Integration\Notifications;
 
 use App\Modules\Audit\Application\AuditWriter;
+use App\Modules\AdminConsole\Application\SiteSettingsRepository;
+use App\Modules\Credentials\Application\Presentation\CredentialPresentationToken;
 use App\Modules\Events\Contracts\ConfirmationEventReader;
 use App\Modules\Notifications\Application\Actions\ProcessNotificationCallback;
 use App\Modules\Notifications\Application\Jobs\DeliverNotificationJob;
@@ -159,6 +161,8 @@ final class NotificationDeliveryTest extends Phase1MySqlTestCase
             app(PersonalDataCipher::class),
             app(ConfirmationEventReader::class),
             app(ConfirmationOrderReader::class),
+            app(CredentialPresentationToken::class),
+            app(SiteSettingsRepository::class),
         );
     }
 }

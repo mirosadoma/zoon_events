@@ -1,4 +1,5 @@
-import { Link, router } from '@inertiajs/react'
+import { router } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { DetailsCard } from '@/components/feedback'
@@ -138,9 +139,9 @@ export default function CredentialDetailPage({ event, credential, tenantId, iden
             {
               label: locale === 'ar' ? 'الحاضر' : 'Attendee',
               value: (
-                <Link href={`/tenant/events/${event.id}/attendees/${credential.attendee_id}`} className="text-sky-700 hover:underline">
+                <LocalizedLink href={`/tenant/events/${event.id}/attendees/${credential.attendee_id}`} className="text-sky-700 hover:underline">
                   {credential.attendee_id.slice(-8)}
-                </Link>
+                </LocalizedLink>
               ),
             },
             { label: locale === 'ar' ? 'تاريخ الإصدار' : 'Issued', value: credential.issued_at ?? '—' },

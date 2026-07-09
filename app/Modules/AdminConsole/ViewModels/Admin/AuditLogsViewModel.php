@@ -23,6 +23,7 @@ final readonly class AuditLogsViewModel
                 'target_type' => $log->target_type,
                 'target_id' => $log->target_id,
                 'outcome' => $log->outcome,
+                'reason_code' => $log->reason_code,
                 'metadata' => $log->metadata,
                 'occurred_at' => $log->occurred_at?->toIso8601String(),
             ], $logs),

@@ -1,6 +1,11 @@
 import { render, screen } from '@testing-library/react'
 import type { PropsWithChildren } from 'react'
+import { usePage } from '@inertiajs/react'
 import FoundationDashboard from '@/pages/FoundationDashboard'
+
+vi.mock('@inertiajs/react', () => ({
+  usePage: vi.fn(),
+}))
 
 vi.mock('@/layouts/DashboardLayout', () => ({
   default: ({ children }: PropsWithChildren) => <div>{children}</div>,
@@ -11,6 +16,12 @@ vi.mock('@/hooks/useLocale', () => ({
 }))
 
 describe('FoundationDashboard', () => {
+  beforeEach(() => {
+    vi.mocked(usePage).mockReturnValue({
+      props: { auth: { user: { name: 'Demo User' } } },
+    } as unknown as ReturnType<typeof usePage>)
+  })
+
   it('renders overview metrics when data is provided', () => {
     render(
       <FoundationDashboard
@@ -30,6 +41,7 @@ describe('FoundationDashboard', () => {
     )
 
     expect(screen.getByRole('heading', { name: 'Dashboard overview' })).toBeInTheDocument()
+    expect(screen.getByText('Hello, Demo User')).toBeInTheDocument()
     expect(screen.getByText('2')).toBeInTheDocument()
     expect(screen.getByText('10')).toBeInTheDocument()
   })

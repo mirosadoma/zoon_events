@@ -2,6 +2,7 @@
 
 namespace App\Modules\Events\Application\Actions;
 
+use App\Modules\AdminConsole\Application\Actions\SyncEventVenues;
 use App\Modules\Audit\Application\AuditWriter;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventBranding;
@@ -10,7 +11,10 @@ use Illuminate\Support\Facades\DB;
 
 final readonly class CreateEvent
 {
-    public function __construct(private AuditWriter $audit) {}
+    public function __construct(
+        private AuditWriter $audit,
+        private SyncEventVenues $venues,
+    ) {}
 
     /** @param array<string,mixed> $attributes */
     public function execute(TenantContext $context, array $attributes): Event
@@ -20,7 +24,8 @@ final readonly class CreateEvent
                 'brand_reference' => $attributes['brand_reference'] ?? null,
                 'domain_reference' => $attributes['domain_reference'] ?? null,
             ];
-            unset($attributes['brand_reference'], $attributes['domain_reference']);
+            $venues = $attributes['venues'] ?? [];
+            unset($attributes['brand_reference'], $attributes['domain_reference'], $attributes['venues']);
             $event = Event::query()->create([
                 ...$attributes,
                 'tenant_id' => $context->tenant->id,
@@ -39,9 +44,10 @@ final readonly class CreateEvent
                     'status' => 'active',
                 ]);
             }
+            $this->venues->execute($context->tenant->id, $event, $venues);
             $this->audit->writeTenant('event.created', 'succeeded', $context, targetType: 'event', targetId: $event->id);
 
-            return $event;
+            return $event->refresh();
         });
     }
 }

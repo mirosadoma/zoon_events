@@ -40,3 +40,4 @@ Organizer, reviewer, compliance, and attendee browser flows were not re-run manu
 
 - Production government-provider integration remains a tracked blocking assumption (see `research.md`).
 - Scheduled retention purge: `zonetec:identity:purge-expired` (daily).
+- Scheduled verification expiry: `zonetec:identity:expire-stale` (daily).

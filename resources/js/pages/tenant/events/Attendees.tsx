@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useMemo, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
@@ -93,9 +93,9 @@ export default function Attendees({ event, attendees }: Props) {
                   const attendee = row as unknown as AttendeeRow
 
                   return (
-                    <Link href={`/tenant/events/${event.id}/attendees/${attendee.id}`} className="font-medium text-sky-700 hover:underline">
+                    <LocalizedLink href={`/tenant/events/${event.id}/attendees/${attendee.id}`} className="font-medium text-sky-700 hover:underline">
                       {attendee.label}
-                    </Link>
+                    </LocalizedLink>
                   )
                 },
               },

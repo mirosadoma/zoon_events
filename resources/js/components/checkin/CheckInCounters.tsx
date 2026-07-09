@@ -1,3 +1,6 @@
+import StatCard from '@/components/cards/StatCard'
+import { CheckCircle2, Copy, UserCheck, Users } from 'lucide-react'
+
 export interface CheckInSummaryView {
   registered_count: number
   checked_in_count: number
@@ -18,34 +21,27 @@ export function CheckInCounters({ summary, locale = 'en' }: CheckInCountersProps
         rejected: 'مرفوض',
         duplicate: 'مكرر',
         registered: 'مسجل',
+        lastScan: 'آخر مسح',
       }
     : {
         checkedIn: 'Checked in',
         rejected: 'Rejected',
         duplicate: 'Duplicate',
         registered: 'Registered',
+        lastScan: 'Last scan',
       }
 
   return (
-    <section aria-label={labels.checkedIn}>
-      <dl>
-        <div>
-          <dt>{labels.registered}</dt>
-          <dd data-testid="registered-count">{summary.registered_count}</dd>
-        </div>
-        <div>
-          <dt>{labels.checkedIn}</dt>
-          <dd data-testid="checked-in-count">{summary.checked_in_count}</dd>
-        </div>
-        <div>
-          <dt>{labels.rejected}</dt>
-          <dd data-testid="rejected-count">{summary.rejected_count}</dd>
-        </div>
-        <div>
-          <dt>{labels.duplicate}</dt>
-          <dd data-testid="duplicate-count">{summary.duplicate_count}</dd>
-        </div>
-      </dl>
+    <section aria-label={labels.checkedIn} className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <StatCard label={labels.registered} value={summary.registered_count} icon={Users} accent="sky" />
+      <StatCard label={labels.checkedIn} value={summary.checked_in_count} icon={UserCheck} accent="emerald" featured />
+      <StatCard label={labels.rejected} value={summary.rejected_count} icon={CheckCircle2} accent="rose" />
+      <StatCard label={labels.duplicate} value={summary.duplicate_count} icon={Copy} accent="amber" />
+      {summary.last_scan_at ? (
+        <p className="text-sm text-[var(--muted)] md:col-span-2 xl:col-span-4">
+          {labels.lastScan}: {new Date(summary.last_scan_at).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-US')}
+        </p>
+      ) : null}
     </section>
   )
 }

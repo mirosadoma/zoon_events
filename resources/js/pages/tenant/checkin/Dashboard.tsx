@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useEffect, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { CheckInCounters, type CheckInSummaryView } from '@/components/checkin/CheckInCounters'
@@ -92,8 +92,8 @@ export default function CheckInDashboard({
         ]}
         actions={(
           <div className="flex flex-wrap gap-2">
-            <Link className="button-secondary" href={`/tenant/events/${event.id}/scanner`}>{locale === 'ar' ? 'الماسح' : 'Scanner'}</Link>
-            <Link className="button-secondary" href={`/tenant/events/${event.id}/scan-events`}>{locale === 'ar' ? 'أحداث المسح' : 'Scan events'}</Link>
+            <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/scanner`}>{locale === 'ar' ? 'الماسح' : 'Scanner'}</LocalizedLink>
+            <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/scan-events`}>{locale === 'ar' ? 'أحداث المسح' : 'Scan events'}</LocalizedLink>
           </div>
         )}
       />

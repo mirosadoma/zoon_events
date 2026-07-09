@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import type { BreadcrumbItem } from '@/types/shell'
 
 type BreadcrumbsProps = {
@@ -11,7 +11,7 @@ export default function Breadcrumbs({ items }: BreadcrumbsProps) {
   }
 
   return (
-    <nav aria-label="Breadcrumb" className="text-sm text-slate-600 dark:text-slate-300">
+    <nav aria-label="Breadcrumb" className="text-sm text-[var(--muted)]">
       <ol className="flex flex-wrap items-center gap-2">
         {items.map((item, index) => {
           const isLast = index === items.length - 1
@@ -20,9 +20,9 @@ export default function Breadcrumbs({ items }: BreadcrumbsProps) {
             <li key={`${item.label}-${index}`} className="flex items-center gap-2">
               {index > 0 && <span aria-hidden="true">/</span>}
               {item.href && !isLast ? (
-                <Link href={item.href} className="hover:text-slate-900 dark:hover:text-white">
+                <LocalizedLink href={item.href} className="hover:text-[var(--ink)]">
                   {item.label}
-                </Link>
+                </LocalizedLink>
               ) : (
                 <span aria-current={isLast ? 'page' : undefined}>{item.label}</span>
               )}

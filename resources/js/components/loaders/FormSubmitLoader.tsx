@@ -1,8 +1,8 @@
-export default function FormSubmitLoader() {
+export default function FormSubmitLoader({ label = 'Saving…' }: { label?: string }) {
   return (
-    <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300" role="status">
-      <span className="size-4 animate-spin rounded-full border-2 border-slate-300 border-t-sky-600" />
-      Saving…
+    <div className="inline-flex items-center gap-2 rounded-lg bg-[var(--brand-soft)] px-3 py-2 text-sm font-medium text-[var(--brand)]" role="status">
+      <span className="size-4 animate-spin rounded-full border-2 border-[var(--brand)]/25 border-t-[var(--brand)]" aria-hidden />
+      {label}
     </div>
   )
 }

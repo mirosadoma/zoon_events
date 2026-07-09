@@ -8,7 +8,8 @@ use App\Modules\AdminConsole\Application\SessionContextBuilder;
 use App\Modules\AdminConsole\ViewModels\Admin\ProfileViewModel;
 use App\Modules\AdminConsole\ViewModels\FoundationDashboardViewModel;
 use App\Modules\Tenancy\Domain\Context\TenantContextStore;
-use Illuminate\Support\Facades\Gate;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Cookie;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -48,25 +49,19 @@ final class DashboardController extends Controller
         ))->toArray());
     }
 
-    public function section(string $section): Response
+    public function updateProfile(): RedirectResponse
     {
-        $permission = [
-            'tenants' => 'platform.tenant.view',
-            'users' => 'platform.user.view',
-            'roles' => 'platform.role.view',
-            'audit' => 'platform.audit.view',
-            'health' => 'operations.health.view',
-            'feature-flags' => 'platform.feature_flag.view',
-            'configuration' => 'platform.configuration.view',
-        ][$section] ?? null;
+        $user = request()->user();
+        abort_if($user === null, 403);
 
-        abort_if($permission === null, 404);
-        Gate::authorize($permission);
-
-        return Inertia::render('DashboardSection', [
-            'section' => $section,
-            'scope' => 'platform',
-            'items' => [],
+        $validated = request()->validate([
+            'name' => ['required', 'string', 'max:160'],
+            'preferred_locale' => ['required', 'in:en,ar'],
         ]);
+
+        $user->forceFill($validated)->save();
+        Cookie::queue('locale', $validated['preferred_locale'], 60 * 24 * 365);
+
+        return back()->with('status', 'profile-updated');
     }
 }

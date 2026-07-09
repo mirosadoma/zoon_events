@@ -1,5 +1,7 @@
 export { default as Sidebar } from './Sidebar'
 export { default as Topbar } from './Topbar'
+export { default as NotificationDropdown } from './NotificationDropdown'
+export { default as SearchCommand } from './SearchCommand'
 export { default as Breadcrumbs } from './Breadcrumbs'
 export { default as PageHeader } from './PageHeader'
 export { default as PageContent } from './PageContent'

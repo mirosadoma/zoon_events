@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react'
+import DataTable from '@/components/tables/DataTable'
+import StatusBadge from '@/components/status/StatusBadge'
+import { useLocale } from '@/hooks/useLocale'
 import type { Kiosk } from '@/types/phase3'
 
 interface HealthTableProps {
@@ -7,15 +10,8 @@ interface HealthTableProps {
   pollIntervalMs?: number
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  online: 'Online',
-  offline: 'Offline',
-  degraded: 'Degraded',
-  retired: 'Retired',
-  pending: 'Pending',
-}
-
 export function HealthTable({ eventId, tenantId, pollIntervalMs = 15000 }: HealthTableProps) {
+  const { locale } = useLocale()
   const [kiosks, setKiosks] = useState<Kiosk[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -55,30 +51,44 @@ export function HealthTable({ eventId, tenantId, pollIntervalMs = 15000 }: Healt
     }
   }, [eventId, tenantId, pollIntervalMs])
 
-  if (loading) return <p>Loading kiosk health…</p>
-  if (error) return <p role="alert">{error}</p>
-  if (kiosks.length === 0) return <p>No kiosks registered for this event.</p>
+  if (loading) {
+    return <p className="text-sm text-[var(--muted)]">{locale === 'ar' ? 'جارٍ تحميل صحة الكشكات…' : 'Loading kiosk health…'}</p>
+  }
+
+  if (error) {
+    return <p role="alert" className="text-sm text-rose-600">{locale === 'ar' ? 'تعذر تحميل صحة الكشكات' : error}</p>
+  }
+
+  if (kiosks.length === 0) {
+    return <p className="text-sm text-[var(--muted)]">{locale === 'ar' ? 'لا توجد كشكات مسجلة.' : 'No kiosks registered for this event.'}</p>
+  }
 
   return (
-    <table>
-      <thead>
-        <tr>
-          <th>Device</th>
-          <th>Status</th>
-          <th>Printer</th>
-          <th>Last Heartbeat</th>
-        </tr>
-      </thead>
-      <tbody>
-        {kiosks.map(kiosk => (
-          <tr key={kiosk.id}>
-            <td>{kiosk.device_name}</td>
-            <td>{STATUS_LABELS[kiosk.status] ?? kiosk.status}</td>
-            <td>{kiosk.printer_status ?? '—'}</td>
-            <td>{kiosk.last_heartbeat_at ? new Date(kiosk.last_heartbeat_at).toLocaleTimeString() : '—'}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <DataTable
+      rows={kiosks as unknown as Record<string, unknown>[]}
+      getRowKey={(row) => String(row.id)}
+      columns={[
+        { key: 'device_name', header: locale === 'ar' ? 'الجهاز' : 'Device' },
+        {
+          key: 'status',
+          header: locale === 'ar' ? 'الحالة' : 'Status',
+          render: (row) => <StatusBadge status={String(row.status)} />,
+        },
+        {
+          key: 'printer_status',
+          header: locale === 'ar' ? 'الطابعة' : 'Printer',
+          render: (row) => (row.printer_status ? <StatusBadge status={String(row.printer_status)} /> : '—'),
+        },
+        {
+          key: 'last_heartbeat_at',
+          header: locale === 'ar' ? 'آخر نبضة' : 'Last heartbeat',
+          render: (row) => {
+            const value = row.last_heartbeat_at
+            return value ? new Date(String(value)).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-US') : '—'
+          },
+        },
+        { key: 'device_code', header: locale === 'ar' ? 'رمز الجهاز' : 'Device code' },
+      ]}
+    />
   )
 }

@@ -5,7 +5,9 @@ namespace App\Modules\AdminConsole\Http\Controllers\Tenant\Events;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Modules\AdminConsole\Application\SessionContextBuilder;
+use App\Modules\AdminConsole\Http\Controllers\Tenant\Events\Concerns\ResolvesTenantEventFromRoute;
 use App\Modules\AdminConsole\ViewModels\Events\EventDashboardViewModel;
+use App\Modules\AdminConsole\ViewModels\Events\EventSetupReferenceData;
 use App\Modules\AdminConsole\ViewModels\Events\EventSetupViewModel;
 use App\Modules\Authorization\Application\PermissionEvaluator;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
@@ -24,11 +26,14 @@ use Inertia\Response;
 
 final class EventDashboardController extends Controller
 {
+    use ResolvesTenantEventFromRoute;
+
     public function __construct(
         private readonly SessionContextBuilder $sessions,
         private readonly PermissionEvaluator $permissions,
         private readonly EventDashboardViewModel $events,
         private readonly EventSetupViewModel $setup,
+        private readonly EventSetupReferenceData $references,
     ) {}
 
     public function index(): Response
@@ -48,7 +53,7 @@ final class EventDashboardController extends Controller
         $context = $this->authorizeTenant('event.manage');
 
         return Inertia::render('tenant/events/EventSetup', [
-            'tenantId' => $context->tenant->id,
+            'tenantId' => (string) $context->tenant->id,
             'event' => [
                 'id' => null,
                 'slug' => '',
@@ -62,16 +67,16 @@ final class EventDashboardController extends Controller
                 'registration_opens_at' => null,
                 'registration_closes_at' => null,
                 'capacity' => null,
-                'location_name' => ['en' => '', 'ar' => ''],
-                'location_address' => ['en' => '', 'ar' => ''],
                 'brand_reference' => null,
                 'domain_reference' => null,
+                'venues' => [],
                 'readiness' => ['Save the event before publishing.'],
             ],
             'can' => [
                 'manage' => $this->permissions->hasTenantPermission($context, 'event.manage'),
                 'publish' => false,
             ],
+            ...$this->references->toArray(),
         ]);
     }
 
@@ -81,7 +86,7 @@ final class EventDashboardController extends Controller
 
         return Inertia::render('tenant/events/Detail', [
             ...$this->events->detail($this->event($context, $eventId)),
-            'tenantId' => $context->tenant->id,
+            'tenantId' => (string) $context->tenant->id,
         ]);
     }
 
@@ -96,7 +101,8 @@ final class EventDashboardController extends Controller
                 $this->permissions->hasTenantPermission($context, 'event.manage'),
                 $this->permissions->hasTenantPermission($context, 'event.publish'),
             ),
-            'tenantId' => $context->tenant->id,
+            'tenantId' => (string) $context->tenant->id,
+            ...$this->references->toArray(),
         ]);
     }
 
@@ -108,7 +114,7 @@ final class EventDashboardController extends Controller
 
         return Inertia::render('tenant/registration/Builder', [
             'event' => $this->events->detail($event)['event'],
-            'tenantId' => $context->tenant->id,
+            'tenantId' => (string) $context->tenant->id,
             ...$formState,
         ]);
     }
@@ -130,7 +136,7 @@ final class EventDashboardController extends Controller
             ->get();
 
         return Inertia::render('tenant/identity/Requirements', [
-            'tenantId' => $context->tenant->id,
+            'tenantId' => (string) $context->tenant->id,
             'event' => $this->events->detail($event)['event'],
             'ticketTypes' => $ticketTypes->map(fn (TicketType $ticket): array => [
                 'id' => (string) $ticket->id,
@@ -166,7 +172,7 @@ final class EventDashboardController extends Controller
             ->all();
 
         return Inertia::render('tenant/identity/ReviewQueue', [
-            'tenantId' => $context->tenant->id,
+            'tenantId' => (string) $context->tenant->id,
             'event' => $this->events->detail($event)['event'],
             'items' => $items,
             'canReview' => $this->permissions->hasTenantPermission($context, 'identity.review'),
@@ -189,7 +195,7 @@ final class EventDashboardController extends Controller
         );
 
         return Inertia::render('tenant/identity/VerificationDetail', [
-            'tenantId' => $context->tenant->id,
+            'tenantId' => (string) $context->tenant->id,
             'event' => $this->events->detail($event)['event'],
             'verificationId' => (string) $verification->id,
             'attendeeId' => (string) $verification->attendee_id,
@@ -204,21 +210,59 @@ final class EventDashboardController extends Controller
         $event = $this->event($context, $eventId);
         $formState = $this->registrationFormState($context->tenant->id, $event);
 
+        $version = RegistrationFormVersion::query()
+            ->where('tenant_id', $context->tenant->id)
+            ->where('event_id', $event->id)
+            ->where('status', 'draft')
+            ->latest('version')
+            ->first();
+
+        if ($version === null && $event->active_form_version_id !== null) {
+            $version = RegistrationFormVersion::query()
+                ->where('tenant_id', $context->tenant->id)
+                ->where('event_id', $event->id)
+                ->find($event->active_form_version_id);
+        }
+
+        $ticketTypes = TicketType::query()
+            ->where('tenant_id', $context->tenant->id)
+            ->where('event_id', $event->id)
+            ->where('status', 'active')
+            ->orderBy('created_at')
+            ->get()
+            ->map(fn (TicketType $ticket): array => [
+                'id' => (string) $ticket->id,
+                'code' => $ticket->code,
+                'name' => ['en' => $ticket->name_en, 'ar' => $ticket->name_ar],
+                'price_minor' => $ticket->base_price_minor,
+                'currency' => $ticket->currency,
+            ])
+            ->values()
+            ->all();
+
         return Inertia::render('public/registration/Event', [
             'locale' => app()->getLocale() === 'ar' ? 'ar' : 'en',
+            'tenantId' => (string) $context->tenant->id,
             'event' => [
+                'id' => $event->id,
+                'slug' => $event->slug,
                 'name' => ['en' => $event->name_en, 'ar' => $event->name_ar],
                 'description' => ['en' => $event->description_en ?? '', 'ar' => $event->description_ar ?? ''],
+                'start_at' => $event->start_at?->toIso8601String(),
+                'end_at' => $event->end_at?->toIso8601String(),
                 'branding' => [
                     'brand_reference' => $event->branding()->value('brand_reference'),
                     'domain_reference' => $event->branding()->value('domain_reference'),
                 ],
             ],
             'form' => [
+                'version_id' => $version?->id !== null ? (string) $version->id : null,
                 'fields' => $formState['fields'],
                 'privacy_notice_version' => $formState['privacyNoticeVersion'],
                 'terms_version' => $formState['termsVersion'],
             ],
+            'ticketTypes' => $ticketTypes,
+            'isPreview' => true,
         ]);
     }
 
@@ -269,13 +313,6 @@ final class EventDashboardController extends Controller
         abort_unless($this->permissions->hasTenantPermission($context, $permission), 403);
 
         return $context;
-    }
-
-    private function event(TenantContext $context, string $eventId): Event
-    {
-        return Event::query()
-            ->where('tenant_id', $context->tenant->id)
-            ->findOrFail($eventId);
     }
 
     /**

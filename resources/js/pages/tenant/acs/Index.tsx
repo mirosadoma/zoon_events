@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmergencyControls } from '@/components/acs/EmergencyControls'
 import { EmptyState } from '@/components/feedback'
@@ -49,17 +49,17 @@ export default function AcsOverview({ event, tenantId, overview }: Props) {
           <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
             <p className="text-sm text-slate-500">{locale === 'ar' ? 'المناطق' : 'Zones'}</p>
             <p className="text-2xl font-semibold">{overview.zones_total}</p>
-            <Link className="text-sm hover:underline" href={`/tenant/events/${event.id}/acs/zones`}>{locale === 'ar' ? 'إدارة' : 'Manage'}</Link>
+            <LocalizedLink className="text-sm hover:underline" href={`/tenant/events/${event.id}/acs/zones`}>{locale === 'ar' ? 'إدارة' : 'Manage'}</LocalizedLink>
           </div>
           <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
             <p className="text-sm text-slate-500">{locale === 'ar' ? 'المسارات' : 'Lanes'}</p>
             <p className="text-2xl font-semibold">{overview.lanes_total}</p>
-            <Link className="text-sm hover:underline" href={`/tenant/events/${event.id}/acs/lanes`}>{locale === 'ar' ? 'إدارة' : 'Manage'}</Link>
+            <LocalizedLink className="text-sm hover:underline" href={`/tenant/events/${event.id}/acs/lanes`}>{locale === 'ar' ? 'إدارة' : 'Manage'}</LocalizedLink>
           </div>
           <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
             <p className="text-sm text-slate-500">{locale === 'ar' ? 'القواعد' : 'Rules'}</p>
             <p className="text-2xl font-semibold">{overview.rules_total}</p>
-            <Link className="text-sm hover:underline" href={`/tenant/events/${event.id}/acs/rules`}>{locale === 'ar' ? 'إدارة' : 'Manage'}</Link>
+            <LocalizedLink className="text-sm hover:underline" href={`/tenant/events/${event.id}/acs/rules`}>{locale === 'ar' ? 'إدارة' : 'Manage'}</LocalizedLink>
           </div>
           <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
             <p className="text-sm text-slate-500">{locale === 'ar' ? 'التكامل' : 'Integration'}</p>
@@ -81,8 +81,8 @@ export default function AcsOverview({ event, tenantId, overview }: Props) {
         </section>
 
         <section className="mt-8 flex flex-wrap gap-3">
-          <Link className="button-secondary" href={`/tenant/events/${event.id}/acs/access-logs`}>{locale === 'ar' ? 'سجلات الوصول' : 'Access logs'}</Link>
-          <Link className="button-secondary" href={`/tenant/events/${event.id}/acs/gate-health`}>{locale === 'ar' ? 'صحة البوابة' : 'Gate health'}</Link>
+          <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/acs/access-logs`}>{locale === 'ar' ? 'سجلات الوصول' : 'Access logs'}</LocalizedLink>
+          <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/acs/gate-health`}>{locale === 'ar' ? 'صحة البوابة' : 'Gate health'}</LocalizedLink>
         </section>
 
         <section className="mt-8">

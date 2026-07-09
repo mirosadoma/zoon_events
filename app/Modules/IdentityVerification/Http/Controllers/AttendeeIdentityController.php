@@ -4,11 +4,13 @@ namespace App\Modules\IdentityVerification\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
+use App\Modules\Authorization\Contracts\PermissionEvaluator;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\IdentityVerification\Application\Actions\CaptureConsentAction;
 use App\Modules\IdentityVerification\Application\Actions\HandleGovernmentCallbackAction;
 use App\Modules\IdentityVerification\Application\Actions\StartGovernmentVerificationAction;
 use App\Modules\IdentityVerification\Application\Actions\SubmitFaceCaptureAction;
+use App\Modules\IdentityVerification\Application\Actions\WithdrawConsentAction;
 use App\Modules\IdentityVerification\Application\Support\PublicOrderIdentityContext;
 use App\Modules\IdentityVerification\Domain\ValueObjects\IdentityVerificationStatus;
 use App\Modules\IdentityVerification\Http\Requests\FaceCaptureSubmitRequest;
@@ -28,6 +30,7 @@ final class AttendeeIdentityController extends Controller
     public function __construct(
         private readonly PublicOrderIdentityContext $orderContext,
         private readonly TenantContextStore $tenantContexts,
+        private readonly PermissionEvaluator $permissions,
     ) {}
 
     public function storeConsent(
@@ -64,6 +67,31 @@ final class AttendeeIdentityController extends Controller
             'consent_id' => (string) $result['consent']?->id,
             'status' => $result['status'],
         ], 201);
+    }
+
+    public function destroyConsent(
+        Request $request,
+        string $eventId,
+        string $attendeeId,
+        WithdrawConsentAction $action,
+    ): JsonResponse {
+        $resolved = $this->orderContext->resolve($request, $eventId, $attendeeId);
+        $idempotencyKey = (string) $request->header('Idempotency-Key');
+        if ($idempotencyKey === '' || strlen($idempotencyKey) > 128) {
+            throw Phase1Problem::make('inventory_conflict');
+        }
+
+        $result = $action->execute(
+            tenantId: (string) $resolved['attendee']->tenant_id,
+            eventId: $eventId,
+            attendeeId: $attendeeId,
+        );
+
+        return $this->success([
+            'withdrawn' => true,
+            'consent_id' => (string) $result['consent']->id,
+            'status' => $result['status'],
+        ]);
     }
 
     public function showVerification(Request $request, string $eventId, string $attendeeId): JsonResponse
@@ -175,6 +203,11 @@ final class AttendeeIdentityController extends Controller
         $context = $this->tenantContexts->currentOrNull();
         if ($context === null) {
             abort(401);
+        }
+
+        if (! $this->permissions->hasTenantPermission($context, 'identity.review')
+            && ! $this->permissions->hasTenantPermission($context, 'identity.data.view')) {
+            abort(403);
         }
 
         Event::query()

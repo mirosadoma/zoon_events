@@ -6,9 +6,9 @@ use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\IdentityVerification\Application\Support\RequirementResolver;
 use App\Modules\IdentityVerification\Domain\Results\IdentityGateResult;
 use App\Modules\IdentityVerification\Domain\ValueObjects\IdentityReasonCode;
-use App\Modules\IdentityVerification\Domain\ValueObjects\IdentityRequirementLevel;
 use App\Modules\IdentityVerification\Domain\ValueObjects\IdentityVerificationStatus;
 use App\Modules\IdentityVerification\Infrastructure\Persistence\Models\IdentityVerification;
+use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketType;
 
 final readonly class IdentityGate
 {
@@ -24,8 +24,15 @@ final readonly class IdentityGate
 
         $ticketTypeId = $attendee?->ticket_type_id !== null ? (string) $attendee->ticket_type_id : null;
         $level = $this->requirements->resolve($tenantId, $eventId, $ticketTypeId);
+        $attendeeType = $this->resolveAttendeeType($tenantId, $eventId, $ticketTypeId);
 
-        if (! $this->boundaryRequiresVerification($level, $boundary)) {
+        if (! $this->requirements->requirementAppliesToAttendee(
+            $tenantId,
+            $eventId,
+            $ticketTypeId,
+            $attendeeType,
+            $boundary,
+        )) {
             return new IdentityGateResult(
                 satisfied: true,
                 requirementLevel: $level,
@@ -66,20 +73,18 @@ final readonly class IdentityGate
         return new IdentityGateResult(false, $level, $status, $reasonCode);
     }
 
-    private function boundaryRequiresVerification(string $level, string $boundary): bool
+    private function resolveAttendeeType(string $tenantId, string $eventId, ?string $ticketTypeId): ?string
     {
-        if (in_array($level, [IdentityRequirementLevel::NOT_REQUIRED, IdentityRequirementLevel::OPTIONAL], true)) {
-            return false;
+        if ($ticketTypeId === null) {
+            return null;
         }
 
-        return match ($boundary) {
-            'credential' => in_array($level, [
-                IdentityRequirementLevel::REQUIRED_BEFORE_CREDENTIAL,
-                IdentityRequirementLevel::REQUIRED_VIP,
-                IdentityRequirementLevel::REQUIRED_VVIP,
-            ], true),
-            'gate' => $level === IdentityRequirementLevel::REQUIRED_BEFORE_GATE,
-            default => false,
-        };
+        $attendeeType = TicketType::query()
+            ->where('tenant_id', $tenantId)
+            ->where('event_id', $eventId)
+            ->where('id', $ticketTypeId)
+            ->value('attendee_type');
+
+        return is_string($attendeeType) && $attendeeType !== '' ? $attendeeType : null;
     }
 }

@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import BadgeTemplateDesigner from '@/components/badges/BadgeTemplateDesigner'
@@ -32,7 +32,7 @@ export default function BadgeTemplatesPage({ event, tenantId, templates }: Props
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: locale === 'ar' ? 'قوالب الشارات' : 'Badge templates' },
         ]}
-        actions={<Link className="button-secondary" href={`/tenant/events/${event.id}/badge-print-jobs`}>{locale === 'ar' ? 'مهام الطباعة' : 'Print jobs'}</Link>}
+        actions={<LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/badge-print-jobs`}>{locale === 'ar' ? 'مهام الطباعة' : 'Print jobs'}</LocalizedLink>}
       />
       <PageContent>
         {templates.length > 0 && (

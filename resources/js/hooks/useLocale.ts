@@ -1,8 +1,9 @@
 import { usePage } from '@inertiajs/react'
+import { localizedPath, swapLocaleInPath, type AppLocale } from '@/lib/localePath'
 import ar from '@/locales/ar'
 import en from '@/locales/en'
 
-export type Locale = 'en' | 'ar'
+export type Locale = AppLocale
 
 type Messages = typeof en
 
@@ -12,9 +13,10 @@ export function useLocale() {
   const direction = props.direction || (locale === 'ar' ? 'rtl' : 'ltr')
   const messages: Messages = locale === 'ar' ? ar : en
 
-  function t(key: keyof Messages | string): string {
-    return (messages as Record<string, string>)[key] ?? String(key)
+  function t(key: keyof Omit<Messages, 'statusLabels'> | string): string {
+    const value = messages[key as keyof Messages]
+    return typeof value === 'string' ? value : String(key)
   }
 
-  return { locale, direction, t }
+  return { locale, direction, t, localizedPath: (path: string) => localizedPath(locale, path) }
 }

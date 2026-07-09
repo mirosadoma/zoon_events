@@ -114,6 +114,14 @@ paths:
       responses:
         '201': { description: Consent stored }
         '409': { description: Consent missing/withdrawn conflict, content: { application/json: { schema: { $ref: '#/components/schemas/Problem' } } } }
+    delete:
+      tags: [identity-attendee]
+      security: [{ orderAccessToken: [] }]
+      summary: Withdraw stored consent, purge associated sensitive data, and revert verification status.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      responses:
+        '200': { description: Consent withdrawn and audited }
+        '409': { description: No active consent, content: { application/json: { schema: { $ref: '#/components/schemas/Problem' } } } }
 
   /tenant/events/{event_id}/attendees/{attendee_id}/identity/verification:
     parameters: [{ $ref: '#/components/parameters/EventId' }, { $ref: '#/components/parameters/AttendeeId' }]

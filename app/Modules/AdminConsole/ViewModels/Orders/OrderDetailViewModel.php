@@ -2,6 +2,7 @@
 
 namespace App\Modules\AdminConsole\ViewModels\Orders;
 
+use App\Modules\AdminConsole\Application\PersonalDataReader;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Orders\Infrastructure\Persistence\Models\Order;
 use App\Modules\Orders\Infrastructure\Persistence\Models\OrderItem;
@@ -9,6 +10,7 @@ use Illuminate\Support\Collection;
 
 final readonly class OrderDetailViewModel
 {
+    public function __construct(private PersonalDataReader $personalData) {}
     /**
      * @param  Collection<int, Order>  $orders
      * @param  array<string, string>  $notificationStatuses
@@ -62,9 +64,12 @@ final readonly class OrderDetailViewModel
     /** @return array<string, mixed> */
     private function orderRow(Order $order, ?string $notificationStatus): array
     {
+        $buyerName = $this->personalData->orderBuyerName($order);
+
         return [
             'id' => $order->id,
             'reference' => $order->public_reference,
+            'buyer_name' => $buyerName,
             'status' => $order->status,
             'total' => $this->formatMoney($order->total_minor, $order->currency),
             'total_minor' => $order->total_minor,

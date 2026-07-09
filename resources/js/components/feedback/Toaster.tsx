@@ -8,22 +8,22 @@ export default function Toaster() {
   }
 
   return (
-    <div className="fixed bottom-4 end-4 z-50 flex max-w-sm flex-col gap-2" aria-live="polite">
+    <div className="fixed bottom-4 end-4 z-50 flex w-[calc(100vw-2rem)] max-w-sm flex-col gap-2" aria-live="polite">
       {toasts.map((toast) => (
         <div
           key={toast.id}
           role="status"
-          className={`rounded-lg px-4 py-3 text-sm text-white shadow-lg ${
+          className={`rounded-xl border px-4 py-3 text-sm shadow-xl backdrop-blur ${
             toast.variant === 'error'
-              ? 'bg-red-700'
+              ? 'border-red-200 bg-red-700 text-white'
               : toast.variant === 'success'
-                ? 'bg-emerald-700'
-                : 'bg-slate-800'
+                ? 'border-emerald-200 bg-emerald-700 text-white'
+                : 'border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--ink)]'
           }`}
         >
           <div className="flex items-start justify-between gap-3">
             <span>{toast.message}</span>
-            <button type="button" className="text-white/80 hover:text-white" onClick={() => dismiss(toast.id)}>
+            <button type="button" className="opacity-70 hover:opacity-100" onClick={() => dismiss(toast.id)}>
               ×
             </button>
           </div>

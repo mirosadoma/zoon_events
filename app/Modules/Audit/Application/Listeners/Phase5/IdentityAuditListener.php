@@ -5,6 +5,7 @@ namespace App\Modules\Audit\Application\Listeners\Phase5;
 use App\Modules\Audit\Contracts\AuditWriter;
 use App\Modules\IdentityVerification\Domain\Events\IdentityArtifactsPurged;
 use App\Modules\IdentityVerification\Domain\Events\IdentityConsentCaptured;
+use App\Modules\IdentityVerification\Domain\Events\IdentityConsentWithdrawn;
 use App\Modules\IdentityVerification\Domain\Events\IdentityFaceCaptureSubmitted;
 use App\Modules\IdentityVerification\Domain\Events\IdentityRequirementConfigured;
 use App\Modules\IdentityVerification\Domain\Events\IdentityReviewApproved;
@@ -37,6 +38,19 @@ final readonly class IdentityAuditListener
             'tenant',
             $event->tenantId,
             'identity_consent.captured',
+            'succeeded',
+            targetType: 'identity_consent',
+            targetId: $event->consentId,
+            metadata: ['event_id' => $event->eventId, 'attendee_id' => $event->attendeeId],
+        );
+    }
+
+    public function handleConsentWithdrawn(IdentityConsentWithdrawn $event): void
+    {
+        $this->audit->write(
+            'tenant',
+            $event->tenantId,
+            'identity_consent.withdrawn',
             'succeeded',
             targetType: 'identity_consent',
             targetId: $event->consentId,

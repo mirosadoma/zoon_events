@@ -3,6 +3,7 @@ import type { BadgeTemplate } from '@/types/phase3'
 import { BADGE_TEMPLATE_ALLOWED_FIELDS, type BadgeTemplateField } from '@/types/phase3'
 import TextInput from '@/components/forms/TextInput'
 import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
+import { useLocale } from '@/hooks/useLocale'
 
 interface DesignerProps {
   eventId: string
@@ -27,6 +28,7 @@ function layoutToEntries(layout: BadgeTemplate['layout'] | undefined): LayoutEnt
 }
 
 export default function BadgeTemplateDesigner({ eventId, tenantId, template, onSaved }: DesignerProps) {
+  const { locale } = useLocale()
   const [name, setName] = useState(template?.name ?? '')
   const [paperSize, setPaperSize] = useState(template?.paper_size ?? 'A6')
   const [printerType, setPrinterType] = useState(template?.printer_type ?? 'thermal')
@@ -55,9 +57,27 @@ export default function BadgeTemplateDesigner({ eventId, tenantId, template, onS
   }
 
   function buildLayout() {
-    return Object.fromEntries(
+    const layout = Object.fromEntries(
       entries.map(({ field, x, y, width, height }) => [field, { x, y, width, height }]),
     )
+
+    if (Object.keys(layout).length === 0) {
+      return { attendee_name: { x: 20, y: 20, width: 220, height: 40 } }
+    }
+
+    return layout
+  }
+
+  function readError(body: Record<string, unknown>, fallback: string): string {
+    if (typeof body.detail === 'string') return body.detail
+    if (typeof body.message === 'string') return body.message
+    if (typeof body.title === 'string' && body.title !== 'Validation failed') return body.title
+    if (typeof body.errors === 'object' && body.errors !== null) {
+      const first = Object.values(body.errors as Record<string, string[] | string>)[0]
+      if (Array.isArray(first)) return String(first[0] ?? fallback)
+      if (typeof first === 'string') return first
+    }
+    return fallback
   }
 
   async function handleSave() {
@@ -75,21 +95,20 @@ export default function BadgeTemplateDesigner({ eventId, tenantId, template, onS
       const res = await fetch(url, {
         method,
         credentials: 'include',
-        headers: apiHeaders,
+        headers: { ...apiHeaders, 'Idempotency-Key': crypto.randomUUID() },
         body: JSON.stringify({ name, layout: buildLayout(), paper_size: paperSize, printer_type: printerType }),
       })
 
+      const data = await res.json()
+
       if (!res.ok) {
-        const data = await res.json()
-        setError(data.title ?? 'Save failed')
+        setError(readError(data, locale === 'ar' ? 'تعذر حفظ القالب.' : 'Save failed'))
         return
       }
-
-      const data = await res.json()
       setSuccess(true)
       onSaved?.(data.data as BadgeTemplate)
     } catch {
-      setError('Network error. Please try again.')
+      setError(locale === 'ar' ? 'خطأ في الشبكة. حاول مرة أخرى.' : 'Network error. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -116,7 +135,7 @@ export default function BadgeTemplateDesigner({ eventId, tenantId, template, onS
       const data = await res.json()
       onSaved?.(data.data as BadgeTemplate)
     } catch {
-      setError('Network error. Please try again.')
+      setError(locale === 'ar' ? 'خطأ في الشبكة. حاول مرة أخرى.' : 'Network error. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -124,17 +143,17 @@ export default function BadgeTemplateDesigner({ eventId, tenantId, template, onS
 
   return (
     <div>
-      <h2 className="text-lg font-semibold">{template ? 'Edit badge template' : 'New badge template'}</h2>
-      {template && <p>Status: {template.status}</p>}
+      <h2 className="text-lg font-semibold">{template ? (locale === 'ar' ? 'تعديل قالب الشارة' : 'Edit badge template') : (locale === 'ar' ? 'قالب شارة جديد' : 'New badge template')}</h2>
+      {template && <p>{locale === 'ar' ? 'الحالة:' : 'Status:'} <span className="font-medium">{template.status}</span></p>}
 
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
-        <TextInput label="Template name" name="name" value={name} onChange={(event) => setName(event.target.value)} required />
-        <TextInput label="Paper size" name="paper_size" value={paperSize} onChange={(event) => setPaperSize(event.target.value)} required />
-        <TextInput label="Printer type" name="printer_type" value={printerType} onChange={(event) => setPrinterType(event.target.value)} required />
+        <TextInput label={locale === 'ar' ? 'اسم القالب' : 'Template name'} name="name" value={name} onChange={(event) => setName(event.target.value)} required />
+        <TextInput label={locale === 'ar' ? 'حجم الورق' : 'Paper size'} name="paper_size" value={paperSize} onChange={(event) => setPaperSize(event.target.value)} required />
+        <TextInput label={locale === 'ar' ? 'نوع الطابعة' : 'Printer type'} name="printer_type" value={printerType} onChange={(event) => setPrinterType(event.target.value)} required />
       </div>
 
       <section className="mt-6">
-        <h3 className="font-medium">Available fields</h3>
+        <h3 className="font-medium">{locale === 'ar' ? 'الحقول المتاحة' : 'Available fields'}</h3>
         <div className="mt-2 flex flex-wrap gap-2">
           {BADGE_TEMPLATE_ALLOWED_FIELDS.filter((field) => !entries.some((entry) => entry.field === field)).map((field) => (
             <button key={field} type="button" className="button-secondary" onClick={() => addField(field)}>
@@ -189,15 +208,15 @@ export default function BadgeTemplateDesigner({ eventId, tenantId, template, onS
       {success && <p className="mt-4 text-green-600" role="status">Saved successfully.</p>}
 
       <div className="mt-6 flex flex-wrap gap-3">
-        <SubmitButtonWithLoader loading={saving} label="Save template" type="button" onClick={() => void handleSave()} />
+        <SubmitButtonWithLoader loading={saving} label={locale === 'ar' ? 'حفظ القالب' : 'Save template'} type="button" onClick={() => void handleSave()} />
         {template && template.status !== 'active' && (
           <button type="button" className="button-secondary" onClick={() => void handleActivationToggle('activate')} disabled={saving}>
-            Activate
+            {locale === 'ar' ? 'تفعيل' : 'Activate'}
           </button>
         )}
         {template && template.status === 'active' && (
           <button type="button" className="button-secondary" onClick={() => void handleActivationToggle('deactivate')} disabled={saving}>
-            Deactivate
+            {locale === 'ar' ? 'إلغاء التفعيل' : 'Deactivate'}
           </button>
         )}
       </div>

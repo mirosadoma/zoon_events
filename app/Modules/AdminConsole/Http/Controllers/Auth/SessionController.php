@@ -28,6 +28,7 @@ final class SessionController extends Controller
     {
         $user = $this->authenticate->attempt($request->string('email')->toString(), $request->string('password')->toString());
         Auth::login($user, $request->boolean('remember'));
+        $user->forceFill(['last_authenticated_at' => now()])->save();
         $request->session()->regenerate();
         $this->audit->writePlatform('auth.session.started', 'succeeded', $user, targetType: 'user', targetId: $user->id);
 

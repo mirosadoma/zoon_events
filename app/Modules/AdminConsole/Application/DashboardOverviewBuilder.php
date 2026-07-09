@@ -2,6 +2,7 @@
 
 namespace App\Modules\AdminConsole\Application;
 
+use App\Models\User;
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\AcsLane;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\Audit\Infrastructure\Persistence\Models\AuditLog;
@@ -45,13 +46,21 @@ final class DashboardOverviewBuilder
             ->latest('occurred_at')
             ->limit(5)
             ->get()
-            ->map(fn (AuditLog $log): array => [
-                'id' => $log->id,
-                'actor' => $log->actor_id ? "User {$log->actor_id}" : 'System',
-                'action' => $log->action,
-                'outcome' => $log->outcome,
-                'occurred_at' => $log->occurred_at?->toIso8601String(),
-            ])
+            ->map(function (AuditLog $log): array {
+                $actorName = 'System';
+
+                if ($log->actor_id) {
+                    $actorName = User::query()->whereKey($log->actor_id)->value('name') ?? "User {$log->actor_id}";
+                }
+
+                return [
+                    'id' => $log->id,
+                    'actor' => $actorName,
+                    'action' => $log->action,
+                    'outcome' => $log->outcome,
+                    'occurred_at' => $log->occurred_at?->toIso8601String(),
+                ];
+            })
             ->all();
 
         return [

@@ -1,10 +1,11 @@
 import { Component, type ErrorInfo, type PropsWithChildren } from 'react'
 import { Head } from '@inertiajs/react'
 import { Sidebar, Topbar } from '@/components/layout'
-import { Toaster } from '@/components/feedback'
 import GlobalRouteLoader from '@/components/loaders/GlobalRouteLoader'
-import { ToastProvider } from '@/hooks/useToast'
+import ProductTour from '@/components/tour/ProductTour'
+import { ShellLayoutProvider, useShellLayout } from '@/contexts/ShellLayoutContext'
 import { useLocale } from '@/hooks/useLocale'
+import { useSiteBranding } from '@/hooks/useSiteBranding'
 import en from '@/locales/en'
 import ar from '@/locales/ar'
 
@@ -41,27 +42,37 @@ type DashboardLayoutProps = PropsWithChildren<{
   title?: string
 }>
 
-export default function DashboardLayout({ children, title }: DashboardLayoutProps) {
+function DashboardShell({ children, title }: DashboardLayoutProps) {
   const { locale, direction } = useLocale()
+  const { sidebarCollapsed } = useShellLayout()
+  const { appName } = useSiteBranding()
   const messages = locale === 'ar' ? ar : en
 
   return (
-    <ToastProvider>
-      <div dir={direction} lang={locale} className="min-h-screen bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-50">
-        <Head title={title ?? messages.appName} />
-        <a href="#main-content" className="skip-link">Skip to content</a>
-        <GlobalRouteLoader />
-        <div className="mx-auto grid min-h-screen lg:grid-cols-[17rem_1fr]">
-          <Sidebar />
-          <div>
-            <Topbar />
-            <main id="main-content" tabIndex={-1} className="p-4 sm:p-6 lg:p-8">
-              <RouteErrorBoundary>{children}</RouteErrorBoundary>
-            </main>
-          </div>
-        </div>
-        <Toaster />
+    <div
+      dir={direction}
+      lang={locale}
+      className={`ta-shell ${sidebarCollapsed ? 'ta-shell-collapsed' : ''}`}
+    >
+      <Head title={title ?? appName ?? messages.appName} />
+      <a href="#main-content" className="skip-link">Skip to content</a>
+      <GlobalRouteLoader />
+      <ProductTour />
+      <Sidebar />
+      <div className="ta-main-column">
+        <Topbar />
+        <main id="main-content" tabIndex={-1} className="p-4 sm:p-6 lg:p-8">
+          <RouteErrorBoundary>{children}</RouteErrorBoundary>
+        </main>
       </div>
-    </ToastProvider>
+    </div>
+  )
+}
+
+export default function DashboardLayout({ children, title }: DashboardLayoutProps) {
+  return (
+    <ShellLayoutProvider>
+      <DashboardShell title={title}>{children}</DashboardShell>
+    </ShellLayoutProvider>
   )
 }

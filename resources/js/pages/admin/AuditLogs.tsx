@@ -1,5 +1,5 @@
-import { router } from '@inertiajs/react'
 import { FormEvent, useState } from 'react'
+import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import DateTimeInput from '@/components/forms/DateTimeInput'
@@ -10,6 +10,7 @@ import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import FiltersBar from '@/components/tables/FiltersBar'
 import { useLocale } from '@/hooks/useLocale'
+import { auditActionLabel } from '@/lib/permissionCatalog'
 import en from '@/locales/en'
 import ar from '@/locales/ar'
 
@@ -20,6 +21,7 @@ type AuditLogRow = {
   target_type?: string | null
   target_id?: string | null
   outcome: string
+  reason_code?: string | null
   metadata?: Record<string, unknown> | null
   occurred_at?: string | null
 }
@@ -40,6 +42,7 @@ type Props = {
 
 export default function AdminAuditLogs({ auditLogs, filters }: Props) {
   const { locale } = useLocale()
+  const localizedRouter = useLocalizedRouter()
   const messages = locale === 'ar' ? ar : en
   const [draft, setDraft] = useState({
     from: filters.from?.slice(0, 16) ?? '',
@@ -59,7 +62,7 @@ export default function AdminAuditLogs({ auditLogs, filters }: Props) {
     if (draft.outcome) query.outcome = draft.outcome
     if (draft.actor_id) query.actor_id = draft.actor_id
 
-    router.get('/admin/audit-logs', query, { preserveState: true })
+    localizedRouter.get('/admin/audit-logs', query, { preserveState: true })
   }
 
   return (
@@ -107,11 +110,25 @@ export default function AdminAuditLogs({ auditLogs, filters }: Props) {
                 header: messages.adminOccurredAt,
                 render: (row) => (row.occurred_at ? new Date(String(row.occurred_at)).toLocaleString() : '—'),
               },
-              { key: 'action', header: messages.adminFilterAction },
+              {
+                key: 'action',
+                header: messages.adminFilterAction,
+                render: (row) => auditActionLabel(String(row.action), locale),
+              },
               {
                 key: 'outcome',
                 header: messages.adminFilterOutcome,
                 render: (row) => <StatusBadge status={String(row.outcome)} />,
+              },
+              {
+                key: 'reason_code',
+                header: locale === 'ar' ? 'سبب المشكلة' : 'Failure reason',
+                render: (row) => {
+                  const outcome = String(row.outcome ?? '')
+                  const reason = row.reason_code ? String(row.reason_code) : null
+                  if (outcome !== 'failed' && !reason) return '—'
+                  return reason ?? (locale === 'ar' ? 'فشل بدون تفاصيل' : 'Failed without details')
+                },
               },
               { key: 'actor_id', header: messages.adminFilterActor },
               { key: 'target_type', header: messages.adminTargetType },

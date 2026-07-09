@@ -24,5 +24,6 @@ final readonly class FreeRegistrationInput
         public array $attendee,
         public string $locale,
         public CarbonImmutable $credentialExpiresAt,
+        public bool $bypassIdentityGateForCredential = false,
     ) {}
 }

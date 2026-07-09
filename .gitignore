@@ -1,5 +1,6 @@
 *.log
 *.cache
+.env*
 .DS_Store
 .env
 .env.backup
@@ -15,6 +16,9 @@
 /auth.json
 /bootstrap/cache/*.php
 /node_modules
+/build
+/coverage
+/dist
 /public/build
 /public/hot
 /public/storage

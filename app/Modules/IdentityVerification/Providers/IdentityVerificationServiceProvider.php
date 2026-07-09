@@ -7,6 +7,7 @@ use App\Modules\IdentityVerification\Contracts\FaceCaptureAdapter;
 use App\Modules\IdentityVerification\Contracts\GovernmentIdentityAdapter;
 use App\Modules\IdentityVerification\Domain\Events\IdentityArtifactsPurged;
 use App\Modules\IdentityVerification\Domain\Events\IdentityConsentCaptured;
+use App\Modules\IdentityVerification\Domain\Events\IdentityConsentWithdrawn;
 use App\Modules\IdentityVerification\Domain\Events\IdentityFaceCaptureSubmitted;
 use App\Modules\IdentityVerification\Domain\Events\IdentityRequirementConfigured;
 use App\Modules\IdentityVerification\Domain\Events\IdentityReviewApproved;
@@ -49,6 +50,7 @@ final class IdentityVerificationServiceProvider extends ServiceProvider
         $listener = IdentityAuditListener::class;
         Event::listen(IdentityRequirementConfigured::class, [$listener, 'handleRequirementConfigured']);
         Event::listen(IdentityConsentCaptured::class, [$listener, 'handleConsentCaptured']);
+        Event::listen(IdentityConsentWithdrawn::class, [$listener, 'handleConsentWithdrawn']);
         Event::listen(IdentityVerificationStarted::class, [$listener, 'handleVerificationStarted']);
         Event::listen(IdentityVerificationResultRecorded::class, [$listener, 'handleVerificationResultRecorded']);
         Event::listen(IdentityFaceCaptureSubmitted::class, [$listener, 'handleFaceCaptureSubmitted']);

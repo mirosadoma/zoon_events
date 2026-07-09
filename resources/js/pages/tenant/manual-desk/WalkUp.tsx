@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
@@ -42,7 +42,7 @@ export default function WalkUpRegistration({ event, tenantId, ticketTypes }: Pro
           { label: locale === 'ar' ? 'مكتب الاستقبال' : 'Manual desk', href: `/tenant/events/${event.id}/manual-desk` },
           { label: locale === 'ar' ? 'تسجيل مباشر' : 'Walk-up' },
         ]}
-        actions={<Link className="button-secondary" href={`/tenant/events/${event.id}/manual-desk`}>{locale === 'ar' ? 'العودة للمكتب' : 'Back to desk'}</Link>}
+        actions={<LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/manual-desk`}>{locale === 'ar' ? 'العودة للمكتب' : 'Back to desk'}</LocalizedLink>}
       />
       <PageContent>
         {ticketTypes.length === 0 ? (

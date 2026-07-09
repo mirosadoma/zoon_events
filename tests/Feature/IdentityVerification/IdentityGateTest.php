@@ -9,6 +9,7 @@ use App\Modules\IdentityVerification\Domain\ValueObjects\IdentityRequirementLeve
 use App\Modules\IdentityVerification\Domain\ValueObjects\IdentityVerificationStatus;
 use App\Modules\IdentityVerification\Infrastructure\Persistence\Models\IdentityVerification;
 use App\Modules\IdentityVerification\Infrastructure\Persistence\Models\IdentityVerificationRequirement;
+use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketType;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use PHPUnit\Framework\Attributes\Group;
 use Tests\Support\CreatesPhase1RegistrationFixture;
@@ -150,5 +151,77 @@ final class IdentityGateTest extends Phase5MySqlTestCase
         $expired = $gate->evaluate($tenantId, $eventId, $attendeeId, 'gate');
         self::assertFalse($expired->satisfied);
         self::assertSame(IdentityReasonCode::EXPIRED, $expired->reasonCode);
+    }
+
+    public function test_required_vip_only_blocks_matching_vip_attendees_at_credential_and_gate(): void
+    {
+        $this->assertMySqlConnectionIsAvailable();
+        $scan = $this->createIssuedCredentialScanFixture(['credential.view']);
+        $tenantId = (string) $scan['fixture']['tenant']->id;
+        $eventId = (string) $scan['fixture']['event']->id;
+        $ticketId = (string) $scan['fixture']['ticket']->id;
+        $attendeeId = (string) $scan['credential']->attendee_id;
+
+        IdentityVerificationRequirement::query()->create([
+            'tenant_id' => $tenantId,
+            'event_id' => $eventId,
+            'ticket_type_id' => null,
+            'level' => IdentityRequirementLevel::REQUIRED_VIP,
+            'face_fallback_enabled' => true,
+        ]);
+
+        $gate = app(IdentityGate::class);
+        $general = $gate->evaluate($tenantId, $eventId, $attendeeId, 'credential');
+        self::assertTrue($general->satisfied);
+        self::assertSame(IdentityVerificationStatus::NOT_REQUIRED, $general->status);
+
+        $generalAtGate = $gate->evaluate($tenantId, $eventId, $attendeeId, 'gate');
+        self::assertTrue($generalAtGate->satisfied);
+
+        TicketType::query()
+            ->where('id', $ticketId)
+            ->update(['attendee_type' => 'vip']);
+
+        $blocked = $gate->evaluate($tenantId, $eventId, $attendeeId, 'credential');
+        self::assertFalse($blocked->satisfied);
+        self::assertSame(IdentityReasonCode::NOT_VERIFIED, $blocked->reasonCode);
+
+        $blockedAtGate = $gate->evaluate($tenantId, $eventId, $attendeeId, 'gate');
+        self::assertFalse($blockedAtGate->satisfied);
+        self::assertSame(IdentityReasonCode::NOT_VERIFIED, $blockedAtGate->reasonCode);
+    }
+
+    public function test_required_vvip_only_blocks_matching_vvip_attendees(): void
+    {
+        $this->assertMySqlConnectionIsAvailable();
+        $scan = $this->createIssuedCredentialScanFixture(['credential.view']);
+        $tenantId = (string) $scan['fixture']['tenant']->id;
+        $eventId = (string) $scan['fixture']['event']->id;
+        $ticketId = (string) $scan['fixture']['ticket']->id;
+        $attendeeId = (string) $scan['credential']->attendee_id;
+
+        IdentityVerificationRequirement::query()->create([
+            'tenant_id' => $tenantId,
+            'event_id' => $eventId,
+            'ticket_type_id' => null,
+            'level' => IdentityRequirementLevel::REQUIRED_VVIP,
+            'face_fallback_enabled' => true,
+        ]);
+
+        TicketType::query()
+            ->where('id', $ticketId)
+            ->update(['attendee_type' => 'vip']);
+
+        $gate = app(IdentityGate::class);
+        $vipNotVvip = $gate->evaluate($tenantId, $eventId, $attendeeId, 'gate');
+        self::assertTrue($vipNotVvip->satisfied);
+
+        TicketType::query()
+            ->where('id', $ticketId)
+            ->update(['attendee_type' => 'vvip']);
+
+        $blocked = $gate->evaluate($tenantId, $eventId, $attendeeId, 'gate');
+        self::assertFalse($blocked->satisfied);
+        self::assertSame(IdentityReasonCode::NOT_VERIFIED, $blocked->reasonCode);
     }
 }

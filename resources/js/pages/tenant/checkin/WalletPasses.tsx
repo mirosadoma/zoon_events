@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
@@ -15,7 +15,7 @@ type WalletPassRow = {
   id: string
   provider: string
   serial: string
-  attendee_id: string
+  attendee_id?: string | null
   status: string
   pass_url?: string | null
   last_pushed_at?: string | null
@@ -59,9 +59,9 @@ export default function WalletPasses({ event, walletPasses }: Props) {
                   const pass = row as unknown as WalletPassRow
 
                   return (
-                    <Link href={`/tenant/events/${event.id}/wallet-passes/${pass.id}`} className="font-medium text-sky-700 hover:underline">
+                    <LocalizedLink href={`/tenant/events/${event.id}/wallet-passes/${pass.id}`} className="font-medium text-sky-700 hover:underline">
                       {pass.serial}
-                    </Link>
+                    </LocalizedLink>
                   )
                 },
               },
@@ -77,10 +77,14 @@ export default function WalletPasses({ event, walletPasses }: Props) {
                 render: (row) => {
                   const pass = row as unknown as WalletPassRow
 
+                  if (!pass.attendee_id) {
+                    return '—'
+                  }
+
                   return (
-                    <Link href={`/tenant/events/${event.id}/attendees/${pass.attendee_id}`} className="text-sky-700 hover:underline">
-                      {pass.attendee_id.slice(-8)}
-                    </Link>
+                    <LocalizedLink href={`/tenant/events/${event.id}/attendees/${pass.attendee_id}`} className="text-sky-700 hover:underline">
+                      {String(pass.attendee_id).slice(-8)}
+                    </LocalizedLink>
                   )
                 },
               },

@@ -2,6 +2,10 @@
 
 namespace App\Modules\Notifications\Application\Jobs;
 
+use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
+use App\Modules\Credentials\Application\Presentation\CredentialPresentationToken;
+use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
+use App\Modules\AdminConsole\Application\SiteSettingsRepository;
 use App\Modules\Events\Contracts\ConfirmationEventReader;
 use App\Modules\Notifications\Application\NotificationAdapterRegistry;
 use App\Modules\Notifications\Application\Rendering\ConfirmationRenderer;
@@ -16,6 +20,7 @@ use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
 use RuntimeException;
 use Throwable;
 
@@ -39,6 +44,8 @@ final class DeliverNotificationJob implements ShouldQueue
         PersonalDataCipher $cipher,
         ConfirmationEventReader $events,
         ConfirmationOrderReader $orders,
+        CredentialPresentationToken $presentationTokens,
+        SiteSettingsRepository $siteSettings,
     ): void {
         $notification = DB::transaction(function (): ?Notification {
             $row = Notification::query()->lockForUpdate()->find($this->notificationId);
@@ -63,10 +70,41 @@ final class DeliverNotificationJob implements ShouldQueue
             if (! $event || ! $order) {
                 $result = new NotificationResult(NotificationStatus::PermanentFailure, reasonCode: 'scope_not_found');
             } else {
-                $rendered = $renderer->render($notification->locale, [
-                    'event_name' => $event->name($notification->locale),
+                $qrPayload = '';
+                if (is_string($notification->credential_id) && $notification->credential_id !== '') {
+                    $credential = Credential::query()
+                        ->where('tenant_id', $notification->tenant_id)
+                        ->whereKey($notification->credential_id)
+                        ->first();
+
+                    if ($credential instanceof Credential) {
+                        try {
+                            $qrPayload = $presentationTokens->resolve($credential);
+                        } catch (Throwable) {
+                            $qrPayload = '';
+                        }
+                    }
+                }
+
+                $locale = in_array($notification->locale, ['ar', 'en'], true) ? $notification->locale : 'en';
+                $settings = $siteSettings->toPublicArray();
+                $attendeeName = $this->resolveAttendeeName($cipher, $notification);
+                $credentialUrl = URL::temporarySignedRoute(
+                    'public.order.show',
+                    now()->addDays(90),
+                    ['locale' => $locale, 'public_reference' => $order->publicReference],
+                );
+
+                $rendered = $renderer->render($locale, [
+                    'event_name' => $event->name($locale),
                     'order_reference' => $order->publicReference,
-                    'credential_url' => url('/public/orders/'.rawurlencode($order->publicReference)),
+                    'credential_url' => $credentialUrl,
+                    'qr_payload' => $qrPayload,
+                    'attendee_name' => $attendeeName,
+                    'app_name' => $locale === 'ar'
+                        ? (string) ($settings['app_name_ar'] ?? config('zonetec.name', 'Zonetec'))
+                        : (string) ($settings['app_name_en'] ?? config('zonetec.name', 'Zonetec')),
+                    'support_email' => (string) ($settings['support_email'] ?? config('mail.from.address')),
                 ]);
                 $destination = $cipher->decrypt([
                     'key_id' => $notification->encryption_key_id,
@@ -110,6 +148,33 @@ final class DeliverNotificationJob implements ShouldQueue
         $notification->refresh();
         if ($notification->status === 'temporary_failure' && $notification->attempt_count < $this->tries) {
             throw new RuntimeException('Notification delivery requires retry.');
+        }
+    }
+
+    private function resolveAttendeeName(PersonalDataCipher $cipher, Notification $notification): string
+    {
+        if (! is_string($notification->attendee_id) || $notification->attendee_id === '') {
+            return 'Participant';
+        }
+
+        $attendee = Attendee::query()
+            ->where('tenant_id', $notification->tenant_id)
+            ->whereKey($notification->attendee_id)
+            ->first();
+
+        if ($attendee === null) {
+            return 'Participant';
+        }
+
+        try {
+            $firstName = $cipher->decrypt([
+                'key_id' => $attendee->encryption_key_id,
+                'ciphertext' => $attendee->first_name_ciphertext,
+            ], "{$attendee->tenant_id}:{$attendee->event_id}:attendee");
+
+            return trim($firstName) !== '' ? trim($firstName) : 'Participant';
+        } catch (Throwable) {
+            return 'Participant';
         }
     }
 

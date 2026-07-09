@@ -10,7 +10,7 @@ export default function Pagination({ page, totalPages, onPageChange }: Paginatio
   }
 
   return (
-    <nav aria-label="Pagination" className="flex items-center gap-2">
+    <nav aria-label="Pagination" className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] px-4 py-3">
       <button
         type="button"
         className="button-secondary"

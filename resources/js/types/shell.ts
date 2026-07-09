@@ -32,11 +32,18 @@ export type NavigationItem = {
   key: string
   label: string
   href: string
+  icon?: string
   permission: PermissionKey | null
   children?: NavigationItem[]
 }
 
 export type NavigationManifest = NavigationItem[]
+
+export type NavigationGroup = {
+  key: string
+  label: string
+  items: NavigationItem[]
+}
 
 export type BreadcrumbItem = {
   label: string

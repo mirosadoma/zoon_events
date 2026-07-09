@@ -1,9 +1,10 @@
-import { Link } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { DetailsCard } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
 import { NotificationStatus } from '@/components/orders/NotificationStatus'
 import StatusBadge from '@/components/status/StatusBadge'
+import { checkinStatusLabel } from '@/lib/scanLabels'
 import { useLocale } from '@/hooks/useLocale'
 
 type EventRow = {
@@ -23,6 +24,7 @@ type OrderItem = {
 type OrderDetail = {
   id: string
   reference: string
+  buyer_name?: string | null
   status: string
   total: string
   currency: string
@@ -42,22 +44,24 @@ export default function OrderDetailPage({ event, order }: Props) {
   const { locale } = useLocale()
 
   return (
-    <DashboardLayout title={order.reference}>
+    <DashboardLayout title={order.buyer_name ?? order.reference}>
       <PageHeader
-        title={order.reference}
+        title={order.buyer_name ?? order.reference}
         description={event.name[locale]}
         breadcrumbs={[
           { label: locale === 'ar' ? 'نظرة عامة' : 'Overview', href: '/' },
           { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: locale === 'ar' ? 'الطلبات' : 'Orders', href: `/tenant/events/${event.id}/orders` },
-          { label: order.reference },
+          { label: order.buyer_name ?? order.reference },
         ]}
       />
       <PageContent>
         <DetailsCard
           title={locale === 'ar' ? 'ملخص الطلب' : 'Order summary'}
           items={[
+            { label: locale === 'ar' ? 'صاحب الطلب' : 'Order owner', value: order.buyer_name ?? '—' },
+            { label: locale === 'ar' ? 'المرجع' : 'Reference', value: order.reference },
             { label: locale === 'ar' ? 'الحالة' : 'Status', value: <StatusBadge status={order.status} /> },
             { label: locale === 'ar' ? 'الإجمالي' : 'Total', value: order.total },
             { label: locale === 'ar' ? 'العملة' : 'Currency', value: order.currency },
@@ -90,10 +94,10 @@ export default function OrderDetailPage({ event, order }: Props) {
               <li>{locale === 'ar' ? 'لا يوجد حضور مرتبط.' : 'No linked attendees.'}</li>
             ) : order.attendees.map((attendee) => (
               <li key={attendee.id}>
-                <Link href={`/tenant/events/${event.id}/attendees/${attendee.id}`} className="text-sky-700 hover:underline">
+                <LocalizedLink href={`/tenant/events/${event.id}/attendees/${attendee.id}`} className="text-sky-700 hover:underline">
                   {attendee.label}
-                </Link>
-                {attendee.checkin_status ? ` · ${attendee.checkin_status}` : ''}
+                </LocalizedLink>
+                {attendee.checkin_status ? ` · ${checkinStatusLabel(attendee.checkin_status, locale)}` : ''}
               </li>
             ))}
           </ul>

@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useMemo, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
@@ -82,7 +82,7 @@ export default function BadgePrintJobs({ event, tenantId, printJobs }: Props) {
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: locale === 'ar' ? 'مهام الطباعة' : 'Print jobs' },
         ]}
-        actions={<Link className="button-secondary" href={`/tenant/events/${event.id}/badge-templates`}>{locale === 'ar' ? 'قوالب الشارات' : 'Badge templates'}</Link>}
+        actions={<LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/badge-templates`}>{locale === 'ar' ? 'قوالب الشارات' : 'Badge templates'}</LocalizedLink>}
       />
       <PageContent>
         <FiltersBar>

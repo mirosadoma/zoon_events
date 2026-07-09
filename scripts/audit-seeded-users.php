@@ -3,12 +3,13 @@
 require __DIR__.'/../vendor/autoload.php';
 
 $app = require __DIR__.'/../bootstrap/app.php';
-$app->make(Kernel::class)->bootstrap();
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
 use App\Models\User;
 use App\Modules\Authorization\Application\PermissionEvaluator;
 use App\Modules\Tenancy\Domain\Context\TenantContext;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\TenantMembership;
+use Database\Seeders\DemoAccounts;
 use Database\Seeders\PermissionSeeder;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\DB;
@@ -19,10 +20,14 @@ $definitions = PermissionSeeder::definitions();
 echo "=== Seeded user credentials & permission audit ===\n\n";
 
 $credentials = [
-    'platform.admin@admin.com' => config('zonetec.bootstrap_admin_password'),
-    'fixture.creator@example.test' => 'synthetic-only-creator-password',
-    'fixture.alpha@example.test' => 'synthetic-only-alpha-password',
-    'fixture.bravo@example.test' => 'synthetic-only-bravo-password',
+    DemoAccounts::PRIMARY_DEMO_EMAIL => DemoAccounts::PRIMARY_DEMO_PASSWORD,
+    DemoAccounts::ONSITE_EMAIL => DemoAccounts::ONSITE_PASSWORD,
+    DemoAccounts::ACS_EMAIL => DemoAccounts::ACS_PASSWORD,
+    DemoAccounts::TICKETING_EMAIL => DemoAccounts::TICKETING_PASSWORD,
+    DemoAccounts::PLATFORM_ADMIN_EMAIL => config('zonetec.bootstrap_admin_password', 'admin1234'),
+    DemoAccounts::FIXTURE_CREATOR_EMAIL => DemoAccounts::FIXTURE_CREATOR_PASSWORD,
+    DemoAccounts::FIXTURE_ALPHA_EMAIL => DemoAccounts::FIXTURE_ALPHA_PASSWORD,
+    DemoAccounts::FIXTURE_BRAVO_EMAIL => DemoAccounts::FIXTURE_BRAVO_PASSWORD,
 ];
 
 foreach (User::query()->orderBy('email')->get() as $user) {
@@ -70,7 +75,7 @@ foreach (User::query()->orderBy('email')->get() as $user) {
     echo "\n";
 }
 
-echo "=== SystemRoleSeeder role definitions (expected) ===\n\n";
+echo "=== FoundationSeeder role definitions (expected) ===\n\n";
 echo "Platform roles: Platform Administrator, Security Auditor, Operations Viewer\n";
 echo "Tenant roles (per tenant): Tenant Administrator, Event Manager, Ticketing Manager, On-Site Staff, ACS Operator\n";
 echo "\nRun after `php artisan db:seed` to verify assignments.\n";

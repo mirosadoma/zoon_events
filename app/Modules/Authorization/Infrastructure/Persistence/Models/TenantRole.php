@@ -13,7 +13,7 @@ class TenantRole extends Model implements TenantOwned
 {
     use BelongsToTenant;
 
-    protected $fillable = ['tenant_id', 'name', 'description', 'is_system', 'created_by_user_id'];
+    protected $fillable = ['tenant_id', 'name', 'name_en', 'name_ar', 'description', 'is_system', 'created_by_user_id'];
 
     protected function casts(): array
     {

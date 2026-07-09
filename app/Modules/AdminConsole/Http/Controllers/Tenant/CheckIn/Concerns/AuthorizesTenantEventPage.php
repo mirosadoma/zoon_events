@@ -13,7 +13,7 @@ trait AuthorizesTenantEventPage
     private function authorizeTenantEvent(
         SessionContextBuilder $sessions,
         PermissionEvaluator $permissions,
-        string $eventId,
+        ?string $eventId,
         string $permission,
     ): array {
         $user = request()->user();
@@ -23,9 +23,16 @@ trait AuthorizesTenantEventPage
         abort_unless($context instanceof TenantContext, 403);
         abort_unless($permissions->hasTenantPermission($context, $permission), 403);
 
+        $resolved = request()->route('event_id');
+        if (! is_string($resolved) || $resolved === '') {
+            $resolved = $eventId;
+        }
+
+        abort_unless(is_string($resolved) && $resolved !== '', 404);
+
         $event = Event::query()
             ->where('tenant_id', $context->tenant->id)
-            ->findOrFail($eventId);
+            ->findOrFail($resolved);
 
         return [$context, $event];
     }

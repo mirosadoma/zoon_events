@@ -14,10 +14,12 @@ final readonly class RolesViewModel
     public function index(string $tenantId, Collection $roles): array
     {
         return [
-            'tenantId' => $tenantId,
+            'tenantId' => (string) $tenantId,
             'roles' => $roles->map(fn (TenantRole $role): array => [
-                'id' => $role->id,
-                'name' => $role->name,
+                'id' => (string) $role->id,
+                'name' => $role->name_en ?? $role->name,
+                'name_en' => $role->name_en ?? $role->name,
+                'name_ar' => $role->name_ar ?? $role->name,
                 'description' => $role->description,
                 'is_system' => $role->is_system,
                 'permissions' => $role->relationLoaded('permissions')

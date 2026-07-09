@@ -21,7 +21,7 @@ final readonly class ProfileViewModel
             'profile' => [
                 'name' => $this->user->name,
                 'email' => $this->user->email,
-                'phone' => null,
+                'preferred_locale' => $this->user->preferred_locale ?? 'en',
                 'role' => $this->roleLabel,
                 'tenant' => $this->tenant,
                 'last_login_at' => $this->user->last_authenticated_at?->toIso8601String(),

@@ -1,25 +1,33 @@
 import { Head, useForm } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import { CheckboxInput, FormActions, SubmitButtonWithLoader, TextInput } from '@/components/forms'
+import AppBrand from '@/components/layout/AppBrand'
 import { useLocale } from '@/hooks/useLocale'
+import { useSiteBranding } from '@/hooks/useSiteBranding'
 import en from '@/locales/en'
 import ar from '@/locales/ar'
 
 export default function Login() {
-  const { locale, direction } = useLocale()
+  const { locale, direction, localizedPath } = useLocale()
   const messages = locale === 'ar' ? ar : en
   const form = useForm({ email: '', password: '', remember: false })
 
   return (
-    <main dir={direction} lang={locale} className="grid min-h-screen place-items-center bg-slate-100 p-6 dark:bg-slate-950">
+    <main dir={direction} lang={locale} className="grid min-h-screen place-items-center bg-[var(--surface)] p-6">
       <Head title={messages.loginTitle} />
       <form
-        className="w-full max-w-md space-y-5 rounded-2xl bg-white p-8 shadow-xl dark:bg-slate-900"
+        className="ta-card w-full max-w-md space-y-5 p-8"
         onSubmit={(event) => {
           event.preventDefault()
-          form.post('/login', { onFinish: () => form.reset('password') })
+          form.post(localizedPath('/login'), { onFinish: () => form.reset('password') })
         }}
       >
-        <h1 className="text-2xl font-semibold">{messages.loginTitle}</h1>
+        <div className="flex items-center gap-3">
+          <AppBrand nameClassName="text-2xl font-bold" />
+          <div>
+            <p className="text-sm text-slate-500">{messages.loginTitle}</p>
+          </div>
+        </div>
         <TextInput
           label={messages.profileEmail}
           name="email"
@@ -45,10 +53,13 @@ export default function Login() {
           onChange={(event) => form.setData('remember', event.target.checked)}
         />
         {Object.keys(form.errors).length > 0 && (
-          <p role="alert" className="text-red-700">{messages.loginFailed}</p>
+          <div className="ta-alert-error" role="alert">{messages.loginFailed}</div>
         )}
         <FormActions>
           <SubmitButtonWithLoader label={messages.loginSubmit} loading={form.processing} />
+          <LocalizedLink href={localizedPath('/register')} className="button-secondary">
+            {messages.registerCta}
+          </LocalizedLink>
         </FormActions>
       </form>
     </main>

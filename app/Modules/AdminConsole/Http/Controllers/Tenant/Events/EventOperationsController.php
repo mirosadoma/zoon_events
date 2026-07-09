@@ -4,7 +4,9 @@ namespace App\Modules\AdminConsole\Http\Controllers\Tenant\Events;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Modules\AdminConsole\Application\PersonalDataReader;
 use App\Modules\AdminConsole\Application\SessionContextBuilder;
+use App\Modules\AdminConsole\Http\Controllers\Tenant\Events\Concerns\ResolvesTenantEventFromRoute;
 use App\Modules\AdminConsole\ViewModels\Attendees\AttendeeDetailViewModel;
 use App\Modules\AdminConsole\ViewModels\Credentials\CredentialDetailViewModel;
 use App\Modules\AdminConsole\ViewModels\Orders\OrderDetailViewModel;
@@ -22,9 +24,12 @@ use Inertia\Response;
 
 final class EventOperationsController extends Controller
 {
+    use ResolvesTenantEventFromRoute;
+
     public function __construct(
         private readonly SessionContextBuilder $sessions,
         private readonly PermissionEvaluator $permissions,
+        private readonly PersonalDataReader $personalData,
         private readonly OrderDetailViewModel $orders,
         private readonly AttendeeDetailViewModel $attendees,
         private readonly CredentialDetailViewModel $credentials,
@@ -63,7 +68,7 @@ final class EventOperationsController extends Controller
             ->map(fn (Attendee $attendee): array => [
                 'id' => $attendee->id,
                 'checkin_status' => $attendee->checkin_status,
-                'label' => substr($attendee->id, -8),
+                'label' => $this->personalData->attendeeDisplayName($attendee) ?: substr($attendee->id, -8),
             ])
             ->values()
             ->all();
@@ -166,13 +171,9 @@ final class EventOperationsController extends Controller
         return $context;
     }
 
-    private function event(TenantContext $context, string $eventId): Event
-    {
-        return Event::query()
-            ->where('tenant_id', $context->tenant->id)
-            ->findOrFail($eventId);
-    }
-
+    /**
+     * @return array<string, mixed>
+     */
     private function order(TenantContext $context, Event $event, string $orderId): Order
     {
         return Order::query()

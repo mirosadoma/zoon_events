@@ -1,4 +1,5 @@
-import { Link, router } from '@inertiajs/react'
+import { router } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { DetailsCard } from '@/components/feedback'
@@ -8,6 +9,7 @@ import ConfirmModal from '@/components/modals/ConfirmModal'
 import StatusBadge from '@/components/status/StatusBadge'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
+import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
 
 type EventRow = {
   id: string
@@ -33,38 +35,14 @@ export default function EventDetail({ event, tabs, tenantId }: Props) {
   const [cancelOpen, setCancelOpen] = useState(false)
   const [submitting, setSubmitting] = useState<'publish' | 'cancel' | null>(null)
 
-  const apiHeaders = {
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
-    'X-Tenant-ID': tenantId,
-  }
-
-  function extractError(body: unknown, fallback: string): string {
-    if (typeof body !== 'object' || body === null) {
-      return fallback
-    }
-    const maybe = body as { detail?: string; message?: string; title?: string; code?: string }
-    return maybe.detail ?? maybe.message ?? maybe.title ?? maybe.code ?? fallback
-  }
-
   async function runStatusAction(action: 'publish' | 'cancel') {
     setSubmitting(action)
     try {
-      const response = await fetch(`/api/v1/tenant/events/${event.id}/${action}`, {
+      await apiFetch(`/api/v1/tenant/events/${event.id}/${action}`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { ...apiHeaders, 'Idempotency-Key': crypto.randomUUID() },
+        tenantId,
+        idempotency: true,
       })
-      const body = await response.json()
-      if (!response.ok) {
-        toast(
-          extractError(body, action === 'publish'
-            ? (locale === 'ar' ? 'تعذر نشر الفعالية.' : 'Failed to publish event.')
-            : (locale === 'ar' ? 'تعذر إلغاء الفعالية.' : 'Failed to cancel event.')),
-          'error',
-        )
-        return
-      }
       toast(
         action === 'publish'
           ? (locale === 'ar' ? 'تم نشر الفعالية.' : 'Event published.')
@@ -74,11 +52,13 @@ export default function EventDetail({ event, tabs, tenantId }: Props) {
       setPublishOpen(false)
       setCancelOpen(false)
       router.reload({ only: ['event'] })
-    } catch {
+    } catch (error) {
       toast(
-        action === 'publish'
-          ? (locale === 'ar' ? 'تعذر نشر الفعالية.' : 'Failed to publish event.')
-          : (locale === 'ar' ? 'تعذر إلغاء الفعالية.' : 'Failed to cancel event.'),
+        error instanceof ApiFetchError
+          ? error.message
+          : action === 'publish'
+            ? (locale === 'ar' ? 'تعذر نشر الفعالية.' : 'Failed to publish event.')
+            : (locale === 'ar' ? 'تعذر إلغاء الفعالية.' : 'Failed to cancel event.'),
         'error',
       )
     } finally {
@@ -98,7 +78,7 @@ export default function EventDetail({ event, tabs, tenantId }: Props) {
         ]}
         actions={(
           <div className="flex flex-wrap gap-2">
-            <Link className="button-secondary" href={`/tenant/events/${event.id}/edit`}>{locale === 'ar' ? 'تعديل' : 'Edit'}</Link>
+            <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/edit`}>{locale === 'ar' ? 'تعديل' : 'Edit'}</LocalizedLink>
             <PermissionGate permission="event.publish">
               <button type="button" className="button-primary" onClick={() => setPublishOpen(true)}>{locale === 'ar' ? 'نشر' : 'Publish'}</button>
             </PermissionGate>
@@ -125,7 +105,7 @@ export default function EventDetail({ event, tabs, tenantId }: Props) {
           <h2 className="text-lg font-semibold">{locale === 'ar' ? 'أقسام الفعالية' : 'Event sections'}</h2>
           <div className="mt-4 flex flex-wrap gap-2">
             {tabs.map((tab) => (
-              <Link key={tab.href} href={tab.href} className="button-secondary">{tab.label}</Link>
+              <LocalizedLink key={tab.href} href={tab.href} className="button-secondary">{tab.label}</LocalizedLink>
             ))}
           </div>
         </section>

@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useEffect, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { GateEventRow } from '@/components/gate-events/GateEventRow'
@@ -53,7 +53,7 @@ export default function AcsAccessLogs({ event, tenantId, accessEvents: initialEv
           { label: 'ACS', href: `/tenant/events/${event.id}/acs` },
           { label: locale === 'ar' ? 'سجلات الوصول' : 'Access logs' },
         ]}
-        actions={<Link className="button-secondary" href={`/tenant/events/${event.id}/acs/gate-health`}>{locale === 'ar' ? 'صحة البوابة' : 'Gate health'}</Link>}
+        actions={<LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/acs/gate-health`}>{locale === 'ar' ? 'صحة البوابة' : 'Gate health'}</LocalizedLink>}
       />
       <PageContent>
         {events.length === 0 ? (

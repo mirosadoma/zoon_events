@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { DetailsCard } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
@@ -53,17 +53,17 @@ export default function WalletPassDetailPage({ event, walletPass }: Props) {
             {
               label: locale === 'ar' ? 'الحاضر' : 'Attendee',
               value: (
-                <Link href={`/tenant/events/${event.id}/attendees/${walletPass.attendee_id}`} className="text-sky-700 hover:underline">
+                <LocalizedLink href={`/tenant/events/${event.id}/attendees/${walletPass.attendee_id}`} className="text-sky-700 hover:underline">
                   {walletPass.attendee_id.slice(-8)}
-                </Link>
+                </LocalizedLink>
               ),
             },
             {
               label: locale === 'ar' ? 'بيانات الدخول' : 'Credential',
               value: (
-                <Link href={`/tenant/events/${event.id}/credentials/${walletPass.credential_id}`} className="text-sky-700 hover:underline">
+                <LocalizedLink href={`/tenant/events/${event.id}/credentials/${walletPass.credential_id}`} className="text-sky-700 hover:underline">
                   {walletPass.credential_id.slice(-8)}
-                </Link>
+                </LocalizedLink>
               ),
             },
             { label: locale === 'ar' ? 'آخر دفع' : 'Last pushed', value: walletPass.last_pushed_at ?? '—' },

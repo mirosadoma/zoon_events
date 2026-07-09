@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import { FormEvent, useRef, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { ScanResultCard, type ScanResultView } from '@/components/checkin/ScanResultCard'
@@ -82,7 +82,7 @@ export default function CheckInScanner({ event, tenantId }: Props) {
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: locale === 'ar' ? 'الماسح' : 'Scanner' },
         ]}
-        actions={<Link className="button-secondary" href={`/tenant/events/${event.id}/check-in-dashboard`}>{locale === 'ar' ? 'لوحة تسجيل الحضور' : 'Check-in dashboard'}</Link>}
+        actions={<LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/check-in-dashboard`}>{locale === 'ar' ? 'لوحة تسجيل الحضور' : 'Check-in dashboard'}</LocalizedLink>}
       />
       <PageContent>
         <form className="state-panel max-w-xl space-y-4" onSubmit={submitScan}>

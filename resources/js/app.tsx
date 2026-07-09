@@ -3,6 +3,9 @@ import '../css/app.css'
 import { createInertiaApp } from '@inertiajs/react'
 import type { ComponentType } from 'react'
 import { createRoot } from 'react-dom/client'
+import { Toaster } from '@/components/feedback'
+import LocaleDocumentSync from '@/components/routing/LocaleDocumentSync'
+import { ToastProvider } from '@/contexts/ToastContext'
 
 const pages = import.meta.glob<{ default: ComponentType }>('./pages/**/*.tsx', {
   eager: true,
@@ -14,7 +17,15 @@ if (!el) {
   throw new Error('App element not found')
 }
 
-// 👇 ده الحل الحقيقي
+function initTheme(): void {
+  const stored = localStorage.getItem('theme')
+  const theme = stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system'
+  const dark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+  document.documentElement.classList.toggle('dark', dark)
+}
+
+initTheme()
+
 const initialPage = JSON.parse(el.getAttribute('data-page')!)
 
 createInertiaApp({
@@ -27,10 +38,24 @@ createInertiaApp({
       throw new Error(`Unknown Inertia page: ${name}`)
     }
 
-    return page.default
+    const Page = page.default
+
+    return function ResolvedPage(pageProps: Record<string, unknown>) {
+      return (
+        <>
+          <LocaleDocumentSync />
+          <Page {...pageProps} />
+        </>
+      )
+    }
   },
 
   setup({ el, App, props }) {
-    createRoot(el).render(<App {...props} />)
+    createRoot(el).render(
+      <ToastProvider>
+        <App {...props} />
+        <Toaster />
+      </ToastProvider>,
+    )
   },
 })

@@ -1,4 +1,4 @@
-export { EmptyState, ErrorState, ForbiddenState } from './States'
+export { LoadingState, EmptyState, ErrorState, ForbiddenState, ConflictState, QueuedState } from './States'
 export { default as DetailsCard } from './DetailsCard'
 export { default as Timeline } from './Timeline'
 export { default as AuditTimeline } from './AuditTimeline'

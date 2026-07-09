@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import { FormEvent, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { AttendeeLookupPanel } from '@/components/manual-desk/AttendeeLookupPanel'
@@ -138,9 +138,9 @@ export default function ManualDesk({ event, tenantId }: Props) {
         ]}
         actions={
           <PermissionGate permission="attendee.walkup.register">
-            <Link className="button-secondary" href={`/tenant/events/${event.id}/manual-desk/walk-up`}>
+            <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/manual-desk/walk-up`}>
               {locale === 'ar' ? 'تسجيل مباشر' : 'Walk-up registration'}
-            </Link>
+            </LocalizedLink>
           </PermissionGate>
         }
       />

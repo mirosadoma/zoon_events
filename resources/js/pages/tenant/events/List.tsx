@@ -1,9 +1,9 @@
-import { Link } from '@inertiajs/react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
 import StatusBadge from '@/components/status/StatusBadge'
-import DataTable from '@/components/tables/DataTable'
+import { DataTable } from '@/components/tables'
 import { useLocale } from '@/hooks/useLocale'
 
 type EventRow = {
@@ -28,8 +28,12 @@ export default function EventList({ events }: Props) {
       <PageHeader
         title={locale === 'ar' ? 'الفعاليات' : 'Events'}
         description={locale === 'ar' ? 'إدارة فعاليات المستأجر.' : 'Manage tenant events.'}
-        breadcrumbs={[{ label: locale === 'ar' ? 'نظرة عامة' : 'Overview', href: '/' }, { label: locale === 'ar' ? 'الفعاليات' : 'Events' }]}
-        actions={<Link className="button-primary" href="/tenant/events/create">{locale === 'ar' ? 'فعالية جديدة' : 'New event'}</Link>}
+        breadcrumbs={[{ label: locale === 'ar' ? 'نظرة عامة' : 'Overview', href: '/dashboard' }, { label: locale === 'ar' ? 'الفعاليات' : 'Events' }]}
+        actions={
+          <LocalizedLink className="button-primary" href="/tenant/events/create">
+            {locale === 'ar' ? 'فعالية جديدة' : 'New event'}
+          </LocalizedLink>
+        }
       />
       <PageContent>
         {events.length === 0 ? (
@@ -45,7 +49,7 @@ export default function EventList({ events }: Props) {
                 render: (row) => {
                   const event = row as unknown as EventRow
 
-                  return <Link href={`/tenant/events/${event.id}`} className="font-medium text-sky-700 hover:underline">{event.name[locale]}</Link>
+                  return <LocalizedLink href={`/tenant/events/${event.id}`} className="font-medium text-sky-700 hover:underline">{event.name[locale]}</LocalizedLink>
                 },
               },
               { key: 'tier', header: locale === 'ar' ? 'الفئة' : 'Tier' },
@@ -56,6 +60,24 @@ export default function EventList({ events }: Props) {
               },
               { key: 'timezone', header: locale === 'ar' ? 'المنطقة الزمنية' : 'Timezone' },
               { key: 'capacity', header: locale === 'ar' ? 'السعة' : 'Capacity' },
+              {
+                key: 'actions',
+                header: locale === 'ar' ? 'إجراءات' : 'Actions',
+                render: (row) => {
+                  const event = row as unknown as EventRow
+
+                  return (
+                    <div className="ta-table-actions">
+                      <LocalizedLink href={`/tenant/events/${event.id}`} className="ta-table-action">
+                        {locale === 'ar' ? 'عرض' : 'View'}
+                      </LocalizedLink>
+                      <LocalizedLink href={`/tenant/events/${event.id}/edit`} className="ta-table-action">
+                        {locale === 'ar' ? 'تعديل' : 'Edit'}
+                      </LocalizedLink>
+                    </div>
+                  )
+                },
+              },
             ]}
           />
         )}
