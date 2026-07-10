@@ -14,7 +14,7 @@ export default defineConfig({
   ],
 
   server: {
-    host: '127.0.0.1',
+    host: '0.0.0.0', // 👈 مهم لو هتستخدم dev على السيرفر
     port: 5173,
     strictPort: true,
   },
@@ -22,6 +22,17 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': '/resources/js',
+    },
+  },
+
+  build: {
+    chunkSizeWarningLimit: 1000, // 👈 عشان warning الـ 500kb
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+        },
+      },
     },
   },
 

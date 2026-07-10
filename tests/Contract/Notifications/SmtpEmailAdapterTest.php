@@ -2,6 +2,7 @@
 
 namespace Tests\Contract\Notifications;
 
+use App\Modules\Notifications\Domain\NotificationEmbeddedImage;
 use App\Modules\Notifications\Domain\NotificationChannel;
 use App\Modules\Notifications\Domain\NotificationRequest;
 use App\Modules\Notifications\Domain\NotificationStatus;
@@ -19,6 +20,19 @@ final class SmtpEmailAdapterTest extends TestCase
         $result = (new SmtpEmailAdapter)->send(new NotificationRequest(
             'tenant', 'notice', NotificationChannel::Email, 'person@example.test',
             'sender@example.test', 'Confirmed', '<p>Safe body</p>', 'en', 'corr', 'idem',
+        ));
+
+        self::assertSame(NotificationStatus::Sent, $result->status);
+        self::assertStringStartsWith('smtp-', (string) $result->providerMessageId);
+    }
+
+    public function test_it_embeds_inline_images_with_a_string_content_type(): void
+    {
+        Mail::fake();
+        $result = (new SmtpEmailAdapter)->send(new NotificationRequest(
+            'tenant', 'notice', NotificationChannel::Email, 'person@example.test',
+            'sender@example.test', 'Confirmed', '<p><img src="cid:qr-code"></p>', 'en', 'corr', 'idem',
+            embeddedImages: [new NotificationEmbeddedImage('qr-code', 'image/png', 'png-bytes')],
         ));
 
         self::assertSame(NotificationStatus::Sent, $result->status);

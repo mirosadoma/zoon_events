@@ -7,6 +7,7 @@ use App\Modules\Notifications\Domain\NotificationChannel;
 use App\Modules\Notifications\Domain\NotificationRequest;
 use App\Modules\Notifications\Domain\NotificationResult;
 use App\Modules\Notifications\Domain\NotificationStatus;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Throwable;
 
@@ -31,12 +32,17 @@ final class SmtpEmailAdapter implements NotificationAdapter
                     $message->from($request->senderReference);
                 }
                 foreach ($request->embeddedImages as $image) {
-                    $message->embedData($image->content, $image->contentId, ['mime' => $image->mimeType]);
+                    $message->embedData($image->content, $image->contentId, $image->mimeType);
                 }
             });
 
             return new NotificationResult(NotificationStatus::Sent, 'smtp-'.$request->notificationId);
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
+            Log::warning('notifications.smtp_delivery_failed', [
+                'notification_id' => $request->notificationId,
+                'reason' => $exception->getMessage(),
+            ]);
+
             return new NotificationResult(NotificationStatus::TemporaryFailure, reasonCode: 'transport_unavailable');
         }
     }
