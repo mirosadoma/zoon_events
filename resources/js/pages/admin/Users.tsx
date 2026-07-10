@@ -10,6 +10,7 @@ import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import FiltersBar from '@/components/tables/FiltersBar'
 import { useLocale } from '@/hooks/useLocale'
+import { useTenantId } from '@/hooks/useTenantId'
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
 import { useToast } from '@/hooks/useToast'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
@@ -51,12 +52,6 @@ type Props = {
   roles?: RoleOption[]
 }
 
-function readCsrfToken(): string | null {
-  const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/)
-
-  return match ? decodeURIComponent(match[1]) : null
-}
-
 function membershipToRow(membership: MembershipResponse): UserRow {
   return {
     id: String(membership.id),
@@ -69,10 +64,11 @@ function membershipToRow(membership: MembershipResponse): UserRow {
   }
 }
 
-export default function AdminUsers({ tenantId, users: initialUsers, roles = [] }: Props) {
+export default function AdminUsers({ tenantId: pageTenantId, users: initialUsers, roles = [] }: Props) {
   const { locale } = useLocale()
   const messages = locale === 'ar' ? ar : en
   const { toast } = useToast()
+  const tenantId = useTenantId(pageTenantId)
   const localizedRouter = useLocalizedRouter()
   const [users, setUsers] = useState(initialUsers)
   const [statusFilter, setStatusFilter] = useState('')
@@ -118,34 +114,21 @@ export default function AdminUsers({ tenantId, users: initialUsers, roles = [] }
       return
     }
 
+    if (!tenantId) {
+      toast(locale === 'ar' ? 'سياق المستأجر غير متوفر.' : 'Tenant context is unavailable.', 'error')
+
+      return
+    }
+
     setLoading(true)
 
     try {
-      const headers: Record<string, string> = {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        'X-Tenant-ID': tenantId,
-        'Idempotency-Key': crypto.randomUUID(),
-      }
-      const csrfToken = readCsrfToken()
-      if (csrfToken) {
-        headers['X-XSRF-TOKEN'] = csrfToken
-      }
-
-      const response = await fetch(`/api/v1/tenant/memberships/${pendingAction.id}`, {
+      await apiFetch(`/api/v1/tenant/memberships/${pendingAction.id}`, {
         method: 'PATCH',
-        credentials: 'include',
-        headers,
-        body: JSON.stringify({ status: pendingAction.status, reason }),
+        tenantId,
+        idempotency: true,
+        body: { status: pendingAction.status, reason },
       })
-
-      const body = await response.json()
-
-      if (!response.ok) {
-        toast(body.message ?? messages.errorState, 'error')
-
-        return
-      }
 
       setUsers((current) =>
         current.map((user) =>
@@ -154,6 +137,11 @@ export default function AdminUsers({ tenantId, users: initialUsers, roles = [] }
       )
       toast(messages.adminUserUpdated, 'success')
       setPendingAction(null)
+    } catch (error) {
+      toast(
+        error instanceof ApiFetchError ? error.message : messages.errorState,
+        'error',
+      )
     } finally {
       setLoading(false)
     }
@@ -165,46 +153,39 @@ export default function AdminUsers({ tenantId, users: initialUsers, roles = [] }
       return
     }
 
+    if (!tenantId) {
+      toast(locale === 'ar' ? 'سياق المستأجر غير متوفر.' : 'Tenant context is unavailable.', 'error')
+
+      return
+    }
+
     setAssigningFor(user.id)
 
     try {
-      const headers: Record<string, string> = {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        'X-Tenant-ID': tenantId,
-        'Idempotency-Key': crypto.randomUUID(),
-      }
-      const csrfToken = readCsrfToken()
-      if (csrfToken) {
-        headers['X-XSRF-TOKEN'] = csrfToken
-      }
-
-      const response = await fetch('/api/v1/tenant/role-assignments', {
+      await apiFetch('/api/v1/tenant/role-assignments', {
         method: 'POST',
-        credentials: 'include',
-        headers,
-        body: JSON.stringify({ membership_id: String(user.id), role_id: String(roleId) }),
+        tenantId,
+        idempotency: true,
+        body: { membership_id: String(user.id), role_id: String(roleId) },
       })
-      const body = await response.json()
-
-      if (!response.ok) {
-        toast(body.message ?? messages.errorState, 'error')
-
-        return
-      }
 
       const role = roles.find((item) => item.id === roleId)
       if (role) {
         setUsers((current) =>
           current.map((row) =>
             row.id === user.id
-      ? { ...row, roles: [...(row.roles ?? []).filter((item) => item.id !== role.id), { id: role.id, name: role.name }] }
+              ? { ...row, roles: [...(row.roles ?? []).filter((item) => item.id !== role.id), { id: role.id, name: role.name }] }
               : row,
           ),
         )
       }
 
       toast(locale === 'ar' ? 'تم تعيين الدور.' : 'Role assigned.', 'success')
+    } catch (error) {
+      toast(
+        error instanceof ApiFetchError ? error.message : messages.errorState,
+        'error',
+      )
     } finally {
       setAssigningFor(null)
     }
