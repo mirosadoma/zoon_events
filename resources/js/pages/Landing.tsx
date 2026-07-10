@@ -146,13 +146,11 @@ export default function Landing({
       <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--surface-elevated)]/90 backdrop-blur">
         <div className="mx-auto flex max-w-[80%] items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <div className="landing-fade-in flex items-center gap-2 text-xl font-bold">
-            <span className="ta-sidebar-brand-icon">
               {logo_url ? (
-                <img src={logo_url} alt="" className="h-5 w-5 rounded object-contain" />
+                <span><img src={logo_url} alt="" className="h-12 w-12 rounded object-contain" /></span>
               ) : (
-                <CalendarDays className="h-5 w-5" />
+                <span className="ta-sidebar-brand-icon"><CalendarDays className="h-5 w-5" /></span>
               )}
-            </span>
             {appName}
           </div>
           <div className="landing-fade-in landing-delay-1 flex items-center gap-2">

@@ -39,7 +39,7 @@ export default function RegisterOrganizer() {
       >
         <div className="flex items-center gap-3">
           <span className="ta-sidebar-brand-icon" aria-hidden>
-            <CalendarDays className="h-5 w-5" />
+            <CalendarDays className="h-12 w-12" />
           </span>
           <div>
             <h1 className="text-2xl font-bold">{messages.registerOrganizerTitle}</h1>

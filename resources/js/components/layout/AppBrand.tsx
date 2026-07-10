@@ -19,13 +19,11 @@ export default function AppBrand({
 
   return (
     <span className={clsx('inline-flex min-w-0 items-center gap-2', className)}>
-      <span className={clsx('ta-sidebar-brand-icon shrink-0', iconClassName)} aria-hidden>
         {logoUrl ? (
-          <img src={logoUrl} alt="" className="h-5 w-5 rounded object-contain" />
+            <span className="shrink-0" aria-hidden><img src={logoUrl} alt="" className="h-12 w-12 rounded object-contain" /></span>
         ) : (
-          <LayoutDashboard className="h-5 w-5" />
+            <span className={clsx('ta-sidebar-brand-icon shrink-0', iconClassName)} aria-hidden><LayoutDashboard className="h-5 w-5" /></span>
         )}
-      </span>
       {showName ? (
         <span className={clsx('truncate font-semibold', nameClassName)}>{appName}</span>
       ) : null}
