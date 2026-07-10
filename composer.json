@@ -6,7 +6,7 @@
     "keywords": ["laravel", "zonetec", "foundation", "multi-tenant"],
     "license": "proprietary",
     "require": {
-        "php": "^8.3",
+        "php": "^8.2",
         "inertiajs/inertia-laravel": "^2.0",
         "laravel/fortify": "^1.27",
         "laravel/framework": "^12.0",

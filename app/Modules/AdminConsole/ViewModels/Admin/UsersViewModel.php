@@ -50,7 +50,7 @@ final readonly class UsersViewModel
             ->all();
 
         return [
-            'tenantId' => $tenantId,
+            'tenantId' => (string) $tenantId,
             'roles' => $roles,
             'users' => $memberships->map(function (TenantMembership $membership) use ($roleRows): array {
                 $assigned = $roleRows->get($membership->id, collect());
