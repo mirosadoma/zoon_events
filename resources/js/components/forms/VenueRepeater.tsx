@@ -187,17 +187,19 @@ export default function VenueRepeater({ venues, countries, onChange, errors }: V
               />
             </Suspense>
             <DateTimeInput
-              label={locale === 'ar' ? 'بداية الموقع' : 'Venue starts'}
+              label={locale === 'ar' ? 'بداية الفعالية' : 'Event starts'}
               name={`venue_${index}_start`}
               value={venue.start_at}
               onChange={(event) => updateVenue(index, { start_at: event.target.value })}
+              required
               error={errors[`venues.${index}.start_at`]}
             />
             <DateTimeInput
-              label={locale === 'ar' ? 'نهاية الموقع' : 'Venue ends'}
+              label={locale === 'ar' ? 'نهاية الفعالية' : 'Event ends'}
               name={`venue_${index}_end`}
               value={venue.end_at}
               onChange={(event) => updateVenue(index, { end_at: event.target.value })}
+              required
               error={errors[`venues.${index}.end_at`]}
             />
             <DateTimeInput
@@ -205,6 +207,7 @@ export default function VenueRepeater({ venues, countries, onChange, errors }: V
               name={`venue_${index}_reg_open`}
               value={venue.registration_opens_at}
               onChange={(event) => updateVenue(index, { registration_opens_at: event.target.value })}
+              required
               error={errors[`venues.${index}.registration_opens_at`]}
             />
             <DateTimeInput
@@ -212,6 +215,7 @@ export default function VenueRepeater({ venues, countries, onChange, errors }: V
               name={`venue_${index}_reg_close`}
               value={venue.registration_closes_at}
               onChange={(event) => updateVenue(index, { registration_closes_at: event.target.value })}
+              required
               error={errors[`venues.${index}.registration_closes_at`]}
             />
           </article>

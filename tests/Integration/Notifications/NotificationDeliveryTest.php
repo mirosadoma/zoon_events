@@ -2,8 +2,8 @@
 
 namespace Tests\Integration\Notifications;
 
-use App\Modules\Audit\Application\AuditWriter;
 use App\Modules\AdminConsole\Application\SiteSettingsRepository;
+use App\Modules\Audit\Application\AuditWriter;
 use App\Modules\Credentials\Application\Presentation\CredentialPresentationToken;
 use App\Modules\Events\Contracts\ConfirmationEventReader;
 use App\Modules\Notifications\Application\Actions\ProcessNotificationCallback;
@@ -30,6 +30,23 @@ final class NotificationDeliveryTest extends Phase1MySqlTestCase
 {
     use CreatesPhase1RegistrationFixture;
     use DatabaseTransactions;
+
+    public function test_confirmation_email_includes_qr_image_when_credential_is_present(): void
+    {
+        $notification = $this->notification();
+        $fake = new FakeEmailAdapter;
+
+        $this->handle(new DeliverNotificationJob($notification->id), $fake);
+
+        self::assertNotNull($notification->credential_id);
+        self::assertStringContainsString('<img', $fake->sent[0]->body);
+        self::assertStringContainsString('cid:qr-code', $fake->sent[0]->body);
+        self::assertStringNotContainsString('data:image/png;base64,', $fake->sent[0]->body);
+        self::assertStringNotContainsString('api.qrserver.com', $fake->sent[0]->body);
+        self::assertStringNotContainsString('zt1.', $fake->sent[0]->body);
+        self::assertCount(1, $fake->sent[0]->embeddedImages);
+        self::assertSame('qr-code', $fake->sent[0]->embeddedImages[0]->contentId);
+    }
 
     public function test_duplicate_jobs_converge_and_callback_is_idempotent(): void
     {

@@ -8,7 +8,9 @@ import { CredentialDialog } from '@/components/credentials/CredentialDialog'
 import PermissionGate from '@/components/layout/PermissionGate'
 import StatusBadge from '@/components/status/StatusBadge'
 import { useLocale } from '@/hooks/useLocale'
+import { useTenantId } from '@/hooks/useTenantId'
 import { useToast } from '@/hooks/useToast'
+import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
 
 type EventRow = {
   id: string
@@ -51,44 +53,45 @@ type Props = {
   identity?: IdentityState | null
 }
 
-export default function AttendeeDetailPage({ event, attendee, tenantId, identity }: Props) {
+export default function AttendeeDetailPage({ event, attendee, tenantId: pageTenantId, identity }: Props) {
   const { locale, t } = useLocale()
   const { toast } = useToast()
+  const tenantId = useTenantId(pageTenantId)
   const [busyAction, setBusyAction] = useState<'revoke' | 'reissue' | 'print' | 'checkin' | null>(null)
-  const apiHeaders = {
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
-    'X-Tenant-ID': tenantId,
+
+  function extractError(error: unknown, fallback: string): string {
+    if (error instanceof ApiFetchError) {
+      return error.message
+    }
+
+    return fallback
   }
 
-  function extractError(body: unknown, fallback: string): string {
-    if (typeof body !== 'object' || body === null) {
-      return fallback
+  function ensureTenantId(): boolean {
+    if (tenantId) {
+      return true
     }
-    const maybe = body as { detail?: string; message?: string; title?: string; code?: string }
-    return maybe.detail ?? maybe.message ?? maybe.title ?? maybe.code ?? fallback
+
+    toast(locale === 'ar' ? 'سياق المستأجر غير متوفر.' : 'Tenant context is unavailable.', 'error')
+
+    return false
   }
 
   async function handleRevoke(reason: string) {
-    if (!attendee.credential) return false
+    if (!attendee.credential || !ensureTenantId()) return false
     setBusyAction('revoke')
     try {
-      const response = await fetch(`/api/v1/tenant/events/${event.id}/credentials/${attendee.credential.id}/revoke`, {
+      await apiFetch(`/api/v1/tenant/events/${event.id}/credentials/${attendee.credential.id}/revoke`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { ...apiHeaders, 'Idempotency-Key': crypto.randomUUID() },
-        body: JSON.stringify({ reason }),
+        tenantId,
+        idempotency: true,
+        body: { reason },
       })
-      const body = await response.json()
-      if (!response.ok) {
-        toast(extractError(body, locale === 'ar' ? 'تعذر إلغاء بيانات الدخول.' : 'Failed to revoke credential.'), 'error')
-        return false
-      }
       toast(locale === 'ar' ? 'تم إلغاء بيانات الدخول.' : 'Credential revoked.', 'success')
       router.reload({ only: ['attendee'] })
       return true
-    } catch {
-      toast(locale === 'ar' ? 'تعذر إلغاء بيانات الدخول.' : 'Failed to revoke credential.', 'error')
+    } catch (error) {
+      toast(extractError(error, locale === 'ar' ? 'تعذر إلغاء بيانات الدخول.' : 'Failed to revoke credential.'), 'error')
       return false
     } finally {
       setBusyAction(null)
@@ -96,25 +99,20 @@ export default function AttendeeDetailPage({ event, attendee, tenantId, identity
   }
 
   async function handleReissue(reason: string) {
-    if (!attendee.credential) return false
+    if (!attendee.credential || !ensureTenantId()) return false
     setBusyAction('reissue')
     try {
-      const response = await fetch(`/api/v1/tenant/events/${event.id}/credentials/${attendee.credential.id}/reissue`, {
+      await apiFetch(`/api/v1/tenant/events/${event.id}/credentials/${attendee.credential.id}/reissue`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { ...apiHeaders, 'Idempotency-Key': crypto.randomUUID() },
-        body: JSON.stringify({ reason }),
+        tenantId,
+        idempotency: true,
+        body: { reason },
       })
-      const body = await response.json()
-      if (!response.ok) {
-        toast(extractError(body, locale === 'ar' ? 'تعذر إعادة إصدار بيانات الدخول.' : 'Failed to reissue credential.'), 'error')
-        return false
-      }
       toast(locale === 'ar' ? 'تمت إعادة إصدار بيانات الدخول.' : 'Credential reissued.', 'success')
       router.reload({ only: ['attendee'] })
       return true
-    } catch {
-      toast(locale === 'ar' ? 'تعذر إعادة إصدار بيانات الدخول.' : 'Failed to reissue credential.', 'error')
+    } catch (error) {
+      toast(extractError(error, locale === 'ar' ? 'تعذر إعادة إصدار بيانات الدخول.' : 'Failed to reissue credential.'), 'error')
       return false
     } finally {
       setBusyAction(null)
@@ -122,52 +120,41 @@ export default function AttendeeDetailPage({ event, attendee, tenantId, identity
   }
 
   async function handlePrintBadge() {
-    if (!attendee.credential) return
+    if (!attendee.credential || !ensureTenantId()) return
     setBusyAction('print')
     try {
-      const response = await fetch(`/api/v1/tenant/events/${event.id}/badge-print-jobs`, {
+      await apiFetch(`/api/v1/tenant/events/${event.id}/badge-print-jobs`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { ...apiHeaders, 'Idempotency-Key': crypto.randomUUID() },
-        body: JSON.stringify({ attendee_id: attendee.id, credential_id: attendee.credential.id }),
+        tenantId,
+        idempotency: true,
+        body: { attendee_id: attendee.id, credential_id: attendee.credential.id },
       })
-      const body = await response.json()
-      if (!response.ok) {
-        toast(extractError(body, locale === 'ar' ? 'تعذرت طباعة البطاقة.' : 'Failed to print badge.'), 'error')
-        return
-      }
       toast(locale === 'ar' ? 'تم إنشاء مهمة طباعة البطاقة.' : 'Badge print job created.', 'success')
-    } catch {
-      toast(locale === 'ar' ? 'تعذرت طباعة البطاقة.' : 'Failed to print badge.', 'error')
+    } catch (error) {
+      toast(extractError(error, locale === 'ar' ? 'تعذرت طباعة البطاقة.' : 'Failed to print badge.'), 'error')
     } finally {
       setBusyAction(null)
     }
   }
 
   async function handleManualCheckIn() {
-    if (!attendee.credential) return
+    if (!attendee.credential || !ensureTenantId()) return
     setBusyAction('checkin')
     try {
-      const response = await fetch(`/api/v1/tenant/events/${event.id}/scans`, {
+      await apiFetch(`/api/v1/tenant/events/${event.id}/scans`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { ...apiHeaders, 'Idempotency-Key': crypto.randomUUID() },
-        body: JSON.stringify({
+        tenantId,
+        idempotency: true,
+        body: {
           scanner_type: 'manual_desk',
           credential_id: attendee.credential.id,
           override: false,
-          override_reason: null,
-        }),
+        },
       })
-      const body = await response.json()
-      if (!response.ok) {
-        toast(extractError(body, locale === 'ar' ? 'تعذر تسجيل الحضور يدويًا.' : 'Failed to check in attendee manually.'), 'error')
-        return
-      }
       toast(locale === 'ar' ? 'تم تسجيل الحضور.' : 'Attendee checked in.', 'success')
       router.reload({ only: ['attendee'] })
-    } catch {
-      toast(locale === 'ar' ? 'تعذر تسجيل الحضور يدويًا.' : 'Failed to check in attendee manually.', 'error')
+    } catch (error) {
+      toast(extractError(error, locale === 'ar' ? 'تعذر تسجيل الحضور يدويًا.' : 'Failed to check in attendee manually.'), 'error')
     } finally {
       setBusyAction(null)
     }
@@ -228,8 +215,8 @@ export default function AttendeeDetailPage({ event, attendee, tenantId, identity
               <div>
                 <dt className="text-xs uppercase tracking-wide text-slate-500">{locale === 'ar' ? 'الرمز' : 'Credential'}</dt>
                 <dd className="mt-1">
-                  <LocalizedLink href={`/tenant/events/${event.id}/credentials/${attendee.credential.id}`} className="text-sky-700 hover:underline">
-                    {attendee.credential.id.slice(-8)}
+                  <LocalizedLink href={`/tenant/events/${event.id}/credentials/${String(attendee.credential.id)}`} className="text-sky-700 hover:underline">
+                    {String(attendee.credential.id).slice(-8)}
                   </LocalizedLink>
                 </dd>
               </div>

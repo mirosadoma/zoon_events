@@ -12,6 +12,7 @@ use App\Modules\Shared\Application\Pagination\CursorPaginator;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class PlatformRoleController extends Controller
 {
@@ -35,7 +36,8 @@ class PlatformRoleController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:100', 'unique:platform_roles,name'],
+            'name' => ['required_without:name_en', 'string', 'max:100', 'unique:platform_roles,name'],
+            'name_en' => ['required_without:name', 'string', 'max:100', 'unique:platform_roles,name'],
             'description' => ['nullable', 'string', 'max:500'],
         ]);
 
@@ -43,7 +45,7 @@ class PlatformRoleController extends Controller
         $actor = $request->user();
         $role = DB::transaction(function () use ($validated, $actor): PlatformRole {
             $role = PlatformRole::query()->create([
-                'name' => $validated['name'],
+                'name' => $validated['name'] ?? $validated['name_en'],
                 'description' => $validated['description'] ?? null,
                 'is_system' => false,
                 'created_by_user_id' => $actor->id,
@@ -56,18 +58,24 @@ class PlatformRoleController extends Controller
         return $this->success($this->mapRole($role), 201);
     }
 
-    public function update(Request $request, string $roleId)
+    public function update(Request $request, string $platform_role_id)
     {
-        $role = PlatformRole::query()->with('permissions')->findOrFail($roleId);
+        $role = PlatformRole::query()->with('permissions')->findOrFail($platform_role_id);
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:100'],
+            'name_en' => ['sometimes', 'string', 'max:100'],
             'description' => ['nullable', 'string', 'max:500'],
             'permissions' => ['sometimes', 'array', 'max:100'],
-            'permissions.*' => ['string', 'exists:permissions,key'],
+            'permissions.*' => ['string', Rule::exists('permissions', 'key')->where('scope', 'platform')],
         ]);
         if ($role->is_system) {
             throw FoundationException::conflict('system_role_protected', 'System roles cannot be modified.');
         }
+
+        if (isset($validated['name_en']) && ! isset($validated['name'])) {
+            $validated['name'] = $validated['name_en'];
+        }
+        unset($validated['name_en']);
 
         /** @var User $actor */
         $actor = $request->user();

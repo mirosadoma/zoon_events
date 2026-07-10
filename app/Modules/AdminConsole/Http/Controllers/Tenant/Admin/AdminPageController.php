@@ -43,7 +43,7 @@ final class AdminPageController extends Controller
         abort_unless($user instanceof User, 403);
 
         $query = $this->membershipVisibility
-            ->scopeVisibleMemberships(
+            ->scopeAssignableMemberships(
                 TenantMembership::query()->with('user'),
                 $context,
                 $user,
@@ -61,15 +61,12 @@ final class AdminPageController extends Controller
     public function roles(): Response
     {
         $context = $this->authorizeTenantAdmin($this->sessions, $this->permissions, 'role.view');
-        $user = request()->user();
-        abort_unless($user instanceof User, 403);
 
         $roles = TenantRole::query()
             ->withoutGlobalScopes()
             ->with('permissions')
             ->where('tenant_id', $context->tenant->id)
             ->where('is_system', false)
-            ->where('created_by_user_id', $user->id)
             ->orderBy('name_en')
             ->orderBy('name')
             ->get();

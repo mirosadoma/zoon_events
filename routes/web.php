@@ -4,6 +4,7 @@ use App\Modules\AdminConsole\Http\Controllers\Auth\OrganizerRegistrationControll
 use App\Modules\AdminConsole\Http\Controllers\Auth\SessionController;
 use App\Modules\AdminConsole\Http\Controllers\DashboardController;
 use App\Modules\AdminConsole\Http\Controllers\GeographyAdminController;
+use App\Modules\AdminConsole\Http\Controllers\Kiosk\KioskModeController;
 use App\Modules\AdminConsole\Http\Controllers\LandingController;
 use App\Modules\AdminConsole\Http\Controllers\LocaleController;
 use App\Modules\AdminConsole\Http\Controllers\MaintenancePageController;
@@ -11,7 +12,6 @@ use App\Modules\AdminConsole\Http\Controllers\OrganizerRequestAdminController;
 use App\Modules\AdminConsole\Http\Controllers\PlatformPageController;
 use App\Modules\AdminConsole\Http\Controllers\SearchController;
 use App\Modules\AdminConsole\Http\Controllers\SiteSettingsController;
-use App\Modules\AdminConsole\Http\Controllers\Kiosk\KioskModeController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Acs\AcsPageController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Admin\AdminPageController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Badges\BadgePageController;
@@ -25,8 +25,9 @@ use App\Modules\AdminConsole\Http\Controllers\Tenant\Kiosk\EventKioskController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\ManualDesk\ManualDeskController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Reports\EventReportController;
 use App\Modules\IdentityVerification\Http\Controllers\Public\IdentityVerifyPageController;
-use App\Modules\Orders\Http\Controllers\Public\PublicOrderPageController;
+use App\Modules\Notifications\Http\Controllers\Public\UnsubscribePageController;
 use App\Modules\Operations\Http\Controllers\ApiDocsController;
+use App\Modules\Orders\Http\Controllers\Public\PublicOrderPageController;
 use App\Modules\Shared\Support\LocaleDetector;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -48,6 +49,10 @@ Route::prefix('{locale}')
         Route::get('/maintenance', MaintenancePageController::class)->name('maintenance');
         Route::get('/public/orders/{public_reference}', [PublicOrderPageController::class, 'show'])
             ->name('public.order.show');
+        Route::get('/notifications/unsubscribe', [UnsubscribePageController::class, 'show'])
+            ->name('public.notifications.unsubscribe');
+        Route::post('/notifications/unsubscribe', [UnsubscribePageController::class, 'store'])
+            ->name('public.notifications.unsubscribe.confirm');
         Route::post('/locale', [LocaleController::class, 'update'])->name('locale.update');
 
         Route::middleware('guest')->group(function (): void {

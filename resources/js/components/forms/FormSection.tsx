@@ -4,11 +4,12 @@ type FormSectionProps = PropsWithChildren<{
   title: string
   description?: string
   actions?: ReactNode
+  style?: React.CSSProperties
 }>
 
-export default function FormSection({ title, description, actions, children }: FormSectionProps) {
+export default function FormSection({ title, description, actions, children, style = {} }: FormSectionProps) {
   return (
-    <section className="state-panel space-y-4">
+    <section className="state-panel space-y-4" style={style}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">{title}</h2>

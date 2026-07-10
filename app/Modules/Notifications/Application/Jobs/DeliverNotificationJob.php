@@ -2,10 +2,10 @@
 
 namespace App\Modules\Notifications\Application\Jobs;
 
+use App\Modules\AdminConsole\Application\SiteSettingsRepository;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\Credentials\Application\Presentation\CredentialPresentationToken;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
-use App\Modules\AdminConsole\Application\SiteSettingsRepository;
 use App\Modules\Events\Contracts\ConfirmationEventReader;
 use App\Modules\Notifications\Application\NotificationAdapterRegistry;
 use App\Modules\Notifications\Application\Rendering\ConfirmationRenderer;
@@ -71,7 +71,7 @@ final class DeliverNotificationJob implements ShouldQueue
                 $result = new NotificationResult(NotificationStatus::PermanentFailure, reasonCode: 'scope_not_found');
             } else {
                 $qrPayload = '';
-                if (is_string($notification->credential_id) && $notification->credential_id !== '') {
+                if ($notification->credential_id !== null && $notification->credential_id !== '') {
                     $credential = Credential::query()
                         ->where('tenant_id', $notification->tenant_id)
                         ->whereKey($notification->credential_id)
@@ -124,6 +124,7 @@ final class DeliverNotificationJob implements ShouldQueue
                     $notification->locale,
                     $notification->id,
                     $notification->id,
+                    $rendered['embedded_images'],
                 ));
             }
         } catch (Throwable) {
@@ -153,8 +154,8 @@ final class DeliverNotificationJob implements ShouldQueue
 
     private function resolveAttendeeName(PersonalDataCipher $cipher, Notification $notification): string
     {
-        if (! is_string($notification->attendee_id) || $notification->attendee_id === '') {
-            return 'Participant';
+        if ($notification->attendee_id === null || $notification->attendee_id === '') {
+            return '';
         }
 
         $attendee = Attendee::query()
@@ -163,7 +164,7 @@ final class DeliverNotificationJob implements ShouldQueue
             ->first();
 
         if ($attendee === null) {
-            return 'Participant';
+            return '';
         }
 
         try {
@@ -172,9 +173,15 @@ final class DeliverNotificationJob implements ShouldQueue
                 'ciphertext' => $attendee->first_name_ciphertext,
             ], "{$attendee->tenant_id}:{$attendee->event_id}:attendee");
 
-            return trim($firstName) !== '' ? trim($firstName) : 'Participant';
+            $trimmed = trim($firstName);
+
+            if ($trimmed === '' || in_array(strtolower($trimmed), ['guest', 'participant', 'attendee'], true)) {
+                return '';
+            }
+
+            return $trimmed;
         } catch (Throwable) {
-            return 'Participant';
+            return '';
         }
     }
 

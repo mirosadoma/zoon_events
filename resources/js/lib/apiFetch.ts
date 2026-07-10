@@ -12,6 +12,20 @@ function readCsrfToken(): string | null {
   return match ? decodeURIComponent(match[1]) : null
 }
 
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
+
+async function ensureCsrfToken(method: string): Promise<string | null> {
+  const existing = readCsrfToken()
+
+  if (existing || !MUTATING_METHODS.has(method.toUpperCase())) {
+    return existing
+  }
+
+  await fetch('/sanctum/csrf-cookie', { credentials: 'include' })
+
+  return readCsrfToken()
+}
+
 export class ApiFetchError extends Error {
   constructor(
     message: string,
@@ -61,7 +75,8 @@ export async function apiFetch<T = unknown>(
     headers.set('Idempotency-Key', randomUuid())
   }
 
-  const csrfToken = readCsrfToken()
+  const method = (rest.method ?? 'GET').toUpperCase()
+  const csrfToken = await ensureCsrfToken(method)
 
   if (csrfToken) {
     headers.set('X-XSRF-TOKEN', csrfToken)
@@ -70,6 +85,7 @@ export async function apiFetch<T = unknown>(
   const response = await fetch(url, {
     credentials: 'include',
     ...rest,
+    method,
     body: resolvedBody ?? undefined,
     headers,
   })

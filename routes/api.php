@@ -60,7 +60,7 @@ Route::prefix('v1')->group(function (): void {
 
             Route::get('/roles', [PlatformRoleController::class, 'index'])->middleware('permission:platform.role.view,platform');
             Route::post('/roles', [PlatformRoleController::class, 'store'])->middleware(['permission:platform.role.manage,platform', 'idempotency'])->name('api.v1.platform.roles.store');
-            Route::patch('/roles/{role_id}', [PlatformRoleController::class, 'update'])->middleware(['permission:platform.role.manage,platform', 'idempotency'])->name('api.v1.platform.roles.update');
+            Route::patch('/roles/{platform_role_id}', [PlatformRoleController::class, 'update'])->middleware(['permission:platform.role.manage,platform', 'idempotency'])->name('api.v1.platform.roles.update');
             Route::post('/role-assignments', [PlatformRoleController::class, 'assign'])->middleware(['permission:platform.role.assign,platform', 'idempotency'])->name('api.v1.platform.assignments.store');
             Route::delete('/role-assignments/{assignment_id}', [PlatformRoleController::class, 'revoke'])->middleware(['permission:platform.role.assign,platform', 'idempotency'])->name('api.v1.platform.assignments.revoke');
 

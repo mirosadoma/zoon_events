@@ -30,6 +30,9 @@ final class SmtpEmailAdapter implements NotificationAdapter
                 if ($request->senderReference !== '') {
                     $message->from($request->senderReference);
                 }
+                foreach ($request->embeddedImages as $image) {
+                    $message->embedData($image->content, $image->contentId, ['mime' => $image->mimeType]);
+                }
             });
 
             return new NotificationResult(NotificationStatus::Sent, 'smtp-'.$request->notificationId);

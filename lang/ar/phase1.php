@@ -3,6 +3,7 @@
 return [
     'confirmation_subject' => 'تأكيد التسجيل: :event',
     'confirmation_welcome' => 'مرحباً :name،',
+    'confirmation_welcome_no_name' => 'مرحباً بك',
     'confirmation_greeting' => 'عزيزي المشارك،',
     'confirmation_thanks' => 'شكراً لتسجيلك في :event.',
     'confirmation_received' => 'يسعدنا تأكيد استلام تسجيلك بنجاح.',

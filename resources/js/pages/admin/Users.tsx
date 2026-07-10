@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react'
+import { FormEvent, useMemo, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import SelectInput from '@/components/forms/SelectInput'
+import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
+import TextInput from '@/components/forms/TextInput'
 import { PageContent, PageHeader, PermissionGate } from '@/components/layout'
 import ReasonModal from '@/components/modals/ReasonModal'
 import StatusBadge from '@/components/status/StatusBadge'
@@ -10,6 +12,8 @@ import FiltersBar from '@/components/tables/FiltersBar'
 import { useLocale } from '@/hooks/useLocale'
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
 import { useToast } from '@/hooks/useToast'
+import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
+import type { AppLocale } from '@/lib/localePath'
 import en from '@/locales/en'
 import ar from '@/locales/ar'
 
@@ -29,6 +33,18 @@ type UserRow = {
   roles?: Array<{ id: string; name: string }>
 }
 
+type MembershipResponse = {
+  id: string | number
+  status: string
+  created_at?: string | null
+  user: {
+    id: string | number
+    name: string
+    email: string
+    status: string
+  }
+}
+
 type Props = {
   tenantId: string
   users: UserRow[]
@@ -39,6 +55,18 @@ function readCsrfToken(): string | null {
   const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/)
 
   return match ? decodeURIComponent(match[1]) : null
+}
+
+function membershipToRow(membership: MembershipResponse): UserRow {
+  return {
+    id: String(membership.id),
+    name: membership.user.name,
+    email: membership.user.email,
+    status: membership.status,
+    user_status: membership.user.status,
+    created_at: membership.created_at ?? null,
+    roles: [],
+  }
 }
 
 export default function AdminUsers({ tenantId, users: initialUsers, roles = [] }: Props) {
@@ -52,6 +80,15 @@ export default function AdminUsers({ tenantId, users: initialUsers, roles = [] }
   const [loading, setLoading] = useState(false)
   const [assigningFor, setAssigningFor] = useState<string | null>(null)
   const [selectedRoleByUser, setSelectedRoleByUser] = useState<Record<string, string>>({})
+  const [addOpen, setAddOpen] = useState(false)
+  const [inviting, setInviting] = useState(false)
+  const [inviteForm, setInviteForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    preferred_locale: locale,
+  })
+  const [inviteErrors, setInviteErrors] = useState<Record<string, string>>({})
 
   const filteredUsers = useMemo(() => {
     if (!statusFilter) {
@@ -65,6 +102,16 @@ export default function AdminUsers({ tenantId, users: initialUsers, roles = [] }
     () => roles.map((role) => ({ value: role.id, label: role.name })),
     [roles],
   )
+
+  function resetInviteForm() {
+    setInviteForm({
+      name: '',
+      email: '',
+      password: '',
+      preferred_locale: locale,
+    })
+    setInviteErrors({})
+  }
 
   async function applyStatusChange(reason: string) {
     if (!pendingAction) {
@@ -136,7 +183,7 @@ export default function AdminUsers({ tenantId, users: initialUsers, roles = [] }
         method: 'POST',
         credentials: 'include',
         headers,
-        body: JSON.stringify({ membership_id: user.id, role_id: roleId }),
+        body: JSON.stringify({ membership_id: String(user.id), role_id: String(roleId) }),
       })
       const body = await response.json()
 
@@ -163,16 +210,61 @@ export default function AdminUsers({ tenantId, users: initialUsers, roles = [] }
     }
   }
 
+  async function inviteUser(event: FormEvent) {
+    event.preventDefault()
+    setInviting(true)
+    setInviteErrors({})
+
+    try {
+      const membership = await apiFetch<MembershipResponse>('/api/v1/tenant/memberships', {
+        method: 'POST',
+        tenantId,
+        idempotency: true,
+        body: inviteForm,
+      })
+
+      setUsers((current) => [membershipToRow(membership), ...current])
+      toast(messages.adminAddUserSuccess, 'success')
+      setAddOpen(false)
+      resetInviteForm()
+    } catch (error) {
+      if (error instanceof ApiFetchError) {
+        setInviteErrors(error.errors)
+        toast(error.message, 'error')
+      } else {
+        toast(messages.errorState, 'error')
+      }
+    } finally {
+      setInviting(false)
+    }
+  }
+
   return (
     <DashboardLayout title={messages.users}>
       <PageHeader
         title={messages.users}
-        description={messages.adminUsersDescription}
+        description={locale === 'ar'
+          ? 'يظهر هنا فقط المستخدمون الذين أضفتهم أنت ولم يُعيَّنوا بعد في أدوار النظام (منظم/مشرف).'
+          : 'Only users you invited appear here, excluding accounts already on system organizer/supervisor roles.'}
         breadcrumbs={[
           { label: messages.overview, href: '/dashboard' },
           { label: messages.administration, href: '/admin/users' },
           { label: messages.users },
         ]}
+        actions={(
+          <PermissionGate permission="membership.manage">
+            <button
+              type="button"
+              className="button-primary cursor-pointer"
+              onClick={() => {
+                resetInviteForm()
+                setAddOpen(true)
+              }}
+            >
+              {messages.adminAddUser}
+            </button>
+          </PermissionGate>
+        )}
       />
       <PageContent>
         <FiltersBar>
@@ -194,7 +286,26 @@ export default function AdminUsers({ tenantId, users: initialUsers, roles = [] }
         </FiltersBar>
 
         {filteredUsers.length === 0 ? (
-          <EmptyState title={messages.adminNoUsers} />
+          <EmptyState
+            title={messages.adminNoUsers}
+            detail={locale === 'ar'
+              ? 'اضغط «إضافة مستخدم» لدعوة عضو فريق جديد ثم عيّن له دوراً مخصصاً.'
+              : 'Use Add user to invite a new team member, then assign a custom role.'}
+            action={(
+              <PermissionGate permission="membership.manage">
+                <button
+                  type="button"
+                  className="button-primary cursor-pointer"
+                  onClick={() => {
+                    resetInviteForm()
+                    setAddOpen(true)
+                  }}
+                >
+                  {messages.adminAddUser}
+                </button>
+              </PermissionGate>
+            )}
+          />
         ) : (
           <DataTable
             rows={filteredUsers as unknown as Record<string, unknown>[]}
@@ -291,6 +402,67 @@ export default function AdminUsers({ tenantId, users: initialUsers, roles = [] }
           />
         )}
       </PageContent>
+
+      {addOpen ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="invite-user-title">
+          <form className="ta-card w-full max-w-lg shadow-xl" onSubmit={(event) => void inviteUser(event)}>
+            <h2 id="invite-user-title" className="text-lg font-semibold">{messages.adminAddUserTitle}</h2>
+            <p className="mt-2 text-sm text-[var(--muted)]">{messages.adminAddUserDescription}</p>
+            <div className="mt-4 grid gap-4">
+              <TextInput
+                label={messages.profileName}
+                name="name"
+                value={inviteForm.name}
+                required
+                error={inviteErrors.name}
+                onChange={(event) => setInviteForm((current) => ({ ...current, name: event.target.value }))}
+              />
+              <TextInput
+                label={messages.profileEmail}
+                name="email"
+                type="email"
+                value={inviteForm.email}
+                required
+                error={inviteErrors.email}
+                onChange={(event) => setInviteForm((current) => ({ ...current, email: event.target.value }))}
+              />
+              <TextInput
+                label={locale === 'ar' ? 'كلمة المرور' : 'Password'}
+                name="password"
+                type="password"
+                value={inviteForm.password}
+                required
+                error={inviteErrors.password}
+                onChange={(event) => setInviteForm((current) => ({ ...current, password: event.target.value }))}
+              />
+              <SelectInput
+                label={messages.adminDefaultLocale}
+                name="preferred_locale"
+                value={inviteForm.preferred_locale}
+                onChange={(event) => setInviteForm((current) => ({ ...current, preferred_locale: event.target.value as AppLocale }))}
+                options={[
+                  { value: 'en', label: 'English' },
+                  { value: 'ar', label: 'العربية' },
+                ]}
+              />
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                className="button-secondary"
+                disabled={inviting}
+                onClick={() => {
+                  setAddOpen(false)
+                  resetInviteForm()
+                }}
+              >
+                {messages.cancel}
+              </button>
+              <SubmitButtonWithLoader loading={inviting} label={messages.adminAddUser} />
+            </div>
+          </form>
+        </div>
+      ) : null}
 
       <ReasonModal
         open={pendingAction !== null}

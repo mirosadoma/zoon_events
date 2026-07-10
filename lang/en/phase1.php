@@ -3,6 +3,7 @@
 return [
     'confirmation_subject' => 'Registration confirmed: :event',
     'confirmation_welcome' => 'Welcome :name,',
+    'confirmation_welcome_no_name' => 'Welcome',
     'confirmation_greeting' => 'Dear Participant,',
     'confirmation_thanks' => 'Thank you for registering for :event.',
     'confirmation_received' => 'We are pleased to confirm that your registration has been successfully received.',

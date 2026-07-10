@@ -47,7 +47,7 @@ export default function Topbar() {
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <button
           type="button"
-          className="button-secondary inline-flex p-2 max-lg:flex lg:hidden"
+          className="button-secondary hidden p-2 max-lg:inline-flex lg:!hidden"
           onClick={toggleMobileSidebar}
           aria-label={messages.openMenu}
         >

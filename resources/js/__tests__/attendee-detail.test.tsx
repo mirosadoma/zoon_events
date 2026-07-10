@@ -12,7 +12,7 @@ vi.mock('@inertiajs/react', () => ({
 }))
 
 vi.mock('@/hooks/useLocale', () => ({
-  useLocale: () => ({ locale: 'en', direction: 'ltr' }),
+  useLocale: () => ({ locale: 'en', direction: 'ltr', t: (key: string) => key }),
 }))
 
 vi.mock('@/hooks/useToast', () => ({
@@ -37,7 +37,7 @@ describe('attendee detail', () => {
           order_id: 'order_1',
           registered_at: '2026-07-01T10:00:00Z',
           credential: {
-            id: 'cred_1',
+            id: '42',
             status: 'active',
             issued_at: '2026-07-01T10:05:00Z',
           },
@@ -47,7 +47,7 @@ describe('attendee detail', () => {
 
     expect(screen.getByRole('heading', { name: 'ndee_1' })).toBeInTheDocument()
     expect(screen.getByText('Attendee profile')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'cred_1' })).toHaveAttribute('href', '/tenant/events/evt_1/credentials/cred_1')
+    expect(screen.getByRole('link', { name: '42' })).toHaveAttribute('href', '/tenant/events/evt_1/credentials/42')
     expect(screen.getByRole('button', { name: 'Print badge' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Manual check-in' })).toBeInTheDocument()
   })

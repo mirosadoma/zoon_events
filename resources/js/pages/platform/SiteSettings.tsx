@@ -187,8 +187,8 @@ export default function SiteSettings({ settings, canManage }: Props) {
               />
             </div>
           </FormSection>
-
-          <FormSection title={messages.siteSettingsMaintenance}>
+          <hr className="my-8 border-t border-[var(--border)]" style={{ borderColor: '#0069ff' }} />
+          <FormSection title={messages.siteSettingsMaintenance} style={{ borderColor: '#0069ff' }}>
             <CheckboxInput
               label={messages.maintenanceEnabled}
               name="maintenance_enabled"

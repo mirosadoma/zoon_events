@@ -113,7 +113,7 @@ final class EventOperationsController extends Controller
 
         return Inertia::render('tenant/attendees/Detail', [
             ...$this->attendees->detail($event, $attendee, $credential),
-            'tenantId' => $context->tenant->id,
+            'tenantId' => (string) $context->tenant->id,
             'identity' => $this->identityState($context->tenant->id, $event->id, $attendee->id, 'credential'),
         ]);
     }
@@ -141,7 +141,7 @@ final class EventOperationsController extends Controller
 
         return Inertia::render('tenant/credentials/Detail', [
             ...$this->credentials->detail($event, $credential),
-            'tenantId' => $context->tenant->id,
+            'tenantId' => (string) $context->tenant->id,
             'identity' => $this->identityState($context->tenant->id, $event->id, $credential->attendee_id, 'credential'),
         ]);
     }

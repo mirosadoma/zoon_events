@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react'
-import { localizedPath, swapLocaleInPath, type AppLocale } from '@/lib/localePath'
+import { localizedPath, type AppLocale } from '@/lib/localePath'
 import ar from '@/locales/ar'
 import en from '@/locales/en'
 

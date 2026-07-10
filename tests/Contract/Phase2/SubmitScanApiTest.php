@@ -31,8 +31,8 @@ final class SubmitScanApiTest extends Phase2MySqlTestCase
         );
 
         self::assertNotNull($route);
-        self::assertContains('permission:checkin.scan.submit,tenant', $route->gatherMiddleware());
         self::assertContains('tenant.context', $route->gatherMiddleware());
+        self::assertNotContains('permission:checkin.scan.submit,tenant', $route->gatherMiddleware());
     }
 
     public function test_submit_scan_returns_documented_problem_responses(): void

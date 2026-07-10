@@ -7,7 +7,9 @@ import { PageContent, PageHeader } from '@/components/layout'
 import { CredentialDialog } from '@/components/credentials/CredentialDialog'
 import StatusBadge from '@/components/status/StatusBadge'
 import { useLocale } from '@/hooks/useLocale'
+import { useTenantId } from '@/hooks/useTenantId'
 import { useToast } from '@/hooks/useToast'
+import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
 
 type EventRow = {
   id: string
@@ -40,44 +42,45 @@ type Props = {
   identity?: IdentityState | null
 }
 
-export default function CredentialDetailPage({ event, credential, tenantId, identity }: Props) {
+export default function CredentialDetailPage({ event, credential, tenantId: pageTenantId, identity }: Props) {
   const { locale, t } = useLocale()
   const { toast } = useToast()
+  const tenantId = useTenantId(pageTenantId)
   const [busyAction, setBusyAction] = useState<'revoke' | 'reissue' | null>(null)
 
-  const apiHeaders = {
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
-    'X-Tenant-ID': tenantId,
+  function extractError(error: unknown, fallback: string): string {
+    if (error instanceof ApiFetchError) {
+      return error.message
+    }
+
+    return fallback
   }
 
-  function extractError(body: unknown, fallback: string): string {
-    if (typeof body !== 'object' || body === null) {
-      return fallback
+  function ensureTenantId(): boolean {
+    if (tenantId) {
+      return true
     }
-    const maybe = body as { detail?: string; message?: string; title?: string; code?: string }
-    return maybe.detail ?? maybe.message ?? maybe.title ?? maybe.code ?? fallback
+
+    toast(locale === 'ar' ? 'سياق المستأجر غير متوفر.' : 'Tenant context is unavailable.', 'error')
+
+    return false
   }
 
   async function handleRevoke(reason: string) {
+    if (!ensureTenantId()) return false
     setBusyAction('revoke')
     try {
-      const response = await fetch(`/api/v1/tenant/events/${event.id}/credentials/${credential.id}/revoke`, {
+      await apiFetch(`/api/v1/tenant/events/${event.id}/credentials/${credential.id}/revoke`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { ...apiHeaders, 'Idempotency-Key': crypto.randomUUID() },
-        body: JSON.stringify({ reason }),
+        tenantId,
+        idempotency: true,
+        body: { reason },
       })
-      const body = await response.json()
-      if (!response.ok) {
-        toast(extractError(body, locale === 'ar' ? 'تعذر إلغاء بيانات الدخول.' : 'Failed to revoke credential.'), 'error')
-        return false
-      }
       toast(locale === 'ar' ? 'تم إلغاء بيانات الدخول.' : 'Credential revoked.', 'success')
       router.reload()
       return true
-    } catch {
-      toast(locale === 'ar' ? 'تعذر إلغاء بيانات الدخول.' : 'Failed to revoke credential.', 'error')
+    } catch (error) {
+      toast(extractError(error, locale === 'ar' ? 'تعذر إلغاء بيانات الدخول.' : 'Failed to revoke credential.'), 'error')
       return false
     } finally {
       setBusyAction(null)
@@ -85,24 +88,20 @@ export default function CredentialDetailPage({ event, credential, tenantId, iden
   }
 
   async function handleReissue(reason: string) {
+    if (!ensureTenantId()) return false
     setBusyAction('reissue')
     try {
-      const response = await fetch(`/api/v1/tenant/events/${event.id}/credentials/${credential.id}/reissue`, {
+      await apiFetch(`/api/v1/tenant/events/${event.id}/credentials/${credential.id}/reissue`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { ...apiHeaders, 'Idempotency-Key': crypto.randomUUID() },
-        body: JSON.stringify({ reason }),
+        tenantId,
+        idempotency: true,
+        body: { reason },
       })
-      const body = await response.json()
-      if (!response.ok) {
-        toast(extractError(body, locale === 'ar' ? 'تعذر إعادة إصدار بيانات الدخول.' : 'Failed to reissue credential.'), 'error')
-        return false
-      }
       toast(locale === 'ar' ? 'تمت إعادة إصدار بيانات الدخول.' : 'Credential reissued.', 'success')
       router.reload()
       return true
-    } catch {
-      toast(locale === 'ar' ? 'تعذر إعادة إصدار بيانات الدخول.' : 'Failed to reissue credential.', 'error')
+    } catch (error) {
+      toast(extractError(error, locale === 'ar' ? 'تعذر إعادة إصدار بيانات الدخول.' : 'Failed to reissue credential.'), 'error')
       return false
     } finally {
       setBusyAction(null)
@@ -139,8 +138,8 @@ export default function CredentialDetailPage({ event, credential, tenantId, iden
             {
               label: locale === 'ar' ? 'الحاضر' : 'Attendee',
               value: (
-                <LocalizedLink href={`/tenant/events/${event.id}/attendees/${credential.attendee_id}`} className="text-sky-700 hover:underline">
-                  {credential.attendee_id.slice(-8)}
+                <LocalizedLink href={`/tenant/events/${event.id}/attendees/${String(credential.attendee_id)}`} className="text-sky-700 hover:underline">
+                  {String(credential.attendee_id).slice(-8)}
                 </LocalizedLink>
               ),
             },

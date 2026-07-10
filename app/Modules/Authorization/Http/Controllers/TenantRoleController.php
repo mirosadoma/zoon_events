@@ -11,9 +11,9 @@ use App\Modules\Shared\Application\Pagination\CursorPaginator;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
 use App\Modules\Tenancy\Domain\Context\TenantContextStore;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\TenantMembership;
-use App\Modules\Tenancy\Infrastructure\Persistence\Scopes\TenantScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class TenantRoleController extends Controller
 {
@@ -42,12 +42,9 @@ class TenantRoleController extends Controller
         );
     }
 
-    public function show(string $role_id)
+    public function show(TenantRole $role_id)
     {
-        $context = $this->contextStore->current();
-        $role = $this->findTenantRole($context->tenant->id, $role_id)->load('permissions');
-
-        return $this->success($this->mapRole($role));
+        return $this->success($this->mapRole($role_id->load('permissions')));
     }
 
     public function store(Request $request)
@@ -77,17 +74,16 @@ class TenantRoleController extends Controller
         return $this->success($this->mapRole($role), 201);
     }
 
-    public function update(Request $request, string $role_id)
+    public function update(Request $request, TenantRole $role_id)
     {
         $context = $this->contextStore->current();
-        $role = $this->findTenantRole($context->tenant->id, $role_id)->load('permissions');
         $validated = $request->validate([
             'name_en' => ['sometimes', 'string', 'max:100'],
             'name_ar' => ['sometimes', 'string', 'max:100'],
             'description' => ['nullable', 'string', 'max:500'],
         ]);
 
-        if ($role->is_system) {
+        if ($role_id->is_system) {
             abort(409, 'System roles cannot be modified.');
         }
 
@@ -95,21 +91,20 @@ class TenantRoleController extends Controller
             $validated['name'] = $validated['name_en'];
         }
 
-        DB::transaction(function () use ($role, $validated, $context): void {
-            $role->fill($validated)->save();
-            $this->audit->writeTenant('role.updated', 'succeeded', $context, targetType: 'tenant_role', targetId: $role->id);
+        DB::transaction(function () use ($role_id, $validated, $context): void {
+            $role_id->fill($validated)->save();
+            $this->audit->writeTenant('role.updated', 'succeeded', $context, targetType: 'tenant_role', targetId: $role_id->id);
         });
 
-        return $this->success($this->mapRole($role->refresh()->load('permissions')));
+        return $this->success($this->mapRole($role_id->refresh()->load('permissions')));
     }
 
-    public function replacePermissions(Request $request, string $role_id)
+    public function replacePermissions(Request $request, TenantRole $role_id)
     {
         $context = $this->contextStore->current();
-        $role = $this->findTenantRole($context->tenant->id, $role_id);
         $validated = $request->validate([
             'permissions' => ['required', 'array', 'max:100'],
-            'permissions.*' => ['string', 'exists:permissions,key'],
+            'permissions.*' => ['string', Rule::exists('permissions', 'key')->where('scope', 'tenant')],
         ]);
 
         $permissionIds = Permission::query()
@@ -118,25 +113,25 @@ class TenantRoleController extends Controller
             ->pluck('id')
             ->all();
 
-        if ($role->is_system) {
+        if ($role_id->is_system) {
             abort(409, 'System roles cannot be modified.');
         }
 
-        DB::transaction(function () use ($role, $permissionIds, $context): void {
-            DB::table('tenant_role_permissions')->where('tenant_role_id', $role->id)->delete();
+        DB::transaction(function () use ($role_id, $permissionIds, $context): void {
+            DB::table('tenant_role_permissions')->where('tenant_role_id', $role_id->id)->delete();
             foreach ($permissionIds as $permissionId) {
                 DB::table('tenant_role_permissions')->insert([
                     'tenant_id' => $context->tenant->id,
-                    'tenant_role_id' => $role->id,
+                    'tenant_role_id' => $role_id->id,
                     'permission_id' => $permissionId,
                     'granted_by_user_id' => $context->actor->id,
                     'created_at' => now(),
                 ]);
             }
-            $this->audit->writeTenant('role.permission_changed', 'succeeded', $context, targetType: 'tenant_role', targetId: $role->id);
+            $this->audit->writeTenant('role.permission_changed', 'succeeded', $context, targetType: 'tenant_role', targetId: $role_id->id);
         });
 
-        return $this->success($this->mapRole($role->refresh()->load('permissions')));
+        return $this->success($this->mapRole($role_id->refresh()->load('permissions')));
     }
 
     public function assign(Request $request)
@@ -148,7 +143,9 @@ class TenantRoleController extends Controller
             'expires_at' => ['nullable', 'date'],
         ]);
 
-        TenantMembership::queryForCurrentTenant()->findOrFail($validated['membership_id']);
+        TenantMembership::query()
+            ->where('tenant_id', $context->tenant->id)
+            ->findOrFail($validated['membership_id']);
         TenantRole::query()->where('tenant_id', $context->tenant->id)->findOrFail($validated['role_id']);
 
         $assignmentId = DB::transaction(function () use ($validated, $context): string {
@@ -231,27 +228,26 @@ class TenantRoleController extends Controller
         return $this->empty();
     }
 
-    public function destroy(string $role_id)
+    public function destroy(TenantRole $role_id)
     {
         $context = $this->contextStore->current();
-        $role = $this->findTenantRole($context->tenant->id, $role_id);
 
-        if ($role->is_system) {
+        if ($role_id->is_system) {
             throw FoundationException::conflict('system_role_protected', 'System roles cannot be deleted.');
         }
 
-        DB::transaction(function () use ($role, $context): void {
+        DB::transaction(function () use ($role_id, $context): void {
             $activeAssignments = DB::table('tenant_role_assignments')
-                ->where('tenant_role_id', $role->id)
+                ->where('tenant_role_id', $role_id->id)
                 ->whereNull('revoked_at')
                 ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
                 ->exists();
             if ($activeAssignments) {
                 throw FoundationException::conflict('role_in_use', 'A role with active assignments cannot be deleted.');
             }
-            DB::table('tenant_role_permissions')->where('tenant_role_id', $role->id)->delete();
-            $role->delete();
-            $this->audit->writeTenant('role.deleted', 'succeeded', $context, targetType: 'tenant_role', targetId: $role->id);
+            DB::table('tenant_role_permissions')->where('tenant_role_id', $role_id->id)->delete();
+            $role_id->delete();
+            $this->audit->writeTenant('role.deleted', 'succeeded', $context, targetType: 'tenant_role', targetId: $role_id->id);
         });
 
         return $this->empty();
@@ -270,22 +266,5 @@ class TenantRoleController extends Controller
             'permissions' => $role->relationLoaded('permissions') ? $role->permissions->pluck('key')->values()->all() : [],
             'created_at' => $role->created_at?->toIso8601String(),
         ];
-    }
-
-    private function findTenantRole(string $tenantId, string $roleId): TenantRole
-    {
-        $resolved = request()->route('role_id');
-
-        if (! is_string($resolved) || $resolved === '') {
-            $resolved = $roleId;
-        }
-
-        abort_if($resolved === '', 404);
-
-        return TenantRole::query()
-            ->withoutGlobalScope(TenantScope::class)
-            ->where('tenant_id', $tenantId)
-            ->whereKey($resolved)
-            ->firstOrFail();
     }
 }

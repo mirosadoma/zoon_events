@@ -6,7 +6,6 @@ import PermissionGate from '@/components/layout/PermissionGate'
 import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
 import TextInput from '@/components/forms/TextInput'
 import TextareaInput from '@/components/forms/TextareaInput'
-import DateTimeInput from '@/components/forms/DateTimeInput'
 import SearchableSelect from '@/components/forms/SearchableSelect'
 import VenueRepeater, { emptyVenueRow, venueRowsFromEvent, type VenueFormRow } from '@/components/forms/VenueRepeater'
 import StatusBadge from '@/components/status/StatusBadge'
@@ -85,22 +84,9 @@ type EventFormState = {
   description_en: string
   description_ar: string
   timezone: string
-  start_at: string
-  end_at: string
-  registration_opens_at: string
-  registration_closes_at: string
   capacity: string
   brand_reference: string
   domain_reference: string
-}
-
-function toLocalDateTime(value: string | null): string {
-  if (!value) return ''
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return ''
-  const pad = (n: number) => n.toString().padStart(2, '0')
-
-  return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`
 }
 
 function buildVenuePayload(venues: VenueFormRow[]) {
@@ -138,10 +124,6 @@ export default function EventSetup({ tenantId, event, timezones = [], countries 
     description_en: event.description.en,
     description_ar: event.description.ar,
     timezone: event.timezone,
-    start_at: toLocalDateTime(event.start_at),
-    end_at: toLocalDateTime(event.end_at),
-    registration_opens_at: toLocalDateTime(event.registration_opens_at),
-    registration_closes_at: toLocalDateTime(event.registration_closes_at),
     capacity: event.capacity === null ? '' : String(event.capacity),
     brand_reference: event.brand_reference ?? '',
     domain_reference: event.domain_reference ?? '',
@@ -177,10 +159,6 @@ export default function EventSetup({ tenantId, event, timezones = [], countries 
       name: { en: form.name_en, ar: form.name_ar },
       description: { en: form.description_en || null, ar: form.description_ar || null },
       timezone: form.timezone,
-      start_at: form.start_at || null,
-      end_at: form.end_at || null,
-      registration_opens_at: form.registration_opens_at || null,
-      registration_closes_at: form.registration_closes_at || null,
       capacity: form.capacity === '' ? null : Number(form.capacity),
       brand_reference: form.brand_reference || null,
       domain_reference: form.domain_reference || null,
@@ -274,38 +252,6 @@ export default function EventSetup({ tenantId, event, timezones = [], countries 
               onChange={(e) => setForm((current) => ({ ...current, capacity: e.target.value }))}
               required
               error={fieldError('capacity')}
-            />
-            <DateTimeInput
-              label={locale === 'ar' ? 'بداية الفعالية' : 'Event starts'}
-              name="start_at"
-              value={form.start_at}
-              onChange={(e) => setForm((current) => ({ ...current, start_at: e.target.value }))}
-              required
-              error={fieldError('start_at')}
-            />
-            <DateTimeInput
-              label={locale === 'ar' ? 'نهاية الفعالية' : 'Event ends'}
-              name="end_at"
-              value={form.end_at}
-              onChange={(e) => setForm((current) => ({ ...current, end_at: e.target.value }))}
-              required
-              error={fieldError('end_at')}
-            />
-            <DateTimeInput
-              label={locale === 'ar' ? 'فتح التسجيل' : 'Registration opens'}
-              name="registration_opens_at"
-              value={form.registration_opens_at}
-              onChange={(e) => setForm((current) => ({ ...current, registration_opens_at: e.target.value }))}
-              required
-              error={fieldError('registration_opens_at')}
-            />
-            <DateTimeInput
-              label={locale === 'ar' ? 'إغلاق التسجيل' : 'Registration closes'}
-              name="registration_closes_at"
-              value={form.registration_closes_at}
-              onChange={(e) => setForm((current) => ({ ...current, registration_closes_at: e.target.value }))}
-              required
-              error={fieldError('registration_closes_at')}
             />
             <TextInput
               label={locale === 'ar' ? 'مرجع العلامة التجارية' : 'Brand reference'}

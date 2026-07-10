@@ -46,7 +46,7 @@ class TenantMembership extends Model
 
     public function assignments(): HasMany
     {
-        return $this->hasMany(TenantRoleAssignment::class);
+        return $this->hasMany(TenantRoleAssignment::class, 'tenant_membership_id');
     }
 
     protected static function newFactory(): TenantMembershipFactory

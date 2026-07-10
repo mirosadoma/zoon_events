@@ -35,8 +35,9 @@ export default function BadgeTemplatesPage({ event, tenantId, templates }: Props
         actions={<LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/badge-print-jobs`}>{locale === 'ar' ? 'مهام الطباعة' : 'Print jobs'}</LocalizedLink>}
       />
       <PageContent>
+        <div className="space-y-4">
         {templates.length > 0 && (
-          <div className="mb-4 flex flex-wrap gap-2">
+          <div className="ta-card flex flex-wrap gap-2 p-3">
             {templates.map((template) => (
               <button
                 key={template.id}
@@ -50,11 +51,13 @@ export default function BadgeTemplatesPage({ event, tenantId, templates }: Props
           </div>
         )}
         <BadgeTemplateDesigner
+          key={activeTemplate?.id ?? 'new'}
           eventId={event.id}
           tenantId={tenantId}
           template={activeTemplate}
           onSaved={setActiveTemplate}
         />
+        </div>
       </PageContent>
     </DashboardLayout>
   )

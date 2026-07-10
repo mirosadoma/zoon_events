@@ -8,6 +8,8 @@ use App\Modules\Notifications\Infrastructure\Persistence\Models\Notification;
 use App\Modules\Shared\Application\DataProtection\BlindIndex;
 use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 final readonly class ConfirmationIntentFactory implements ConfirmationIntentCreator
 {
@@ -45,7 +47,16 @@ final readonly class ConfirmationIntentFactory implements ConfirmationIntentCrea
     {
         $deliver = function () use ($notificationId): void {
             if ((bool) config('notifications.dispatch_sync', false)) {
-                DeliverNotificationJob::dispatchSync($notificationId);
+                try {
+                    DeliverNotificationJob::dispatchSync($notificationId);
+                } catch (Throwable $exception) {
+                    // Sync delivery failure must not fail the registration request;
+                    // the notification stays retryable for the scheduler.
+                    Log::warning('notifications.sync_delivery_deferred', [
+                        'notification_id' => $notificationId,
+                        'reason' => $exception->getMessage(),
+                    ]);
+                }
 
                 return;
             }

@@ -7,6 +7,7 @@ use App\Modules\Shared\Domain\Context\CorrelationId;
 use App\Modules\Shared\Domain\Context\RequestContextStore;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use Throwable;
 
@@ -21,6 +22,13 @@ final readonly class FoundationProblemRenderer
         $safeThrowable = $throwable instanceof InvalidArgumentException
             ? FoundationException::validation('validation_failed', 'One or more fields are invalid.')
             : $throwable;
+
+        if (! $safeThrowable instanceof FoundationException) {
+            Log::error($safeThrowable->getMessage(), [
+                'exception' => $safeThrowable,
+                'path' => $request->path(),
+            ]);
+        }
         $problem = ProblemFactory::fromThrowable(
             $safeThrowable,
             '/'.$request->path(),

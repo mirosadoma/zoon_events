@@ -56,7 +56,7 @@ final readonly class UsersViewModel
                 $assigned = $roleRows->get($membership->id, collect());
 
                 return [
-                    'id' => $membership->id,
+                    'id' => (string) $membership->id,
                     'name' => $membership->user->name,
                     'email' => $membership->user->email,
                     'status' => $membership->status->value,

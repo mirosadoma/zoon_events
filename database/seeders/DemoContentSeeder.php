@@ -16,6 +16,7 @@ use App\Modules\IdentityVerification\Infrastructure\Persistence\Models\IdentityV
 use App\Modules\IdentityVerification\Infrastructure\Persistence\Models\IdentityVerificationRequirement;
 use App\Modules\Orders\Application\Actions\CompleteFreeRegistration;
 use App\Modules\Orders\Domain\FreeRegistrationInput;
+use App\Modules\Orders\Infrastructure\Persistence\Models\Order;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\Tenant;
 use Carbon\CarbonImmutable;
 use Database\Factories\AccessEventFactory;
@@ -43,6 +44,11 @@ final class DemoContentSeeder extends Seeder
         if (app()->environment('production')) {
             return;
         }
+
+        config([
+            'notifications.dispatch_sync' => false,
+            'notifications.email_adapter' => 'log',
+        ]);
 
         $tenant = Tenant::query()->where('slug', 'fixture-alpha')->first();
         $actor = User::query()->where('email', DemoAccounts::PRIMARY_DEMO_EMAIL)->first()
@@ -93,7 +99,7 @@ final class DemoContentSeeder extends Seeder
      */
     private function seedRegistrations(Tenant $tenant, array $fixture): array
     {
-        $existingCount = \App\Modules\Orders\Infrastructure\Persistence\Models\Order::query()
+        $existingCount = Order::query()
             ->where('tenant_id', $tenant->id)
             ->where('event_id', $fixture['event']->id)
             ->count();

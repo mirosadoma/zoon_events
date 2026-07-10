@@ -39,6 +39,13 @@ vi.mock('@/hooks/useLocale', () => ({
       confirm: 'Confirm',
       cancel: 'Cancel',
       adminUserUpdated: 'Membership status updated.',
+      adminAddUser: 'Add user',
+      adminAddUserTitle: 'Invite team member',
+      adminAddUserDescription: 'Create an account and add it to your tenant team.',
+      adminAddUserSuccess: 'Team member added.',
+      adminDefaultLocale: 'Default locale',
+      adminNoUsers: 'No team members yet.',
+      cancel: 'Cancel',
       errorState: 'Something went wrong.',
       audit: 'Audit',
       adminAuditDescription: 'Search tenant audit activity with bounded filters.',
@@ -62,6 +69,19 @@ vi.mock('@/hooks/useToast', () => ({
   useToast: () => ({ toast: vi.fn() }),
 }))
 
+vi.mock('@/lib/apiFetch', () => ({
+  apiFetch: vi.fn(),
+  ApiFetchError: class ApiFetchError extends Error {
+    status: number
+    errors: Record<string, string>
+    constructor(status: number, message: string, errors: Record<string, string> = {}) {
+      super(message)
+      this.status = status
+      this.errors = errors
+    }
+  },
+}))
+
 const users = [
   {
     id: 'mem_1',
@@ -82,6 +102,12 @@ describe('admin users and audit pages', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
+  })
+
+  it('shows add user button when membership.manage is granted', () => {
+    render(<AdminUsers tenantId="ten_1" users={[]} roles={[]} />)
+
+    expect(screen.getByRole('button', { name: 'Add user' })).toBeInTheDocument()
   })
 
   it('filters users and activates a suspended membership', async () => {

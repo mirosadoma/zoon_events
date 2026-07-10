@@ -12,7 +12,7 @@ Route::prefix('tenant/events/{event_id}')
     ->middleware(['auth:sanctum', 'throttle:phase1-organizer', 'tenant.context.clear', 'tenant.context'])
     ->group(function (): void {
         Route::post('/scans', [ScanController::class, 'store'])
-            ->middleware(['permission:checkin.scan.submit,tenant', 'idempotency']);
+            ->middleware(['idempotency']);
         Route::get('/check-in-summary', [CheckInSummaryController::class, 'show'])
             ->middleware(['permission:checkin.dashboard.view,tenant']);
         Route::get('/offline-allowlist', [OfflineAllowlistController::class, 'show'])

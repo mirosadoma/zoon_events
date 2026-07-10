@@ -29,11 +29,11 @@ final readonly class CredentialDetailViewModel
             'event' => $this->eventRow($event),
             'credential' => [
                 ...$this->credentialRow($credential),
-                'ticket_type_id' => $credential->ticket_type_id,
+                'ticket_type_id' => $credential->ticket_type_id !== null ? (string) $credential->ticket_type_id : null,
                 'token_version' => $credential->token_version,
                 'revoked_at' => $credential->revoked_at?->toIso8601String(),
                 'revocation_reason' => $credential->revocation_reason,
-                'superseded_by_id' => $credential->superseded_by_id,
+                'superseded_by_id' => $credential->superseded_by_id !== null ? (string) $credential->superseded_by_id : null,
             ],
         ];
     }
@@ -42,7 +42,7 @@ final readonly class CredentialDetailViewModel
     private function eventRow(Event $event): array
     {
         return [
-            'id' => $event->id,
+            'id' => (string) $event->id,
             'name' => ['en' => $event->name_en, 'ar' => $event->name_ar],
             'status' => $event->status,
         ];
@@ -52,9 +52,9 @@ final readonly class CredentialDetailViewModel
     private function credentialRow(Credential $credential): array
     {
         return [
-            'id' => $credential->id,
-            'code' => substr($credential->id, -8),
-            'attendee_id' => $credential->attendee_id,
+            'id' => (string) $credential->id,
+            'code' => substr((string) $credential->id, -8),
+            'attendee_id' => (string) $credential->attendee_id,
             'status' => $credential->status,
             'issued_at' => $credential->issued_at?->toIso8601String(),
             'expires_at' => $credential->expires_at?->toIso8601String(),

@@ -6,10 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Modules\Audit\Application\Queries\SearchAuditLogs;
 use App\Modules\Audit\Infrastructure\Persistence\Models\AuditLog;
+use App\Modules\Authorization\Infrastructure\Persistence\Models\Permission;
 use App\Modules\Authorization\Infrastructure\Persistence\Models\PlatformRole;
-use App\Modules\Tenancy\Http\Controllers\ConfigurationController;
 use App\Modules\FeatureFlags\Infrastructure\Persistence\Models\FeatureFlag;
 use App\Modules\Operations\Application\Health\HealthService;
+use App\Modules\Tenancy\Http\Controllers\ConfigurationController;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\Tenant;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -37,6 +38,25 @@ final class PlatformPageController extends Controller
 
         abort_if($permission === null, 404);
         Gate::authorize($permission);
+
+        if ($section === 'roles') {
+            return Inertia::render('admin/Roles', [
+                'scope' => 'platform',
+                'tenantId' => null,
+                'roles' => $this->rowsFor('roles'),
+                'availablePermissions' => Permission::query()
+                    ->where('scope', 'platform')
+                    ->orderBy('module')
+                    ->orderBy('key')
+                    ->get(['key', 'module'])
+                    ->map(fn (Permission $permission): array => [
+                        'key' => $permission->key,
+                        'module' => $permission->module,
+                    ])
+                    ->values()
+                    ->all(),
+            ]);
+        }
 
         return Inertia::render('platform/Section', [
             'section' => $section,

@@ -11,6 +11,7 @@ use Illuminate\Support\Collection;
 final readonly class AttendeeDetailViewModel
 {
     public function __construct(private PersonalDataReader $personalData) {}
+
     /**
      * @param  Collection<int, Attendee>  $attendees
      * @param  array<string, string>  $credentialStatuses
@@ -36,13 +37,13 @@ final readonly class AttendeeDetailViewModel
             'event' => $this->eventRow($event),
             'attendee' => [
                 ...$this->attendeeRow($attendee, $credential?->status),
-                'order_id' => $attendee->order_id,
-                'ticket_type_id' => $attendee->ticket_type_id,
+                'order_id' => $attendee->order_id !== null ? (string) $attendee->order_id : null,
+                'ticket_type_id' => $attendee->ticket_type_id !== null ? (string) $attendee->ticket_type_id : null,
                 'registered_at' => $attendee->registered_at?->toIso8601String(),
                 'first_checked_in_at' => $attendee->first_checked_in_at?->toIso8601String(),
                 'origin' => $attendee->origin,
                 'credential' => $credential !== null ? [
-                    'id' => $credential->id,
+                    'id' => (string) $credential->id,
                     'status' => $credential->status,
                     'issued_at' => $credential->issued_at?->toIso8601String(),
                     'expires_at' => $credential->expires_at?->toIso8601String(),
@@ -57,7 +58,7 @@ final readonly class AttendeeDetailViewModel
     private function eventRow(Event $event): array
     {
         return [
-            'id' => $event->id,
+            'id' => (string) $event->id,
             'name' => ['en' => $event->name_en, 'ar' => $event->name_ar],
             'status' => $event->status,
         ];
@@ -69,11 +70,11 @@ final readonly class AttendeeDetailViewModel
         $displayName = $this->personalData->attendeeDisplayName($attendee);
 
         return [
-            'id' => $attendee->id,
+            'id' => (string) $attendee->id,
             'status' => $attendee->checkin_status ?? 'not_checked_in',
             'locale' => $attendee->preferred_locale,
             'credential_status' => $credentialStatus,
-            'label' => $displayName ?: substr($attendee->id, -8),
+            'label' => $displayName ?: substr((string) $attendee->id, -8),
             'display_name' => $displayName,
         ];
     }

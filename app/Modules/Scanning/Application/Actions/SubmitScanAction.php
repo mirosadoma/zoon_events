@@ -160,31 +160,35 @@ final readonly class SubmitScanAction
             return ['attendee_display_name' => null, 'ticket_type_label' => null];
         }
 
-        $credential = Credential::query()
-            ->where('tenant_id', $context->tenantId)
-            ->where('event_id', $context->eventId)
-            ->findOrFail($decision->credentialId);
-        $attendee = Attendee::query()
-            ->where('tenant_id', $context->tenantId)
-            ->where('event_id', $context->eventId)
-            ->findOrFail($decision->attendeeId);
-        $ticket = TicketType::query()
-            ->where('tenant_id', $context->tenantId)
-            ->where('event_id', $context->eventId)
-            ->findOrFail($credential->ticket_type_id);
+        try {
+            $credential = Credential::query()
+                ->where('tenant_id', $context->tenantId)
+                ->where('event_id', $context->eventId)
+                ->findOrFail($decision->credentialId);
+            $attendee = Attendee::query()
+                ->where('tenant_id', $context->tenantId)
+                ->where('event_id', $context->eventId)
+                ->findOrFail($decision->attendeeId);
+            $ticket = TicketType::query()
+                ->where('tenant_id', $context->tenantId)
+                ->where('event_id', $context->eventId)
+                ->findOrFail($credential->ticket_type_id);
 
-        $name = trim($this->cipher->decrypt(
-            ['key_id' => $attendee->encryption_key_id, 'ciphertext' => $attendee->first_name_ciphertext],
-            "{$context->tenantId}:{$context->eventId}:attendee",
-        ).' '.$this->cipher->decrypt(
-            ['key_id' => $attendee->encryption_key_id, 'ciphertext' => $attendee->last_name_ciphertext],
-            "{$context->tenantId}:{$context->eventId}:attendee",
-        ));
+            $name = trim($this->cipher->decrypt(
+                ['key_id' => $attendee->encryption_key_id, 'ciphertext' => $attendee->first_name_ciphertext],
+                "{$context->tenantId}:{$context->eventId}:attendee",
+            ).' '.$this->cipher->decrypt(
+                ['key_id' => $attendee->encryption_key_id, 'ciphertext' => $attendee->last_name_ciphertext],
+                "{$context->tenantId}:{$context->eventId}:attendee",
+            ));
 
-        return [
-            'attendee_display_name' => $name,
-            'ticket_type_label' => $ticket->name_en,
-        ];
+            return [
+                'attendee_display_name' => $name,
+                'ticket_type_label' => $ticket->name_en,
+            ];
+        } catch (\Throwable) {
+            return ['attendee_display_name' => null, 'ticket_type_label' => null];
+        }
     }
 
     private function dispatchScanEvent(ScanContext $context, ScanSubmission $submission): void

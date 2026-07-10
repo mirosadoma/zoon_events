@@ -5,7 +5,9 @@ namespace App\Modules\Shared\Http\Problems;
 use App\Exceptions\FoundationException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
+use Illuminate\Session\TokenMismatchException;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
@@ -103,6 +105,24 @@ final class ProblemFactory
                 status: 401,
                 code: 'unauthenticated',
                 detail: 'Authentication is required to access this resource.',
+                instance: $instance,
+                correlationId: $correlationId,
+            ),
+            $throwable instanceof TokenMismatchException => new ProblemDetails(
+                type: self::typeFor('csrf_token_mismatch'),
+                title: 'CSRF token mismatch',
+                status: 419,
+                code: 'csrf_token_mismatch',
+                detail: 'The page has expired. Refresh and try again.',
+                instance: $instance,
+                correlationId: $correlationId,
+            ),
+            $throwable instanceof ModelNotFoundException => new ProblemDetails(
+                type: self::typeFor('resource_not_found'),
+                title: 'Resource not found',
+                status: 404,
+                code: 'resource_not_found',
+                detail: 'The requested resource could not be found.',
                 instance: $instance,
                 correlationId: $correlationId,
             ),

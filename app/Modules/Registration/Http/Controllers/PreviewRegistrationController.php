@@ -18,6 +18,8 @@ use App\Modules\Ticketing\Contracts\TicketPriceReader;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketType;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 final class PreviewRegistrationController extends Controller
 {
@@ -158,6 +160,17 @@ final class PreviewRegistrationController extends Controller
             ->where('order_id', $orderId)
             ->whereIn('status', ['pending', 'temporary_failure'])
             ->pluck('id')
-            ->each(fn (string $notificationId) => DeliverNotificationJob::dispatchSync($notificationId));
+            ->each(function (string $notificationId): void {
+                try {
+                    DeliverNotificationJob::dispatchSync($notificationId);
+                } catch (Throwable $exception) {
+                    // Email delivery failure must not fail the registration itself;
+                    // the notification stays retryable for the scheduler.
+                    Log::warning('registration_preview.notification_delivery_deferred', [
+                        'notification_id' => $notificationId,
+                        'reason' => $exception->getMessage(),
+                    ]);
+                }
+            });
     }
 }

@@ -13,8 +13,8 @@ use App\Modules\Kiosk\Http\Middleware\ClearKioskSession;
 use App\Modules\Kiosk\Http\Middleware\ResolveKioskSession;
 use App\Modules\Operations\Application\Telemetry\RecordRequestTelemetry;
 use App\Modules\Shared\Http\Middleware\AssignRequestContext;
-use App\Modules\Shared\Http\Middleware\RequireIdempotencyKey;
 use App\Modules\Shared\Http\Middleware\RedirectToLocalizedUrl;
+use App\Modules\Shared\Http\Middleware\RequireIdempotencyKey;
 use App\Modules\Shared\Http\Middleware\ResolveLocale;
 use App\Modules\Shared\Http\Middleware\SecurityHeaders;
 use App\Modules\Shared\Http\Problems\FoundationProblemRenderer;
@@ -22,6 +22,7 @@ use App\Modules\Tenancy\Http\Middleware\ClearTenantContext;
 use App\Modules\Tenancy\Http\Middleware\ResolveTenantContext;
 use App\Modules\WalletPasses\Http\Middleware\AuthenticateApplePass;
 use App\Providers\ModuleServiceProvider;
+use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -76,6 +77,7 @@ return Application::configure(basePath: dirname(__DIR__))
             ResolveLocale::class,
             ClearPublicEventContext::class,
             ResolvePublicEventContext::class,
+            Authenticate::class,
             ClearTenantContext::class,
             ResolveTenantContext::class,
             ClearKioskSession::class,

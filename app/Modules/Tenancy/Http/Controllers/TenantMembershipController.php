@@ -4,6 +4,7 @@ namespace App\Modules\Tenancy\Http\Controllers;
 
 use App\Exceptions\FoundationException;
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Modules\Audit\Application\AuditWriter;
 use App\Modules\Shared\Application\Pagination\CursorPaginator;
 use App\Modules\Shared\Domain\LifecycleStatus;
@@ -12,6 +13,7 @@ use App\Modules\Tenancy\Domain\Context\TenantContextStore;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\TenantMembership;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class TenantMembershipController extends Controller
 {
@@ -40,13 +42,38 @@ class TenantMembershipController extends Controller
     {
         $context = $this->contextStore->current();
         $validated = $request->validate([
-            'user_id' => ['required', 'exists:users,id'],
+            'user_id' => ['required_without_all:name,email,password', 'nullable', 'exists:users,id'],
+            'name' => ['required_without:user_id', 'nullable', 'string', 'max:160'],
+            'email' => ['required_without:user_id', 'nullable', 'email', 'max:254', 'unique:users,email'],
+            'password' => ['required_without:user_id', 'nullable', 'string', 'min:6', 'max:1024'],
+            'preferred_locale' => ['required_without:user_id', 'nullable', 'in:en,ar'],
         ]);
 
         $membership = DB::transaction(function () use ($context, $validated): TenantMembership {
+            $userId = isset($validated['user_id']) ? (int) $validated['user_id'] : null;
+
+            if ($userId === null) {
+                $user = User::query()->create([
+                    'name' => $validated['name'],
+                    'email' => mb_strtolower((string) $validated['email']),
+                    'password' => Hash::make((string) $validated['password']),
+                    'status' => LifecycleStatus::Active->value,
+                    'preferred_locale' => $validated['preferred_locale'] ?? 'en',
+                    'created_by_user_id' => $context->actor->id,
+                ]);
+                $userId = $user->id;
+            }
+
+            if (TenantMembership::query()
+                ->where('tenant_id', $context->tenant->id)
+                ->where('user_id', $userId)
+                ->exists()) {
+                throw FoundationException::conflict('membership_exists', 'This user is already a member of the tenant.');
+            }
+
             $membership = TenantMembership::query()->create([
                 'tenant_id' => $context->tenant->id,
-                'user_id' => $validated['user_id'],
+                'user_id' => $userId,
                 'status' => LifecycleStatus::Active->value,
                 'created_by_user_id' => $context->actor->id,
             ]);
@@ -88,10 +115,10 @@ class TenantMembershipController extends Controller
     private function mapMembership(TenantMembership $membership): array
     {
         return [
-            'id' => $membership->id,
-            'tenant_id' => $membership->tenant_id,
+            'id' => (string) $membership->id,
+            'tenant_id' => (string) $membership->tenant_id,
             'user' => [
-                'id' => $membership->user->id,
+                'id' => (string) $membership->user->id,
                 'name' => $membership->user->name,
                 'email' => $membership->user->email,
                 'status' => $membership->user->status->value,

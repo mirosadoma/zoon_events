@@ -16,7 +16,12 @@ final class TenantScopedBinding
     public static function register(string $parameter, string $modelClass, string $column = 'id'): void
     {
         Route::bind($parameter, function (string $value) use ($modelClass, $column): Model {
-            $context = app(TenantContextStore::class)->current();
+            $store = app(TenantContextStore::class);
+            $context = $store->currentOrNull();
+
+            if ($context === null) {
+                throw FoundationException::notFound();
+            }
 
             /** @var Model|null $model */
             $model = $modelClass::query()

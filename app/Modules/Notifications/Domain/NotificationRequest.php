@@ -4,6 +4,7 @@ namespace App\Modules\Notifications\Domain;
 
 final readonly class NotificationRequest
 {
+    /** @param list<NotificationEmbeddedImage> $embeddedImages */
     public function __construct(
         public string $tenantId,
         public string $notificationId,
@@ -15,5 +16,6 @@ final readonly class NotificationRequest
         public string $locale,
         public string $correlationId,
         public string $idempotencyKey,
+        public array $embeddedImages = [],
     ) {}
 }
