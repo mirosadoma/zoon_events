@@ -1,11 +1,23 @@
-import { useEffect, useMemo } from 'react'
-import { MapContainer, Marker, TileLayer, useMapEvents } from 'react-leaflet'
+import { useEffect, useMemo, useState } from 'react'
+import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
-import markerIcon from 'leaflet/dist/images/marker-icon.png'
-import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import TextInput from '@/components/forms/TextInput'
+import { ValidationError } from '@/components/forms/TextInput'
+import { useLocale } from '@/hooks/useLocale'
+import { wrapperClassName } from '@/lib/formFieldStyles'
 import 'leaflet/dist/leaflet.css'
+
+const mapMarkerIcon = L.divIcon({
+  className: 'map-picker-marker',
+  html: `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="28" height="36" aria-hidden="true">
+      <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24C24 5.373 18.627 0 12 0z" />
+      <circle fill="#ffffff" cx="12" cy="12" r="4.5" />
+    </svg>
+  `,
+  iconSize: [28, 36],
+  iconAnchor: [14, 36],
+})
 
 type MapPickerProps = {
   label: string
@@ -13,22 +25,30 @@ type MapPickerProps = {
   longitude: string
   onLatitudeChange: (value: string) => void
   onLongitudeChange: (value: string) => void
+  onCoordinatesChange?: (latitude: string, longitude: string) => void
   error?: string
+  latitudeError?: string
+  longitudeError?: string
+  'data-form-field-latitude'?: string
+  'data-form-field-longitude'?: string
 }
 
-const defaultIcon = L.icon({
-  iconUrl: markerIcon,
-  iconRetinaUrl: markerIcon2x,
-  shadowUrl: markerShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-})
-
 function toNumber(value: string): number | null {
-  const parsed = Number(value)
-  if (Number.isNaN(parsed)) return null
+  const trimmed = value.trim()
+  if (trimmed === '') return null
+
+  const parsed = Number(trimmed)
+  if (!Number.isFinite(parsed)) return null
 
   return parsed
+}
+
+function getPoint(lat: number | null, lng: number | null): [number, number] | null {
+  if (lat === null || lng === null || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return null
+  }
+
+  return [lat, lng]
 }
 
 function MapClickHandler({
@@ -45,71 +65,138 @@ function MapClickHandler({
   return null
 }
 
+function MapResize() {
+  const map = useMap()
+
+  useEffect(() => {
+    const id = window.setTimeout(() => map.invalidateSize(), 100)
+
+    return () => window.clearTimeout(id)
+  }, [map])
+
+  return null
+}
+
+function MapRecenter({ center, zoom }: { center: [number, number]; zoom: number }) {
+  const map = useMap()
+
+  useEffect(() => {
+    map.setView(center, zoom, { animate: false })
+    const id = window.setTimeout(() => map.invalidateSize(), 50)
+
+    return () => window.clearTimeout(id)
+  }, [center, map, zoom])
+
+  return null
+}
+
 export default function MapPicker({
   label,
   latitude,
   longitude,
   onLatitudeChange,
   onLongitudeChange,
+  onCoordinatesChange,
   error,
+  latitudeError,
+  longitudeError,
+  'data-form-field-latitude': dataFormFieldLatitude,
+  'data-form-field-longitude': dataFormFieldLongitude,
 }: MapPickerProps) {
+  const { locale } = useLocale()
+  const [mounted, setMounted] = useState(false)
+  const resolvedLatitudeError = latitudeError ?? error
+  const resolvedLongitudeError = longitudeError ?? error
+  const mapError = error ?? latitudeError ?? longitudeError
+
   useEffect(() => {
-    L.Marker.prototype.options.icon = defaultIcon
+    setMounted(true)
   }, [])
 
   const lat = toNumber(latitude)
   const lng = toNumber(longitude)
-  const hasPoint = lat !== null && lng !== null && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180
+  const point = getPoint(lat, lng)
   const center = useMemo<[number, number]>(
-    () => (hasPoint ? [lat, lng] : [30.0444, 31.2357]),
-    [hasPoint, lat, lng],
+    () => point ?? [30.0444, 31.2357],
+    [point],
   )
+  const zoom = point ? 13 : 5
+
+  function formatCoordinate(value: number): string {
+    return value.toFixed(6)
+  }
 
   return (
-    <div className="grid gap-3">
+    <div className={wrapperClassName(mapError, 'grid gap-3')}>
       <span className="text-sm font-medium text-[var(--ink)]">{label}</span>
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         <TextInput
-          label="Latitude"
+          label={locale === 'ar' ? 'خط العرض' : 'Latitude'}
           name="latitude"
-          type="number"
-          step="any"
+          type="text"
+          inputMode="decimal"
+          autoComplete="off"
           value={latitude}
           onChange={(event) => onLatitudeChange(event.target.value)}
+          error={resolvedLatitudeError}
+          data-form-field={dataFormFieldLatitude}
         />
         <TextInput
-          label="Longitude"
+          label={locale === 'ar' ? 'خط الطول' : 'Longitude'}
           name="longitude"
-          type="number"
-          step="any"
+          type="text"
+          inputMode="decimal"
+          autoComplete="off"
           value={longitude}
           onChange={(event) => onLongitudeChange(event.target.value)}
+          error={resolvedLongitudeError}
+          data-form-field={dataFormFieldLongitude}
         />
       </div>
-      <div className="overflow-hidden rounded-lg border border-[var(--border)]">
-        <MapContainer
-          center={center}
-          zoom={hasPoint ? 13 : 5}
-          className="h-56 w-full"
-          scrollWheelZoom
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          <MapClickHandler
-            onPick={(nextLat, nextLng) => {
-              onLatitudeChange(nextLat.toFixed(6))
-              onLongitudeChange(nextLng.toFixed(6))
-            }}
-          />
-          {hasPoint && <Marker position={[lat, lng]} />}
-        </MapContainer>
+      <div
+        className={wrapperClassName(mapError, 'overflow-hidden rounded-lg border border-[var(--border)] bg-slate-100 dark:bg-slate-900')}
+        style={{ minHeight: '14rem' }}
+      >
+        {mounted ? (
+          <MapContainer
+            center={center}
+            zoom={zoom}
+            className="z-0 h-56 w-full"
+            style={{ height: '14rem', width: '100%' }}
+            scrollWheelZoom
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            <MapResize />
+            <MapRecenter center={center} zoom={zoom} />
+            <MapClickHandler
+              onPick={(nextLat, nextLng) => {
+                const nextLatitude = formatCoordinate(nextLat)
+                const nextLongitude = formatCoordinate(nextLng)
+
+                if (onCoordinatesChange) {
+                  onCoordinatesChange(nextLatitude, nextLongitude)
+                  return
+                }
+
+                onLatitudeChange(nextLatitude)
+                onLongitudeChange(nextLongitude)
+              }}
+            />
+            {point && <Marker key={`${point[0]}-${point[1]}`} position={point} icon={mapMarkerIcon} />}
+          </MapContainer>
+        ) : (
+          <div className="h-56 w-full animate-pulse bg-slate-200 dark:bg-slate-700" aria-hidden />
+        )}
       </div>
       <p className="text-xs text-[var(--muted)]">
-        Click on the map to set coordinates, or enter latitude and longitude manually.
+        {locale === 'ar'
+          ? 'انقر على الخريطة لتحديد الإحداثيات، أو أدخل خط العرض وخط الطول يدوياً.'
+          : 'Click on the map to set coordinates, or enter latitude and longitude manually.'}
       </p>
-      {error && <span role="alert" className="text-red-600 dark:text-red-400">{error}</span>}
+      {mapError ? <ValidationError message={mapError} /> : null}
     </div>
   )
 }

@@ -2,18 +2,27 @@
 
 namespace App\Modules\AdminConsole\ViewModels\Events;
 
+use App\Models\User;
 use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
 use App\Modules\Events\Application\Publication\PublicationReadiness;
+use App\Modules\Events\Application\Support\EventMediaPresenter;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use Illuminate\Support\Facades\DB;
 
 final readonly class EventSetupViewModel
 {
-    public function __construct(private PublicationReadiness $readiness) {}
+    public function __construct(
+        private PublicationReadiness $readiness,
+        private EventMediaPresenter $media,
+    ) {}
 
     /** @return array{event:array<string,mixed>,can:array{manage:bool,publish:bool}} */
     public function make(Event $event, bool $canManage, bool $canPublish): array
     {
+        $organizer = $event->created_by_user_id !== null
+            ? User::query()->find($event->created_by_user_id, ['id', 'name', 'email'])
+            : null;
+
         return [
             'event' => [
                 'id' => $event->id,
@@ -32,6 +41,13 @@ final readonly class EventSetupViewModel
                 'location_address' => ['en' => $event->location_address_en ?? '', 'ar' => $event->location_address_ar ?? ''],
                 'brand_reference' => $event->branding()->value('brand_reference'),
                 'domain_reference' => $event->branding()->value('domain_reference'),
+                'organizer_user_id' => $event->created_by_user_id !== null ? (string) $event->created_by_user_id : null,
+                'organizer' => $organizer instanceof User ? [
+                    'id' => (string) $organizer->id,
+                    'name' => $organizer->name,
+                    'email' => $organizer->email,
+                ] : null,
+                ...$this->media->forSetup($event->loadMissing('images')),
                 'venues' => EventVenue::query()
                     ->where('tenant_id', $event->tenant_id)
                     ->where('event_id', $event->id)
@@ -53,7 +69,7 @@ final readonly class EventSetupViewModel
                     ->values()
                     ->all(),
                 'readiness' => $this->readiness->missing([
-                    ...$event->only(['name_en', 'name_ar', 'timezone', 'start_at', 'end_at', 'registration_opens_at', 'registration_closes_at', 'active_form_version_id']),
+                    ...$event->only(['name_en', 'name_ar', 'timezone', 'start_at', 'end_at', 'registration_opens_at', 'registration_closes_at', 'active_form_version_id', 'main_image_path']),
                     'active_ticket_types' => DB::table('ticket_types')
                         ->where('tenant_id', $event->tenant_id)
                         ->where('event_id', $event->id)

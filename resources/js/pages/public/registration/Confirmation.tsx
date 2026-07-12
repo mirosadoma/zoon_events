@@ -1,5 +1,6 @@
 import { QRCodeSVG } from 'qrcode.react'
 import AddToWalletButtons from '@/components/wallet/AddToWalletButtons'
+import { useLocale } from '@/hooks/useLocale'
 
 export default function Confirmation({
   locale,
@@ -18,30 +19,26 @@ export default function Confirmation({
   accessToken?: string
   credentialStatus?: string
 }) {
-  const rtl = locale === 'ar'
+  const { t, direction } = useLocale()
   const applePassUrl = accessToken ? `/api/v1/public/orders/${reference}/wallet-passes/apple` : '#'
   const googleSaveUrl = accessToken ? `/api/v1/public/orders/${reference}/wallet-passes/google` : '#'
 
   return (
-    <main className="registration-confirmation-page min-h-screen bg-[var(--surface)] px-4 py-10" lang={locale} dir={rtl ? 'rtl' : 'ltr'}>
+    <main className="registration-confirmation-page min-h-screen bg-[var(--surface)] px-4 py-10" lang={locale} dir={direction}>
       <div className="registration-invite-card mx-auto max-w-2xl">
         <h1 className="text-3xl font-semibold text-[var(--ink)]">
-          {rtl ? `مرحباً ${attendeeName}،` : `Welcome ${attendeeName},`}
+          {t('publicRegistrationWelcomeName').replace(':name', attendeeName)}
         </h1>
-        <p className="mt-4 text-[var(--muted)]">{rtl ? 'عزيزي المشارك،' : 'Dear Participant,'}</p>
+        <p className="mt-4 text-[var(--muted)]">{t('publicRegistrationConfirmationDear')}</p>
         <p className="mt-4 leading-7 text-[var(--ink)]">
-          {rtl ? 'شكراً لتسجيلك في ' : 'Thank you for registering for '}
-          <strong>{eventName ?? (rtl ? 'الفعالية' : 'the event')}</strong>.
+          {t('publicRegistrationThankYouRegistering')}{' '}
+          <strong>{eventName ?? t('publicRegistrationTheEvent')}</strong>.
         </p>
         <p className="mt-4 leading-7 text-[var(--ink)]">
-          {rtl
-            ? 'يسعدنا تأكيد استلام تسجيلك بنجاح.'
-            : 'We are pleased to confirm that your registration has been successfully received.'}
+          {t('publicRegistrationConfirmationReceived')}
         </p>
         <p className="mt-4 leading-7 text-[var(--ink)]">
-          {rtl
-            ? 'يرجى الاحتفاظ برمز QR أدناه وإبرازه عند مكتب التسجيل عند الوصول.'
-            : 'Please keep the QR code below accessible and present it at the registration desk upon arrival.'}
+          {t('publicRegistrationKeepQr')}
         </p>
 
         {qrPayload ? (
@@ -53,7 +50,7 @@ export default function Confirmation({
         ) : null}
 
         <p className="mt-8 text-sm text-[var(--muted)]">
-          {rtl ? 'مرجع الطلب' : 'Order reference'}: <span className="font-mono text-[var(--ink)]">{reference}</span>
+          {t('publicRegistrationOrderReference')}: <span className="font-mono text-[var(--ink)]">{reference}</span>
         </p>
 
         {accessToken ? (

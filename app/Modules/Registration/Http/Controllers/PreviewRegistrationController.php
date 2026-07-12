@@ -9,12 +9,10 @@ use App\Modules\Authorization\Application\PermissionEvaluator;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Notifications\Application\Jobs\DeliverNotificationJob;
 use App\Modules\Notifications\Infrastructure\Persistence\Models\Notification;
-use App\Modules\Orders\Application\Actions\CompleteFreeRegistration;
-use App\Modules\Orders\Application\Actions\StartPaidRegistration;
 use App\Modules\Orders\Domain\FreeRegistrationInput;
+use App\Modules\Registration\Application\Actions\CompletePreviewRegistration;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
 use App\Modules\Tenancy\Domain\Context\TenantContext;
-use App\Modules\Ticketing\Contracts\TicketPriceReader;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketType;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
@@ -28,14 +26,12 @@ final class PreviewRegistrationController extends Controller
     public function __construct(
         private readonly SessionContextBuilder $sessions,
         private readonly PermissionEvaluator $permissions,
-        private readonly TicketPriceReader $prices,
     ) {}
 
     public function store(
         Request $request,
         string $event_id,
-        CompleteFreeRegistration $free,
-        StartPaidRegistration $paid,
+        CompletePreviewRegistration $preview,
     ) {
         $context = $this->authorizeTenant('registration.manage');
         $event = $this->event($context, $event_id);
@@ -96,8 +92,7 @@ final class PreviewRegistrationController extends Controller
             bypassIdentityGateForCredential: true,
         );
 
-        $price = $this->prices->price($context->tenant->id, $event->id, $ticket->id);
-        $result = ($price->minor === 0 ? $free : $paid)->execute($input);
+        $result = $preview->execute($input, $ticket);
         $this->deliverPendingNotifications((string) $context->tenant->id, (string) $result->orderId);
 
         return $this->success([

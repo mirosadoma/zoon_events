@@ -25,6 +25,10 @@ final class ProblemFactory
                 detail: $throwable->detail(),
                 instance: $instance,
                 correlationId: $correlationId,
+                missing: array_values(array_filter(
+                    $throwable->meta['missing'] ?? [],
+                    static fn ($item): bool => is_string($item) && $item !== '',
+                )),
             ),
             $throwable instanceof AuthenticationException => new ProblemDetails(
                 type: self::typeFor('unauthenticated'),
@@ -105,6 +109,15 @@ final class ProblemFactory
                 status: 401,
                 code: 'unauthenticated',
                 detail: 'Authentication is required to access this resource.',
+                instance: $instance,
+                correlationId: $correlationId,
+            ),
+            $throwable instanceof HttpExceptionInterface && $throwable->getStatusCode() === 419 => new ProblemDetails(
+                type: self::typeFor('csrf_token_mismatch'),
+                title: 'CSRF token mismatch',
+                status: 419,
+                code: 'csrf_token_mismatch',
+                detail: 'The page has expired. Refresh and try again.',
                 instance: $instance,
                 correlationId: $correlationId,
             ),

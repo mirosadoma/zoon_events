@@ -5,15 +5,18 @@ import SelectInput from '@/components/forms/SelectInput'
 import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
 import TextInput from '@/components/forms/TextInput'
 import { PageContent, PageHeader, PermissionGate } from '@/components/layout'
+import ValidationHintPopover from '@/components/feedback/ValidationHintPopover'
 import ReasonModal from '@/components/modals/ReasonModal'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import FiltersBar from '@/components/tables/FiltersBar'
+import { useFormValidation } from '@/hooks/useFormValidation'
 import { useLocale } from '@/hooks/useLocale'
 import { useTenantId } from '@/hooks/useTenantId'
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
 import { useToast } from '@/hooks/useToast'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
+import { USER_INVITE_FIELD_LABELS, formFieldProps } from '@/lib/formatValidationErrors'
 import type { AppLocale } from '@/lib/localePath'
 import en from '@/locales/en'
 import ar from '@/locales/ar'
@@ -65,9 +68,13 @@ function membershipToRow(membership: MembershipResponse): UserRow {
 }
 
 export default function AdminUsers({ tenantId: pageTenantId, users: initialUsers, roles = [] }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const messages = locale === 'ar' ? ar : en
   const { toast } = useToast()
+  const inviteValidation = useFormValidation({
+    titleKey: 'couldNotSaveUser',
+    fieldLabels: USER_INVITE_FIELD_LABELS,
+  })
   const tenantId = useTenantId(pageTenantId)
   const localizedRouter = useLocalizedRouter()
   const [users, setUsers] = useState(initialUsers)
@@ -84,7 +91,6 @@ export default function AdminUsers({ tenantId: pageTenantId, users: initialUsers
     password: '',
     preferred_locale: locale,
   })
-  const [inviteErrors, setInviteErrors] = useState<Record<string, string>>({})
 
   const filteredUsers = useMemo(() => {
     if (!statusFilter) {
@@ -106,7 +112,7 @@ export default function AdminUsers({ tenantId: pageTenantId, users: initialUsers
       password: '',
       preferred_locale: locale,
     })
-    setInviteErrors({})
+    inviteValidation.clearValidation()
   }
 
   async function applyStatusChange(reason: string) {
@@ -194,7 +200,7 @@ export default function AdminUsers({ tenantId: pageTenantId, users: initialUsers
   async function inviteUser(event: FormEvent) {
     event.preventDefault()
     setInviting(true)
-    setInviteErrors({})
+    inviteValidation.clearValidation()
 
     try {
       const membership = await apiFetch<MembershipResponse>('/api/v1/tenant/memberships', {
@@ -210,7 +216,7 @@ export default function AdminUsers({ tenantId: pageTenantId, users: initialUsers
       resetInviteForm()
     } catch (error) {
       if (error instanceof ApiFetchError) {
-        setInviteErrors(error.errors)
+        inviteValidation.applyApiError(error)
         toast(error.message, 'error')
       } else {
         toast(messages.errorState, 'error')
@@ -386,7 +392,7 @@ export default function AdminUsers({ tenantId: pageTenantId, users: initialUsers
 
       {addOpen ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="invite-user-title">
-          <form className="ta-card w-full max-w-lg shadow-xl" onSubmit={(event) => void inviteUser(event)}>
+          <form className="relative ta-card w-full max-w-lg shadow-xl" onSubmit={(event) => void inviteUser(event)}>
             <h2 id="invite-user-title" className="text-lg font-semibold">{messages.adminAddUserTitle}</h2>
             <p className="mt-2 text-sm text-[var(--muted)]">{messages.adminAddUserDescription}</p>
             <div className="mt-4 grid gap-4">
@@ -395,7 +401,8 @@ export default function AdminUsers({ tenantId: pageTenantId, users: initialUsers
                 name="name"
                 value={inviteForm.name}
                 required
-                error={inviteErrors.name}
+                error={inviteValidation.fieldError('name')}
+                {...formFieldProps('name')}
                 onChange={(event) => setInviteForm((current) => ({ ...current, name: event.target.value }))}
               />
               <TextInput
@@ -404,7 +411,8 @@ export default function AdminUsers({ tenantId: pageTenantId, users: initialUsers
                 type="email"
                 value={inviteForm.email}
                 required
-                error={inviteErrors.email}
+                error={inviteValidation.fieldError('email')}
+                {...formFieldProps('email')}
                 onChange={(event) => setInviteForm((current) => ({ ...current, email: event.target.value }))}
               />
               <TextInput
@@ -413,7 +421,8 @@ export default function AdminUsers({ tenantId: pageTenantId, users: initialUsers
                 type="password"
                 value={inviteForm.password}
                 required
-                error={inviteErrors.password}
+                error={inviteValidation.fieldError('password')}
+                {...formFieldProps('password')}
                 onChange={(event) => setInviteForm((current) => ({ ...current, password: event.target.value }))}
               />
               <SelectInput
@@ -425,8 +434,11 @@ export default function AdminUsers({ tenantId: pageTenantId, users: initialUsers
                   { value: 'en', label: 'English' },
                   { value: 'ar', label: 'العربية' },
                 ]}
+                error={inviteValidation.fieldError('preferred_locale')}
+                {...formFieldProps('preferred_locale')}
               />
             </div>
+            <ValidationHintPopover {...inviteValidation.hintProps} />
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"

@@ -8,6 +8,7 @@ import StatusBadge from '@/components/status/StatusBadge'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
+import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
 
 type EventRow = {
   id: string
@@ -37,44 +38,30 @@ export default function IdentityReviewQueuePage({ tenantId, event, items, canRev
   const [approveId, setApproveId] = useState<string | null>(null)
   const [rejectId, setRejectId] = useState<string | null>(null)
 
-  const apiHeaders = {
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
-    'X-Tenant-ID': tenantId,
-  }
-
-  function extractError(body: unknown, fallback: string): string {
-    if (typeof body !== 'object' || body === null) {
-      return fallback
+  function extractError(error: unknown, fallback: string): string {
+    if (error instanceof ApiFetchError) {
+      return error.message
     }
-    const maybe = body as { detail?: string; message?: string; title?: string; code?: string }
-    return maybe.detail ?? maybe.message ?? maybe.title ?? maybe.code ?? fallback
+
+    return fallback
   }
 
   async function submitDecision(verificationId: string, decision: 'approve' | 'reject', reason?: string) {
     setBusyId(verificationId)
     try {
-      const response = await fetch(
-        `/api/v1/tenant/events/${event.id}/identity/verifications/${verificationId}/review`,
-        {
-          method: 'POST',
-          credentials: 'include',
-          headers: { ...apiHeaders, 'Idempotency-Key': crypto.randomUUID() },
-          body: JSON.stringify({ decision, reason: reason ?? null }),
-        },
-      )
-      const body = await response.json().catch(() => ({}))
-      if (!response.ok) {
-        toast(extractError(body, t('identityReviewFailed')), 'error')
-        return
-      }
+      await apiFetch(`/api/v1/tenant/events/${event.id}/identity/verifications/${verificationId}/review`, {
+        method: 'POST',
+        tenantId,
+        idempotency: true,
+        body: { decision, reason: reason ?? null },
+      })
       toast(
         decision === 'approve' ? t('identityReviewApprovedToast') : t('identityReviewRejectedToast'),
         'success',
       )
       router.reload({ only: ['items'] })
-    } catch {
-      toast(t('identityReviewFailed'), 'error')
+    } catch (error) {
+      toast(extractError(error, t('identityReviewFailed')), 'error')
     } finally {
       setBusyId(null)
       setApproveId(null)

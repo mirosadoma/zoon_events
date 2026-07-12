@@ -1,8 +1,9 @@
-import { lazy, Suspense, useMemo } from 'react'
+import { lazy, Suspense, useMemo, type Dispatch, type SetStateAction } from 'react'
 import DateTimeInput from '@/components/forms/DateTimeInput'
 import SearchableSelect, { type SearchableOption } from '@/components/forms/SearchableSelect'
 import TextInput from '@/components/forms/TextInput'
 import TextareaInput from '@/components/forms/TextareaInput'
+import { formFieldProps } from '@/lib/formatValidationErrors'
 import { useLocale } from '@/hooks/useLocale'
 
 const MapPicker = lazy(() => import('@/components/forms/MapPicker'))
@@ -34,7 +35,7 @@ type CountryOption = {
 type VenueRepeaterProps = {
   venues: VenueFormRow[]
   countries: CountryOption[]
-  onChange: (venues: VenueFormRow[]) => void
+  onChange: Dispatch<SetStateAction<VenueFormRow[]>>
   errors: Record<string, string>
 }
 
@@ -89,16 +90,16 @@ export default function VenueRepeater({ venues, countries, onChange, errors }: V
   }
 
   function updateVenue(index: number, patch: Partial<VenueFormRow>) {
-    onChange(venues.map((venue, rowIndex) => (rowIndex === index ? { ...venue, ...patch } : venue)))
+    onChange((current) => current.map((venue, rowIndex) => (rowIndex === index ? { ...venue, ...patch } : venue)))
   }
 
   function removeVenue(index: number) {
-    onChange(venues.filter((_, rowIndex) => rowIndex !== index))
+    onChange((current) => current.filter((_, rowIndex) => rowIndex !== index))
   }
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold">
             {locale === 'ar' ? 'أماكن الفعالية' : 'Event venues'}
@@ -111,8 +112,8 @@ export default function VenueRepeater({ venues, countries, onChange, errors }: V
         </div>
         <button
           type="button"
-          className="button-primary inline-flex cursor-pointer items-center gap-2"
-          onClick={() => onChange([...venues, emptyVenueRow()])}
+          className="button-primary inline-flex w-full cursor-pointer items-center justify-center gap-2 sm:w-auto"
+          onClick={() => onChange((current) => [...current, emptyVenueRow()])}
         >
           {locale === 'ar' ? 'إضافة موقع' : 'Add venue'}
         </button>
@@ -124,10 +125,10 @@ export default function VenueRepeater({ venues, countries, onChange, errors }: V
         </p>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {venues.map((venue, index) => (
-          <article key={venue.key} className="state-panel space-y-3">
-            <div className="flex items-center justify-between gap-2">
+          <article key={venue.key} className="@container state-panel p-4 sm:p-5">
+            <div className="mb-3 flex items-center justify-between gap-2">
               <h3 className="font-medium">
                 {locale === 'ar' ? `موقع ${index + 1}` : `Venue ${index + 1}`}
               </h3>
@@ -139,85 +140,105 @@ export default function VenueRepeater({ venues, countries, onChange, errors }: V
                 {locale === 'ar' ? 'حذف' : 'Remove'}
               </button>
             </div>
-            <TextInput
-              label={locale === 'ar' ? 'الاسم (EN)' : 'Name (EN)'}
-              name={`venue_${index}_name_en`}
-              value={venue.name_en}
-              onChange={(event) => updateVenue(index, { name_en: event.target.value })}
-              error={errors[`venues.${index}.name.en`]}
-            />
-            <TextInput
-              label={locale === 'ar' ? 'الاسم (AR)' : 'Name (AR)'}
-              name={`venue_${index}_name_ar`}
-              value={venue.name_ar}
-              onChange={(event) => updateVenue(index, { name_ar: event.target.value })}
-              error={errors[`venues.${index}.name.ar`]}
-            />
-            <SearchableSelect
-              label={locale === 'ar' ? 'الدولة' : 'Country'}
-              value={venue.country_id}
-              onChange={(countryId) => updateVenue(index, { country_id: countryId, city_id: '' })}
-              options={countryOptions}
-              placeholder={locale === 'ar' ? 'ابحث عن دولة' : 'Search country'}
-              error={errors[`venues.${index}.country_id`]}
-            />
-            <SearchableSelect
-              label={locale === 'ar' ? 'المدينة' : 'City'}
-              value={venue.city_id}
-              onChange={(cityId) => updateVenue(index, { city_id: cityId })}
-              options={citiesForCountry(venue.country_id)}
-              placeholder={locale === 'ar' ? 'ابحث عن مدينة' : 'Search city'}
-              disabled={!venue.country_id}
-              error={errors[`venues.${index}.city_id`]}
-            />
-            <TextareaInput
-              label={locale === 'ar' ? 'العنوان' : 'Address'}
-              name={`venue_${index}_address`}
-              value={venue.location_address}
-              onChange={(event) => updateVenue(index, { location_address: event.target.value })}
-              error={errors[`venues.${index}.location_address`]}
-            />
-            <Suspense fallback={<div className="h-56 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-700" />}>
-              <MapPicker
-                label={locale === 'ar' ? 'الموقع على الخريطة' : 'Map location'}
-                latitude={venue.latitude}
-                longitude={venue.longitude}
-                onLatitudeChange={(latitude) => updateVenue(index, { latitude })}
-                onLongitudeChange={(longitude) => updateVenue(index, { longitude })}
+            <div className="grid grid-cols-1 gap-3 @md:grid-cols-2">
+              <TextInput
+                label={locale === 'ar' ? 'الاسم (EN)' : 'Name (EN)'}
+                name={`venue_${index}_name_en`}
+                value={venue.name_en}
+                onChange={(event) => updateVenue(index, { name_en: event.target.value })}
+                error={errors[`venues.${index}.name.en`]}
+                {...formFieldProps(`venues.${index}.name.en`)}
               />
-            </Suspense>
-            <DateTimeInput
-              label={locale === 'ar' ? 'بداية الفعالية' : 'Event starts'}
-              name={`venue_${index}_start`}
-              value={venue.start_at}
-              onChange={(event) => updateVenue(index, { start_at: event.target.value })}
-              required
-              error={errors[`venues.${index}.start_at`]}
-            />
-            <DateTimeInput
-              label={locale === 'ar' ? 'نهاية الفعالية' : 'Event ends'}
-              name={`venue_${index}_end`}
-              value={venue.end_at}
-              onChange={(event) => updateVenue(index, { end_at: event.target.value })}
-              required
-              error={errors[`venues.${index}.end_at`]}
-            />
-            <DateTimeInput
-              label={locale === 'ar' ? 'فتح التسجيل' : 'Registration opens'}
-              name={`venue_${index}_reg_open`}
-              value={venue.registration_opens_at}
-              onChange={(event) => updateVenue(index, { registration_opens_at: event.target.value })}
-              required
-              error={errors[`venues.${index}.registration_opens_at`]}
-            />
-            <DateTimeInput
-              label={locale === 'ar' ? 'إغلاق التسجيل' : 'Registration closes'}
-              name={`venue_${index}_reg_close`}
-              value={venue.registration_closes_at}
-              onChange={(event) => updateVenue(index, { registration_closes_at: event.target.value })}
-              required
-              error={errors[`venues.${index}.registration_closes_at`]}
-            />
+              <TextInput
+                label={locale === 'ar' ? 'الاسم (AR)' : 'Name (AR)'}
+                name={`venue_${index}_name_ar`}
+                value={venue.name_ar}
+                onChange={(event) => updateVenue(index, { name_ar: event.target.value })}
+                error={errors[`venues.${index}.name.ar`]}
+                {...formFieldProps(`venues.${index}.name.ar`)}
+              />
+              <SearchableSelect
+                label={locale === 'ar' ? 'الدولة' : 'Country'}
+                value={venue.country_id}
+                onChange={(countryId) => updateVenue(index, { country_id: countryId, city_id: '' })}
+                options={countryOptions}
+                placeholder={locale === 'ar' ? 'ابحث عن دولة' : 'Search country'}
+                error={errors[`venues.${index}.country_id`]}
+                {...formFieldProps(`venues.${index}.country_id`)}
+              />
+              <SearchableSelect
+                label={locale === 'ar' ? 'المدينة' : 'City'}
+                value={venue.city_id}
+                onChange={(cityId) => updateVenue(index, { city_id: cityId })}
+                options={citiesForCountry(venue.country_id)}
+                placeholder={locale === 'ar' ? 'ابحث عن مدينة' : 'Search city'}
+                disabled={!venue.country_id}
+                error={errors[`venues.${index}.city_id`]}
+                {...formFieldProps(`venues.${index}.city_id`)}
+              />
+              <div className="@md:col-span-2">
+                <TextareaInput
+                  label={locale === 'ar' ? 'العنوان' : 'Address'}
+                  name={`venue_${index}_address`}
+                  value={venue.location_address}
+                  onChange={(event) => updateVenue(index, { location_address: event.target.value })}
+                  error={errors[`venues.${index}.location_address`]}
+                  {...formFieldProps(`venues.${index}.location_address`)}
+                />
+              </div>
+              <div className="@md:col-span-2">
+                <Suspense fallback={<div className="h-56 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-700" />}>
+                  <MapPicker
+                    label={locale === 'ar' ? 'الموقع على الخريطة' : 'Map location'}
+                    latitude={venue.latitude}
+                    longitude={venue.longitude}
+                    onLatitudeChange={(latitude) => updateVenue(index, { latitude })}
+                    onLongitudeChange={(longitude) => updateVenue(index, { longitude })}
+                    onCoordinatesChange={(latitude, longitude) => updateVenue(index, { latitude, longitude })}
+                    latitudeError={errors[`venues.${index}.latitude`]}
+                    longitudeError={errors[`venues.${index}.longitude`]}
+                    data-form-field-latitude={`venues.${index}.latitude`}
+                    data-form-field-longitude={`venues.${index}.longitude`}
+                  />
+                </Suspense>
+              </div>
+              <DateTimeInput
+                label={locale === 'ar' ? 'بداية الفعالية' : 'Event starts'}
+                name={`venue_${index}_start`}
+                value={venue.start_at}
+                onChange={(event) => updateVenue(index, { start_at: event.target.value })}
+                required
+                error={errors[`venues.${index}.start_at`]}
+                {...formFieldProps(`venues.${index}.start_at`)}
+              />
+              <DateTimeInput
+                label={locale === 'ar' ? 'نهاية الفعالية' : 'Event ends'}
+                name={`venue_${index}_end`}
+                value={venue.end_at}
+                onChange={(event) => updateVenue(index, { end_at: event.target.value })}
+                required
+                error={errors[`venues.${index}.end_at`]}
+                {...formFieldProps(`venues.${index}.end_at`)}
+              />
+              <DateTimeInput
+                label={locale === 'ar' ? 'فتح التسجيل' : 'Registration opens'}
+                name={`venue_${index}_reg_open`}
+                value={venue.registration_opens_at}
+                onChange={(event) => updateVenue(index, { registration_opens_at: event.target.value })}
+                required
+                error={errors[`venues.${index}.registration_opens_at`]}
+                {...formFieldProps(`venues.${index}.registration_opens_at`)}
+              />
+              <DateTimeInput
+                label={locale === 'ar' ? 'إغلاق التسجيل' : 'Registration closes'}
+                name={`venue_${index}_reg_close`}
+                value={venue.registration_closes_at}
+                onChange={(event) => updateVenue(index, { registration_closes_at: event.target.value })}
+                required
+                error={errors[`venues.${index}.registration_closes_at`]}
+                {...formFieldProps(`venues.${index}.registration_closes_at`)}
+              />
+            </div>
           </article>
         ))}
       </div>

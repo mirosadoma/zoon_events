@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react'
+
 type ConfirmModalProps = {
   open: boolean
   title: string
@@ -7,6 +9,8 @@ type ConfirmModalProps = {
   onConfirm: () => void
   onCancel: () => void
   loading?: boolean
+  confirmDisabled?: boolean
+  children?: ReactNode
 }
 
 export default function ConfirmModal({
@@ -18,6 +22,8 @@ export default function ConfirmModal({
   onConfirm,
   onCancel,
   loading = false,
+  confirmDisabled = false,
+  children,
 }: ConfirmModalProps) {
   if (!open) {
     return null
@@ -28,11 +34,12 @@ export default function ConfirmModal({
       <div className="ta-card w-full max-w-md shadow-xl">
         <h2 id="confirm-title" className="text-lg font-semibold">{title}</h2>
         <p className="mt-2 text-slate-600 dark:text-slate-300">{message}</p>
+        {children ? <div className="mt-4">{children}</div> : null}
         <div className="mt-6 flex justify-end gap-3">
           <button type="button" className="button-secondary" onClick={onCancel} disabled={loading}>
             {cancelLabel}
           </button>
-          <button type="button" className="button-primary" onClick={onConfirm} disabled={loading}>
+          <button type="button" className="button-primary" onClick={onConfirm} disabled={loading || confirmDisabled}>
             {confirmLabel}
           </button>
         </div>

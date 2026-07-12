@@ -2,10 +2,12 @@ import LocalizedLink from '@/components/routing/LocalizedLink'
 import { FormEvent, useRef, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { ScanResultCard, type ScanResultView } from '@/components/checkin/ScanResultCard'
+import QrCameraScanner from '@/components/checkin/QrCameraScanner'
 import TextareaInput from '@/components/forms/TextareaInput'
 import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
 import { PageContent, PageHeader } from '@/components/layout'
 import { useLocale } from '@/hooks/useLocale'
+import { ApiFetchError, apiFetch } from '@/lib/apiFetch'
 
 type EventRow = {
   id: string
@@ -18,16 +20,17 @@ type Props = {
 }
 
 export default function CheckInScanner({ event, tenantId }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const [payload, setPayload] = useState('')
   const [result, setResult] = useState<ScanResultView | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const idempotencyKey = useRef<string | null>(null)
 
-  async function submitScan(formEvent: FormEvent<HTMLFormElement>) {
-    formEvent.preventDefault()
-    if (submitting) {
+  async function submitPayload(rawPayload: string) {
+    const trimmed = rawPayload.trim()
+
+    if (submitting || trimmed === '') {
       return
     }
 
@@ -37,28 +40,18 @@ export default function CheckInScanner({ event, tenantId }: Props) {
     idempotencyKey.current ??= crypto.randomUUID()
 
     try {
-      const response = await fetch(`/api/v1/tenant/events/${event.id}/scans`, {
+      const data = await apiFetch<ScanResultView>(`/api/v1/tenant/events/${event.id}/scans`, {
         method: 'POST',
-        credentials: 'include',
+        tenantId,
         headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'X-Tenant-ID': tenantId,
           'Idempotency-Key': idempotencyKey.current,
         },
-        body: JSON.stringify({
-          qr_payload: payload,
+        body: {
+          qr_payload: trimmed,
           scanner_type: 'staff_phone',
-        }),
+        },
       })
 
-      const body = await response.json()
-      if (!response.ok) {
-        setError(body.code ?? 'scan_failed')
-        return
-      }
-
-      const data = body.data as ScanResultView
       setResult({
         result: data.result,
         reason_code: data.reason_code,
@@ -66,9 +59,39 @@ export default function CheckInScanner({ event, tenantId }: Props) {
         ticket_type_label: data.ticket_type_label ?? null,
       })
       idempotencyKey.current = null
+      setPayload('')
+    } catch (caught) {
+      if (caught instanceof ApiFetchError) {
+        setError(caught.code ?? caught.message)
+      } else {
+        setError('scan_failed')
+      }
     } finally {
       setSubmitting(false)
     }
+  }
+
+  async function submitScan(formEvent: FormEvent<HTMLFormElement>) {
+    formEvent.preventDefault()
+    await submitPayload(payload)
+  }
+
+  function handleCameraScan(value: string) {
+    setPayload(value)
+    void submitPayload(value)
+  }
+
+  function scanErrorMessage(code: string): string {
+    const messages: Record<string, string> = {
+      csrf_token_mismatch: t('scanErrorSessionExpired'),
+      service_unavailable: t('scanErrorSessionExpired'),
+      credential_invalid: t('scanErrorInvalidPayload'),
+      credential_expired: t('scanErrorExpired'),
+      credential_revoked: t('scanErrorRevoked'),
+      scan_failed: t('scanErrorFailed'),
+    }
+
+    return messages[code] ?? code
   }
 
   return (
@@ -85,22 +108,44 @@ export default function CheckInScanner({ event, tenantId }: Props) {
         actions={<LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/check-in-dashboard`}>{locale === 'ar' ? 'لوحة تسجيل الحضور' : 'Check-in dashboard'}</LocalizedLink>}
       />
       <PageContent>
-        <form className="state-panel max-w-xl space-y-4" onSubmit={submitScan}>
-          <TextareaInput
-            label={locale === 'ar' ? 'حمولة رمز الاستجابة السريعة' : 'QR payload'}
-            name="qr_payload"
-            value={payload}
-            required
-            onChange={(changeEvent) => setPayload(changeEvent.target.value)}
-          />
-          <SubmitButtonWithLoader
-            label={locale === 'ar' ? 'إرسال المسح' : 'Submit scan'}
-            loading={submitting}
-            disabled={payload.trim() === ''}
-          />
-        </form>
-        {error ? <p role="alert">{error}</p> : null}
-        <ScanResultCard result={result} />
+        <div className="state-panel scanner-workspace space-y-4">
+          <p className="text-sm text-[var(--muted)]">{t('scanPayloadHelp')}</p>
+
+          <div className="scanner-workspace-grid">
+            <QrCameraScanner
+              active
+              onScan={handleCameraScan}
+              unavailableLabel={t('scanCameraUnavailable')}
+              startingLabel={t('scanCameraStarting')}
+            />
+
+            <form className="scanner-entry-form" onSubmit={submitScan}>
+              <TextareaInput
+                label={t('qrPayload')}
+                name="qr_payload"
+                value={payload}
+                required
+                onChange={(changeEvent) => setPayload(changeEvent.target.value)}
+              />
+
+              <ScanResultCard result={result} />
+
+              <div className="scanner-entry-form__actions">
+                <SubmitButtonWithLoader
+                  label={t('submitScan')}
+                  loading={submitting}
+                  disabled={payload.trim() === ''}
+                />
+              </div>
+            </form>
+          </div>
+        </div>
+
+        {error ? (
+          <p role="alert" className="mt-4 text-xs font-medium text-red-700 dark:text-red-300">
+            {scanErrorMessage(error)}
+          </p>
+        ) : null}
       </PageContent>
     </DashboardLayout>
   )

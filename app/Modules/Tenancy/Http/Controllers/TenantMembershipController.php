@@ -85,31 +85,32 @@ class TenantMembershipController extends Controller
         return $this->success($this->mapMembership($membership->load('user')), 201);
     }
 
-    public function update(Request $request, string $membershipId)
+    public function update(Request $request, TenantMembership $membershipId)
     {
         $context = $this->contextStore->current();
-        $membership = TenantMembership::query()
-            ->where('tenant_id', $context->tenant->id)
-            ->findOrFail($membershipId);
+
+        if ((string) $membershipId->tenant_id !== (string) $context->tenant->id) {
+            throw FoundationException::notFound();
+        }
 
         $validated = $request->validate([
             'status' => ['required', 'in:active,suspended,deactivated'],
             'reason' => ['nullable', 'string', 'max:500'],
         ]);
 
-        if ($validated['status'] !== LifecycleStatus::Active->value && $this->isLastActiveAdministrator($membership)) {
+        if ($validated['status'] !== LifecycleStatus::Active->value && $this->isLastActiveAdministrator($membershipId)) {
             throw FoundationException::conflict('last_tenant_administrator', 'The final active tenant administrator cannot be removed.');
         }
 
-        DB::transaction(function () use ($membership, $validated, $context): void {
-            $membership->status = $validated['status'];
-            $membership->suspended_at = $validated['status'] === LifecycleStatus::Suspended->value ? now() : null;
-            $membership->deactivated_at = $validated['status'] === LifecycleStatus::Deactivated->value ? now() : null;
-            $membership->save();
-            $this->audit->writeTenant('membership.updated', 'succeeded', $context, targetType: 'membership', targetId: $membership->id, metadata: ['reason' => $validated['reason'] ?? null]);
+        DB::transaction(function () use ($membershipId, $validated, $context): void {
+            $membershipId->status = $validated['status'];
+            $membershipId->suspended_at = $validated['status'] === LifecycleStatus::Suspended->value ? now() : null;
+            $membershipId->deactivated_at = $validated['status'] === LifecycleStatus::Deactivated->value ? now() : null;
+            $membershipId->save();
+            $this->audit->writeTenant('membership.updated', 'succeeded', $context, targetType: 'membership', targetId: $membershipId->id, metadata: ['reason' => $validated['reason'] ?? null]);
         });
 
-        return $this->success($this->mapMembership($membership->load('user')));
+        return $this->success($this->mapMembership($membershipId->load('user')));
     }
 
     private function mapMembership(TenantMembership $membership): array

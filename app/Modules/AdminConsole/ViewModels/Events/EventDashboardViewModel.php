@@ -2,14 +2,22 @@
 
 namespace App\Modules\AdminConsole\ViewModels\Events;
 
+use App\Modules\Events\Application\Publication\PublicationReadiness;
+use App\Modules\Events\Application\Support\PublicRegistrationUrlBuilder;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\PriceTier;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketInventory;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketType;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 final readonly class EventDashboardViewModel
 {
+    public function __construct(
+        private PublicationReadiness $readiness,
+        private PublicRegistrationUrlBuilder $registrationUrls,
+    ) {}
+
     /**
      * @param  Collection<int, Event>  $events
      * @return array{events:list<array<string,mixed>>}
@@ -29,6 +37,7 @@ final readonly class EventDashboardViewModel
         return [
             'event' => $this->eventRow($event),
             'tabs' => [
+                ['label' => 'Agenda', 'href' => "/tenant/events/{$event->id}/agenda"],
                 ['label' => 'Registration form', 'href' => "/tenant/events/{$event->id}/registration-form"],
                 ['label' => 'Identity requirements', 'href' => "/tenant/events/{$event->id}/identity"],
                 ['label' => 'Ticket types', 'href' => "/tenant/events/{$event->id}/ticket-types"],
@@ -129,6 +138,16 @@ final readonly class EventDashboardViewModel
             'start_at' => $event->start_at?->toIso8601String(),
             'end_at' => $event->end_at?->toIso8601String(),
             'capacity' => $event->capacity,
+            'readiness' => $this->readiness->missing([
+                ...$event->only(['name_en', 'name_ar', 'timezone', 'start_at', 'end_at', 'registration_opens_at', 'registration_closes_at', 'active_form_version_id', 'main_image_path']),
+                'active_ticket_types' => DB::table('ticket_types')
+                    ->where('tenant_id', $event->tenant_id)
+                    ->where('event_id', $event->id)
+                    ->where('status', 'active')
+                    ->count(),
+                'branding_active' => $event->branding()->where('status', 'active')->exists(),
+            ]),
+            'registration_url' => $this->registrationUrls->forEvent($event),
         ];
     }
 

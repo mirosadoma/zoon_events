@@ -24,8 +24,10 @@ final class PlatformPageController extends Controller
         private readonly ConfigurationController $configurationController,
     ) {}
 
-    public function show(string $section): Response
+    public function show(string $locale, string $section): Response
     {
+        unset($locale);
+
         $permission = [
             'tenants' => 'platform.tenant.view',
             'users' => 'platform.user.view',
@@ -67,9 +69,9 @@ final class PlatformPageController extends Controller
         ]);
     }
 
-    public function configuration(): Response
+    public function configuration(string $locale): Response
     {
-        return $this->show('configuration');
+        return $this->show($locale, 'configuration');
     }
 
     private function canManage(string $section): bool

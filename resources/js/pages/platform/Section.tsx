@@ -13,11 +13,24 @@ import { useToast } from '@/hooks/useToast'
 import en from '@/locales/en'
 import ar from '@/locales/ar'
 
+type HealthCheck = {
+  category: string
+  status: string
+  duration_ms: number
+  reason_code: string | null
+}
+
+type HealthReport = {
+  status: string
+  checked_at: string
+  checks: HealthCheck[]
+}
+
 type SectionProps = {
   section: string
   rows: Record<string, unknown>[]
   canManage: boolean
-  health?: Record<string, unknown> | null
+  health?: HealthReport | null
   users: Array<{ id: string; name: string; email: string }>
 }
 
@@ -37,6 +50,44 @@ export default function PlatformSection({ section, rows, canManage, health, user
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const title = TITLES[section]?.[locale] ?? section
+
+  const healthCheckColumns = useMemo(
+    () => [
+      {
+        key: 'category',
+        header: locale === 'ar' ? 'الفئة' : 'Category',
+        render: (row: HealthCheck) => row.category.replace(/_/g, ' '),
+      },
+      {
+        key: 'status',
+        header: locale === 'ar' ? 'الحالة' : 'Status',
+        render: (row: HealthCheck) => <StatusBadge status={row.status} />,
+      },
+      {
+        key: 'duration_ms',
+        header: locale === 'ar' ? 'المدة (مللي ثانية)' : 'Duration (ms)',
+        render: (row: HealthCheck) => String(row.duration_ms),
+      },
+      {
+        key: 'reason_code',
+        header: locale === 'ar' ? 'رمز السبب' : 'Reason code',
+        render: (row: HealthCheck) => row.reason_code ?? '—',
+      },
+    ],
+    [locale],
+  )
+
+  function formatCheckedAt(value: string): string {
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) {
+      return value
+    }
+
+    return parsed.toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-GB', {
+      dateStyle: 'medium',
+      timeStyle: 'medium',
+    })
+  }
 
   const columns = useMemo(() => {
     if (rows.length === 0) {
@@ -189,22 +240,46 @@ export default function PlatformSection({ section, rows, canManage, health, user
         ]}
       />
       <PageContent>
+        {section === 'configuration' && (
+          <p className="mb-4 text-sm text-[var(--muted)]">
+            {locale === 'ar'
+              ? 'مخططات التحقق من إعدادات المنصة (العلامة التجارية، النطاقات، إقامة البيانات، الاحتفاظ). لا تُعدّل القيم هنا — هذا مرجع للحقول المسموح بها عند ضبط مستأجر أو موقع.'
+              : 'Validation schemas for platform settings (branding, domains, data residency, retention). This page documents allowed fields — it does not edit live values.'}
+          </p>
+        )}
+
         {section === 'health' && health && (
-          <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {Object.entries(health).map(([key, value]) => (
-              <StatCard key={key} label={key.replace(/_/g, ' ')} value={String(value)} />
-            ))}
-          </div>
+          <>
+            <div className="mb-6 grid gap-4 sm:grid-cols-2">
+              <StatCard
+                label={locale === 'ar' ? 'الحالة' : 'Status'}
+                value={health.status}
+                status={health.status}
+              />
+              <StatCard
+                label={locale === 'ar' ? 'آخر فحص' : 'Checked at'}
+                value={formatCheckedAt(health.checked_at)}
+              />
+            </div>
+            <DataTable
+              rows={health.checks}
+              columns={healthCheckColumns}
+              getRowKey={(row) => row.category}
+              title={locale === 'ar' ? 'فحوصات النظام' : 'System checks'}
+            />
+          </>
         )}
 
         {canManage && section === 'tenants' && <CreateTenantForm />}
         {canManage && section === 'users' && <CreateUserForm />}
         {canManage && section === 'feature-flags' && <CreateFlagForm />}
 
-        {rows.length === 0 ? (
-          <EmptyState title={messages.emptyState} detail={locale === 'ar' ? 'لا توجد سجلات في هذا القسم.' : 'No records in this section yet.'} />
-        ) : (
-          <DataTable rows={rows} columns={columns} getRowKey={(row) => String(row.id ?? row.key ?? JSON.stringify(row))} title={title} />
+        {section !== 'health' && (
+          rows.length === 0 ? (
+            <EmptyState title={messages.emptyState} detail={locale === 'ar' ? 'لا توجد سجلات في هذا القسم.' : 'No records in this section yet.'} />
+          ) : (
+            <DataTable rows={rows} columns={columns} getRowKey={(row) => String(row.id ?? row.key ?? JSON.stringify(row))} title={title} />
+          )
         )}
 
         {section === 'tenants' && rows.length > 0 && canManage && (

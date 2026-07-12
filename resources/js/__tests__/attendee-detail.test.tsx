@@ -23,7 +23,17 @@ vi.mock('@/lib/apiFetch', () => ({
 }))
 
 vi.mock('@/hooks/useLocale', () => ({
-  useLocale: () => ({ locale: 'en', direction: 'ltr', t: (key: string) => key }),
+  useLocale: () => ({
+    locale: 'en',
+    direction: 'ltr',
+    t: (key: string) => ({
+      attendeeDetail: 'Attendee profile',
+      printBadge: 'Print badge',
+      manualCheckIn: 'Manual check-in',
+      notAvailable: 'Not available',
+      attendees: 'Attendees',
+    }[key] ?? key),
+  }),
 }))
 
 vi.mock('@/hooks/useToast', () => ({

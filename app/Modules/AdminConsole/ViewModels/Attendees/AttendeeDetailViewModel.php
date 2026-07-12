@@ -68,6 +68,8 @@ final readonly class AttendeeDetailViewModel
     private function attendeeRow(Attendee $attendee, ?string $credentialStatus): array
     {
         $displayName = $this->personalData->attendeeDisplayName($attendee);
+        $email = $this->personalData->attendeeEmail($attendee);
+        $phone = $this->personalData->attendeePhone($attendee);
 
         return [
             'id' => (string) $attendee->id,
@@ -76,6 +78,8 @@ final readonly class AttendeeDetailViewModel
             'credential_status' => $credentialStatus,
             'label' => $displayName ?: substr((string) $attendee->id, -8),
             'display_name' => $displayName,
+            'email' => $email,
+            'phone' => $phone,
         ];
     }
 }

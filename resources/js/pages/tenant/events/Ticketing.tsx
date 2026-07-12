@@ -11,7 +11,10 @@ import DateTimeInput from '@/components/forms/DateTimeInput'
 import SelectInput from '@/components/forms/SelectInput'
 import { PageContent, PageHeader } from '@/components/layout'
 import StatusBadge from '@/components/status/StatusBadge'
+import { useFormValidation } from '@/hooks/useFormValidation'
 import { useLocale } from '@/hooks/useLocale'
+import ValidationHintPopover from '@/components/feedback/ValidationHintPopover'
+import { formFieldProps } from '@/lib/formatValidationErrors'
 import { useToast } from '@/hooks/useToast'
 import { formatMoney } from '@/lib/formatMoney'
 import { localizedPath } from '@/lib/localePath'
@@ -127,11 +130,12 @@ function readCsrfToken(): string | null {
 }
 
 export default function Ticketing({ tenantId, event, tickets }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const { toast } = useToast()
+  const validation = useFormValidation({ titleKey: 'couldNotSaveEvent' })
   const [form, setForm] = useState<TicketFormState>(() => emptyForm(event))
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [errors, setErrors] = useState<FormErrors>({})
+  const errors = validation.fieldErrors
   const [submitting, setSubmitting] = useState<'save' | string | null>(null)
 
   const attendeeOptions = useMemo(
@@ -176,7 +180,7 @@ export default function Ticketing({ tenantId, event, tickets }: Props) {
 
   async function saveTicket() {
     setSubmitting('save')
-    setErrors({})
+    validation.clearValidation()
 
     const url = editingId
       ? `/api/v1/tenant/events/${event.id}/ticket-types/${editingId}`
@@ -203,7 +207,7 @@ export default function Ticketing({ tenantId, event, tickets }: Props) {
       const body = await response.json()
 
       if (!response.ok) {
-        setErrors(extractErrors(body))
+        validation.applyErrors(extractErrors(body))
         toast(extractError(body, locale === 'ar' ? 'تعذر حفظ نوع التذكرة.' : 'Failed to save ticket type.'), 'error')
         setSubmitting(null)
 
@@ -321,8 +325,8 @@ export default function Ticketing({ tenantId, event, tickets }: Props) {
           <form className="state-panel grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit}>
             <TextInput label={locale === 'ar' ? 'الرمز' : 'Code'} name="code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} required error={errors.code} />
             <SelectInput label={locale === 'ar' ? 'نوع الحضور' : 'Attendee type'} name="attendee_type" value={form.attendee_type} onChange={(e) => setForm({ ...form, attendee_type: e.target.value })} options={attendeeOptions} />
-            <TextInput label={locale === 'ar' ? 'الاسم (إنجليزي)' : 'Name (EN)'} name="name_en" value={form.name_en} onChange={(e) => setForm({ ...form, name_en: e.target.value })} required error={errors['name.en']} />
-            <TextInput label={locale === 'ar' ? 'الاسم (عربي)' : 'Name (AR)'} name="name_ar" value={form.name_ar} onChange={(e) => setForm({ ...form, name_ar: e.target.value })} required error={errors['name.ar']} />
+            <TextInput label={locale === 'ar' ? 'الاسم (إنجليزي)' : 'Name (EN)'} name="name_en" value={form.name_en} onChange={(e) => setForm({ ...form, name_en: e.target.value })} required error={errors['name.en']} {...formFieldProps('name.en')} />
+            <TextInput label={locale === 'ar' ? 'الاسم (عربي)' : 'Name (AR)'} name="name_ar" value={form.name_ar} onChange={(e) => setForm({ ...form, name_ar: e.target.value })} required error={errors['name.ar']} {...formFieldProps('name.ar')} />
             <TextareaInput wrapperClassName="sm:col-span-1" label={locale === 'ar' ? 'الوصف (إنجليزي)' : 'Description (EN)'} name="description_en" value={form.description_en} onChange={(e) => setForm({ ...form, description_en: e.target.value })} />
             <TextareaInput wrapperClassName="sm:col-span-1" label={locale === 'ar' ? 'الوصف (عربي)' : 'Description (AR)'} name="description_ar" value={form.description_ar} onChange={(e) => setForm({ ...form, description_ar: e.target.value })} />
             <TextInput label={locale === 'ar' ? 'السعة' : 'Capacity'} name="capacity" type="number" min={1} value={form.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} required error={errors.capacity} />
@@ -393,6 +397,7 @@ export default function Ticketing({ tenantId, event, tickets }: Props) {
           </div>
         )}
       </PageContent>
+      <ValidationHintPopover {...validation.hintProps} />
     </DashboardLayout>
   )
 }

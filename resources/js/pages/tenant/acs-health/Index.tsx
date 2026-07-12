@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { LaneHealthCard } from '../../../components/acs-health/LaneHealthCard'
+import { useLocale } from '@/hooks/useLocale'
 
 interface AcsHealthIndexProps {
   eventId: string
@@ -13,6 +14,7 @@ interface HealthSummary {
 }
 
 export default function AcsHealthIndex({ eventId, tenantId }: AcsHealthIndexProps) {
+  const { t } = useLocale()
   const [health, setHealth] = useState<HealthSummary | null>(null)
 
   useEffect(() => {
@@ -32,11 +34,11 @@ export default function AcsHealthIndex({ eventId, tenantId }: AcsHealthIndexProp
 
   return (
     <div>
-      <h1>ACS Health</h1>
+      <h1>{t('acsHealthTitle')}</h1>
       {health && (
         <>
-          <p>Integration: {health.integration_status}</p>
-          {health.active_emergency && <p role="alert">Emergency active</p>}
+          <p>{t('acsHealthIntegration')}: {health.integration_status}</p>
+          {health.active_emergency && <p role="alert">{t('acsHealthEmergencyActive')}</p>}
           <section>
             {health.lanes.map(lane => (
               <LaneHealthCard

@@ -1,4 +1,5 @@
 import { useId, type InputHTMLAttributes } from 'react'
+import { controlClassName } from '@/lib/formFieldStyles'
 import { ValidationError } from './TextInput'
 
 type FileInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & {
@@ -22,7 +23,7 @@ export default function FileInput({ label, error, hint, id, required, ...props }
       <input
         id={inputId}
         type="file"
-        className="control file:me-3 file:rounded-md file:border-0 file:bg-[var(--brand-soft)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[var(--brand)]"
+        className={controlClassName(error, 'control file:me-3 file:rounded-md file:border-0 file:bg-[var(--brand-soft)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[var(--brand)]')}
         aria-invalid={error ? 'true' : undefined}
         aria-describedby={[hint ? hintId : null, error ? errorId : null].filter(Boolean).join(' ') || undefined}
         required={required}

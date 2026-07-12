@@ -1,4 +1,5 @@
 import { useId, type SelectHTMLAttributes } from 'react'
+import { controlClassName } from '@/lib/formFieldStyles'
 import { ValidationError } from './TextInput'
 
 type Option = { value: string; label: string }
@@ -24,7 +25,7 @@ export default function SelectInput({ label, options, error, hint, id, required,
       </span>
       <select
         id={inputId}
-        className="control focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]/20"
+        className={controlClassName(error, 'control focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]/20')}
         aria-invalid={error ? 'true' : undefined}
         aria-describedby={[hint ? hintId : null, error ? errorId : null].filter(Boolean).join(' ') || undefined}
         required={required}

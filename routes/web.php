@@ -10,6 +10,8 @@ use App\Modules\AdminConsole\Http\Controllers\LocaleController;
 use App\Modules\AdminConsole\Http\Controllers\MaintenancePageController;
 use App\Modules\AdminConsole\Http\Controllers\OrganizerRequestAdminController;
 use App\Modules\AdminConsole\Http\Controllers\PlatformPageController;
+use App\Modules\AdminConsole\Http\Controllers\Public\PublicEventAgendaController;
+use App\Modules\AdminConsole\Http\Controllers\Public\PublicEventRegistrationController;
 use App\Modules\AdminConsole\Http\Controllers\SearchController;
 use App\Modules\AdminConsole\Http\Controllers\SiteSettingsController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Acs\AcsPageController;
@@ -49,6 +51,18 @@ Route::prefix('{locale}')
         Route::get('/maintenance', MaintenancePageController::class)->name('maintenance');
         Route::get('/public/orders/{public_reference}', [PublicOrderPageController::class, 'show'])
             ->name('public.order.show');
+        Route::get('/events/{event_slug}/agenda', [PublicEventAgendaController::class, 'show'])
+            ->where('event_slug', '[a-z0-9-]+')
+            ->middleware('throttle:public-event')
+            ->name('public.events.agenda');
+        Route::get('/events/{event_slug}/register', [PublicEventRegistrationController::class, 'show'])
+            ->where('event_slug', '[a-z0-9-]+')
+            ->middleware('throttle:public-event')
+            ->name('public.events.register');
+        Route::post('/events/{event_slug}/register', [PublicEventRegistrationController::class, 'store'])
+            ->where('event_slug', '[a-z0-9-]+')
+            ->middleware('throttle:public-event')
+            ->name('public.events.register.store');
         Route::get('/notifications/unsubscribe', [UnsubscribePageController::class, 'show'])
             ->name('public.notifications.unsubscribe');
         Route::post('/notifications/unsubscribe', [UnsubscribePageController::class, 'store'])
@@ -97,10 +111,12 @@ Route::prefix('{locale}')
                 Route::get('/{event_id}', [EventDashboardController::class, 'show'])->where('event_id', '[0-9]+')->name('tenant.events.show');
                 Route::get('/{event_id}/edit', [EventDashboardController::class, 'edit'])->where('event_id', '[0-9]+')->name('tenant.events.edit');
                 Route::get('/{event_id}/registration-form', [EventDashboardController::class, 'registrationForm'])->name('tenant.registration.builder');
+                Route::get('/{event_id}/agenda', [EventDashboardController::class, 'agenda'])->where('event_id', '[0-9]+')->name('tenant.events.agenda');
                 Route::get('/{event_id}/identity', [EventDashboardController::class, 'identityRequirements'])->name('tenant.identity.requirements');
                 Route::get('/{event_id}/identity/review', [EventDashboardController::class, 'identityReview'])->name('tenant.identity.review');
                 Route::get('/{event_id}/identity/verifications/{verification_id}', [EventDashboardController::class, 'identityVerificationDetail'])->name('tenant.identity.verification');
                 Route::get('/{event_id}/registration-preview', [EventDashboardController::class, 'registrationPreview'])->name('tenant.registration.preview');
+                Route::get('/{event_id}/agenda-preview', [EventDashboardController::class, 'agendaPreview'])->where('event_id', '[0-9]+')->name('tenant.agenda.preview');
                 Route::get('/{event_id}/ticket-types', [EventDashboardController::class, 'ticketTypes'])->name('tenant.ticket-types.index');
                 Route::get('/{event_id}/price-tiers', [EventDashboardController::class, 'priceTiers'])->name('tenant.price-tiers.index');
                 Route::get('/{event_id}/orders', [EventOperationsController::class, 'orders'])->name('tenant.orders.index');

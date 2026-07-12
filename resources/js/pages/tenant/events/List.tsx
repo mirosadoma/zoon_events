@@ -5,6 +5,8 @@ import { PageContent, PageHeader } from '@/components/layout'
 import StatusBadge from '@/components/status/StatusBadge'
 import { DataTable } from '@/components/tables'
 import { useLocale } from '@/hooks/useLocale'
+import { useToast } from '@/hooks/useToast'
+import { CopyIcon } from 'lucide-react'
 
 type EventRow = {
   id: string
@@ -14,6 +16,7 @@ type EventRow = {
   timezone: string
   start_at?: string | null
   capacity?: number | null
+  registration_url?: string | null
 }
 
 type Props = {
@@ -22,6 +25,16 @@ type Props = {
 
 export default function EventList({ events }: Props) {
   const { locale } = useLocale()
+  const { toast } = useToast()
+
+  async function copyRegistrationLink(url: string) {
+    try {
+      await navigator.clipboard.writeText(url)
+      toast(locale === 'ar' ? 'تم النسخ' : 'Copied', 'success')
+    } catch {
+      toast(locale === 'ar' ? 'تعذر نسخ الرابط.' : 'Could not copy the link.', 'error')
+    }
+  }
 
   return (
     <DashboardLayout title={locale === 'ar' ? 'الفعاليات' : 'Events'}>
@@ -68,6 +81,16 @@ export default function EventList({ events }: Props) {
 
                   return (
                     <div className="ta-table-actions">
+                      {event.registration_url ? (
+                        <button
+                          type="button"
+                          className="ta-table-action"
+                          onClick={() => void copyRegistrationLink(event.registration_url!)}
+                        >
+                          <CopyIcon className="w-4 h-4 mx-2" />
+                          {locale === 'ar' ? 'نسخ رابط التسجيل' : 'Copy registration link'}
+                        </button>
+                      ) : null}
                       <LocalizedLink href={`/tenant/events/${event.id}`} className="ta-table-action">
                         {locale === 'ar' ? 'عرض' : 'View'}
                       </LocalizedLink>

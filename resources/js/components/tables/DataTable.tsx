@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useLocale } from '@/hooks/useLocale'
 
 type Column<T> = {
   key: string
@@ -18,17 +19,20 @@ type DataTableProps<T extends Record<string, unknown>> = {
 export default function DataTable<T extends Record<string, unknown>>({
   columns,
   rows,
-  emptyMessage = 'No records found.',
+  emptyMessage,
   getRowKey,
   title,
   toolbar,
 }: DataTableProps<T>) {
+  const { t } = useLocale()
+  const resolvedEmptyMessage = emptyMessage ?? t('noRecordsFound')
+
   if (rows.length === 0) {
     return (
       <div className="ta-card">
         {title && <h2 className="mb-2 text-lg font-semibold">{title}</h2>}
         {toolbar}
-        <p className="py-6 text-center text-[var(--muted)]">{emptyMessage}</p>
+        <p className="py-6 text-center text-[var(--muted)]">{resolvedEmptyMessage}</p>
       </div>
     )
   }
@@ -56,7 +60,7 @@ export default function DataTable<T extends Record<string, unknown>>({
             {rows.map((row) => (
               <tr key={getRowKey(row)}>
                 {columns.map((column) => (
-                  <td key={column.key}>
+                  <td key={column.key} className="text-start">
                     {column.render ? column.render(row) : String(row[column.key] ?? '')}
                   </td>
                 ))}

@@ -79,7 +79,7 @@ export default function Topbar() {
 
         <button
           type="button"
-          className="button-secondary p-2"
+          className="button-secondary !hidden p-2 lg:!inline-flex"
           onClick={() => window.dispatchEvent(new CustomEvent('zonetec:tour-start'))}
           aria-label={messages.productTourKicker}
           title={messages.productTourKicker}

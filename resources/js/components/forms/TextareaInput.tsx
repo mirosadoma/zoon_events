@@ -1,5 +1,6 @@
 import { clsx } from 'clsx'
 import { useId, type TextareaHTMLAttributes } from 'react'
+import { controlClassName } from '@/lib/formFieldStyles'
 import { ValidationError } from './TextInput'
 
 type TextareaInputProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
@@ -32,10 +33,10 @@ export default function TextareaInput({
       </span>
       <textarea
         id={inputId}
-        className={clsx(
+        className={controlClassName(error, clsx(
           'control min-h-32 resize-y leading-relaxed focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]/20',
           className,
-        )}
+        ))}
         aria-invalid={error ? 'true' : undefined}
         aria-describedby={[hint ? hintId : null, error ? errorId : null].filter(Boolean).join(' ') || undefined}
         required={required}

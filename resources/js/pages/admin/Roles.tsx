@@ -7,11 +7,14 @@ import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
 import TextInput from '@/components/forms/TextInput'
 import TextareaInput from '@/components/forms/TextareaInput'
 import { PageContent, PageHeader, PermissionGate } from '@/components/layout'
+import ValidationHintPopover from '@/components/feedback/ValidationHintPopover'
 import StatusBadge from '@/components/status/StatusBadge'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
+import { useFormValidation } from '@/hooks/useFormValidation'
 import { groupPermissionsLocalized } from '@/lib/permissionCatalog'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
+import { ROLE_FIELD_LABELS, formFieldProps } from '@/lib/formatValidationErrors'
 import en from '@/locales/en'
 import ar from '@/locales/ar'
 
@@ -39,6 +42,7 @@ type Props = {
 
 type PageProps = {
   session?: { tenant?: { id: string | number } | null }
+  can?: Record<string, boolean>
 }
 
 function roleDisplayName(role: RoleRow, locale: 'en' | 'ar'): string {
@@ -55,13 +59,22 @@ function normalizeRole(role: RoleRow): RoleRow {
 }
 
 export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, roles: initialRoles, availablePermissions }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const messages = locale === 'ar' ? ar : en
   const { toast } = useToast()
+  const createValidation = useFormValidation({
+    titleKey: 'couldNotSaveRole',
+    fieldLabels: ROLE_FIELD_LABELS,
+  })
+  const editValidation = useFormValidation({
+    titleKey: 'couldNotSaveRole',
+    fieldLabels: ROLE_FIELD_LABELS,
+  })
   const { props } = usePage<PageProps>()
   const tenantId = String(tenantIdProp ?? props.session?.tenant?.id ?? '')
   const isPlatform = scope === 'platform'
   const managePermission = isPlatform ? 'platform.role.manage' : 'role.manage'
+  const canManageRoles = props.can?.[managePermission] === true
   const normalizedInitialRoles = useMemo(() => initialRoles.map(normalizeRole), [initialRoles])
   const [roles, setRoles] = useState(normalizedInitialRoles)
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(normalizedInitialRoles[0]?.id ?? null)
@@ -75,6 +88,9 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
   const [creating, setCreating] = useState(false)
 
   const selectedRole = roles.find((role) => role.id === selectedRoleId) ?? null
+  const isSystemRole = selectedRole?.is_system === true
+  const permissionsReadOnly = isSystemRole || !canManageRoles
+  const displayedPermissions = permissionsReadOnly ? (selectedRole?.permissions ?? []) : draftPermissions
   const permissionGroups = useMemo(
     () => groupPermissionsLocalized(availablePermissions, locale),
     [availablePermissions, locale],
@@ -102,6 +118,7 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
     }
 
     setCreating(true)
+    createValidation.clearValidation()
 
     try {
       const body = await apiFetch<RoleRow>(isPlatform ? '/api/v1/platform/roles' : '/api/v1/tenant/roles', {
@@ -119,15 +136,12 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
       selectRole(created)
       toast(locale === 'ar' ? 'تم إنشاء الدور.' : 'Role created.', 'success')
     } catch (error) {
-      const message = error instanceof ApiFetchError ? error.message : messages.errorState
-      toast(message, 'error')
-      window.dispatchEvent(new CustomEvent('zonetec:tour-hint', {
-        detail: {
-          message: locale === 'ar'
-            ? 'تأكد من اختيار دور غير نظامي ومن وجود صلاحية إدارة الأدوار.'
-            : 'Make sure you selected a custom role and that you have permission to manage roles.',
-        },
-      }))
+      if (!createValidation.applyApiError(error)) {
+        const message = error instanceof ApiFetchError ? error.message : messages.errorState
+        toast(message, 'error')
+      } else {
+        toast(error instanceof ApiFetchError ? error.message : messages.errorState, 'error')
+      }
     } finally {
       setCreating(false)
     }
@@ -144,6 +158,7 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
     }
 
     setSaving(true)
+    editValidation.clearValidation()
 
     try {
       const updatedRole = await apiFetch<RoleRow>(isPlatform ? `/api/v1/platform/roles/${String(selectedRole.id)}` : `/api/v1/tenant/roles/${String(selectedRole.id)}`, {
@@ -177,15 +192,12 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
       )
       toast(messages.adminRoleUpdated, 'success')
     } catch (error) {
-      const message = error instanceof ApiFetchError ? error.message : messages.errorState
-      toast(message, 'error')
-      window.dispatchEvent(new CustomEvent('zonetec:tour-hint', {
-        detail: {
-          message: locale === 'ar'
-            ? 'تأكد من اختيار دور غير نظامي ومن وجود صلاحية إدارة الأدوار.'
-            : 'Make sure you selected a custom role and that you have permission to manage roles.',
-        },
-      }))
+      if (!editValidation.applyApiError(error)) {
+        const message = error instanceof ApiFetchError ? error.message : messages.errorState
+        toast(message, 'error')
+      } else {
+        toast(error instanceof ApiFetchError ? error.message : messages.errorState, 'error')
+      }
     } finally {
       setSaving(false)
     }
@@ -196,18 +208,31 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
       return
     }
 
+    if (!isPlatform && (!tenantId || tenantId === 'undefined')) {
+      toast(locale === 'ar' ? 'تعذر تحديد المستأجر الحالي.' : 'Unable to resolve the current tenant.', 'error')
+      return
+    }
+
     try {
-      await apiFetch(`/api/v1/tenant/roles/${String(role.id)}`, {
+      await apiFetch(isPlatform ? `/api/v1/platform/roles/${String(role.id)}` : `/api/v1/tenant/roles/${String(role.id)}`, {
         method: 'DELETE',
-        tenantId,
+        tenantId: isPlatform ? undefined : tenantId,
         idempotency: true,
       })
 
-      setRoles((current) => current.filter((item) => item.id !== role.id))
+      const remaining = roles.filter((item) => item.id !== role.id)
+      setRoles(remaining)
+
       if (selectedRoleId === role.id) {
-        setSelectedRoleId(null)
-        setDraftPermissions([])
+        const nextRole = remaining[0] ?? null
+        if (nextRole) {
+          selectRole(nextRole)
+        } else {
+          setSelectedRoleId(null)
+          setDraftPermissions([])
+        }
       }
+
       toast(locale === 'ar' ? 'تم حذف الدور.' : 'Role deleted.', 'success')
     } catch (error) {
       const message = error instanceof ApiFetchError ? error.message : messages.errorState
@@ -237,6 +262,8 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
               name="name_en"
               value={createForm.name_en}
               onChange={(event) => setCreateForm({ ...createForm, name_en: event.target.value })}
+              error={createValidation.fieldError(isPlatform ? 'name' : 'name_en')}
+              {...formFieldProps(isPlatform ? 'name' : 'name_en')}
               required
             />
             {!isPlatform && (
@@ -245,6 +272,8 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
                 name="name_ar"
                 value={createForm.name_ar}
                 onChange={(event) => setCreateForm({ ...createForm, name_ar: event.target.value })}
+                error={createValidation.fieldError('name_ar')}
+                {...formFieldProps('name_ar')}
                 required
               />
             )}
@@ -254,6 +283,8 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
               name="description"
               value={createForm.description}
               onChange={(event) => setCreateForm({ ...createForm, description: event.target.value })}
+              error={createValidation.fieldError('description')}
+              {...formFieldProps('description')}
             />
             <div className="md:col-span-2">
               <SubmitButtonWithLoader
@@ -267,8 +298,8 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
         {roles.length === 0 ? (
           <EmptyState title={messages.adminNoRoles} />
         ) : (
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-            <div className="space-y-2">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+            <div className="max-h-[calc(100vh-14rem)] space-y-2 overflow-y-auto overscroll-contain pe-1">
               {roles.map((role) => (
                 <button
                   key={role.id}
@@ -287,10 +318,10 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
             </div>
 
             {selectedRole ? (
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
+              <div className="flex max-h-[calc(100vh-14rem)] flex-col rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 className="text-lg font-semibold">{roleDisplayName(selectedRole, locale)}</h2>
-                  {!isPlatform && !selectedRole.is_system && (
+                  {!selectedRole.is_system && (
                     <PermissionGate permission={managePermission}>
                       <button type="button" className="button-secondary text-sm text-red-600" onClick={() => void deleteRole(selectedRole)}>
                         {locale === 'ar' ? 'حذف الدور' : 'Delete role'}
@@ -308,6 +339,8 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
                         name="edit_name_en"
                         value={editNames.name_en}
                         onChange={(event) => setEditNames((current) => ({ ...current, name_en: event.target.value }))}
+                        error={editValidation.fieldError(isPlatform ? 'name' : 'name_en')}
+                        {...formFieldProps(isPlatform ? 'name' : 'name_en')}
                       />
                       {!isPlatform && (
                         <TextInput
@@ -315,36 +348,51 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
                           name="edit_name_ar"
                           value={editNames.name_ar}
                           onChange={(event) => setEditNames((current) => ({ ...current, name_ar: event.target.value }))}
+                          error={editValidation.fieldError('name_ar')}
+                          {...formFieldProps('name_ar')}
                         />
                       )}
                     </div>
-                    <div className="mt-4 max-h-[28rem] space-y-5 overflow-y-auto">
-                      {permissionGroups.map((group) => (
-                        <section key={group.module}>
-                          <h3 className="mb-2 text-sm font-semibold text-[var(--brand)]">{group.label}</h3>
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            {group.items.map((permission) => (
-                              <CheckboxInput
-                                key={permission.key}
-                                label={permission.label}
-                                name={permission.key}
-                                checked={draftPermissions.includes(permission.key)}
-                                onChange={() => togglePermission(permission.key)}
-                              />
-                            ))}
-                          </div>
-                        </section>
-                      ))}
-                    </div>
+                  </PermissionGate>
+                )}
+                <div className="mt-4 min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain pe-1">
+                  {permissionGroups.map((group) => (
+                    <section key={group.module}>
+                      <h3 className="mb-2 text-sm font-semibold text-[var(--brand)]">{group.label}</h3>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {group.items.map((permission) => (
+                          <CheckboxInput
+                            key={permission.key}
+                            label={permission.label}
+                            name={permission.key}
+                            checked={displayedPermissions.includes(permission.key)}
+                            disabled={permissionsReadOnly}
+                            onChange={() => {
+                              if (permissionsReadOnly) {
+                                return
+                              }
+
+                              togglePermission(permission.key)
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+                {!permissionsReadOnly ? (
+                  <PermissionGate permission={managePermission}>
                     <button type="button" className="button-primary mt-4 cursor-pointer" disabled={saving} onClick={() => void saveRole()}>
                       {messages.save}
                     </button>
                   </PermissionGate>
-                )}
+                ) : null}
               </div>
             ) : null}
           </div>
         )}
+        <ValidationHintPopover {...createValidation.hintProps} />
+        <ValidationHintPopover {...editValidation.hintProps} />
       </PageContent>
     </DashboardLayout>
   )

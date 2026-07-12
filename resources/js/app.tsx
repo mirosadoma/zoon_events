@@ -4,7 +4,9 @@ import { createInertiaApp } from '@inertiajs/react'
 import type { ComponentType } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Toaster } from '@/components/feedback'
+import GlobalRouteLoaderHost from '@/components/loaders/GlobalRouteLoaderHost'
 import LocaleDocumentSync from '@/components/routing/LocaleDocumentSync'
+import { NavigationLoadingProvider } from '@/contexts/NavigationLoadingContext'
 import { ToastProvider } from '@/contexts/ToastContext'
 
 const pages = import.meta.glob<{ default: ComponentType }>('./pages/**/*.tsx', {
@@ -44,6 +46,7 @@ createInertiaApp({
       return (
         <>
           <LocaleDocumentSync />
+          <GlobalRouteLoaderHost />
           <Page {...pageProps} />
         </>
       )
@@ -53,7 +56,9 @@ createInertiaApp({
   setup({ el, App, props }) {
     createRoot(el).render(
       <ToastProvider>
-        <App {...props} />
+        <NavigationLoadingProvider>
+          <App {...props} />
+        </NavigationLoadingProvider>
         <Toaster />
       </ToastProvider>,
     )

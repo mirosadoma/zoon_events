@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import ButtonSpinner from '@/components/loaders/ButtonSpinner'
+import FormSavingOverlay from '@/components/loaders/FormSavingOverlay'
 
 type SubmitButtonWithLoaderProps = {
   label: string
@@ -8,6 +9,8 @@ type SubmitButtonWithLoaderProps = {
   onClick?: () => void
   type?: 'button' | 'submit'
   variant?: 'primary' | 'secondary' | 'danger'
+  formOverlay?: boolean
+  savingLabel?: string
 }
 
 export default function SubmitButtonWithLoader({
@@ -17,14 +20,25 @@ export default function SubmitButtonWithLoader({
   onClick,
   type = 'submit',
   variant = 'primary',
+  formOverlay = true,
+  savingLabel,
 }: SubmitButtonWithLoaderProps) {
   const [submitted, setSubmitted] = useState(false)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const [formTarget, setFormTarget] = useState<HTMLElement | null>(null)
   const busy = loading || submitted
   const className = variant === 'danger'
     ? 'button-danger inline-flex items-center gap-2'
     : variant === 'secondary'
       ? 'button-secondary inline-flex items-center gap-2'
       : 'button-primary inline-flex items-center gap-2'
+
+  useLayoutEffect(() => {
+    const root = buttonRef.current?.closest('form')
+      ?? buttonRef.current?.closest('.form-saving-scope-root')
+
+    setFormTarget(root instanceof HTMLElement ? root : null)
+  }, [])
 
   const handleClick = () => {
     if (busy || disabled) {
@@ -40,15 +54,19 @@ export default function SubmitButtonWithLoader({
   }
 
   return (
-    <button
-      type={type}
-      className={className}
-      disabled={disabled || busy}
-      aria-busy={busy}
-      onClick={type === 'button' ? handleClick : undefined}
-    >
-      {busy && <ButtonSpinner />}
-      {label}
-    </button>
+    <>
+      <FormSavingOverlay active={formOverlay && busy} target={formTarget} label={savingLabel} />
+      <button
+        ref={buttonRef}
+        type={type}
+        className={className}
+        disabled={disabled || busy}
+        aria-busy={busy}
+        onClick={type === 'button' ? handleClick : undefined}
+      >
+        {busy && <ButtonSpinner />}
+        {label}
+      </button>
+    </>
   )
 }

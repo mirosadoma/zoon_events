@@ -16,6 +16,7 @@ const SCAN_REASON_LABELS: Record<string, Record<AppLocale, string>> = {
   offline_conflict_resolution: { en: 'Offline scan conflict resolved', ar: 'تم حل تعارض المسح غير المتصل' },
   identity_pending: { en: 'Identity verification pending', ar: 'التحقق من الهوية قيد الانتظار' },
   duplicate_entry: { en: 'Duplicate entry attempt', ar: 'محاولة دخول مكررة' },
+  already_checked_in: { en: 'Already checked in', ar: 'تم تسجيل الحضور مسبقاً' },
 }
 
 export function scanReasonLabel(reason: string | null | undefined, locale: AppLocale): string {

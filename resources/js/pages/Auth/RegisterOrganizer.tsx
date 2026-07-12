@@ -1,13 +1,16 @@
 import { Head, useForm, usePage } from '@inertiajs/react'
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import { CalendarDays, LayoutDashboard } from 'lucide-react'
+import ValidationHintPopover from '@/components/feedback/ValidationHintPopover'
 import {
   FormActions,
   SubmitButtonWithLoader,
   TextInput,
   TextareaInput,
 } from '@/components/forms'
+import { useInertiaFormValidation } from '@/hooks/useInertiaFormValidation'
 import { useLocale } from '@/hooks/useLocale'
+import { formFieldProps } from '@/lib/formatValidationErrors'
 import en from '@/locales/en'
 import ar from '@/locales/ar'
 
@@ -24,6 +27,18 @@ export default function RegisterOrganizer() {
     phone: '',
     message: '',
   })
+  const validation = useInertiaFormValidation(form.errors, {
+    titleKey: 'errorState',
+    fieldLabels: {
+      name: { en: messages.profileName, ar: messages.profileName },
+      email: { en: messages.profileEmail, ar: messages.profileEmail },
+      organization_name: { en: messages.registerOrganization, ar: messages.registerOrganization },
+      phone: { en: messages.profilePhone, ar: messages.profilePhone },
+      password: { en: messages.loginPassword, ar: messages.loginPassword },
+      password_confirmation: { en: messages.registerConfirmPassword, ar: messages.registerConfirmPassword },
+      message: { en: messages.registerMessage, ar: messages.registerMessage },
+    },
+  })
 
   const submitted = flash?.status === 'registration-submitted'
 
@@ -31,9 +46,10 @@ export default function RegisterOrganizer() {
     <main dir={direction} lang={locale} className="grid min-h-screen place-items-center bg-[var(--surface)] p-6">
       <Head title={messages.registerOrganizerTitle} />
       <form
-        className="ta-card w-full max-w-lg space-y-5 p-8"
+        className="relative ta-card w-full max-w-lg space-y-5 p-8"
         onSubmit={(event) => {
           event.preventDefault()
+          validation.clearValidation()
           form.post(localizedPath('/register'), { onFinish: () => form.reset('password', 'password_confirmation') })
         }}
       >
@@ -58,7 +74,8 @@ export default function RegisterOrganizer() {
           name="name"
           required
           value={form.data.name}
-          error={form.errors.name}
+          error={validation.fieldError('name') ?? form.errors.name}
+          {...formFieldProps('name')}
           onChange={(event) => form.setData('name', event.target.value)}
         />
         <TextInput
@@ -68,7 +85,8 @@ export default function RegisterOrganizer() {
           required
           autoComplete="email"
           value={form.data.email}
-          error={form.errors.email}
+          error={validation.fieldError('email') ?? form.errors.email}
+          {...formFieldProps('email')}
           onChange={(event) => form.setData('email', event.target.value)}
         />
         <TextInput
@@ -76,14 +94,16 @@ export default function RegisterOrganizer() {
           name="organization_name"
           required
           value={form.data.organization_name}
-          error={form.errors.organization_name}
+          error={validation.fieldError('organization_name') ?? form.errors.organization_name}
+          {...formFieldProps('organization_name')}
           onChange={(event) => form.setData('organization_name', event.target.value)}
         />
         <TextInput
           label={messages.profilePhone}
           name="phone"
           value={form.data.phone}
-          error={form.errors.phone}
+          error={validation.fieldError('phone') ?? form.errors.phone}
+          {...formFieldProps('phone')}
           onChange={(event) => form.setData('phone', event.target.value)}
         />
         <TextInput
@@ -93,7 +113,8 @@ export default function RegisterOrganizer() {
           required
           autoComplete="new-password"
           value={form.data.password}
-          error={form.errors.password}
+          error={validation.fieldError('password') ?? form.errors.password}
+          {...formFieldProps('password')}
           onChange={(event) => form.setData('password', event.target.value)}
         />
         <TextInput
@@ -103,13 +124,16 @@ export default function RegisterOrganizer() {
           required
           autoComplete="new-password"
           value={form.data.password_confirmation}
+          error={validation.fieldError('password_confirmation') ?? form.errors.password_confirmation}
+          {...formFieldProps('password_confirmation')}
           onChange={(event) => form.setData('password_confirmation', event.target.value)}
         />
         <TextareaInput
           label={messages.registerMessage}
           name="message"
           value={form.data.message}
-          error={form.errors.message}
+          error={validation.fieldError('message') ?? form.errors.message}
+          {...formFieldProps('message')}
           onChange={(event) => form.setData('message', event.target.value)}
         />
 
@@ -120,6 +144,7 @@ export default function RegisterOrganizer() {
             {messages.loginTitle}
           </LocalizedLink>
         </FormActions>
+        <ValidationHintPopover {...validation.hintProps} />
       </form>
     </main>
   )

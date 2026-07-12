@@ -82,6 +82,7 @@ final class SessionContextBuilder
             ->where('user_id', $user->id)
             ->where('status', LifecycleStatus::Active)
             ->whereHas('tenant', fn ($query) => $query->where('status', LifecycleStatus::Active))
+            ->orderBy('created_at')
             ->first();
 
         if (! $membership instanceof TenantMembership) {

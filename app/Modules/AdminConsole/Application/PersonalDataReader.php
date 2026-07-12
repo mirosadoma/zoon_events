@@ -46,4 +46,30 @@ final readonly class PersonalDataReader
             return null;
         }
     }
+
+    public function attendeeEmail(Attendee $attendee): ?string
+    {
+        return $this->decryptAttendeeField($attendee, $attendee->email_ciphertext);
+    }
+
+    public function attendeePhone(Attendee $attendee): ?string
+    {
+        return $this->decryptAttendeeField($attendee, $attendee->phone_ciphertext);
+    }
+
+    private function decryptAttendeeField(Attendee $attendee, ?string $ciphertext): ?string
+    {
+        if ($ciphertext === null || $attendee->encryption_key_id === null) {
+            return null;
+        }
+
+        try {
+            return $this->cipher->decrypt(
+                ['key_id' => $attendee->encryption_key_id, 'ciphertext' => $ciphertext],
+                "{$attendee->tenant_id}:{$attendee->event_id}:attendee",
+            );
+        } catch (\Throwable) {
+            return null;
+        }
+    }
 }

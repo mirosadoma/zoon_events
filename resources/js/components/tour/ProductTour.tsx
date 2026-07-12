@@ -1,5 +1,6 @@
 import { usePage } from '@inertiajs/react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { useIsDesktop } from '@/hooks/useMediaQuery'
 import { useLocale } from '@/hooks/useLocale'
 import {
   buildTourSteps,
@@ -52,6 +53,7 @@ function readTargetRect(selector: string): TargetRect | null {
 
 export default function ProductTour({ errorHint }: ProductTourProps) {
   const { locale } = useLocale()
+  const isDesktop = useIsDesktop()
   const messages = locale === 'ar' ? ar : en
   const { props } = usePage<PageProps>()
   const userId = props.auth?.user?.id ?? props.session?.user?.id
@@ -94,6 +96,11 @@ export default function ProductTour({ errorHint }: ProductTourProps) {
   }, [storageKey])
 
   useEffect(() => {
+    if (!isDesktop) {
+      setOpen(false)
+      return undefined
+    }
+
     const onHint = (event: Event) => {
       const detail = (event as CustomEvent<{ message?: string }>).detail
       if (detail?.message) {
@@ -106,9 +113,13 @@ export default function ProductTour({ errorHint }: ProductTourProps) {
     window.addEventListener('zonetec:tour-hint', onHint)
 
     return () => window.removeEventListener('zonetec:tour-hint', onHint)
-  }, [])
+  }, [isDesktop])
 
   useEffect(() => {
+    if (!isDesktop) {
+      return undefined
+    }
+
     const onStart = () => {
       setHintMessage(null)
       setIndex(0)
@@ -118,10 +129,10 @@ export default function ProductTour({ errorHint }: ProductTourProps) {
     window.addEventListener('zonetec:tour-start', onStart)
 
     return () => window.removeEventListener('zonetec:tour-start', onStart)
-  }, [])
+  }, [isDesktop])
 
   useEffect(() => {
-    if (!storageKey || steps.length === 0) {
+    if (!isDesktop || !storageKey || steps.length === 0) {
       return
     }
 
@@ -132,19 +143,19 @@ export default function ProductTour({ errorHint }: ProductTourProps) {
     const timer = window.setTimeout(() => setOpen(true), 800)
 
     return () => window.clearTimeout(timer)
-  }, [steps.length, storageKey])
+  }, [isDesktop, steps.length, storageKey])
 
   useEffect(() => {
-    if (!errorHint || steps.length === 0) {
+    if (!isDesktop || !errorHint || steps.length === 0) {
       return
     }
 
     setOpen(true)
     setIndex(0)
-  }, [errorHint, steps.length])
+  }, [errorHint, isDesktop, steps.length])
 
   useLayoutEffect(() => {
-    if (!open || !current) {
+    if (!isDesktop || !open || !current) {
       return
     }
 
@@ -158,9 +169,9 @@ export default function ProductTour({ errorHint }: ProductTourProps) {
       window.removeEventListener('resize', onReflow)
       window.removeEventListener('scroll', onReflow, true)
     }
-  }, [open, current, index, refreshTarget])
+  }, [current, index, isDesktop, open, refreshTarget])
 
-  if (!open || !current) {
+  if (!isDesktop || !open || !current) {
     return null
   }
 

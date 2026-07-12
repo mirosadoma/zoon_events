@@ -11,7 +11,8 @@ final class PublicationReadiness
      * @param array{
      *   name_en?:string,name_ar?:string,timezone?:string,start_at?:string,
      *   end_at?:string,registration_opens_at?:string,registration_closes_at?:string,
-     *   active_form_version_id?:string,active_ticket_types?:int,branding_active?:bool
+     *   active_form_version_id?:string,active_ticket_types?:int,branding_active?:bool,
+     *   main_image_path?:string
      * } $event
      * @return list<string>
      */
@@ -28,6 +29,9 @@ final class PublicationReadiness
         }
         if (($event['branding_active'] ?? false) !== true) {
             $missing[] = 'active_branding';
+        }
+        if (trim((string) ($event['main_image_path'] ?? '')) === '') {
+            $missing[] = 'main_image';
         }
         if (isset($event['timezone']) && ! in_array($event['timezone'], DateTimeZone::listIdentifiers(), true)) {
             $missing[] = 'valid_timezone';

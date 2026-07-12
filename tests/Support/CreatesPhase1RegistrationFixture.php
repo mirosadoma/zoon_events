@@ -4,6 +4,7 @@ namespace Tests\Support;
 
 use App\Models\User;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
+use App\Modules\Registration\Domain\Fields\RegistrationSystemFields;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationForm;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationFormVersion;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\Tenant;
@@ -32,9 +33,7 @@ trait CreatesPhase1RegistrationFixture
         $formIdentity = RegistrationForm::query()->create([
             'tenant_id' => $tenant->id, 'event_id' => $event->id, 'name' => 'Public form', 'status' => 'active', 'created_by_user_id' => $actor->id,
         ]);
-        $fields = [
-            ['key' => 'email', 'type' => 'email', 'label_en' => 'Email', 'label_ar' => 'البريد', 'required' => true],
-        ];
+        $fields = RegistrationSystemFields::definitions();
         $form = RegistrationFormVersion::query()->create([
             'tenant_id' => $tenant->id, 'event_id' => $event->id, 'registration_form_id' => $formIdentity->id,
             'version' => 1, 'status' => 'published', 'fields' => $fields, 'schema_hash' => hash('sha256', json_encode($fields)),
@@ -63,7 +62,11 @@ trait CreatesPhase1RegistrationFixture
             'ticket_type_id' => $fixture['ticket']->id,
             'buyer' => ['first_name' => 'Synthetic', 'last_name' => 'Buyer', 'email' => 'buyer@example.test'],
             'attendee' => ['first_name' => 'Synthetic', 'last_name' => 'Attendee', 'email' => 'attendee@example.test'],
-            'answers' => ['email' => 'attendee@example.test'],
+            'answers' => [
+                'full_name' => 'Synthetic Attendee',
+                'email' => 'attendee@example.test',
+                'phone' => '+966501234567',
+            ],
             'consents' => ['terms' => true, 'privacy' => true, 'marketing' => false],
         ];
     }

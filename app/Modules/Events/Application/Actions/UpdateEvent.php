@@ -4,6 +4,7 @@ namespace App\Modules\Events\Application\Actions;
 
 use App\Modules\AdminConsole\Application\Actions\SyncEventVenues;
 use App\Modules\Audit\Application\AuditWriter;
+use App\Modules\Events\Application\Support\ResolvesEventOrganizer;
 use App\Modules\Events\Domain\Events\EventUpdated;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventBranding;
@@ -15,6 +16,7 @@ final readonly class UpdateEvent
     public function __construct(
         private AuditWriter $audit,
         private SyncEventVenues $venues,
+        private ResolvesEventOrganizer $organizers,
     ) {}
 
     /** @param array<string,mixed> $attributes */
@@ -24,6 +26,17 @@ final readonly class UpdateEvent
             $branding = array_intersect_key($attributes, array_flip(['brand_reference', 'domain_reference']));
             $venueRows = $attributes['venues'] ?? null;
             unset($attributes['brand_reference'], $attributes['domain_reference'], $attributes['venues']);
+
+            if (array_key_exists('organizer_user_id', $attributes)) {
+                if ($this->organizers->requiresSelection($context)) {
+                    $attributes['created_by_user_id'] = $this->organizers->resolve(
+                        $context,
+                        $attributes['organizer_user_id'] !== null ? (int) $attributes['organizer_user_id'] : null,
+                    );
+                }
+                unset($attributes['organizer_user_id']);
+            }
+
             $before = $event->only(array_keys($attributes));
             $event->fill($attributes);
             if ($event->status === 'draft') {

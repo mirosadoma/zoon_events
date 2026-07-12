@@ -4,11 +4,12 @@ namespace Tests\Integration\Registration;
 
 use App\Modules\Registration\Application\Validation\FormSchemaValidator;
 use App\Modules\Registration\Contracts\SubmissionCreator;
+use App\Modules\Registration\Domain\Fields\RegistrationSystemFields;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationSubmission;
 use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
-use InvalidArgumentException;
+use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\Group;
 use Tests\Support\CreatesPhase1RegistrationFixture;
 use Tests\Support\Phase1MySqlTestCase;
@@ -25,7 +26,11 @@ final class SubmissionValidationTest extends Phase1MySqlTestCase
         $fixture = $this->createRegistrationFixture();
         $record = app(SubmissionCreator::class)->create(
             $fixture['tenant']->id, $fixture['event']->id, $fixture['form']->id,
-            'synthetic-key', ['email' => 'attendee@example.test'], ['terms' => true, 'privacy' => true, 'marketing' => false], 'en',
+            'synthetic-key', [
+                'full_name' => 'Synthetic Attendee',
+                'email' => 'attendee@example.test',
+                'phone' => '+966501234567',
+            ], ['terms' => true, 'privacy' => true, 'marketing' => false], 'en',
         );
         $submission = RegistrationSubmission::query()->findOrFail($record->id);
         self::assertStringNotContainsString('attendee@example.test', $submission->answers_ciphertext);
@@ -34,13 +39,17 @@ final class SubmissionValidationTest extends Phase1MySqlTestCase
             ['key_id' => $submission->encryption_key_id, 'ciphertext' => $submission->answers_ciphertext],
             "{$fixture['tenant']->id}:{$fixture['event']->id}:submission",
         );
-        self::assertSame(['email' => 'attendee@example.test'], json_decode($plaintext, true));
+        self::assertSame([
+            'email' => 'attendee@example.test',
+            'full_name' => 'Synthetic Attendee',
+            'phone' => '+966501234567',
+        ], json_decode($plaintext, true));
     }
 
     public function test_unknown_or_missing_form_answers_fail_before_storage(): void
     {
         $fixture = $this->createRegistrationFixture();
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         app(SubmissionCreator::class)->create(
             $fixture['tenant']->id, $fixture['event']->id, $fixture['form']->id,
             'synthetic-key', ['hidden_admin' => true], ['terms' => true, 'privacy' => true, 'marketing' => false], 'en',
@@ -51,7 +60,7 @@ final class SubmissionValidationTest extends Phase1MySqlTestCase
     {
         $fixture = $this->createRegistrationFixture();
         $fields = [
-            ['key' => 'email', 'type' => 'email', 'label_en' => 'Email', 'label_ar' => 'البريد', 'required' => true],
+            ...RegistrationSystemFields::definitions(),
             ['key' => 'source', 'type' => 'hidden', 'label_en' => 'Source', 'label_ar' => 'المصدر', 'visibility' => 'internal', 'default' => 'public-form'],
         ];
         DB::table('registration_form_versions')->where('id', $fixture['form']->id)->update([
@@ -60,24 +69,38 @@ final class SubmissionValidationTest extends Phase1MySqlTestCase
         ]);
         $public = $this->getJson("http://register.example.test/api/v1/public/events/{$fixture['event']->slug}/registration-form")
             ->assertOk();
-        self::assertSame(['email'], collect($public->json('data.form.fields'))->pluck('key')->all());
+        self::assertSame(['full_name', 'email', 'phone'], collect($public->json('data.form.fields'))->pluck('key')->all());
 
         $record = app(SubmissionCreator::class)->create(
             $fixture['tenant']->id, $fixture['event']->id, $fixture['form']->id,
-            'server-owned', ['email' => 'attendee@example.test'], ['terms' => true, 'privacy' => true, 'marketing' => false], 'en',
+            'server-owned', [
+                'full_name' => 'Synthetic Attendee',
+                'email' => 'attendee@example.test',
+                'phone' => '+966501234567',
+            ], ['terms' => true, 'privacy' => true, 'marketing' => false], 'en',
         );
         $submission = RegistrationSubmission::query()->findOrFail($record->id);
         $plaintext = app(PersonalDataCipher::class)->decrypt(
             ['key_id' => $submission->encryption_key_id, 'ciphertext' => $submission->answers_ciphertext],
             "{$fixture['tenant']->id}:{$fixture['event']->id}:submission",
         );
-        self::assertSame(['email' => 'attendee@example.test', 'source' => 'public-form'], json_decode($plaintext, true));
+        self::assertSame([
+            'email' => 'attendee@example.test',
+            'full_name' => 'Synthetic Attendee',
+            'phone' => '+966501234567',
+            'source' => 'public-form',
+        ], json_decode($plaintext, true));
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
         app(SubmissionCreator::class)->create(
             $fixture['tenant']->id, $fixture['event']->id, $fixture['form']->id,
             'forged-internal',
-            ['email' => 'attendee@example.test', 'source' => 'forged'],
+            [
+                'full_name' => 'Synthetic Attendee',
+                'email' => 'attendee@example.test',
+                'phone' => '+966501234567',
+                'source' => 'forged',
+            ],
             ['terms' => true, 'privacy' => true, 'marketing' => false],
             'en',
         );

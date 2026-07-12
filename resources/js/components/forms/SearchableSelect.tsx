@@ -1,6 +1,7 @@
 import { useCallback, useId, useMemo, useRef, useState } from 'react'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { useLocale } from '@/hooks/useLocale'
+import { controlClassName } from '@/lib/formFieldStyles'
 
 export type SearchableOption = {
   value: string
@@ -18,6 +19,7 @@ type SearchableSelectProps = {
   error?: string
   disabled?: boolean
   name?: string
+  'data-form-field'?: string
 }
 
 function normalizeSearch(value: string): string {
@@ -33,6 +35,7 @@ export default function SearchableSelect({
   error,
   disabled = false,
   name,
+  'data-form-field': dataFormField,
 }: SearchableSelectProps) {
   const { locale } = useLocale()
   const listId = useId()
@@ -75,10 +78,11 @@ export default function SearchableSelect({
       <div className="relative">
         <button
           type="button"
-          className="control flex w-full cursor-pointer items-center justify-between gap-2 text-start"
+          className={controlClassName(error, 'control flex w-full cursor-pointer items-center justify-between gap-2 text-start')}
           disabled={disabled}
           aria-expanded={open}
           aria-controls={listId}
+          data-form-field={dataFormField}
           onClick={() => {
             if (disabled) return
             setOpen((current) => !current)

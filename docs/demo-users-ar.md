@@ -323,6 +323,114 @@ flowchart LR
 | فلترة قائمة Users | `app/Modules/AdminConsole/Application/MembershipVisibility.php` |
 | خريطة UI | `specs/008-tailadmin-ui-redesign/rbac-ui-map.md` |
 | محتوى فعالية alpha | `database/seeders/DemoContentSeeder.php` |
+| اختيار منظم الفعالية | `app/Modules/Events/Application/Support/ResolvesEventOrganizer.php` |
+
+---
+
+## 13. المستخدمون الثلاثة الأساسيون (المرحلة المكتملة)
+
+ثلاثة أدوار تمثل ما اكتمل تنفيذه حتى الآن في المنصة. كل دور مربوط بحساب Demo أو مسار عام، مع خريطة للسيناريو مقابل الكود الفعلي.
+
+### 13.1 Platform Admin — مسؤول منصة Zonetec
+
+| البند | القيمة |
+|-------|--------|
+| **حساب Demo** | `super.admin@admin.com` / `admin1234` |
+| **دور المنصة** | Super Administrator (`*`) |
+| **دور المستأجر** | Tenant Administrator على `fixture-alpha` (للتجربة داخل مستأجر) |
+
+**السيناريو → التنفيذ**
+
+| الخطوة | الحالة | أين في النظام |
+|--------|--------|---------------|
+| دخول لوحة Zonetec كـ Super Admin | ✅ | `/dashboard` ثم قسم Platform |
+| إنشاء Tenant جديد | ✅ | `/platform/tenants` → نموذج **Add tenant** + اختيار **Admin user** (`initial_admin_user_id`) |
+| ضبط إعدادات العميل (لغة، منطقة زمنية، إقامة بيانات) | ✅ جزئي | حقول Tenant: `default_locale`, `timezone`, `data_residency_region` — العملة وإعدادات الأمان المتقدمة عبر `platform.configuration` |
+| إنشاء أول مستخدم عند العميل (Organizer Admin) | ✅ | عبر `initial_admin_user_id` عند إنشاء Tenant، أو موافقة طلب منظم من `/platform/organizer-requests` |
+| تعيين صلاحيات المنظم | ✅ | دور **Tenant Administrator** أو **Event Manager** (أدوار نظام) |
+| مراقبة صحة النظام | ✅ | `/platform/health` — `operations.health.view` |
+| Audit Logs للمنصة | ✅ | `/platform/audit` — `platform.audit.*` |
+| تعطيل Tenant / مستخدم | ✅ | PATCH `/api/v1/platform/tenants/{id}` + إدارة مستخدمي المنصة |
+| SaaS / On-premise / ترخيص محلي | ⏳ مستقبلي | غير منفّذ بعد — `data_residency_region` و feature flags فقط |
+| Venue Marketplace / نزاعات الإيجار | ⏳ مستقبلي | غير منفّذ |
+
+**ملاحظة مهمة — اختيار المنظم عند إنشاء فعالية:**  
+عندما يدخل **Super Admin** على مستأجر وينشئ فعالية (`/tenant/events/create`)، يجب اختيار **منظم الفعالية** من قائمة أعضاء المستأجر الذين لديهم `event.manage`. يُخزَّن الاختيار في `events.created_by_user_id`. المنظم العادي (`demo@zonetec.test`) لا يرى هذا الحقل — تُسجَّل الفعالية باسمه تلقائياً.
+
+**تجربة سريعة:** `super.admin@admin.com` → Platform → Tenants / Organizer Requests / Health / Audit → ثم Events → New event (اختر المنظم).
+
+---
+
+### 13.2 Event Organizer — منظم الفعالية
+
+| البند | القيمة |
+|-------|--------|
+| **حساب Demo الرئيسي** | `demo@zonetec.test` / `DemoMeet2026!` |
+| **دور المستأجر** | Tenant Administrator (`*`) على `fixture-alpha` |
+| **حساب بديل (Event Manager فقط)** | `fixture.bravo@example.test` على `fixture-bravo` |
+
+**السيناريو → التنفيذ**
+
+| الخطوة | الحالة | أين في النظام |
+|--------|--------|---------------|
+| إنشاء Event | ✅ | `/tenant/events/create` |
+| اختيار Event Tier (Corporate / Public / VIP / VVIP) | ✅ | حقل **Event tier** في إعداد الفعالية + قيد DB |
+| Branding (شعار، نطاق، محتوى) | ✅ جزئي | `brand_reference`, `domain_reference` + `event_branding` |
+| Registration Form | ✅ | `/tenant/events/{id}/registration` |
+| Ticket Types + Price Tiers + مخزون | ✅ | Ticketing — يمنع overselling عبر `ticket_inventory` |
+| الدفع (Adapter-based) | ✅ | بوابة Mock/قابلة للتبديل — `specs/002-.../payment-adapter.md` |
+| التحقق من الهوية (OTP / Gov / Face) | ✅ | `/tenant/events/{id}/identity` |
+| الدخول (QR / Kiosk / Badge / ACS) | ✅ | Check-in, Kiosk, Badges, ACS |
+| نشر الفعالية | ✅ | `event.publish` |
+| Revoke / Reissue Credential | ✅ | Attendees / Credentials — `credential.revoke`, `credential.reissue` |
+| Dashboard مباشر يوم الحدث | ✅ | Check-in summary + ACS health |
+| تقارير بعد الحدث | ✅ جزئي | `/tenant/events/{id}/reports` |
+
+**الفعالية التجريبية الرئيسية:** `zonetec-summit-2026` (id=1) — 12 حاضر مسجّل، check-in، شارات، ACS، هوية.
+
+**تجربة سريعة:** `demo@zonetec.test` → Events → Zonetec Summit 2026 → Registration / Ticketing / Attendees / Check-in.
+
+---
+
+### 13.3 Attendee — الحاضر / الزائر
+
+| البند | القيمة |
+|-------|--------|
+| **حساب دخول** | **لا يوجد** — الحاضر لا يسجّل دخولاً للوحة التحكم |
+| **مسار التسجيل** | صفحة عامة `/register/{slug}` أو نطاق الفعالية |
+| **حضور Demo مسجّل** | `attendee1@demo.zonetec.test` … `attendee12@demo.zonetec.test` (من `DemoContentSeeder`) |
+
+**السيناريو → التنفيذ**
+
+| الخطوة | الحالة | أين في النظام |
+|--------|--------|---------------|
+| فتح رابط التسجيل + Branding | ✅ | `PublicRegistrationEvent` |
+| اختيار نوع التذكرة + ملء النموذج | ✅ | حقول النموذج الديناميكي + consent |
+| تسجيل مجاني → QR فوري | ✅ | `CompleteFreeRegistration` |
+| تسجيل مدفوع → QR بعد الدفع فقط | ✅ | webhook الدفع — لا credential بدون دفع ناجح |
+| Email/SMS + Wallet Pass | ✅ | محولات الإشعارات و Apple/Google Wallet |
+| تحقق هوية إن لزم | ✅ | مسار `/identity` للحاضر |
+| مسح QR عند البوابة | ✅ | Scan + ACS + anti-passback |
+| رفض QR قديم بعد Reissue | ✅ | `ScanDecisionEvaluator` |
+| رفض دخول ثانٍ (Single-entry) | ✅ | `anti_passback_states` |
+| رفض credential ملغي | ✅ | `credential_revoked` |
+| بحث بالاسم/إيميل عند فقدان QR | ✅ | Manual Desk — `LookupAttendeesQuery` |
+
+**تجربة سريعة:** افتح صفحة تسجيل فعالية Summit المنشورة → سجّل بإيميل جديد → استلم QR → جرّب المسح من `onsite@zonetec.test`.
+
+---
+
+### 13.4 ملخص الحسابات الثلاثة
+
+| الشخصية | الحساب / المسار | كلمة المرور | السياق |
+|---------|-----------------|-------------|--------|
+| Platform Admin | `super.admin@admin.com` | `admin1234` | Platform + `fixture-alpha` |
+| Event Organizer | `demo@zonetec.test` | `DemoMeet2026!` | `fixture-alpha` فقط |
+| Attendee | تسجيل عام (بدون login) | — | Public registration |
+
+---
+
+*حدّث هذا القسم عند إضافة On-premise licensing أو Venue Marketplace أو تغيير سلوك اختيار المنظم.*
 
 ---
 

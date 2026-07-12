@@ -1,9 +1,21 @@
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import { LocalizedEventContent, type LocalizedText } from '@/components/registration/LocalizedEventContent'
+import RegistrationEventHero, { type RegistrationHeroEvent } from '@/components/registration/RegistrationEventHero'
+import RegistrationPageControls from '@/components/registration/RegistrationPageControls'
+import RegistrationVenueSelect from '@/components/registration/RegistrationVenueSelect'
 import { RegistrationField, type PublicFormField } from '@/components/registration/RegistrationField'
-import StatusBadge from '@/components/status/StatusBadge'
+import ValidationHintPopover from '@/components/feedback/ValidationHintPopover'
+import FormSavingOverlay from '@/components/loaders/FormSavingOverlay'
+import { useFormValidation } from '@/hooks/useFormValidation'
+import { useLocale } from '@/hooks/useLocale'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
+import {
+  buildPublicRegistrationFieldLabels,
+  publicRegistrationFieldSelector,
+  remapPublicRegistrationApiErrors,
+} from '@/lib/publicRegistrationValidation'
 
 type TicketTypeOption = {
   id: string
@@ -17,14 +29,10 @@ type Props = {
   locale: 'en' | 'ar'
   tenantId?: string
   isPreview?: boolean
-  event: {
+  submitUrl?: string
+  event: RegistrationHeroEvent & {
     id?: string
     slug?: string
-    name: LocalizedText
-    description: LocalizedText
-    start_at?: string | null
-    end_at?: string | null
-    branding: { brand_reference: string | null; domain_reference?: string | null }
   }
   form: {
     version_id?: string | null
@@ -39,6 +47,8 @@ type SuccessState = {
   reference: string
   accessToken?: string | null
   credentialToken?: string | null
+  identityVerifyUrl?: string | null
+  credentialStatus?: 'issued' | 'pending_identity' | 'unavailable'
 }
 
 function splitName(value: string): { first_name: string; last_name: string } {
@@ -54,20 +64,57 @@ function splitName(value: string): { first_name: string; last_name: string } {
   return { first_name: first, last_name: last }
 }
 
+function answerText(value: string | boolean | string[] | undefined): string {
+  if (typeof value === 'string') {
+    return value
+  }
+
+  if (Array.isArray(value)) {
+    return value.join(' ').trim()
+  }
+
+  return ''
+}
+
 export default function PublicRegistrationEvent({
   locale,
-  tenantId,
   isPreview = false,
+  submitUrl,
   event,
   form,
   ticketTypes = [],
 }: Props) {
-  const rtl = locale === 'ar'
+  const { t } = useLocale()
+  const direction = locale === 'ar' ? 'rtl' : 'ltr'
+  const fieldLabels = useMemo(
+    () => buildPublicRegistrationFieldLabels(form.fields, {
+      en: 'Location - Date',
+      ar: 'الموقع - التاريخ',
+    }, {
+      en: t('publicRegistrationAcceptTerms'),
+      ar: t('publicRegistrationAcceptTerms'),
+    }),
+    [form.fields, t],
+  )
+  const validation = useFormValidation({
+    titleKey: 'couldNotCompleteRegistration',
+    fieldLabels,
+    remapErrors: remapPublicRegistrationApiErrors,
+    selectorForKey: publicRegistrationFieldSelector,
+  })
+  const venues = event.venues ?? []
+  const formRef = useRef<HTMLFormElement>(null)
+  const [formTarget, setFormTarget] = useState<HTMLElement | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<SuccessState | null>(null)
   const [ticketTypeId, setTicketTypeId] = useState(String(ticketTypes[0]?.id ?? ''))
+  const [venueId, setVenueId] = useState(String(venues[0]?.id ?? ''))
   const [acceptedTerms, setAcceptedTerms] = useState(false)
+
+  useLayoutEffect(() => {
+    setFormTarget(formRef.current)
+  }, [])
 
   const selectedTicket = useMemo(
     () => ticketTypes.find((ticket) => ticket.id === ticketTypeId) ?? ticketTypes[0] ?? null,
@@ -76,35 +123,65 @@ export default function PublicRegistrationEvent({
 
   async function handleSubmit(submitEvent: FormEvent<HTMLFormElement>) {
     submitEvent.preventDefault()
-    setError(null)
+    if (isPreview) {
+      return
+    }
 
-    if (!isPreview || !tenantId || !event.id || !form.version_id) {
-      setError(rtl ? 'معاينة التسجيل غير مهيأة بالكامل.' : 'Registration preview is not fully configured.')
+    setError(null)
+    validation.clearValidation()
+
+    if (!form.version_id) {
+      setError(t('publicRegistrationFormUnavailable'))
+      return
+    }
+
+    if (!submitUrl) {
+      setError(t('publicRegistrationLinkUnavailable'))
       return
     }
 
     if (!ticketTypeId) {
-      setError(rtl ? 'اختر نوع التذكرة أولاً.' : 'Select a ticket type first.')
+      setError(t('publicRegistrationSelectTicketFirst'))
+      return
+    }
+
+    if (venues.length > 0 && !venueId) {
+      setError(t('publicRegistrationSelectLocationDate'))
       return
     }
 
     if (!acceptedTerms) {
-      setError(rtl ? 'يجب الموافقة على الشروط وسياسة الخصوصية.' : 'You must accept the terms and privacy notice.')
+      setError(t('publicRegistrationAcceptTermsRequired'))
       return
     }
 
     const formData = new FormData(submitEvent.currentTarget)
-    const answers: Record<string, string> = {}
+    const answers: Record<string, string | boolean | string[]> = {}
     form.fields.forEach((field) => {
+      if (field.type === 'multi_select' || field.type === 'checkbox') {
+        const values = formData.getAll(field.key).map(String).filter(Boolean)
+        if (values.length > 0) {
+          answers[field.key] = values
+        }
+        return
+      }
+
+      if (field.type === 'consent') {
+        answers[field.key] = formData.get(field.key) === 'true'
+        return
+      }
+
       const value = String(formData.get(field.key) ?? '').trim()
       if (value !== '') {
         answers[field.key] = value
       }
     })
 
-    const fullName = answers.full_name ?? answers.name ?? `${answers.first_name ?? ''} ${answers.last_name ?? ''}`.trim()
-    const email = answers.email ?? ''
-    const phone = answers.phone ?? undefined
+    const fullName = answerText(answers.full_name)
+      || answerText(answers.name)
+      || `${answerText(answers.first_name)} ${answerText(answers.last_name)}`.trim()
+    const email = answerText(answers.email)
+    const phone = answerText(answers.phone) || undefined
     const person = { ...splitName(fullName), email, phone }
 
     setSubmitting(true)
@@ -114,13 +191,16 @@ export default function PublicRegistrationEvent({
         public_reference: string
         access_token?: string | null
         credential_token?: string | null
-      }>(`/api/v1/tenant/events/${event.id}/registration-preview`, {
+        identity_verify_url?: string | null
+        credential_status?: 'issued' | 'pending_identity' | 'unavailable'
+        credential?: { qr_payload?: string | null } | null
+      }>(submitUrl!, {
         method: 'POST',
-        tenantId,
         idempotency: true,
         body: {
           form_version_id: String(form.version_id),
           ticket_type_id: String(ticketTypeId),
+          event_venue_id: venues.length > 0 ? String(venueId) : null,
           buyer: person,
           attendee: person,
           answers,
@@ -131,13 +211,19 @@ export default function PublicRegistrationEvent({
       setSuccess({
         reference: result.public_reference,
         accessToken: result.access_token,
-        credentialToken: result.credential_token,
+        credentialToken: result.credential_token ?? result.credential?.qr_payload ?? null,
+        identityVerifyUrl: result.identity_verify_url ?? null,
+        credentialStatus: result.credential_status,
       })
     } catch (caught) {
-      const message = caught instanceof ApiFetchError
-        ? caught.message
-        : (rtl ? 'تعذر إكمال التسجيل.' : 'Registration could not be completed.')
-      setError(message)
+      if (validation.applyApiError(caught)) {
+        setError(null)
+      } else {
+        const message = caught instanceof ApiFetchError
+          ? caught.message
+          : t('publicRegistrationFailed')
+        setError(message)
+      }
     } finally {
       setSubmitting(false)
     }
@@ -145,67 +231,64 @@ export default function PublicRegistrationEvent({
 
   if (success) {
     return (
-      <main className="registration-invite registration-invite-success" lang={locale} dir={rtl ? 'rtl' : 'ltr'}>
+      <>
+        <RegistrationPageControls locale={locale} />
+        <main className="registration-invite registration-invite-success" lang={locale} dir={direction}>
         <div className="registration-invite-card">
-          <p className="registration-invite-kicker">{rtl ? 'تم التسجيل بنجاح' : 'You are registered'}</p>
-          <h1>{rtl ? 'أهلاً بك في الفعالية' : 'Welcome to the event'}</h1>
+          <p className="registration-invite-kicker">{t('publicRegistrationSuccessKicker')}</p>
+          <h1>{t('publicRegistrationWelcomeEvent')}</h1>
           <p className="registration-invite-lead">
             <LocalizedEventContent value={event.name} locale={locale} />
           </p>
           <div className="registration-success-meta">
             <div>
-              <span className="registration-success-label">{rtl ? 'مرجع الطلب' : 'Order reference'}</span>
+              <span className="registration-success-label">{t('publicRegistrationOrderReference')}</span>
               <strong>{success.reference}</strong>
             </div>
             {selectedTicket ? (
               <div>
-                <span className="registration-success-label">{rtl ? 'التذكرة' : 'Ticket'}</span>
+                <span className="registration-success-label">{t('publicRegistrationTicket')}</span>
                 <strong><LocalizedEventContent value={selectedTicket.name} locale={locale} /></strong>
               </div>
             ) : null}
           </div>
           {success.credentialToken ? (
             <div className="registration-qr-panel">
-              <p>{rtl ? 'امسح رمز QR عند البوابة' : 'Scan this QR code at the gate'}</p>
+              <p>{t('publicRegistrationScanQr')}</p>
               <QRCodeSVG value={success.credentialToken} size={220} className="registration-qr-code" />
+            </div>
+          ) : success.credentialStatus === 'pending_identity' && (success.identityVerifyUrl || (success.accessToken && event.slug)) ? (
+            <div className="registration-qr-panel">
+              <p>{t('publicRegistrationIdentityPending')}</p>
+              <LocalizedLink
+                href={success.identityVerifyUrl ?? `/identity/${event.slug}/${success.accessToken}`}
+                className="button-primary inline-flex"
+              >
+                {t('publicRegistrationCompleteIdentity')}
+              </LocalizedLink>
             </div>
           ) : null}
           <p className="registration-invite-footnote">
-            {rtl
-              ? 'تم إرسال تأكيد بالبريد الإلكتروني إن كان البريد صالحاً ومُفعَّلاً في بيئة العرض.'
-              : 'A confirmation email was queued when the address is valid in this demo environment.'}
+            {t('publicRegistrationEmailFootnote')}
           </p>
         </div>
       </main>
+      </>
     )
   }
 
   return (
-    <main className="registration-invite" lang={locale} dir={rtl ? 'rtl' : 'ltr'}>
-      <div className="registration-invite-hero">
-        <div className="registration-invite-card">
-          <header className="registration-invite-header">
-            {event.branding.brand_reference ? (
-              <p className="registration-invite-brand">{event.branding.brand_reference}</p>
-            ) : null}
-            <p className="registration-invite-kicker">{rtl ? 'دعوة للتسجيل' : 'You are invited'}</p>
-            <h1><LocalizedEventContent value={event.name} locale={locale} /></h1>
-            <p className="registration-invite-lead"><LocalizedEventContent value={event.description} locale={locale} /></p>
-            {event.start_at ? (
-              <p className="registration-invite-schedule">
-                {new Date(event.start_at).toLocaleString(rtl ? 'ar-EG' : 'en-US')}
-                {event.end_at ? ` — ${new Date(event.end_at).toLocaleString(rtl ? 'ar-EG' : 'en-US')}` : ''}
-              </p>
-            ) : null}
-          </header>
-
+    <>
+      <RegistrationPageControls locale={locale} />
+      <main className={`registration-invite${isPreview ? ' registration-invite-preview' : ''}`} lang={locale} dir={direction}>
+        <RegistrationEventHero locale={locale} event={event} isPreview={isPreview}>
           {ticketTypes.length > 0 ? (
-            <section className="registration-ticket-picker" aria-label={rtl ? 'اختيار التذكرة' : 'Ticket selection'}>
-              <h2>{rtl ? 'اختر تذكرتك' : 'Choose your ticket'}</h2>
+            <section className="registration-ticket-picker" aria-label={t('publicRegistrationTicketSelection')}>
+              <h2>{t('publicRegistrationChooseTicket')}</h2>
               <div className="registration-ticket-options">
                 {ticketTypes.map((ticket) => {
                   const selected = ticket.id === ticketTypeId
-                  const price = (ticket.price_minor / 100).toLocaleString(rtl ? 'ar-EG' : 'en-US', {
+                  const price = (ticket.price_minor / 100).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-US', {
                     style: 'currency',
                     currency: ticket.currency,
                   })
@@ -216,10 +299,12 @@ export default function PublicRegistrationEvent({
                       type="button"
                       className={selected ? 'registration-ticket-option registration-ticket-option-active' : 'registration-ticket-option'}
                       onClick={() => setTicketTypeId(String(ticket.id))}
+                      disabled={isPreview}
+                      aria-disabled={isPreview}
                     >
                       <span className="registration-ticket-code">{ticket.code}</span>
                       <span className="registration-ticket-name"><LocalizedEventContent value={ticket.name} locale={locale} /></span>
-                      <span className="registration-ticket-price">{ticket.price_minor === 0 ? (rtl ? 'مجاني' : 'Free') : price}</span>
+                      <span className="registration-ticket-price">{ticket.price_minor === 0 ? t('publicRegistrationFree') : price}</span>
                     </button>
                   )
                 })}
@@ -227,29 +312,57 @@ export default function PublicRegistrationEvent({
             </section>
           ) : (
             <p className="registration-invite-warning">
-              {rtl ? 'لا توجد تذاكر نشطة لهذه المعاينة.' : 'No active ticket types are available for this preview.'}
+              {t('publicRegistrationNoTickets')}
             </p>
           )}
 
-          <form className="registration-invite-form" aria-label={rtl ? 'نموذج التسجيل' : 'Registration form'} onSubmit={handleSubmit}>
-            {form.fields.map((field) => <RegistrationField key={field.key} field={field} locale={locale} />)}
+          <form
+            ref={formRef}
+            className="registration-invite-form form-saving-scope-root"
+            aria-label={t('publicRegistrationFormAria')}
+            onSubmit={handleSubmit}
+          >
+            <FormSavingOverlay active={submitting} target={formTarget} label={t('publicRegistrationRegistering')} />
 
-            <label className="registration-consent">
+            <RegistrationVenueSelect
+              locale={locale}
+              venues={venues}
+              value={venueId}
+              onChange={setVenueId}
+              disabled={isPreview}
+              error={validation.fieldError('event_venue_id')}
+            />
+
+            {form.fields.map((field) => (
+              <RegistrationField
+                key={field.key}
+                field={field}
+                locale={locale}
+                disabled={isPreview}
+                error={validation.fieldError(field.key)}
+                data-form-field={field.key}
+              />
+            ))}
+
+            <label className={`registration-consent${validation.fieldError('consent') ? ' form-field-invalid' : ''}`}>
               <input
                 type="checkbox"
                 name="consent"
                 checked={acceptedTerms}
                 onChange={(changeEvent) => setAcceptedTerms(changeEvent.target.checked)}
-                required
+                required={!isPreview}
+                disabled={isPreview}
+                data-form-field="consent"
+                aria-invalid={validation.fieldError('consent') ? 'true' : undefined}
               />
               <span>
-                {rtl ? 'أوافق على' : 'I accept the'}
+                {t('publicRegistrationAcceptTerms')}
                 {' '}
-                {rtl ? 'الشروط' : 'terms'}
+                {t('publicRegistrationTerms')}
                 {' '}
                 {form.terms_version}
                 {' '}
-                {rtl ? 'وسياسة الخصوصية' : 'and privacy notice'}
+                {t('publicRegistrationAndPrivacy')}
                 {' '}
                 {form.privacy_notice_version}
               </span>
@@ -257,18 +370,19 @@ export default function PublicRegistrationEvent({
 
             {error ? <p role="alert" className="registration-invite-error">{error}</p> : null}
 
-            <button type="submit" className="button-primary registration-invite-submit" disabled={submitting || ticketTypes.length === 0}>
-              {submitting ? (rtl ? 'جارٍ التسجيل…' : 'Registering…') : (rtl ? 'إتمام التسجيل' : 'Complete registration')}
-            </button>
-
-            {isPreview ? (
+            {!isPreview ? (
+              <button type="submit" className="button-primary registration-invite-submit" disabled={submitting || ticketTypes.length === 0}>
+                {submitting ? t('publicRegistrationRegistering') : t('publicRegistrationComplete')}
+              </button>
+            ) : (
               <p className="registration-invite-footnote">
-                {rtl ? 'هذه معاينة للمنظم — سيتم إنشاء تسجيل حقيقي لاختبار التدفق.' : 'Organizer preview — this creates a real registration to test the flow.'}
+                {t('publicRegistrationPreviewFootnote')}
               </p>
-            ) : null}
+            )}
           </form>
-        </div>
-      </div>
-    </main>
+        </RegistrationEventHero>
+        <ValidationHintPopover {...validation.hintProps} />
+      </main>
+    </>
   )
 }

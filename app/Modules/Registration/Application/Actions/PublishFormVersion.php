@@ -23,6 +23,20 @@ final readonly class PublishFormVersion
         $prepared = $this->publisher->prepare($version->fields, $privacy, $terms);
 
         return DB::transaction(function () use ($context, $eventId, $version, $prepared): RegistrationFormVersion {
+            RegistrationFormVersion::query()
+                ->where('tenant_id', $context->tenant->id)
+                ->where('event_id', $eventId)
+                ->where('status', 'draft')
+                ->whereKeyNot($version->id)
+                ->update(['status' => 'retired']);
+
+            RegistrationFormVersion::query()
+                ->where('tenant_id', $context->tenant->id)
+                ->where('event_id', $eventId)
+                ->where('status', 'published')
+                ->whereKeyNot($version->id)
+                ->update(['status' => 'retired']);
+
             $version->forceFill([
                 ...$prepared,
                 'status' => 'published',

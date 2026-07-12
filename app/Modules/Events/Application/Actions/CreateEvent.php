@@ -4,6 +4,7 @@ namespace App\Modules\Events\Application\Actions;
 
 use App\Modules\AdminConsole\Application\Actions\SyncEventVenues;
 use App\Modules\Audit\Application\AuditWriter;
+use App\Modules\Events\Application\Support\ResolvesEventOrganizer;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventBranding;
 use App\Modules\Tenancy\Domain\Context\TenantContext;
@@ -14,6 +15,7 @@ final readonly class CreateEvent
     public function __construct(
         private AuditWriter $audit,
         private SyncEventVenues $venues,
+        private ResolvesEventOrganizer $organizers,
     ) {}
 
     /** @param array<string,mixed> $attributes */
@@ -25,12 +27,18 @@ final readonly class CreateEvent
                 'domain_reference' => $attributes['domain_reference'] ?? null,
             ];
             $venues = $attributes['venues'] ?? [];
-            unset($attributes['brand_reference'], $attributes['domain_reference'], $attributes['venues']);
+            $organizerUserId = isset($attributes['organizer_user_id']) ? (int) $attributes['organizer_user_id'] : null;
+            unset(
+                $attributes['brand_reference'],
+                $attributes['domain_reference'],
+                $attributes['venues'],
+                $attributes['organizer_user_id'],
+            );
             $event = Event::query()->create([
                 ...$attributes,
                 'tenant_id' => $context->tenant->id,
                 'status' => 'draft',
-                'created_by_user_id' => $context->actor->id,
+                'created_by_user_id' => $this->organizers->resolve($context, $organizerUserId),
             ]);
             if ($branding['brand_reference'] !== null && $branding['domain_reference'] !== null) {
                 EventBranding::query()->create([

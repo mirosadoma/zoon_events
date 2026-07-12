@@ -17,19 +17,22 @@ final class SecurityHeaders
         $scriptSrc = ["'self'"];
         $styleSrc = ["'self'", "'unsafe-inline'"];
         $connectSrc = ["'self'"];
+        $imgSrc = ["'self'", 'data:', 'blob:', 'https://*.tile.openstreetmap.org'];
 
         if ($isDev) {
             $scriptSrc[] = "'unsafe-inline'"; // مهم لـ Vite + React Refresh
             $scriptSrc[] = 'http://127.0.0.1:5173';
 
             $styleSrc[] = 'http://127.0.0.1:5173';
+            $imgSrc[] = 'http://127.0.0.1:5173';
 
             $connectSrc[] = 'http://127.0.0.1:5173';
             $connectSrc[] = 'ws://127.0.0.1:5173';
         }
 
         $csp = sprintf(
-            "default-src 'self'; img-src 'self' data:; style-src %s; script-src %s; connect-src %s; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+            "default-src 'self'; img-src %s; style-src %s; script-src %s; connect-src %s; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+            implode(' ', $imgSrc),
             implode(' ', $styleSrc),
             implode(' ', $scriptSrc),
             implode(' ', $connectSrc),
