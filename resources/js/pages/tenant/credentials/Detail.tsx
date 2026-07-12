@@ -20,6 +20,7 @@ type CredentialDetail = {
   id: string
   code: string
   attendee_id: string
+  attendee_label?: string | null
   status: string
   issued_at?: string | null
   expires_at?: string | null
@@ -124,9 +125,18 @@ export default function CredentialDetailPage({ event, credential, tenantId: page
       <PageContent>
         {identity?.pending ? (
           <section className="state-panel mb-6 border-amber-200 bg-amber-50" role="status">
-            <div className="flex flex-wrap items-center gap-3">
-              <StatusBadge status={identity.status} />
-              <p className="text-sm text-amber-900">{t('identityPendingIssuanceBanner')}</p>
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <StatusBadge status={identity.status} />
+                <p className="text-sm text-amber-900">{t('identityPendingIssuanceBanner')}</p>
+              </div>
+              <p className="text-sm text-amber-900">{t('identityPendingIssuanceHelp')}</p>
+              <LocalizedLink
+                href={`/tenant/events/${event.id}/identity/review`}
+                className="text-sm font-medium text-sky-800 hover:underline"
+              >
+                {t('openIdentityReviewQueue')}
+              </LocalizedLink>
             </div>
           </section>
         ) : null}
@@ -139,7 +149,7 @@ export default function CredentialDetailPage({ event, credential, tenantId: page
               label: locale === 'ar' ? 'الحاضر' : 'Attendee',
               value: (
                 <LocalizedLink href={`/tenant/events/${event.id}/attendees/${String(credential.attendee_id)}`} className="text-sky-700 hover:underline">
-                  {String(credential.attendee_id).slice(-8)}
+                  {credential.attendee_label ?? String(credential.attendee_id)}
                 </LocalizedLink>
               ),
             },

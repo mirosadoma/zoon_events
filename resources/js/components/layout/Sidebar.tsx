@@ -1,5 +1,7 @@
 import { Link, usePage } from '@inertiajs/react'
 import { X } from 'lucide-react'
+import { useEffect } from 'react'
+import { clsx } from 'clsx'
 import { useShellLayout } from '@/contexts/ShellLayoutContext'
 import AppBrand from '@/components/layout/AppBrand'
 import { filterNavigationGroups, platformNavigationGroups } from '@/lib/navigation'
@@ -22,9 +24,31 @@ export default function Sidebar() {
   const platformGroups = filterNavigationGroups(platformNavigationGroups, can)
   const eventGroups = eventId ? filterNavigationGroups(eventNavigationGroups(eventId), can) : []
 
+  useEffect(() => {
+    closeMobileSidebar()
+  }, [url, closeMobileSidebar])
+
+  useEffect(() => {
+    if (!mobileSidebarOpen) {
+      return undefined
+    }
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [mobileSidebarOpen])
+
   const sidebarContent = (
     <div className="ta-sidebar-scroll">
-      <Link href={localizedPath(locale, '/dashboard')} className="ta-sidebar-brand" title={messages.overview}>
+      <Link
+        href={localizedPath(locale, '/dashboard')}
+        className="ta-sidebar-brand"
+        title={messages.overview}
+        onClick={closeMobileSidebar}
+      >
         <AppBrand showName={!sidebarCollapsed} />
       </Link>
 
@@ -60,7 +84,13 @@ export default function Sidebar() {
 
       <aside
         data-tour="sidebar"
-        className={`ta-sidebar ${sidebarCollapsed ? 'ta-sidebar-collapsed' : ''} ${mobileSidebarOpen ? 'fixed inset-y-0 start-0 z-50 w-[290px] shadow-xl' : 'hidden lg:flex'} `}
+        className={clsx(
+          'ta-sidebar',
+          sidebarCollapsed && 'ta-sidebar-collapsed',
+          mobileSidebarOpen
+            ? 'flex fixed inset-y-0 start-0 z-50 w-[290px] shadow-xl'
+            : 'hidden lg:flex',
+        )}
       >
         <div className="mb-4 flex items-center justify-end lg:hidden">
           <button type="button" className="button-secondary" onClick={closeMobileSidebar}>

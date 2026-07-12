@@ -266,7 +266,7 @@ final class DemoContentSeeder extends Seeder
         IdentityVerificationRequirement::query()->updateOrCreate(
             ['tenant_id' => $tenant->id, 'event_id' => $event->id, 'ticket_type_id' => $ticketTypeId],
             [
-                'level' => 'required_before_credential',
+                'level' => 'required_before_gate',
                 'face_fallback_enabled' => true,
             ],
         );

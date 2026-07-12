@@ -13,6 +13,7 @@ final readonly class ProblemDetails
         public string $instance,
         public string $correlationId,
         public array $errors = [],
+        public array $missing = [],
     ) {}
 
     public function toArray(): array
@@ -26,6 +27,7 @@ final readonly class ProblemDetails
             'instance' => $this->instance,
             'correlation_id' => $this->correlationId,
             'errors' => $this->errors === [] ? null : $this->errors,
+            'missing' => $this->missing === [] ? null : $this->missing,
         ], static fn ($value) => $value !== null);
     }
 }

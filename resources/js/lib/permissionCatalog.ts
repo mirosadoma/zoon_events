@@ -25,6 +25,8 @@ export const permissionModuleLabels: Record<string, LocalizedLabel> = {
   kiosk: { en: 'Kiosks', ar: 'أكشاك الخدمة' },
   'badge-printing': { en: 'Badge printing', ar: 'طباعة البطاقات' },
   'access-control': { en: 'Access control', ar: 'التحكم في الدخول' },
+  identity: { en: 'Platform users', ar: 'مستخدمو المنصة' },
+  operations: { en: 'Platform operations', ar: 'عمليات المنصة' },
 }
 
 export const permissionLabels: Record<string, LocalizedLabel> = {
@@ -78,6 +80,21 @@ export const permissionLabels: Record<string, LocalizedLabel> = {
   'acs.events.view': { en: 'View gate access logs', ar: 'عرض سجلات البوابات' },
   'acs.health.view': { en: 'View gate health', ar: 'عرض حالة البوابات' },
   'acs.emergency.manage': { en: 'Manage emergency egress', ar: 'إدارة الإخلاء الطارئ' },
+  'platform.tenant.view': { en: 'View platform tenants', ar: 'عرض مستأجري المنصة' },
+  'platform.tenant.manage': { en: 'Manage platform tenants', ar: 'إدارة مستأجري المنصة' },
+  'platform.user.view': { en: 'View platform users', ar: 'عرض مستخدمي المنصة' },
+  'platform.user.manage': { en: 'Manage platform users', ar: 'إدارة مستخدمي المنصة' },
+  'platform.role.view': { en: 'View platform roles', ar: 'عرض أدوار المنصة' },
+  'platform.role.manage': { en: 'Manage platform roles', ar: 'إدارة أدوار المنصة' },
+  'platform.role.assign': { en: 'Assign platform roles', ar: 'تعيين أدوار المنصة' },
+  'platform.access.recover': { en: 'Platform access recovery', ar: 'استرداد وصول المنصة' },
+  'platform.audit.view': { en: 'View platform audit logs', ar: 'عرض سجلات تدقيق المنصة' },
+  'platform.audit.export': { en: 'Export platform audit logs', ar: 'تصدير سجلات تدقيق المنصة' },
+  'platform.audit.verify': { en: 'Verify platform audit integrity', ar: 'التحقق من سلامة تدقيق المنصة' },
+  'operations.health.view': { en: 'View platform health', ar: 'عرض صحة المنصة' },
+  'platform.feature_flag.view': { en: 'View platform feature flags', ar: 'عرض أعلام ميزات المنصة' },
+  'platform.feature_flag.manage': { en: 'Manage platform feature flags', ar: 'إدارة أعلام ميزات المنصة' },
+  'platform.configuration.view': { en: 'View platform configuration', ar: 'عرض إعدادات المنصة' },
 }
 
 export const auditActionLabels: Record<string, LocalizedLabel> = {
@@ -114,7 +131,11 @@ export const auditOutcomeLabels: Record<string, LocalizedLabel> = {
 export function permissionLabel(key: string, locale: AppLocale): string {
   const label = permissionLabels[key]
   if (label) return label[locale]
+
   return key
+    .replace(/^platform\./, '')
+    .replaceAll('.', ' · ')
+    .replaceAll('_', ' ')
 }
 
 export function moduleLabel(module: string, locale: AppLocale): string {

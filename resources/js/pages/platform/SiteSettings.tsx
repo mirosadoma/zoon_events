@@ -10,8 +10,11 @@ import {
   TextInput,
   TextareaInput,
 } from '@/components/forms'
+import ValidationHintPopover from '@/components/feedback/ValidationHintPopover'
 import { PageContent, PageHeader } from '@/components/layout'
+import { useInertiaFormValidation } from '@/hooks/useInertiaFormValidation'
 import { useLocale } from '@/hooks/useLocale'
+import { formFieldProps } from '@/lib/formatValidationErrors'
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
 import { useToast } from '@/hooks/useToast'
 import en from '@/locales/en'
@@ -55,9 +58,25 @@ export default function SiteSettings({ settings, canManage }: Props) {
     maintenance_message_en: settings.maintenance_message_en ?? '',
     maintenance_message_ar: settings.maintenance_message_ar ?? '',
   })
+  const validation = useInertiaFormValidation(form.errors, {
+    titleKey: 'errorState',
+    fieldLabels: {
+      app_name_en: { en: messages.appNameEn, ar: messages.appNameEn },
+      app_name_ar: { en: messages.appNameAr, ar: messages.appNameAr },
+      support_email: { en: messages.profileEmail, ar: messages.profileEmail },
+      support_phone: { en: messages.profilePhone, ar: messages.profilePhone },
+      about_en: { en: messages.aboutEn, ar: messages.aboutEn },
+      about_ar: { en: messages.aboutAr, ar: messages.aboutAr },
+      maintenance_message_en: { en: messages.maintenanceMessageEn, ar: messages.maintenanceMessageEn },
+      maintenance_message_ar: { en: messages.maintenanceMessageAr, ar: messages.maintenanceMessageAr },
+      logo: { en: messages.siteSettingsLogo, ar: messages.siteSettingsLogo },
+      favicon: { en: messages.siteSettingsFavicon, ar: messages.siteSettingsFavicon },
+    },
+  })
 
   function submit(event: FormEvent) {
     event.preventDefault()
+    validation.clearValidation()
     setSubmitting(true)
 
     const payload = new FormData()
@@ -97,7 +116,7 @@ export default function SiteSettings({ settings, canManage }: Props) {
     <DashboardLayout title={messages.siteSettingsTitle}>
       <PageHeader title={messages.siteSettingsTitle} description={messages.siteSettingsDescription} />
       <PageContent>
-        <form className="space-y-8" onSubmit={submit}>
+        <form className="relative space-y-8" onSubmit={submit}>
           <FormSection title={messages.siteSettingsBranding}>
             <div className="grid gap-4 md:grid-cols-2">
               <TextInput
@@ -105,7 +124,8 @@ export default function SiteSettings({ settings, canManage }: Props) {
                 name="app_name_en"
                 value={form.data.app_name_en}
                 disabled={!canManage}
-                error={form.errors.app_name_en}
+                error={validation.fieldError('app_name_en') ?? form.errors.app_name_en}
+                {...formFieldProps('app_name_en')}
                 onChange={(event: React.ChangeEvent<HTMLInputElement>) => form.setData('app_name_en', event.target.value)}
               />
               <TextInput
@@ -113,7 +133,8 @@ export default function SiteSettings({ settings, canManage }: Props) {
                 name="app_name_ar"
                 value={form.data.app_name_ar}
                 disabled={!canManage}
-                error={form.errors.app_name_ar}
+                error={validation.fieldError('app_name_ar') ?? form.errors.app_name_ar}
+                {...formFieldProps('app_name_ar')}
                 onChange={(event: React.ChangeEvent<HTMLInputElement>) => form.setData('app_name_ar', event.target.value)}
               />
               <FileInput
@@ -222,6 +243,7 @@ export default function SiteSettings({ settings, canManage }: Props) {
             </FormActions>
           )}
         </form>
+        <ValidationHintPopover {...validation.hintProps} />
       </PageContent>
     </DashboardLayout>
   )

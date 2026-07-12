@@ -4,9 +4,12 @@ import DashboardLayout from '@/layouts/DashboardLayout'
 import { PageContent, PageHeader } from '@/components/layout'
 import SelectInput from '@/components/forms/SelectInput'
 import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
+import ValidationHintPopover from '@/components/feedback/ValidationHintPopover'
 import TextInput from '@/components/forms/TextInput'
+import { useInertiaFormValidation } from '@/hooks/useInertiaFormValidation'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
+import { formFieldProps } from '@/lib/formatValidationErrors'
 import en from '@/locales/en'
 import ar from '@/locales/ar'
 
@@ -32,9 +35,17 @@ export default function Profile({ profile }: Props) {
     name: profile.name,
     preferred_locale: profile.preferred_locale ?? locale,
   })
+  const validation = useInertiaFormValidation(form.errors, {
+    titleKey: 'errorState',
+    fieldLabels: {
+      name: { en: messages.profileName, ar: messages.profileName },
+      preferred_locale: { en: messages.adminDefaultLocale, ar: messages.adminDefaultLocale },
+    },
+  })
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    validation.clearValidation()
     form.patch('/profile', {
       preserveScroll: true,
       onSuccess: () => {
@@ -62,13 +73,14 @@ export default function Profile({ profile }: Props) {
         ]}
       />
       <PageContent>
-        <form className="ta-card max-w-2xl space-y-4" onSubmit={handleSubmit}>
+        <form className="relative ta-card max-w-2xl space-y-4" onSubmit={handleSubmit}>
           <TextInput
             label={messages.profileName}
             name="name"
             value={form.data.name}
             onChange={(event) => form.setData('name', event.target.value)}
-            error={form.errors.name}
+            error={validation.fieldError('name') ?? form.errors.name}
+            {...formFieldProps('name')}
             required
           />
           <TextInput label={messages.profileEmail} name="email" value={profile.email} disabled />
@@ -81,7 +93,8 @@ export default function Profile({ profile }: Props) {
               { value: 'en', label: 'English' },
               { value: 'ar', label: 'العربية' },
             ]}
-            error={form.errors.preferred_locale}
+            error={validation.fieldError('preferred_locale') ?? form.errors.preferred_locale}
+            {...formFieldProps('preferred_locale')}
           />
           <div className="grid gap-2 text-sm">
             <span className="font-medium text-[var(--ink)]">{messages.profileRole}</span>
@@ -97,6 +110,7 @@ export default function Profile({ profile }: Props) {
           </div>
           <SubmitButtonWithLoader label={messages.save} loading={form.processing} />
         </form>
+        <ValidationHintPopover {...validation.hintProps} />
       </PageContent>
     </DashboardLayout>
   )

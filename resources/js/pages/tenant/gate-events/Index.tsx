@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { AccessEvent } from '../../../types/phase4'
 import { GateEventRow } from '../../../components/gate-events/GateEventRow'
+import { useLocale } from '@/hooks/useLocale'
 
 interface GateEventsIndexProps {
   eventId: string
@@ -8,6 +9,7 @@ interface GateEventsIndexProps {
 }
 
 export default function GateEventsIndex({ eventId, tenantId }: GateEventsIndexProps) {
+  const { t } = useLocale()
   const [events, setEvents] = useState<AccessEvent[]>([])
 
   useEffect(() => {
@@ -27,15 +29,15 @@ export default function GateEventsIndex({ eventId, tenantId }: GateEventsIndexPr
 
   return (
     <div>
-      <h1>Gate Events</h1>
+      <h1>{t('gateEventsTitle')}</h1>
       <table>
         <thead>
           <tr>
-            <th>Occurred</th>
-            <th>Type</th>
-            <th>Direction</th>
-            <th>Decision</th>
-            <th>Reason</th>
+            <th>{t('gateEventsOccurred')}</th>
+            <th>{t('gateEventsType')}</th>
+            <th>{t('gateEventsDirection')}</th>
+            <th>{t('gateEventsDecision')}</th>
+            <th>{t('gateEventsReason')}</th>
           </tr>
         </thead>
         <tbody>

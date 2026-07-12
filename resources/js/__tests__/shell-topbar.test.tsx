@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { usePage } from '@inertiajs/react'
 import type { ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
@@ -14,7 +14,12 @@ vi.mock('@inertiajs/react', () => ({
 }))
 
 vi.mock('@/hooks/useLocale', () => ({
-  useLocale: () => ({ locale: 'en', direction: 'ltr' }),
+  useLocale: () => ({
+    locale: 'en',
+    direction: 'ltr',
+    t: (key: string) => key,
+    localizedPath: (path: string) => `/en${path}`,
+  }),
 }))
 
 function renderWithShell(ui: ReactElement) {
@@ -47,7 +52,71 @@ describe('shell topbar and nav', () => {
   })
 
   it('renders search command placeholder', () => {
+    vi.mocked(usePage).mockReturnValue({
+      props: {
+        auth: {
+          user: { id: '1', name: 'Demo User' },
+        },
+        can: {
+          'event.view': true,
+        },
+        session: {
+          tenant: { id: '1' },
+        },
+      },
+      url: '/en/dashboard',
+    } as unknown as ReturnType<typeof usePage>)
+
     render(<SearchCommand />)
-    expect(screen.getByRole('searchbox', { name: /search or type command/i })).toBeInTheDocument()
+    expect(screen.getByRole('searchbox', { name: 'searchPlaceholder' })).toBeInTheDocument()
+  })
+
+  it('requests search results with the query string intact', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        results: [{
+          type: 'event',
+          id: '1',
+          label: 'Zonetec Summit 2026',
+          href: '/tenant/events/1',
+        }],
+      }),
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    vi.mocked(usePage).mockReturnValue({
+      props: {
+        auth: {
+          user: { id: '1', name: 'Demo User' },
+        },
+        session: {
+          tenant: { id: '1' },
+        },
+      },
+      url: '/en/dashboard',
+    } as unknown as ReturnType<typeof usePage>)
+
+    render(<SearchCommand />)
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'searchPlaceholder' }), {
+      target: { value: 'Zon' },
+    })
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/en/dashboard/search?q=Zon',
+        expect.objectContaining({
+          credentials: 'include',
+        }),
+      )
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Zonetec Summit 2026')).toBeInTheDocument()
+    })
+
+    vi.unstubAllGlobals()
   })
 })

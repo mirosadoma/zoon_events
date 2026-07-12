@@ -2,10 +2,12 @@
 
 namespace Tests\Unit\Events;
 
+use App\Exceptions\FoundationException;
 use App\Modules\Events\Application\Publication\PublicationReadiness;
 use App\Modules\Events\Domain\EventStatus;
 use App\Modules\Events\Domain\EventTier;
 use App\Modules\Events\Domain\EventTierDefaults;
+use App\Modules\Shared\Http\Problems\ProblemFactory;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
@@ -53,5 +55,24 @@ final class EventLifecycleTest extends TestCase
             ['active_form_version_id', 'active_ticket_type', 'active_branding'],
             $readiness->missing([...$valid, 'active_form_version_id' => '', 'active_ticket_types' => 0, 'branding_active' => false]),
         );
+    }
+
+    public function test_event_not_publishable_problem_includes_missing_requirements(): void
+    {
+        $exception = new FoundationException(
+            'event_not_publishable',
+            409,
+            'Conflict',
+            'The event is not ready to publish.',
+            ['missing' => ['active_ticket_type', 'active_branding']],
+        );
+
+        $problem = ProblemFactory::fromThrowable(
+            $exception,
+            '/api/v1/tenant/events/5/publish',
+            'test-correlation-id',
+        );
+
+        self::assertSame(['active_ticket_type', 'active_branding'], $problem->missing);
     }
 }

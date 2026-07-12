@@ -9,7 +9,7 @@ interface ConfirmationIntentCreator
         string $eventId,
         string $attendeeId,
         string $orderId,
-        string $credentialId,
+        ?string $credentialId,
         string $email,
         string $locale,
         ?string $phone = null,

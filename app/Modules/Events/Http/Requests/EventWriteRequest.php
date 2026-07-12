@@ -2,6 +2,7 @@
 
 namespace App\Modules\Events\Http\Requests;
 
+use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -17,6 +18,7 @@ final class EventWriteRequest extends FormRequest
             'description.en' => ['nullable', 'string', 'max:5000'],
             'description.ar' => ['nullable', 'string', 'max:5000'],
             'tier' => ['nullable', Rule::in(['corporate', 'public', 'vip', 'vvip'])],
+            'organizer_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'timezone' => ['required', 'string', 'max:64', Rule::exists('timezones', 'identifier')],
             'capacity' => ['required', 'integer', 'min:1'],
             'location_name.en' => ['nullable', 'string', 'max:200'],
@@ -38,7 +40,31 @@ final class EventWriteRequest extends FormRequest
             'venues.*.end_at' => ['required', 'date', 'after:venues.*.start_at'],
             'venues.*.registration_opens_at' => ['required', 'date'],
             'venues.*.registration_closes_at' => ['required', 'date', 'after:venues.*.registration_opens_at', 'before_or_equal:venues.*.end_at'],
+            'main_image' => array_merge([$this->mainImageRule()], ['file', 'mimes:png,jpg,jpeg,webp', 'max:5120']),
+            'images' => ['nullable', 'array', 'max:10'],
+            'images.*' => ['file', 'mimes:png,jpg,jpeg,webp', 'max:5120'],
+            'remove_image_ids' => ['nullable', 'array'],
+            'remove_image_ids.*' => ['integer'],
         ];
+    }
+
+    private function mainImageRule(): string
+    {
+        if ($this->isMethod('POST')) {
+            return 'required';
+        }
+
+        $eventId = $this->route('event_id');
+        if (! is_string($eventId) || $eventId === '') {
+            return 'nullable';
+        }
+
+        $hasMainImage = Event::query()
+            ->whereKey($eventId)
+            ->whereNotNull('main_image_path')
+            ->exists();
+
+        return $hasMainImage ? 'nullable' : 'required';
     }
 
     /** @return array<string,mixed> */
@@ -54,6 +80,7 @@ final class EventWriteRequest extends FormRequest
             'description_en' => $data['description']['en'] ?? null,
             'description_ar' => $data['description']['ar'] ?? null,
             'tier' => $data['tier'] ?? 'public',
+            'organizer_user_id' => isset($data['organizer_user_id']) ? (int) $data['organizer_user_id'] : null,
             'timezone' => $data['timezone'],
             'start_at' => $schedule['start_at'],
             'end_at' => $schedule['end_at'],

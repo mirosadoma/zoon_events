@@ -8,7 +8,6 @@ export const platformNavigationGroups: NavigationGroup[] = [
     label: 'navGroupMenu',
     items: [
       { key: 'overview', label: 'overview', href: '/dashboard', icon: 'overview', permission: null },
-      { key: 'events', label: 'events', href: '/tenant/events', icon: 'events', permission: 'event.view' },
       { key: 'profile', label: 'profile', href: '/profile', icon: 'profile', permission: null },
     ],
   },
@@ -26,6 +25,7 @@ export const platformNavigationGroups: NavigationGroup[] = [
     key: 'platform',
     label: 'navGroupPlatform',
     items: [
+      { key: 'events', label: 'events', href: '/tenant/events', icon: 'events', permission: 'event.view' },
       { key: 'tenants', label: 'tenants', href: '/platform/tenants', icon: 'tenants', permission: 'platform.tenant.view' },
       { key: 'platform-users', label: 'users', href: '/platform/users', icon: 'platform-users', permission: 'platform.user.view' },
       { key: 'organizer-requests', label: 'organizerRequests', href: '/platform/organizer-requests', icon: 'organizer-requests', permission: 'platform.user.manage' },

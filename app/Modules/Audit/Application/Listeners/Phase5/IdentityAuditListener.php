@@ -2,6 +2,7 @@
 
 namespace App\Modules\Audit\Application\Listeners\Phase5;
 
+use App\Models\User;
 use App\Modules\Audit\Contracts\AuditWriter;
 use App\Modules\IdentityVerification\Domain\Events\IdentityArtifactsPurged;
 use App\Modules\IdentityVerification\Domain\Events\IdentityConsentCaptured;
@@ -104,7 +105,7 @@ final readonly class IdentityAuditListener
             $event->tenantId,
             'identity_review.approved',
             'succeeded',
-            reasonCode: null,
+            $this->reviewerActor($event->reviewerId),
             targetType: 'identity_verification',
             targetId: $event->verificationId,
             metadata: ['event_id' => $event->eventId, 'attendee_id' => $event->attendeeId, 'reviewer_id' => $event->reviewerId],
@@ -118,11 +119,19 @@ final readonly class IdentityAuditListener
             $event->tenantId,
             'identity_review.rejected',
             'denied',
+            $this->reviewerActor($event->reviewerId),
             reasonCode: 'identity_rejected',
             targetType: 'identity_verification',
             targetId: $event->verificationId,
             metadata: ['event_id' => $event->eventId, 'attendee_id' => $event->attendeeId, 'reviewer_id' => $event->reviewerId, 'reason' => $event->reason],
         );
+    }
+
+    private function reviewerActor(string $reviewerId): ?User
+    {
+        $user = User::query()->find($reviewerId);
+
+        return $user instanceof User ? $user : null;
     }
 
     public function handleSensitiveDataViewed(IdentitySensitiveDataViewed $event): void

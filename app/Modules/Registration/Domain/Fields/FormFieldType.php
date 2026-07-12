@@ -10,9 +10,9 @@ enum FormFieldType: string
     case Select = 'select';
     case Number = 'number';
     case Date = 'date';
-    case Dropdown = 'dropdown';
     case MultiSelect = 'multi_select';
+    case Radio = 'radio';
     case Checkbox = 'checkbox';
-    case Hidden = 'hidden';
     case Consent = 'consent';
+    case Hidden = 'hidden';
 }

@@ -11,6 +11,7 @@ class FoundationException extends Exception
         public readonly int $status,
         public readonly string $title,
         string $detail,
+        public readonly array $meta = [],
     ) {
         parent::__construct($detail, 0);
     }

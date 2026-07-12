@@ -19,6 +19,7 @@ type CredentialRow = {
   id: string
   code: string
   attendee_id: string
+  attendee_label?: string | null
   status: string
   issued_at?: string | null
   expires_at?: string | null
@@ -38,6 +39,7 @@ export default function Credentials({ event, credentials }: Props) {
     const matchesSearch = search.trim() === ''
       || credential.code.toLowerCase().includes(search.trim().toLowerCase())
       || credential.attendee_id.toLowerCase().includes(search.trim().toLowerCase())
+      || (credential.attendee_label ?? '').toLowerCase().includes(search.trim().toLowerCase())
     const matchesStatus = statusFilter === '' || credential.status === statusFilter
 
     return matchesSearch && matchesStatus
@@ -113,7 +115,7 @@ export default function Credentials({ event, credentials }: Props) {
 
                   return (
                     <LocalizedLink href={`/tenant/events/${event.id}/attendees/${credential.attendee_id}`} className="text-sky-700 hover:underline">
-                      {credential.attendee_id.slice(-8)}
+                      {credential.attendee_label ?? credential.attendee_id}
                     </LocalizedLink>
                   )
                 },

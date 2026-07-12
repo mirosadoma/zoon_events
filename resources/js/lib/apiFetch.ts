@@ -32,6 +32,7 @@ export class ApiFetchError extends Error {
     public readonly status: number,
     public readonly code?: string,
     public readonly errors: Record<string, string> = {},
+    public readonly missing: string[] = [],
   ) {
     super(message)
     this.name = 'ApiFetchError'
@@ -61,11 +62,12 @@ export async function apiFetch<T = unknown>(
   const headers = new Headers(initHeaders)
 
   headers.set('Accept', 'application/json')
-  const resolvedBody = body && typeof body === 'object' && !(body instanceof FormData) && !(body instanceof URLSearchParams) && !(body instanceof Blob)
+  const isFormData = body instanceof FormData
+  const resolvedBody = body && typeof body === 'object' && !isFormData && !(body instanceof URLSearchParams) && !(body instanceof Blob)
     ? JSON.stringify(body)
     : body
 
-  if (!headers.has('Content-Type') && resolvedBody) {
+  if (!headers.has('Content-Type') && resolvedBody && !isFormData) {
     headers.set('Content-Type', 'application/json')
   }
   if (tenantId) {
@@ -75,7 +77,16 @@ export async function apiFetch<T = unknown>(
     headers.set('Idempotency-Key', randomUuid())
   }
 
-  const method = (rest.method ?? 'GET').toUpperCase()
+  let method = (rest.method ?? 'GET').toUpperCase()
+  let requestBody: BodyInit | undefined = resolvedBody ?? undefined
+
+  // PHP only parses multipart fields for POST; spoof PATCH/PUT via _method.
+  if (isFormData && (method === 'PATCH' || method === 'PUT')) {
+    body.append('_method', method)
+    method = 'POST'
+    requestBody = body
+  }
+
   const csrfToken = await ensureCsrfToken(method)
 
   if (csrfToken) {
@@ -86,7 +97,7 @@ export async function apiFetch<T = unknown>(
     credentials: 'include',
     ...rest,
     method,
-    body: resolvedBody ?? undefined,
+    body: requestBody,
     headers,
   })
 
@@ -94,7 +105,16 @@ export async function apiFetch<T = unknown>(
 
   if (!response.ok) {
     const detail = String(payload.detail ?? payload.message ?? payload.title ?? payload.code ?? 'Request failed')
-    throw new ApiFetchError(detail, response.status, typeof payload.code === 'string' ? payload.code : undefined, mapValidationErrors(payload))
+    const missing = Array.isArray(payload.missing)
+      ? payload.missing.map((item) => String(item)).filter(Boolean)
+      : []
+    throw new ApiFetchError(
+      detail,
+      response.status,
+      typeof payload.code === 'string' ? payload.code : undefined,
+      mapValidationErrors(payload),
+      missing,
+    )
   }
 
   return (payload.data ?? payload) as T

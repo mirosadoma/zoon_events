@@ -20,15 +20,27 @@ final class OrganizerRegistrationFormController extends Controller
         private readonly EventScope $events,
     ) {}
 
-    public function save(RegistrationFormWriteRequest $request, string $eventId, SaveFormDraft $action)
-    {
+    public function save(
+        RegistrationFormWriteRequest $request,
+        string $eventId,
+        SaveFormDraft $save,
+        PublishFormVersion $publish,
+    ) {
         $this->event($eventId);
         $data = $request->validated();
-        $version = $action->execute(
-            $this->contexts->current(),
+        $context = $this->contexts->current();
+        $version = $save->execute(
+            $context,
             $eventId,
             $data['name'],
             $data['fields'],
+            $data['privacy_notice_version'],
+            $data['terms_version'],
+        );
+        $version = $publish->execute(
+            $context,
+            $eventId,
+            $version,
             $data['privacy_notice_version'],
             $data['terms_version'],
         );

@@ -1,4 +1,6 @@
+import { clsx } from 'clsx'
 import { useId, type InputHTMLAttributes } from 'react'
+import { controlClassName } from '@/lib/formFieldStyles'
 
 type TextInputProps = InputHTMLAttributes<HTMLInputElement> & {
   label: string
@@ -21,7 +23,7 @@ export default function TextInput({ label, error, hint, id, required, wrapperCla
       </span>
       <input
         id={inputId}
-        className="control focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]/20"
+        className={controlClassName(error, 'control focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]/20')}
         aria-invalid={error ? 'true' : undefined}
         aria-describedby={[hint ? hintId : null, error ? errorId : null].filter(Boolean).join(' ') || undefined}
         required={required}
@@ -35,7 +37,7 @@ export default function TextInput({ label, error, hint, id, required, wrapperCla
 
 export function ValidationError({ id, message }: { id?: string; message: string }) {
   return (
-    <span id={id} role="alert" className="text-xs font-medium text-red-700 dark:text-red-300">
+    <span id={id} role="alert" className="text-xs font-medium text-red-700 dark:text-red-300 hidden">
       {message}
     </span>
   )

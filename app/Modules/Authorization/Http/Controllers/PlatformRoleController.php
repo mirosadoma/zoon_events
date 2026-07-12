@@ -110,6 +110,36 @@ class PlatformRoleController extends Controller
         return $this->success($this->mapRole($role->refresh()->load('permissions')));
     }
 
+    public function destroy(string $platform_role_id)
+    {
+        $role = PlatformRole::query()->findOrFail($platform_role_id);
+
+        if ($role->is_system) {
+            throw FoundationException::conflict('system_role_protected', 'System roles cannot be deleted.');
+        }
+
+        /** @var User $actor */
+        $actor = request()->user();
+
+        DB::transaction(function () use ($role, $actor): void {
+            $activeAssignments = DB::table('platform_role_assignments')
+                ->where('platform_role_id', $role->id)
+                ->whereNull('revoked_at')
+                ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+                ->exists();
+
+            if ($activeAssignments) {
+                throw FoundationException::conflict('role_in_use', 'A role with active assignments cannot be deleted.');
+            }
+
+            DB::table('platform_role_permissions')->where('platform_role_id', $role->id)->delete();
+            $role->delete();
+            $this->audit->writePlatform('role.deleted', 'succeeded', $actor, targetType: 'platform_role', targetId: $role->id);
+        });
+
+        return $this->empty();
+    }
+
     public function assign(Request $request)
     {
         $validated = $request->validate([

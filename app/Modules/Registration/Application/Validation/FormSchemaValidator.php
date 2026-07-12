@@ -2,7 +2,9 @@
 
 namespace App\Modules\Registration\Application\Validation;
 
+use App\Modules\Registration\Domain\Fields\FormFieldChoiceOptions;
 use App\Modules\Registration\Domain\Fields\FormFieldType;
+use App\Modules\Registration\Domain\Fields\RegistrationSystemFields;
 use InvalidArgumentException;
 
 final class FormSchemaValidator
@@ -21,6 +23,11 @@ final class FormSchemaValidator
         $seen = [];
         foreach ($fields as $position => $field) {
             $key = (string) ($field['key'] ?? '');
+            if (RegistrationSystemFields::isSystemKey($key)) {
+                $seen[$key] = $position;
+
+                continue;
+            }
             if (! preg_match('/^[a-z][a-z0-9_]{1,63}$/', $key) || in_array($key, self::RESERVED_KEYS, true) || isset($seen[$key])) {
                 throw new InvalidArgumentException('Registration form contains an invalid field key.');
             }
@@ -38,11 +45,12 @@ final class FormSchemaValidator
                 && $field['default'] !== null) {
                 throw new InvalidArgumentException('Server-owned field defaults must be scalar.');
             }
-            if (in_array($type, [FormFieldType::Select, FormFieldType::Dropdown, FormFieldType::MultiSelect], true)) {
+            if (in_array($type, [FormFieldType::Select, FormFieldType::MultiSelect, FormFieldType::Radio, FormFieldType::Checkbox], true)) {
                 $options = $field['options'] ?? [];
-                if (! is_array($options) || $options === [] || count($options) > 100) {
+                if (! is_array($options)) {
                     throw new InvalidArgumentException('Choice fields require bounded options.');
                 }
+                FormFieldChoiceOptions::validate($options);
             }
             $rules = $field['validation'] ?? [];
             if (! is_array($rules) || array_diff(array_keys($rules), ['min', 'max', 'max_length']) !== []) {
@@ -69,6 +77,15 @@ final class FormSchemaValidator
 
             $seen[$key] = $position;
         }
+
+        foreach ($fields as $position => $field) {
+            $key = (string) ($field['key'] ?? '');
+            if ($position >= count(RegistrationSystemFields::KEYS) && RegistrationSystemFields::isSystemKey($key)) {
+                throw new InvalidArgumentException('Registration form contains an invalid field key.');
+            }
+        }
+
+        RegistrationSystemFields::assertPresent($fields);
     }
 
     /** @param list<array<string,mixed>> $fields */

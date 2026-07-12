@@ -26,15 +26,23 @@ export default function NotificationDropdown() {
         <span className="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-orange-500" />
       </button>
       {open ? (
-        <div className="absolute end-0 z-50 mt-2 w-80 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4 shadow-xl">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-semibold">{messages.notifications}</p>
-            <span className="ta-badge ta-badge-neutral">0</span>
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-40 bg-black/20 sm:hidden"
+            aria-label={locale === 'ar' ? 'إغلاق الإشعارات' : 'Close notifications'}
+            onClick={() => setOpen(false)}
+          />
+          <div className="fixed inset-x-4 top-[3.75rem] z-50 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4 shadow-xl sm:absolute sm:inset-x-auto sm:top-full sm:mt-2 sm:w-80 sm:end-0">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold">{messages.notifications}</p>
+              <span className="ta-badge ta-badge-neutral">0</span>
+            </div>
+            <div className="mt-4 rounded-lg border border-dashed border-[var(--border)] p-4 text-center">
+              <p className="text-sm text-[var(--muted)]">{messages.notificationsEmpty}</p>
+            </div>
           </div>
-          <div className="mt-4 rounded-lg border border-dashed border-[var(--border)] p-4 text-center">
-            <p className="text-sm text-[var(--muted)]">{messages.notificationsEmpty}</p>
-          </div>
-        </div>
+        </>
       ) : null}
     </div>
   )

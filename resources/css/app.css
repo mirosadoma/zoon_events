@@ -52,7 +52,7 @@ body {
 }
 
 .ta-sidebar {
-  @apply flex h-screen max-h-screen flex-col overflow-hidden border-e border-[var(--border)] bg-[var(--sidebar)] px-4 py-5 lg:fixed lg:inset-y-0 lg:z-40 lg:w-[290px] transition-[width] duration-200;
+  @apply h-screen max-h-screen flex-col overflow-hidden border-e border-[var(--border)] bg-[var(--sidebar)] px-4 py-5 lg:fixed lg:inset-y-0 lg:z-40 lg:w-[290px] transition-[width] duration-200;
 }
 
 .ta-sidebar-scroll {
@@ -212,6 +212,42 @@ body {
   @apply min-h-10 w-full rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-[var(--ink)] placeholder:text-[var(--muted)];
 }
 
+.control.form-field-invalid,
+.form-field-invalid.control,
+.form-field-invalid > .control,
+.form-field-invalid.control input,
+.form-field-invalid input.control,
+.form-field-invalid textarea.control,
+.form-field-invalid select.control,
+.form-field-invalid button.control,
+.registration-field.form-field-invalid,
+.registration-field-select-panel.form-field-invalid,
+.registration-field.form-field-invalid input,
+.registration-field.form-field-invalid textarea,
+.registration-field.form-field-invalid select,
+.registration-select-control.form-field-invalid {
+  border-color: rgb(220 38 38);
+  box-shadow: 0 0 0 3px rgb(220 38 38 / 0.22);
+  animation: form-field-error-glow 1.6s ease-in-out infinite;
+}
+
+@keyframes form-field-error-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 3px rgb(220 38 38 / 0.22);
+  }
+
+  50% {
+    box-shadow: 0 0 0 5px rgb(220 38 38 / 0.38);
+  }
+}
+
+.form-field-invalid .registration-select-control,
+.form-field-invalid.registration-field-choice {
+  outline: 2px solid rgb(220 38 38 / 0.35);
+  outline-offset: 2px;
+  border-radius: var(--radius-control);
+}
+
 .button-primary {
   @apply inline-flex min-h-10 items-center justify-center rounded-[var(--radius-control)] bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50;
 }
@@ -298,11 +334,11 @@ body {
 }
 
 .ta-table td {
-  @apply border-t border-[var(--border)] px-4 py-3 align-middle;
+  @apply border-t border-[var(--border)] px-4 py-3 align-middle text-start;
 }
 
 .ta-table-actions {
-  @apply flex items-center justify-end gap-2 whitespace-nowrap;
+  @apply flex items-center justify-start gap-2 whitespace-nowrap;
 }
 
 .ta-table-action {
@@ -389,6 +425,106 @@ body {
   animation: landing-fade-in 0.7s ease both;
 }
 
+.error-page-shell {
+  @apply relative grid min-h-screen place-items-center overflow-hidden bg-[var(--surface)] p-6;
+}
+
+.error-page-shell::before,
+.error-page-shell::after {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(60px);
+}
+
+.error-page-shell::before {
+  inset-inline-start: -4rem;
+  top: 2rem;
+  height: 14rem;
+  width: 14rem;
+  background: color-mix(in srgb, var(--brand) 18%, transparent);
+}
+
+.error-page-shell::after {
+  inset-inline-end: -3rem;
+  bottom: 1rem;
+  height: 12rem;
+  width: 12rem;
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+}
+
+.error-page-card {
+  @apply relative z-10 w-full max-w-xl space-y-6 rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface-elevated)] p-8 text-center sm:p-10;
+  box-shadow: var(--card-shadow);
+}
+
+.error-page-illustration {
+  @apply mx-auto h-48 w-full max-w-sm;
+}
+
+.error-page-brand {
+  @apply text-sm font-semibold uppercase tracking-wider text-[var(--brand)];
+}
+
+.error-page-code {
+  @apply inline-flex min-h-9 min-w-9 items-center justify-center rounded-full bg-[var(--brand-soft)] px-3 text-sm font-bold text-[var(--brand)];
+}
+
+.error-page-title {
+  @apply text-3xl font-bold text-[var(--ink)];
+}
+
+.error-page-description {
+  @apply mx-auto max-w-md whitespace-pre-wrap text-[var(--muted)];
+}
+
+.error-page-card--auth .error-page-code {
+  @apply bg-[var(--brand-soft)] text-[var(--brand)];
+}
+
+.error-page-card--forbidden .error-page-code,
+.error-page-card--server .error-page-code {
+  background: color-mix(in srgb, var(--danger) 14%, var(--surface-elevated));
+  color: var(--danger);
+}
+
+.error-page-card--method .error-page-code {
+  background: color-mix(in srgb, var(--info) 14%, var(--surface-elevated));
+  color: var(--info);
+}
+
+.error-page-card--session .error-page-code,
+.error-page-card--rate .error-page-code {
+  background: color-mix(in srgb, var(--warning) 14%, var(--surface-elevated));
+  color: var(--warning);
+}
+
+.error-page-card--unavailable .error-page-code {
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface-elevated));
+  color: var(--danger);
+}
+
+.error-page-shell--auth::before,
+.error-page-shell--notfound::before {
+  background: color-mix(in srgb, var(--brand) 18%, transparent);
+}
+
+.error-page-shell--forbidden::before,
+.error-page-shell--server::before,
+.error-page-shell--unavailable::before {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+}
+
+.error-page-shell--method::before {
+  background: color-mix(in srgb, var(--info) 14%, transparent);
+}
+
+.error-page-shell--session::before,
+.error-page-shell--rate::before {
+  background: color-mix(in srgb, var(--warning) 14%, transparent);
+}
+
 .landing-slide-up {
   animation: landing-fade-in 0.9s ease both;
 }
@@ -438,14 +574,72 @@ body {
   padding: 2rem 1rem 3rem;
 }
 
+.registration-page-controls {
+  position: fixed;
+  top: 1rem;
+  inset-inline-end: 1rem;
+  z-index: 30;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.registration-page-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.5rem;
+  min-width: 2.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--surface-elevated) 92%, transparent);
+  color: var(--ink);
+  font-size: 0.75rem;
+  font-weight: 700;
+  box-shadow: 0 8px 24px color-mix(in srgb, #0f172a 10%, transparent);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.registration-page-control:hover {
+  border-color: color-mix(in srgb, var(--brand) 40%, var(--border));
+  background: var(--surface-elevated);
+}
+
+.registration-preview-banner {
+  margin-bottom: 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 35%, var(--border));
+  border-radius: 0.875rem;
+  background: color-mix(in srgb, var(--brand) 10%, var(--surface-elevated));
+  padding: 0.875rem 1rem;
+  font-size: 0.925rem;
+  font-weight: 600;
+  color: var(--brand);
+}
+
+.registration-invite-preview .registration-ticket-option:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.registration-invite-preview .registration-field input:disabled {
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
 .registration-invite-hero,
 .registration-invite-success {
   display: flex;
   justify-content: center;
 }
+.registration-agenda-shell .registration-invite-card {
+  width: 100%;
+}
 
 .registration-invite-card {
-  width: min(42rem, 100%);
+  width: 60%;
   border: 1px solid var(--border);
   border-radius: 1.5rem;
   background: var(--surface-elevated);
@@ -475,6 +669,34 @@ body {
   line-height: 1.15;
 }
 
+.registration-event-media {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.registration-event-main-image {
+  width: 100%;
+  max-height: 20rem;
+  object-fit: cover;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+}
+
+.registration-event-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.registration-event-gallery-image {
+  width: 5.5rem;
+  height: 5.5rem;
+  object-fit: cover;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+}
+
 .registration-invite-lead {
   margin-top: 0.75rem;
   color: var(--muted);
@@ -485,6 +707,25 @@ body {
   margin-top: 1rem;
   font-size: 0.95rem;
   color: var(--brand);
+}
+
+.registration-event-venues {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.registration-event-venue-pill {
+  margin: 0;
+  border: 1px solid color-mix(in srgb, var(--brand) 40%, var(--border));
+  border-radius: 999px;
+  padding: 0.85rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
 }
 
 .registration-ticket-picker {
@@ -543,24 +784,135 @@ body {
   margin-top: 2rem;
 }
 
+.registration-invite-form .registration-field-select-panel, .registration-invite-form .registration-choice-options {
+  border: 1px solid color-mix(in srgb, var(--brand) 28%, var(--border));
+  border-radius: 0.875rem;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--surface-elevated) 94%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #ffffff 6%, transparent);
+}
+
+.registration-venue-select {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.registration-venue-select-label,
+.registration-field > span,
+.registration-field-choice legend {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.registration-select-control {
+  width: 100%;
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--brand) 40%, var(--border));
+  border-radius: 0.75rem;
+  background-color: var(--surface-elevated);
+  color: var(--ink);
+  padding: 0.85rem 2.75rem 0.85rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.45;
+  color-scheme: light dark;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1rem;
+}
+
+.dark .registration-select-control {
+  color-scheme: dark;
+}
+
+.registration-select-control option {
+  background-color: var(--surface-elevated);
+  color: var(--ink);
+}
+
+[dir='rtl'] .registration-select-control {
+  padding: 0.85rem 1rem 0.85rem 2.75rem;
+  background-position: left 1rem center;
+}
+
+.registration-select-control:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--brand) 70%, #38bdf8);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 25%, transparent);
+}
+
+.registration-select-control:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.registration-select-control[multiple] {
+  min-height: 8rem;
+  padding-block: 0.65rem;
+  background-image: none;
+  padding-inline: 1rem;
+}
+
 .registration-field {
   display: grid;
   gap: 0.5rem;
 }
 
-.registration-field span {
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.registration-field input,
-.registration-field select,
+.registration-field input:not([type='checkbox']):not([type='radio']),
 .registration-field textarea {
   width: 100%;
   border: 1px solid var(--border);
   border-radius: 0.75rem;
-  background: var(--surface);
+  background: var(--surface-elevated);
+  color: var(--ink);
   padding: 0.75rem 0.9rem;
+}
+
+.registration-field-choice {
+  padding: 1rem;
+}
+
+.registration-field-choice legend {
+  margin-bottom: 0.5rem;
+}
+
+.registration-choice-options {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.registration-choice-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--surface);
+  font-size: 0.875rem;
+}
+
+.registration-choice-option input {
+  width: auto;
+  margin-top: 0.15rem;
+}
+
+.registration-field-required {
+  margin-inline-start: 0.25rem;
+  color: #dc2626;
+}
+
+.registration-field-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+
+.registration-field-checkbox input {
+  width: auto;
+  margin-top: 0.15rem;
 }
 
 .registration-consent {
@@ -620,6 +972,224 @@ body {
   padding: 0.75rem;
 }
 
+.registration-invite-agenda {
+  padding: 1.5rem 1rem 2.5rem;
+  background:
+    radial-gradient(circle at top, color-mix(in srgb, var(--brand) 14%, transparent), transparent 55%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-elevated) 88%, var(--brand-soft)) 0%, var(--surface) 100%);
+}
+
+.registration-agenda-shell {
+  width: min(60%, 56rem);
+  margin: 0 auto;
+}
+
+.registration-agenda-preview-banner {
+  margin-bottom: 1rem;
+}
+
+.registration-invite-agenda .registration-invite-hero {
+  display: block;
+}
+
+.registration-invite-agenda .registration-invite-card {
+  border-end-end-radius: 0;
+  border-end-start-radius: 0;
+  border-bottom: none;
+  box-shadow: none;
+}
+
+.registration-invite-agenda .registration-invite-schedule {
+  margin-top: 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--ink);
+}
+
+.registration-agenda-panel {
+  padding: 2rem 1.75rem 2.5rem;
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-top: 1px solid color-mix(in srgb, var(--border) 80%, var(--surface-elevated));
+  border-start-start-radius: 0;
+  border-start-end-radius: 0;
+  border-end-end-radius: 1.5rem;
+  border-end-start-radius: 1.5rem;
+  background:
+    radial-gradient(circle at top, color-mix(in srgb, var(--success) 10%, transparent), transparent 55%),
+    var(--surface-elevated);
+  box-shadow: 0 24px 60px color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.registration-agenda-title {
+  margin: 0 0 1.75rem;
+  text-align: center;
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+
+.registration-agenda-timeline {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.registration-agenda-timeline::before {
+  content: '';
+  position: absolute;
+  inset-block: 0.45rem 0.45rem;
+  inset-inline-start: 0.4375rem;
+  width: 2px;
+  background: color-mix(in srgb, var(--success) 72%, var(--brand));
+}
+
+.registration-agenda-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  column-gap: 1rem;
+  padding-bottom: 1.5rem;
+  text-align: start;
+}
+
+.registration-agenda-item:last-child {
+  padding-bottom: 0;
+}
+
+.registration-agenda-marker {
+  width: 0.75rem;
+  height: 0.75rem;
+  margin-top: 0.35rem;
+  border-radius: 999px;
+  background: var(--success);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 22%, transparent);
+  z-index: 1;
+}
+
+.registration-agenda-item-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+  min-width: 0;
+}
+
+.registration-agenda-time {
+  flex-shrink: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--brand) 78%, var(--info));
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.registration-agenda-label {
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.registration-agenda-empty {
+  margin: 0 0 2rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+.registration-agenda-register {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(100%, 22rem);
+  margin: 2rem auto 0;
+  min-height: 3.25rem;
+  padding: 0.85rem 1.5rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--success) 88%, #fff), var(--success));
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--success) 28%, transparent);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.registration-agenda-register:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 34px color-mix(in srgb, var(--success) 34%, transparent);
+}
+
+.dark .registration-invite-agenda {
+  background:
+    radial-gradient(circle at top, rgb(34 197 94 / 10%), transparent 55%),
+    linear-gradient(180deg, #0b1220 0%, #0f172a 100%);
+}
+
+.dark .registration-agenda-panel {
+  color: #f8fafc;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, #1e293b);
+  border-top: 1px solid color-mix(in srgb, #fff 8%, transparent);
+  background:
+    radial-gradient(circle at top, rgb(34 197 94 / 8%), transparent 55%),
+    linear-gradient(180deg, #111827 0%, #0f172a 100%);
+  box-shadow: 0 24px 60px color-mix(in srgb, #0f172a 35%, transparent);
+}
+
+.dark .registration-agenda-title {
+  color: #cbd5e1;
+}
+
+.dark .registration-agenda-timeline::before {
+  background: #84cc16;
+}
+
+.dark .registration-agenda-marker {
+  background: #84cc16;
+  box-shadow: 0 0 0 4px rgb(132 204 22 / 18%);
+}
+
+.dark .registration-agenda-time {
+  color: #67e8f9;
+}
+
+.dark .registration-agenda-label {
+  color: #f8fafc;
+}
+
+.dark .registration-agenda-empty {
+  color: #94a3b8;
+}
+
+.dark .registration-agenda-register {
+  background: #84cc16;
+  box-shadow: 0 12px 30px rgb(132 204 22 / 28%);
+}
+
+.dark .registration-agenda-register:hover {
+  box-shadow: 0 16px 34px rgb(132 204 22 / 34%);
+}
+
+@media (max-width: 640px) {
+  .registration-agenda-shell,
+  .registration-invite-card {
+    width: min(100%, 42rem);
+  }
+
+  .registration-agenda-panel {
+    padding: 1.5rem 1.25rem 2rem;
+  }
+
+  .registration-agenda-item-body {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+}
+
 .product-tour-overlay {
   position: fixed;
   inset: 0;
@@ -643,4 +1213,184 @@ body {
     0 12px 30px rgb(15 23 42 / 35%);
   pointer-events: auto;
   transition: top 0.2s ease, left 0.2s ease, width 0.2s ease, height 0.2s ease;
+}
+
+.map-picker-marker {
+  border: none !important;
+  background: transparent !important;
+}
+
+.map-picker-marker svg path {
+  fill: var(--brand);
+}
+
+.global-route-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(15 23 42 / 70%);
+  backdrop-filter: blur(4px);
+}
+
+:root:not(.dark) .global-route-loader {
+  background: rgb(248 250 252 / 70%);
+}
+
+.form-saving-scope {
+  position: relative;
+}
+
+.form-saving-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  background: rgb(15 23 42 / 70%);
+  backdrop-filter: blur(2px);
+}
+
+:root:not(.dark) .form-saving-overlay {
+  background: rgb(248 250 252 / 70%);
+}
+
+.scanner-workspace-grid {
+  @apply grid gap-4 lg:grid-cols-2 lg:items-stretch;
+}
+
+.scanner-camera-panel {
+  @apply w-full;
+}
+
+.scanner-camera-screen {
+  @apply relative aspect-[10/7] w-full overflow-hidden rounded-xl border border-[var(--border)] bg-black;
+}
+
+.scanner-camera-viewport {
+  @apply h-full w-full;
+}
+
+.scanner-camera-viewport video {
+  @apply h-full w-full object-cover;
+}
+
+.scanner-camera-overlay {
+  @apply absolute inset-0 z-10 flex items-center justify-center bg-black/85 p-6 text-center;
+}
+
+.scanner-camera-overlay p {
+  @apply max-w-xs text-sm font-medium text-white;
+}
+
+.scanner-entry-form {
+  @apply flex min-h-0 min-w-0 flex-col gap-4;
+}
+
+.scanner-entry-form__actions {
+  @apply mt-auto pt-2;
+}
+
+.scan-attendee-panel {
+  @apply overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4 shadow-[var(--card-shadow)];
+}
+
+.scan-attendee-panel--success {
+  border-inline-start: 4px solid var(--success);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--success) 10%, var(--surface-elevated)) 0%,
+    var(--surface-elevated) 55%
+  );
+}
+
+.scan-attendee-panel--warning {
+  border-inline-start: 4px solid var(--warning);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--warning) 10%, var(--surface-elevated)) 0%,
+    var(--surface-elevated) 55%
+  );
+}
+
+.scan-attendee-panel--danger {
+  border-inline-start: 4px solid var(--danger);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--danger) 10%, var(--surface-elevated)) 0%,
+    var(--surface-elevated) 55%
+  );
+}
+
+.scan-attendee-panel--info {
+  border-inline-start: 4px solid var(--info);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--info) 10%, var(--surface-elevated)) 0%,
+    var(--surface-elevated) 55%
+  );
+}
+
+.scan-attendee-panel__hero {
+  @apply flex items-start gap-3 border-b border-[var(--border)] pb-4;
+}
+
+.scan-attendee-panel__icon {
+  @apply mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full;
+}
+
+.scan-attendee-panel__icon--success {
+  background: color-mix(in srgb, var(--success) 16%, var(--surface-elevated));
+  color: var(--success);
+}
+
+.scan-attendee-panel__icon--warning {
+  background: color-mix(in srgb, var(--warning) 16%, var(--surface-elevated));
+  color: var(--warning);
+}
+
+.scan-attendee-panel__icon--danger {
+  background: color-mix(in srgb, var(--danger) 16%, var(--surface-elevated));
+  color: var(--danger);
+}
+
+.scan-attendee-panel__icon--info {
+  background: color-mix(in srgb, var(--info) 16%, var(--surface-elevated));
+  color: var(--info);
+}
+
+.scan-attendee-panel__eyebrow {
+  @apply text-xs font-semibold uppercase tracking-wide text-[var(--muted)];
+}
+
+.scan-attendee-panel__name {
+  @apply mt-1 truncate text-lg font-bold text-[var(--ink)];
+}
+
+.scan-attendee-panel__meta {
+  @apply mt-4 grid gap-3 sm:grid-cols-2;
+}
+
+.scan-attendee-panel__field {
+  @apply rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5;
+}
+
+.scan-attendee-panel__field--wide {
+  @apply sm:col-span-2;
+}
+
+.scan-attendee-panel__field dt {
+  @apply text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[var(--muted)];
+}
+
+.scan-attendee-panel__field dd {
+  @apply mt-1 text-sm font-semibold text-[var(--ink)];
+}
+
+.scan-attendee-panel__reason {
+  @apply font-medium text-[var(--ink)];
 }

@@ -1,16 +1,20 @@
-import { usePage } from '@inertiajs/react'
+import BrandedLoader from '@/components/loaders/BrandedLoader'
+import { useLocale } from '@/hooks/useLocale'
 
-export default function GlobalRouteLoader() {
-  const { component } = usePage()
-  const loading = component === undefined
+type GlobalRouteLoaderProps = {
+  active?: boolean
+}
 
-  if (!loading) {
+export default function GlobalRouteLoader({ active = false }: GlobalRouteLoaderProps) {
+  const { t } = useLocale()
+
+  if (!active) {
     return null
   }
 
   return (
-    <div className="fixed inset-x-0 top-0 z-50 h-1 overflow-hidden bg-[var(--brand-soft)]" role="status" aria-label="Loading page">
-      <div className="h-full w-1/3 animate-pulse rounded-e-full bg-[var(--brand)] shadow-[0_0_18px_var(--brand)]" />
+    <div className="global-route-loader" role="status" aria-live="polite" aria-busy="true" aria-label={t('loadingPage')}>
+      <BrandedLoader label={t('loadingPage')} />
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { Link, usePage } from '@inertiajs/react'
+import { useShellLayout } from '@/contexts/ShellLayoutContext'
 import {
   Activity,
   BadgeCheck,
@@ -82,6 +83,7 @@ export default function SidebarNavLink({
   eventContext = false,
 }: SidebarNavLinkProps) {
   const { url } = usePage()
+  const { closeMobileSidebar } = useShellLayout()
   const path = stripLocalePrefix(url.split('?')[0] ?? url)
   const href = localizedPath(locale, item.href)
   const itemPath = stripLocalePrefix(item.href)
@@ -94,6 +96,7 @@ export default function SidebarNavLink({
   return (
     <Link
       href={href}
+      onClick={closeMobileSidebar}
       className={clsx(
         'ta-nav-link flex items-center gap-2',
         active && 'ta-nav-link-active',

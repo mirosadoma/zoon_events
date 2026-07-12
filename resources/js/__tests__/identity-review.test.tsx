@@ -6,8 +6,9 @@ vi.mock('@/layouts/DashboardLayout', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
 
-const { reloadMock } = vi.hoisted(() => ({
+const { reloadMock, apiFetchMock } = vi.hoisted(() => ({
   reloadMock: vi.fn(),
+  apiFetchMock: vi.fn(),
 }))
 
 vi.mock('@inertiajs/react', () => ({
@@ -27,15 +28,23 @@ vi.mock('@/components/layout/PermissionGate', () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
+vi.mock('@/lib/apiFetch', () => ({
+  apiFetch: apiFetchMock,
+  ApiFetchError: class ApiFetchError extends Error {
+    constructor(message: string) {
+      super(message)
+      this.name = 'ApiFetchError'
+    }
+  },
+}))
+
 describe('identity review queue page', () => {
   beforeEach(() => {
-    vi.stubGlobal('fetch', vi.fn())
-    vi.stubGlobal('crypto', { randomUUID: () => 'identity-review-idempotency' })
+    apiFetchMock.mockReset()
     reloadMock.mockReset()
   })
 
   afterEach(() => {
-    vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
 
@@ -66,10 +75,7 @@ describe('identity review queue page', () => {
   })
 
   it('opens reason modal on reject and posts review decision', async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      ok: true,
-      json: async () => ({ data: { status: 'rejected' } }),
-    } as Response)
+    apiFetchMock.mockResolvedValue({ status: 'rejected' })
 
     render(
       <IdentityReviewQueuePage
@@ -81,13 +87,18 @@ describe('identity review queue page', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'identityReviewReject' }))
-    fireEvent.change(screen.getByLabelText('reasonRequired'), { target: { value: 'blurry capture' } })
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'blurry capture' } })
     fireEvent.click(screen.getAllByRole('button', { name: 'identityReviewReject' })[1])
 
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith(
+      expect(apiFetchMock).toHaveBeenCalledWith(
         '/api/v1/tenant/events/evt_1/identity/verifications/ver_1/review',
-        expect.objectContaining({ method: 'POST' }),
+        expect.objectContaining({
+          method: 'POST',
+          tenantId: 'ten_1',
+          idempotency: true,
+          body: { decision: 'reject', reason: 'blurry capture' },
+        }),
       )
     })
   })

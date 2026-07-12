@@ -3,12 +3,14 @@
 namespace App\Modules\Registration\Application\Submission;
 
 use App\Modules\Registration\Contracts\SubmissionCreator;
+use App\Modules\Registration\Domain\Fields\FormFieldChoiceOptions;
 use App\Modules\Registration\Domain\Fields\FormFieldType;
 use App\Modules\Registration\Domain\SubmissionRecord;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationFormVersion;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationSubmission;
 use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
-use InvalidArgumentException;
+use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 
 final readonly class EncryptedSubmissionCreator implements SubmissionCreator
 {
@@ -21,7 +23,9 @@ final readonly class EncryptedSubmissionCreator implements SubmissionCreator
             || $consent['terms'] !== true
             || $consent['privacy'] !== true
             || ! is_bool($consent['marketing'])) {
-            throw new InvalidArgumentException('Consent choices must be explicit and complete.');
+            throw ValidationException::withMessages([
+                'consents.terms' => ['You must accept the terms and privacy notice.'],
+            ]);
         }
         $form = RegistrationFormVersion::query()
             ->where('tenant_id', $tenantId)
@@ -32,18 +36,15 @@ final readonly class EncryptedSubmissionCreator implements SubmissionCreator
             fn (array $field): bool => ($field['visibility'] ?? 'public') === 'public'
                 && ($field['type'] ?? '') !== FormFieldType::Hidden->value,
         )->values();
-        $activeFields = $clientFields->filter(fn (array $field): bool => $this->conditionMatches($field, $answers));
-        $allowed = $activeFields->pluck('key')->all();
-        if (array_diff(array_keys($answers), $allowed) !== [] || array_diff($allowed, array_keys($answers)) !== []) {
-            throw new InvalidArgumentException('Answers must match the exact published registration form.');
-        }
-        foreach ($activeFields as $field) {
-            $this->validateValue($field, $answers[$field['key']] ?? null);
-        }
+        $answers = $this->validateAnswers($clientFields, $answers);
         $storedAnswers = [];
+        $activeKeys = $clientFields
+            ->filter(fn (array $field): bool => $this->conditionMatches($field, $answers))
+            ->pluck('key')
+            ->all();
         foreach ($form->fields as $field) {
             $key = $field['key'];
-            $storedAnswers[$key] = in_array($key, $allowed, true)
+            $storedAnswers[$key] = in_array($key, $activeKeys, true)
                 ? $answers[$key]
                 : ($field['default'] ?? null);
         }
@@ -89,38 +90,96 @@ final readonly class EncryptedSubmissionCreator implements SubmissionCreator
         };
     }
 
+    /** @param Collection<int, array<string,mixed>> $fields @param array<string,mixed> $answers */
+    private function validateAnswers(Collection $fields, array $answers): array
+    {
+        $allowedKeys = $fields->pluck('key')->all();
+        $unknownKeys = array_diff(array_keys($answers), $allowedKeys);
+        $errors = [];
+
+        foreach ($unknownKeys as $key) {
+            $errors["answers.{$key}"] = ['This field is not accepted.'];
+        }
+
+        $normalized = [];
+        foreach ($fields as $field) {
+            if (! $this->conditionMatches($field, $answers)) {
+                continue;
+            }
+
+            $key = (string) $field['key'];
+            $value = array_key_exists($key, $answers) ? $answers[$key] : null;
+            $message = $this->validateValue($field, $value);
+
+            if ($message !== null) {
+                $errors["answers.{$key}"] = [$message];
+                continue;
+            }
+
+            if ($value !== null && $value !== '' && $value !== []) {
+                $normalized[$key] = $value;
+            } elseif (($field['required'] ?? false) === false) {
+                $normalized[$key] = $value;
+            }
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        return $normalized;
+    }
+
     /** @param array<string,mixed> $field */
-    private function validateValue(array $field, mixed $value): void
+    private function validateValue(array $field, mixed $value): ?string
     {
         if (($field['required'] ?? false) && ($value === null || $value === '' || $value === [] || $value === false)) {
-            throw new InvalidArgumentException('A required registration answer is missing.');
+            return 'is required.';
         }
+
         if ($value === null || $value === '') {
-            return;
+            return null;
         }
+
         $type = FormFieldType::from($field['type']);
         $valid = match ($type) {
             FormFieldType::Text => is_string($value),
             FormFieldType::Email => is_string($value) && filter_var($value, FILTER_VALIDATE_EMAIL) !== false,
             FormFieldType::Phone => is_string($value) && preg_match('/^\+?[0-9]{8,15}$/', $value) === 1,
-            FormFieldType::Number => is_int($value) || is_float($value),
+            FormFieldType::Number => is_int($value) || is_float($value) || (is_string($value) && is_numeric($value)),
             FormFieldType::Date => is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) === 1,
-            FormFieldType::Select, FormFieldType::Dropdown => in_array($value, (array) ($field['options'] ?? []), true),
-            FormFieldType::MultiSelect => is_array($value) && array_diff($value, (array) ($field['options'] ?? [])) === [],
-            FormFieldType::Checkbox, FormFieldType::Consent => is_bool($value),
+            FormFieldType::Select, FormFieldType::Radio => in_array(
+                $value,
+                FormFieldChoiceOptions::values((array) ($field['options'] ?? [])),
+                true,
+            ),
+            FormFieldType::MultiSelect, FormFieldType::Checkbox => is_array($value) && array_diff(
+                $value,
+                FormFieldChoiceOptions::values((array) ($field['options'] ?? [])),
+            ) === [],
+            FormFieldType::Consent => is_bool($value),
             FormFieldType::Hidden => false,
         };
+
         if (! $valid) {
-            throw new InvalidArgumentException('A registration answer has an invalid value.');
+            return match ($type) {
+                FormFieldType::Email => 'must be a valid email address.',
+                FormFieldType::Phone => 'must be a valid phone number.',
+                default => 'is invalid.',
+            };
         }
+
         $rules = (array) ($field['validation'] ?? []);
         if (is_string($value) && mb_strlen($value) > (int) ($rules['max_length'] ?? 5000)) {
-            throw new InvalidArgumentException('A registration answer exceeds its maximum length.');
+            return 'exceeds its maximum length.';
         }
-        if ((is_int($value) || is_float($value))
-            && ((isset($rules['min']) && $value < $rules['min'])
-                || (isset($rules['max']) && $value > $rules['max']))) {
-            throw new InvalidArgumentException('A registration answer is outside its numeric bounds.');
+
+        if ((is_int($value) || is_float($value) || (is_string($value) && is_numeric($value)))
+            && ((isset($rules['min']) && (float) $value < (float) $rules['min'])
+                || (isset($rules['max']) && (float) $value > (float) $rules['max']))) {
+            return 'is outside its allowed range.';
         }
+
+        return null;
     }
 }

@@ -25,7 +25,7 @@ export default function CheckInDashboard({
   initialSummary = null,
   pollIntervalMs = CHECK_IN_SUMMARY_POLL_INTERVAL_MS,
 }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const [summary, setSummary] = useState<CheckInSummaryView | null>(initialSummary)
   const [loading, setLoading] = useState(initialSummary === null)
   const [error, setError] = useState<string | null>(null)
@@ -98,7 +98,7 @@ export default function CheckInDashboard({
         )}
       />
       <PageContent>
-        {loading ? <p role="status">{locale === 'ar' ? 'جارٍ التحميل…' : 'Loading…'}</p> : null}
+        {loading ? <p role="status">{t('loading')}</p> : null}
         {error ? <ErrorState title={error} /> : null}
         {!loading && !error && summary !== null && isEmpty ? (
           <EmptyState

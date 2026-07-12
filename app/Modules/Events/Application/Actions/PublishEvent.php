@@ -28,12 +28,18 @@ final readonly class PublishEvent
                 ->lockForUpdate()
                 ->findOrFail($event->id);
             $snapshot = [
-                ...$event->only(['name_en', 'name_ar', 'timezone', 'start_at', 'end_at', 'registration_opens_at', 'registration_closes_at', 'active_form_version_id']),
+                ...$event->only(['name_en', 'name_ar', 'timezone', 'start_at', 'end_at', 'registration_opens_at', 'registration_closes_at', 'active_form_version_id', 'main_image_path']),
                 'active_ticket_types' => $this->tickets->countForEvent($context->tenant->id, $event->id),
                 'branding_active' => $event->branding()->where('status', 'active')->exists(),
             ];
-            if (! EventStatus::from($event->status)->canTransitionTo(EventStatus::Published) || ! $this->readiness->isReady($snapshot)) {
+            if (! EventStatus::from($event->status)->canTransitionTo(EventStatus::Published)) {
                 throw Phase1Problem::make('event_not_publishable');
+            }
+
+            $missing = $this->readiness->missing($snapshot);
+
+            if ($missing !== []) {
+                throw Phase1Problem::eventNotPublishable($missing);
             }
             $event->forceFill([
                 'status' => 'published',

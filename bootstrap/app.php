@@ -17,6 +17,7 @@ use App\Modules\Shared\Http\Middleware\RedirectToLocalizedUrl;
 use App\Modules\Shared\Http\Middleware\RequireIdempotencyKey;
 use App\Modules\Shared\Http\Middleware\ResolveLocale;
 use App\Modules\Shared\Http\Middleware\SecurityHeaders;
+use App\Modules\Shared\Http\Inertia\InertiaErrorRenderer;
 use App\Modules\Shared\Http\Problems\FoundationProblemRenderer;
 use App\Modules\Tenancy\Http\Middleware\ClearTenantContext;
 use App\Modules\Tenancy\Http\Middleware\ResolveTenantContext;
@@ -45,6 +46,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
+            'bindings' => SubstituteBindings::class,
             'request.context' => AssignRequestContext::class,
             'locale' => ResolveLocale::class,
             'tenant.context' => ResolveTenantContext::class,
@@ -70,7 +72,10 @@ return Application::configure(basePath: dirname(__DIR__))
             RecordRequestTelemetry::class,
         ]);
         $middleware->web(append: [HandleInertiaRequests::class, EnsureSiteIsAvailable::class]);
-        $middleware->api(prepend: [EnsureFrontendRequestsAreStateful::class]);
+        $middleware->api(
+            prepend: [EnsureFrontendRequestsAreStateful::class],
+            remove: [SubstituteBindings::class],
+        );
 
         $middleware->priority([
             AssignRequestContext::class,
@@ -87,11 +92,11 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (Throwable $throwable, Request $request) {
-            if (! $request->expectsJson() && ! str_starts_with($request->path(), 'api/')) {
-                return null;
+            if ($request->expectsJson() || str_starts_with($request->path(), 'api/')) {
+                return app(FoundationProblemRenderer::class)->render($throwable, $request);
             }
 
-            return app(FoundationProblemRenderer::class)->render($throwable, $request);
+            return app(InertiaErrorRenderer::class)->render($throwable, $request);
         });
     })
     ->create();

@@ -55,15 +55,18 @@ final readonly class ReviewVerificationAction
                     ),
                 ])->save();
 
-                event(new IdentityReviewApproved(
-                    tenantId: (string) $context->tenant->id,
-                    eventId: $eventId,
-                    attendeeId: (string) $verification->attendee_id,
-                    verificationId: (string) $verification->id,
-                    reviewerId: (string) $context->actor->id,
-                ));
+                $approved = $verification->refresh();
+                DB::afterCommit(function () use ($context, $eventId, $approved): void {
+                    event(new IdentityReviewApproved(
+                        tenantId: (string) $context->tenant->id,
+                        eventId: $eventId,
+                        attendeeId: (string) $approved->attendee_id,
+                        verificationId: (string) $approved->id,
+                        reviewerId: (string) $context->actor->id,
+                    ));
+                });
 
-                return $verification->refresh();
+                return $approved;
             }
 
             $verification->forceFill([
@@ -74,16 +77,19 @@ final readonly class ReviewVerificationAction
                 'verified_at' => null,
             ])->save();
 
-            event(new IdentityReviewRejected(
-                tenantId: (string) $context->tenant->id,
-                eventId: $eventId,
-                attendeeId: (string) $verification->attendee_id,
-                verificationId: (string) $verification->id,
-                reviewerId: (string) $context->actor->id,
-                reason: trim((string) $reason),
-            ));
+            $rejected = $verification->refresh();
+            DB::afterCommit(function () use ($context, $eventId, $rejected, $reason): void {
+                event(new IdentityReviewRejected(
+                    tenantId: (string) $context->tenant->id,
+                    eventId: $eventId,
+                    attendeeId: (string) $rejected->attendee_id,
+                    verificationId: (string) $rejected->id,
+                    reviewerId: (string) $context->actor->id,
+                    reason: trim((string) $reason),
+                ));
+            });
 
-            return $verification->refresh();
+            return $rejected;
         });
     }
 }

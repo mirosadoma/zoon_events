@@ -10,11 +10,18 @@ use App\Modules\AdminConsole\ViewModels\Events\EventDashboardViewModel;
 use App\Modules\AdminConsole\ViewModels\Events\EventSetupReferenceData;
 use App\Modules\AdminConsole\ViewModels\Events\EventSetupViewModel;
 use App\Modules\Authorization\Application\PermissionEvaluator;
+use App\Modules\Events\Application\Support\EventMediaPresenter;
+use App\Modules\Events\Application\Support\PublicRegistrationEventPresenter;
+use App\Modules\Events\Application\Support\ResolvesEventOrganizer;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventAgendaItem;
 use App\Modules\IdentityVerification\Application\Actions\ViewIdentityDataAction;
 use App\Modules\IdentityVerification\Application\Queries\PendingReviewQueue;
 use App\Modules\IdentityVerification\Infrastructure\Persistence\Models\IdentityVerification;
 use App\Modules\IdentityVerification\Infrastructure\Persistence\Models\IdentityVerificationRequirement;
+use App\Modules\Registration\Application\Support\RegistrationFieldPresenter;
+use App\Modules\Registration\Domain\Fields\RegistrationSystemFields;
+use App\Modules\Registration\Application\Queries\ResolvePublishedRegistrationForm;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationForm;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationFormVersion;
 use App\Modules\Tenancy\Domain\Context\TenantContext;
@@ -34,6 +41,11 @@ final class EventDashboardController extends Controller
         private readonly EventDashboardViewModel $events,
         private readonly EventSetupViewModel $setup,
         private readonly EventSetupReferenceData $references,
+        private readonly ResolvesEventOrganizer $organizers,
+        private readonly EventMediaPresenter $media,
+        private readonly PublicRegistrationEventPresenter $eventPages,
+        private readonly RegistrationFieldPresenter $registrationFields,
+        private readonly ResolvePublishedRegistrationForm $publishedForms,
     ) {}
 
     public function index(): Response
@@ -69,6 +81,9 @@ final class EventDashboardController extends Controller
                 'capacity' => null,
                 'brand_reference' => null,
                 'domain_reference' => null,
+                'organizer_user_id' => null,
+                'main_image' => null,
+                'images' => [],
                 'venues' => [],
                 'readiness' => ['Save the event before publishing.'],
             ],
@@ -77,6 +92,7 @@ final class EventDashboardController extends Controller
                 'publish' => false,
             ],
             ...$this->references->toArray(),
+            ...$this->organizerSetup($context),
         ]);
     }
 
@@ -103,6 +119,7 @@ final class EventDashboardController extends Controller
             ),
             'tenantId' => (string) $context->tenant->id,
             ...$this->references->toArray(),
+            ...$this->organizerSetup($context),
         ]);
     }
 
@@ -116,6 +133,33 @@ final class EventDashboardController extends Controller
             'event' => $this->events->detail($event)['event'],
             'tenantId' => (string) $context->tenant->id,
             ...$formState,
+        ]);
+    }
+
+    public function agenda(string $eventId): Response
+    {
+        $context = $this->authorizeTenant('event.manage');
+        $event = $this->event($context, $eventId);
+        $items = EventAgendaItem::query()
+            ->where('tenant_id', $context->tenant->id)
+            ->where('event_id', $event->id)
+            ->orderBy('sort_order')
+            ->orderBy('start_at')
+            ->get()
+            ->map(fn (EventAgendaItem $item): array => [
+                'id' => (string) $item->id,
+                'title_en' => $item->title_en,
+                'title_ar' => $item->title_ar,
+                'start_at' => $item->start_at?->toIso8601String(),
+                'end_at' => $item->end_at?->toIso8601String(),
+            ])
+            ->values()
+            ->all();
+
+        return Inertia::render('tenant/events/Agenda', [
+            'event' => $this->events->detail($event)['event'],
+            'tenantId' => (string) $context->tenant->id,
+            'items' => $items,
         ]);
     }
 
@@ -213,15 +257,12 @@ final class EventDashboardController extends Controller
         $version = RegistrationFormVersion::query()
             ->where('tenant_id', $context->tenant->id)
             ->where('event_id', $event->id)
-            ->where('status', 'draft')
-            ->latest('version')
+            ->whereIn('status', ['draft', 'published'])
+            ->orderByDesc('version')
             ->first();
 
-        if ($version === null && $event->active_form_version_id !== null) {
-            $version = RegistrationFormVersion::query()
-                ->where('tenant_id', $context->tenant->id)
-                ->where('event_id', $event->id)
-                ->find($event->active_form_version_id);
+        if ($version === null) {
+            $version = $this->publishedForms->forEvent($event);
         }
 
         $ticketTypes = TicketType::query()
@@ -240,29 +281,54 @@ final class EventDashboardController extends Controller
             ->values()
             ->all();
 
+        $rawFields = is_array($version->fields) ? $version->fields : [];
+        $previewFields = collect($rawFields)
+            ->filter(fn (mixed $field): bool => is_array($field)
+                && ($field['visibility'] ?? 'public') === 'public'
+                && ($field['type'] ?? '') !== 'hidden')
+            ->map(fn (array $field, int $index): array => $this->registrationFields->clientField($field, $index))
+            ->values()
+            ->all();
+
         return Inertia::render('public/registration/Event', [
             'locale' => app()->getLocale() === 'ar' ? 'ar' : 'en',
             'tenantId' => (string) $context->tenant->id,
             'event' => [
+                ...$this->eventPages->heroEvent($event, true),
                 'id' => $event->id,
-                'slug' => $event->slug,
-                'name' => ['en' => $event->name_en, 'ar' => $event->name_ar],
-                'description' => ['en' => $event->description_en ?? '', 'ar' => $event->description_ar ?? ''],
-                'start_at' => $event->start_at?->toIso8601String(),
-                'end_at' => $event->end_at?->toIso8601String(),
-                'branding' => [
-                    'brand_reference' => $event->branding()->value('brand_reference'),
-                    'domain_reference' => $event->branding()->value('domain_reference'),
-                ],
             ],
             'form' => [
-                'version_id' => $version?->id !== null ? (string) $version->id : null,
-                'fields' => $formState['fields'],
+                'version_id' => (string) $version->id,
+                'fields' => $previewFields,
                 'privacy_notice_version' => $formState['privacyNoticeVersion'],
                 'terms_version' => $formState['termsVersion'],
             ],
             'ticketTypes' => $ticketTypes,
             'isPreview' => true,
+        ]);
+    }
+
+    public function agendaPreview(string $eventId): Response
+    {
+        $context = $this->authorizeTenant('event.view');
+        $event = $this->event($context, $eventId);
+        $event->loadMissing('agendaItems');
+        $locale = app()->getLocale() === 'ar' ? 'ar' : 'en';
+
+        return Inertia::render('public/registration/Agenda', [
+            'locale' => $locale,
+            'isPreview' => true,
+            'event' => $this->eventPages->heroEvent($event),
+            'items' => $event->agendaItems
+                ->map(fn (EventAgendaItem $item): array => [
+                    'id' => (string) $item->id,
+                    'title' => ['en' => $item->title_en, 'ar' => $item->title_ar],
+                    'start_at' => $item->start_at?->toIso8601String(),
+                    'end_at' => $item->end_at?->toIso8601String(),
+                ])
+                ->values()
+                ->all(),
+            'registerUrl' => "/tenant/events/{$event->id}/registration-preview",
         ]);
     }
 
@@ -315,12 +381,26 @@ final class EventDashboardController extends Controller
         return $context;
     }
 
+    /** @return array{requiresOrganizerSelection:bool,organizerCandidates:list<array{id:string,name:string,email:string}>} */
+    private function organizerSetup(TenantContext $context): array
+    {
+        $requiresOrganizerSelection = $this->organizers->requiresSelection($context);
+
+        return [
+            'requiresOrganizerSelection' => $requiresOrganizerSelection,
+            'organizerCandidates' => $requiresOrganizerSelection
+                ? $this->organizers->candidates($context->tenant->id)
+                : [],
+        ];
+    }
+
     /**
      * @return array{
      *     formName: string,
      *     privacyNoticeVersion: string,
      *     termsVersion: string,
-     *     fields: list<array{key:string,type:string,label_en:string,label_ar:string,required:bool}>
+     *     fields: list<array<string,mixed>>,
+     *     hasUnpublishedChanges: bool
      * }
      */
     private function registrationFormState(string $tenantId, Event $event): array
@@ -333,36 +413,35 @@ final class EventDashboardController extends Controller
         $version = RegistrationFormVersion::query()
             ->where('tenant_id', $tenantId)
             ->where('event_id', $event->id)
-            ->where('status', 'draft')
-            ->latest('version')
+            ->whereIn('status', ['draft', 'published'])
+            ->orderByDesc('version')
             ->first();
 
-        if ($version === null && $event->active_form_version_id !== null) {
-            $version = RegistrationFormVersion::query()
+        $publishedVersion = $event->active_form_version_id !== null
+            ? RegistrationFormVersion::query()
                 ->where('tenant_id', $tenantId)
                 ->where('event_id', $event->id)
-                ->find($event->active_form_version_id);
-        }
+                ->find($event->active_form_version_id)
+            : null;
 
-        $rawFields = is_array($version?->fields) ? $version->fields : [];
+        $rawFields = RegistrationSystemFields::enforce(is_array($version?->fields) ? $version->fields : []);
 
         $fields = collect($rawFields)->map(function (mixed $field, int $index): array {
             $row = is_array($field) ? $field : [];
 
-            return [
-                'key' => (string) ($row['key'] ?? "field_{$index}"),
-                'type' => (string) ($row['type'] ?? 'text'),
-                'label_en' => (string) ($row['label_en'] ?? ''),
-                'label_ar' => (string) ($row['label_ar'] ?? ''),
-                'required' => (bool) ($row['required'] ?? false),
-            ];
+            return $this->registrationFields->builderField($row, $index);
         })->values()->all();
+
+        $hasUnpublishedChanges = $version !== null
+            && $version->status === 'draft'
+            && ($publishedVersion === null || (int) $version->version > (int) $publishedVersion->version);
 
         return [
             'formName' => $form?->name ?? 'Registration form',
             'privacyNoticeVersion' => (string) ($version?->privacy_notice_version ?? 'v1'),
             'termsVersion' => (string) ($version?->terms_version ?? 'v1'),
             'fields' => $fields,
+            'hasUnpublishedChanges' => $hasUnpublishedChanges,
         ];
     }
 }

@@ -3,6 +3,7 @@ import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { DetailsCard } from '@/components/feedback'
+import PublishReadinessList from '@/components/events/PublishReadinessList'
 import { PageContent, PageHeader } from '@/components/layout'
 import PermissionGate from '@/components/layout/PermissionGate'
 import ConfirmModal from '@/components/modals/ConfirmModal'
@@ -20,6 +21,7 @@ type EventRow = {
   start_at?: string | null
   end_at?: string | null
   capacity?: number | null
+  readiness?: string[]
 }
 
 type Props = {
@@ -34,9 +36,14 @@ export default function EventDetail({ event, tabs, tenantId }: Props) {
   const [publishOpen, setPublishOpen] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [submitting, setSubmitting] = useState<'publish' | 'cancel' | null>(null)
+  const [publishMissing, setPublishMissing] = useState<string[]>(event.readiness ?? [])
+
+  const readinessItems = publishMissing.length > 0 ? publishMissing : (event.readiness ?? [])
+  const canPublishNow = readinessItems.length === 0
 
   async function runStatusAction(action: 'publish' | 'cancel') {
     setSubmitting(action)
+
     try {
       await apiFetch(`/api/v1/tenant/events/${event.id}/${action}`, {
         method: 'POST',
@@ -51,8 +58,13 @@ export default function EventDetail({ event, tabs, tenantId }: Props) {
       )
       setPublishOpen(false)
       setCancelOpen(false)
+      setPublishMissing([])
       router.reload({ only: ['event'] })
     } catch (error) {
+      if (action === 'publish' && error instanceof ApiFetchError && error.missing.length > 0) {
+        setPublishMissing(error.missing)
+      }
+
       toast(
         error instanceof ApiFetchError
           ? error.message
@@ -64,6 +76,11 @@ export default function EventDetail({ event, tabs, tenantId }: Props) {
     } finally {
       setSubmitting(null)
     }
+  }
+
+  function openPublishModal() {
+    setPublishMissing(event.readiness ?? [])
+    setPublishOpen(true)
   }
 
   return (
@@ -78,9 +95,12 @@ export default function EventDetail({ event, tabs, tenantId }: Props) {
         ]}
         actions={(
           <div className="flex flex-wrap gap-2">
+            <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/agenda-preview`} target="_blank" rel="noreferrer">
+              {locale === 'ar' ? 'معاينة' : 'Preview'}
+            </LocalizedLink>
             <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/edit`}>{locale === 'ar' ? 'تعديل' : 'Edit'}</LocalizedLink>
             <PermissionGate permission="event.publish">
-              <button type="button" className="button-primary" onClick={() => setPublishOpen(true)}>{locale === 'ar' ? 'نشر' : 'Publish'}</button>
+              <button type="button" className="button-primary" onClick={openPublishModal}>{locale === 'ar' ? 'نشر' : 'Publish'}</button>
             </PermissionGate>
             <PermissionGate permission="event.cancel">
               <button type="button" className="button-secondary" onClick={() => setCancelOpen(true)}>{locale === 'ar' ? 'إلغاء' : 'Cancel'}</button>
@@ -101,6 +121,15 @@ export default function EventDetail({ event, tabs, tenantId }: Props) {
           ]}
         />
 
+        {(event.readiness ?? []).length > 0 ? (
+          <PublishReadinessList
+            className="state-panel mt-6"
+            items={event.readiness ?? []}
+            eventId={event.id}
+            title={locale === 'ar' ? 'جاهزية النشر' : 'Publication readiness'}
+          />
+        ) : null}
+
         <section className="state-panel">
           <h2 className="text-lg font-semibold">{locale === 'ar' ? 'أقسام الفعالية' : 'Event sections'}</h2>
           <div className="mt-4 flex flex-wrap gap-2">
@@ -114,12 +143,24 @@ export default function EventDetail({ event, tabs, tenantId }: Props) {
       <ConfirmModal
         open={publishOpen}
         title={locale === 'ar' ? 'نشر الفعالية' : 'Publish event'}
-        message={locale === 'ar' ? 'سيتم نشر الفعالية للمشتركين.' : 'This will publish the event for attendees.'}
+        message={
+          canPublishNow
+            ? (locale === 'ar' ? 'سيتم نشر الفعالية للمشتركين.' : 'This will publish the event for attendees.')
+            : (locale === 'ar'
+              ? 'لا يمكن نشر الفعالية حتى تكتمل المتطلبات التالية:'
+              : 'The event cannot be published until the following requirements are completed:')
+        }
         confirmLabel={locale === 'ar' ? 'نشر' : 'Publish'}
+        cancelLabel={locale === 'ar' ? 'إغلاق' : 'Close'}
         loading={submitting !== null}
+        confirmDisabled={!canPublishNow}
         onConfirm={() => void runStatusAction('publish')}
         onCancel={() => setPublishOpen(false)}
-      />
+      >
+        {!canPublishNow ? (
+          <PublishReadinessList items={readinessItems} eventId={event.id} />
+        ) : null}
+      </ConfirmModal>
       <ConfirmModal
         open={cancelOpen}
         title={locale === 'ar' ? 'إلغاء الفعالية' : 'Cancel event'}

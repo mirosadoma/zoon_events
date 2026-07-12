@@ -13,6 +13,7 @@ class FoundationSecurityRegressionTest extends TestCase
             ->assertHeader('X-Content-Type-Options', 'nosniff')
             ->assertHeader('X-Frame-Options', 'DENY')
             ->assertHeader('Content-Security-Policy');
+        self::assertStringContainsString('tile.openstreetmap.org', (string) $response->headers->get('Content-Security-Policy'));
         $content = $response->getContent();
         self::assertStringNotContainsString(base_path(), $content);
         self::assertStringNotContainsString('stack', mb_strtolower($content));

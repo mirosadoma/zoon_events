@@ -18,6 +18,9 @@ type EventRow = {
 type AttendeeRow = {
   id: string
   label: string
+  display_name?: string | null
+  email?: string | null
+  phone?: string | null
   status: string
   locale: string
   credential_status?: string | null
@@ -28,35 +31,44 @@ type Props = {
   attendees: AttendeeRow[]
 }
 
+function displayValue(value: string | null | undefined, fallback: string): string {
+  return value?.trim() ? value.trim() : fallback
+}
+
 export default function Attendees({ event, attendees }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const notAvailable = t('notAvailable')
 
   const filtered = useMemo(() => attendees.filter((attendee) => {
-    const matchesSearch = search.trim() === ''
-      || attendee.id.toLowerCase().includes(search.trim().toLowerCase())
-      || attendee.label.toLowerCase().includes(search.trim().toLowerCase())
+    const needle = search.trim().toLowerCase()
+    const matchesSearch = needle === ''
+      || attendee.id.toLowerCase().includes(needle)
+      || (attendee.display_name ?? '').toLowerCase().includes(needle)
+      || (attendee.email ?? '').toLowerCase().includes(needle)
+      || (attendee.phone ?? '').toLowerCase().includes(needle)
+      || attendee.label.toLowerCase().includes(needle)
     const matchesStatus = statusFilter === '' || attendee.status === statusFilter
 
     return matchesSearch && matchesStatus
   }), [attendees, search, statusFilter])
 
   const statusOptions = [
-    { value: '', label: locale === 'ar' ? 'كل الحالات' : 'All statuses' },
+    { value: '', label: t('allStatuses') },
     ...Array.from(new Set(attendees.map((attendee) => attendee.status))).map((status) => ({ value: status, label: status })),
   ]
 
   return (
-    <DashboardLayout title={locale === 'ar' ? 'الحضور' : 'Attendees'}>
+    <DashboardLayout title={t('attendees')}>
       <PageHeader
-        title={locale === 'ar' ? 'الحضور' : 'Attendees'}
+        title={t('attendees')}
         description={event.name[locale]}
         breadcrumbs={[
           { label: locale === 'ar' ? 'نظرة عامة' : 'Overview', href: '/' },
           { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
-          { label: locale === 'ar' ? 'الحضور' : 'Attendees' },
+          { label: t('attendees') },
         ]}
       />
       <PageContent>
@@ -65,10 +77,10 @@ export default function Attendees({ event, attendees }: Props) {
             value={search}
             onChange={setSearch}
             label={locale === 'ar' ? 'بحث' : 'Search'}
-            placeholder={locale === 'ar' ? 'معرف الحاضر' : 'Attendee id'}
+            placeholder={t('searchAttendee')}
           />
           <SelectInput
-            label={locale === 'ar' ? 'حالة الحضور' : 'Check-in status'}
+            label={t('checkInStatus')}
             name="status"
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
@@ -78,8 +90,8 @@ export default function Attendees({ event, attendees }: Props) {
 
         {filtered.length === 0 ? (
           <EmptyState
-            title={locale === 'ar' ? 'لا يوجد حضور' : 'No attendees yet'}
-            detail={locale === 'ar' ? 'سيظهر الحضور بعد التسجيل.' : 'Attendees will appear after registration.'}
+            title={t('noAttendees')}
+            detail={t('noAttendeesDetail')}
           />
         ) : (
           <DataTable
@@ -87,24 +99,34 @@ export default function Attendees({ event, attendees }: Props) {
             getRowKey={(row) => String(row.id)}
             columns={[
               {
-                key: 'label',
-                header: locale === 'ar' ? 'الحاضر' : 'Attendee',
+                key: 'display_name',
+                header: t('attendeeName'),
                 render: (row) => {
                   const attendee = row as unknown as AttendeeRow
+                  const name = displayValue(attendee.display_name, notAvailable)
 
                   return (
                     <LocalizedLink href={`/tenant/events/${event.id}/attendees/${attendee.id}`} className="font-medium text-sky-700 hover:underline">
-                      {attendee.label}
+                      {name}
                     </LocalizedLink>
                   )
                 },
               },
               {
+                key: 'email',
+                header: t('attendeeEmail'),
+                render: (row) => displayValue((row as unknown as AttendeeRow).email, notAvailable),
+              },
+              {
+                key: 'phone',
+                header: t('attendeePhone'),
+                render: (row) => displayValue((row as unknown as AttendeeRow).phone, notAvailable),
+              },
+              {
                 key: 'status',
-                header: locale === 'ar' ? 'تسجيل الحضور' : 'Check-in',
+                header: t('checkIn'),
                 render: (row) => <StatusBadge status={String(row.status)} />,
               },
-              { key: 'locale', header: locale === 'ar' ? 'اللغة' : 'Locale' },
               {
                 key: 'credential_status',
                 header: locale === 'ar' ? 'الاعتماد' : 'Credential',

@@ -46,10 +46,11 @@ describe('events manage flow', () => {
           {
             id: 'evt_1',
             name: { en: 'Summit', ar: 'القمة' },
-            status: 'draft',
+            status: 'published',
             tier: 'public',
             timezone: 'Africa/Cairo',
             capacity: 100,
+            registration_url: 'https://zoon.test/en/events/summit/agenda',
           },
         ]}
       />,
@@ -58,6 +59,34 @@ describe('events manage flow', () => {
     expect(screen.getByRole('heading', { name: 'Events' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'New event' })).toHaveAttribute('href', '/tenant/events/create')
     expect(screen.getByRole('link', { name: 'Summit' })).toHaveAttribute('href', '/tenant/events/evt_1')
+  })
+
+  it('copies registration link and shows toast', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+
+    render(
+      <EventList
+        events={[
+          {
+            id: 'evt_1',
+            name: { en: 'Summit', ar: 'القمة' },
+            status: 'published',
+            tier: 'public',
+            timezone: 'Africa/Cairo',
+            capacity: 100,
+            registration_url: 'https://zoon.test/en/events/summit/agenda',
+          },
+        ]}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy registration link' }))
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('https://zoon.test/en/events/summit/agenda')
+      expect(toastMock).toHaveBeenCalledWith('Copied', 'success')
+    })
   })
 
   it('renders create-event setup shell', () => {
@@ -112,6 +141,7 @@ describe('events manage flow', () => {
       />,
     )
 
+    expect(screen.getByRole('link', { name: 'Preview' })).toHaveAttribute('href', '/en/tenant/events/evt_1/agenda-preview')
     fireEvent.click(screen.getByRole('button', { name: 'Publish' }))
     fireEvent.click(screen.getAllByRole('button', { name: 'Publish' }).at(-1)!)
 

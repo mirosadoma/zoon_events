@@ -48,7 +48,7 @@ Route::prefix('v1')->group(function (): void {
             });
         }
 
-        Route::prefix('platform')->middleware('throttle:platform')->group(function (): void {
+        Route::prefix('platform')->middleware(['throttle:platform', 'bindings'])->group(function (): void {
             Route::get('/tenants', [PlatformTenantController::class, 'index'])->middleware('permission:platform.tenant.view,platform');
             Route::post('/tenants', [PlatformTenantController::class, 'store'])->middleware(['permission:platform.tenant.manage,platform', 'idempotency'])->name('api.v1.platform.tenants.store');
             Route::get('/tenants/{tenant_id}', [PlatformTenantController::class, 'show'])->middleware('permission:platform.tenant.view,platform');
@@ -61,6 +61,7 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/roles', [PlatformRoleController::class, 'index'])->middleware('permission:platform.role.view,platform');
             Route::post('/roles', [PlatformRoleController::class, 'store'])->middleware(['permission:platform.role.manage,platform', 'idempotency'])->name('api.v1.platform.roles.store');
             Route::patch('/roles/{platform_role_id}', [PlatformRoleController::class, 'update'])->middleware(['permission:platform.role.manage,platform', 'idempotency'])->name('api.v1.platform.roles.update');
+            Route::delete('/roles/{platform_role_id}', [PlatformRoleController::class, 'destroy'])->middleware(['permission:platform.role.manage,platform', 'idempotency'])->name('api.v1.platform.roles.destroy');
             Route::post('/role-assignments', [PlatformRoleController::class, 'assign'])->middleware(['permission:platform.role.assign,platform', 'idempotency'])->name('api.v1.platform.assignments.store');
             Route::delete('/role-assignments/{assignment_id}', [PlatformRoleController::class, 'revoke'])->middleware(['permission:platform.role.assign,platform', 'idempotency'])->name('api.v1.platform.assignments.revoke');
 
@@ -78,8 +79,8 @@ Route::prefix('v1')->group(function (): void {
                     $context = $store->current();
 
                     return response()->json([
-                        'tenant_id' => $context->tenant->id,
-                        'membership_id' => $context->membership->id,
+                        'tenant_id' => (string) $context->tenant->id,
+                        'membership_id' => (string) $context->membership->id,
                     ]);
                 });
 

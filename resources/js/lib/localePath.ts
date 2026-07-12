@@ -11,14 +11,17 @@ export function localizedPath(locale: AppLocale, path: string): string {
     return path
   }
 
-  const normalized = path.startsWith('/') ? path : `/${path}`
+  const queryIndex = path.indexOf('?')
+  const query = queryIndex >= 0 ? path.slice(queryIndex) : ''
+  const base = queryIndex >= 0 ? path.slice(0, queryIndex) : path
+  const normalized = base.startsWith('/') ? base : `/${base}`
   const withoutLocale = stripLocalePrefix(normalized)
 
   if (withoutLocale === '/') {
-    return `/${locale}`
+    return `/${locale}${query}`
   }
 
-  return `/${locale}${withoutLocale}`
+  return `/${locale}${withoutLocale}${query}`
 }
 
 export function swapLocaleInPath(path: string, nextLocale: AppLocale): string {

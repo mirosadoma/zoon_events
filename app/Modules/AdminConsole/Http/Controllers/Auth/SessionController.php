@@ -2,15 +2,19 @@
 
 namespace App\Modules\AdminConsole\Http\Controllers\Auth;
 
+use App\Exceptions\FoundationException;
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Modules\AdminConsole\Http\Requests\LoginRequest;
 use App\Modules\Audit\Application\AuditWriter;
 use App\Modules\Identity\Application\AuthenticateUser;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Throwable;
 
 final class SessionController extends Controller
 {
@@ -26,7 +30,19 @@ final class SessionController extends Controller
 
     public function store(LoginRequest $request): RedirectResponse
     {
-        $user = $this->authenticate->attempt($request->string('email')->toString(), $request->string('password')->toString());
+        $email = $request->string('email')->toString();
+        $password = $request->string('password')->toString();
+
+        try {
+            $user = $this->authenticate->attempt($email, $password);
+        } catch (FoundationException $exception) {
+            $this->recordFailedLogin($email, $exception);
+
+            throw ValidationException::withMessages([
+                'email' => [$exception->detail()],
+            ]);
+        }
+
         Auth::login($user, $request->boolean('remember'));
         $user->forceFill(['last_authenticated_at' => now()])->save();
         $request->session()->regenerate();
@@ -46,5 +62,27 @@ final class SessionController extends Controller
         $request->session()->regenerateToken();
 
         return redirect()->route('login');
+    }
+
+    private function recordFailedLogin(string $email, FoundationException $exception): void
+    {
+        $normalizedEmail = mb_strtolower(trim($email));
+        $known = User::query()->where('email', $normalizedEmail)->first();
+
+        try {
+            $this->audit->write(
+                'platform',
+                null,
+                'auth.failed',
+                'failed',
+                $known,
+                $exception->problemCode === 'user_inactive' ? 'user_inactive' : 'invalid_credentials',
+                targetType: $known ? 'user' : null,
+                targetId: $known?->id,
+                metadata: ['identity_fingerprint' => hash('sha256', $normalizedEmail)],
+            );
+        } catch (Throwable) {
+            // Failed login feedback must not be masked by audit write failures.
+        }
     }
 }

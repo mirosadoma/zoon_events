@@ -7,6 +7,7 @@ use App\Modules\Audit\Contracts\AuditWriter;
 use App\Modules\Credentials\Application\CredentialIssuerService;
 use App\Modules\Credentials\Contracts\CredentialIssuer;
 use App\Modules\Notifications\Contracts\ConfirmationIntentCreator;
+use App\Modules\Orders\Application\Support\CompletedRegistrationResolver;
 use App\Modules\Orders\Domain\CompletedRegistration;
 use App\Modules\Orders\Domain\Events\FreeRegistrationCompleted;
 use App\Modules\Orders\Domain\FreeRegistrationInput;
@@ -30,6 +31,7 @@ final readonly class CompleteFreeRegistration
         private PersonalDataCipher $cipher,
         private BlindIndex $indexes,
         private AuditWriter $audit,
+        private CompletedRegistrationResolver $completedRegistrations,
     ) {}
 
     public function execute(FreeRegistrationInput $input): CompletedRegistration
@@ -37,7 +39,7 @@ final readonly class CompleteFreeRegistration
         $reference = 'ord_'.substr(hash_hmac('sha256', $input->idempotencyKey, (string) config('app.key')), 0, 32);
         $existing = Order::query()->where('tenant_id', $input->tenantId)->where('event_id', $input->eventId)->where('public_reference', $reference)->first();
         if ($existing !== null) {
-            return new CompletedRegistration($existing->id, $existing->public_reference, null, null, null, null, true);
+            return $this->completedRegistrations->fromExistingOrder($existing);
         }
 
         return DB::transaction(function () use ($input, $reference): CompletedRegistration {
@@ -87,13 +89,16 @@ final readonly class CompleteFreeRegistration
                 $allocation->ticketTypeId, $input->credentialExpiresAt,
             );
             $this->tickets->linkAndConvert($input->tenantId, $allocation->holdId, $order->id);
-            if ($credential !== null) {
-                $this->notifications->create(
-                    $input->tenantId, $input->eventId, $attendee->id, $order->id,
-                    $credential->id, $input->attendee['email'], $input->locale,
-                    $input->attendee['phone'] ?? null,
-                );
-            }
+            $this->notifications->create(
+                $input->tenantId,
+                $input->eventId,
+                $attendee->id,
+                $order->id,
+                $credential?->id,
+                $input->attendee['email'],
+                $input->locale,
+                $input->attendee['phone'] ?? null,
+            );
             $this->audit->write(
                 'tenant', $input->tenantId, 'registration.free_completed', 'succeeded',
                 targetType: 'order', targetId: $order->id,

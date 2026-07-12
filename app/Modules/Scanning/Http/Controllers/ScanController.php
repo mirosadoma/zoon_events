@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Authorization\Policies\Phase2\Phase2Policy;
 use App\Modules\Authorization\Policies\Phase3\Phase3Policy;
 use App\Modules\Scanning\Application\Actions\SubmitScanAction;
+use App\Modules\Scanning\Application\Support\ScanPayloadResolver;
 use App\Modules\Scanning\Domain\ValueObjects\ScanContext;
 use App\Modules\Scanning\Http\Requests\SubmitScanRequest;
 use App\Modules\Scanning\Http\Resources\ScanResultResource;
@@ -23,6 +24,7 @@ final class ScanController extends Controller
         private readonly TenantContextStore $contexts,
         private readonly Phase2Policy $policy,
         private readonly Phase3Policy $phase3Policy,
+        private readonly ScanPayloadResolver $payloads,
     ) {}
 
     public function store(SubmitScanRequest $request, string $eventId, SubmitScanAction $action): JsonResponse
@@ -55,14 +57,24 @@ final class ScanController extends Controller
         }
 
         $context = $this->contexts->current();
+        $resolvedPayload = $request->filled('credential_id')
+            ? [
+                'qr_payload' => '',
+                'credential_id' => $request->input('credential_id'),
+            ]
+            : $this->payloads->resolveQrPayload(
+                $request->string('qr_payload')->toString(),
+                $context->tenant->id,
+                $eventId,
+            );
 
         $submission = $action->execute(new ScanContext(
             tenantId: $context->tenant->id,
             eventId: $eventId,
             scannerId: (string) $user->id,
             scannerType: $scannerType,
-            qrPayload: $request->string('qr_payload')->toString(),
-            credentialId: $request->input('credential_id'),
+            qrPayload: $resolvedPayload['qr_payload'],
+            credentialId: $resolvedPayload['credential_id'],
             override: $override,
             overrideReason: $request->input('override_reason'),
             actorCanOverride: $this->policy->allows($user, 'overrideScan'),

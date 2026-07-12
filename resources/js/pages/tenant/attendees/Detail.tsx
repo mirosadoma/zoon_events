@@ -29,6 +29,9 @@ type CredentialSummary = {
 type AttendeeDetail = {
   id: string
   label: string
+  display_name?: string | null
+  email?: string | null
+  phone?: string | null
   status: string
   locale: string
   order_id?: string | null
@@ -160,6 +163,12 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
     }
   }
 
+  const notAvailable = t('notAvailable')
+
+  function displayValue(value: string | null | undefined): string {
+    return value?.trim() ? value.trim() : notAvailable
+  }
+
   return (
     <DashboardLayout title={attendee.label}>
       <PageHeader
@@ -169,24 +178,36 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
           { label: locale === 'ar' ? 'نظرة عامة' : 'Overview', href: '/' },
           { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
-          { label: locale === 'ar' ? 'الحضور' : 'Attendees', href: `/tenant/events/${event.id}/attendees` },
+          { label: t('attendees'), href: `/tenant/events/${event.id}/attendees` },
           { label: attendee.label },
         ]}
       />
       <PageContent>
         {identity?.pending ? (
           <section className="state-panel mb-6 border-amber-200 bg-amber-50" role="status">
-            <div className="flex flex-wrap items-center gap-3">
-              <StatusBadge status={identity.status} />
-              <p className="text-sm text-amber-900">{t('identityPendingIssuanceBanner')}</p>
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <StatusBadge status={identity.status} />
+                <p className="text-sm text-amber-900">{t('identityPendingIssuanceBanner')}</p>
+              </div>
+              <p className="text-sm text-amber-900">{t('identityPendingIssuanceHelp')}</p>
+              <LocalizedLink
+                href={`/tenant/events/${event.id}/identity/review`}
+                className="text-sm font-medium text-sky-800 hover:underline"
+              >
+                {t('openIdentityReviewQueue')}
+              </LocalizedLink>
             </div>
           </section>
         ) : null}
 
         <DetailsCard
-          title={locale === 'ar' ? 'ملف الحاضر' : 'Attendee profile'}
+          title={t('attendeeDetail')}
           items={[
-            { label: locale === 'ar' ? 'تسجيل الحضور' : 'Check-in status', value: <StatusBadge status={attendee.status} /> },
+            { label: t('attendeeName'), value: displayValue(attendee.display_name) },
+            { label: t('attendeeEmail'), value: displayValue(attendee.email) },
+            { label: t('attendeePhone'), value: displayValue(attendee.phone) },
+            { label: t('checkInStatus'), value: <StatusBadge status={attendee.status} /> },
             { label: locale === 'ar' ? 'اللغة' : 'Locale', value: attendee.locale },
             { label: locale === 'ar' ? 'المصدر' : 'Origin', value: attendee.origin ?? '—' },
             { label: locale === 'ar' ? 'تاريخ التسجيل' : 'Registered', value: attendee.registered_at ?? '—' },
@@ -226,19 +247,33 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
 
         {attendee.credential && (
           <section className="state-panel mt-6">
-            <h2 className="text-lg font-semibold">{locale === 'ar' ? 'إجراءات الحاضر' : 'Attendee actions'}</h2>
+            <h2 className="text-lg font-semibold">{t('attendeeActions')}</h2>
             <div className="mt-4 flex flex-wrap gap-2">
               <PermissionGate permission="badge.print">
                 <button type="button" className="button-secondary" onClick={() => void handlePrintBadge()} disabled={busyAction !== null}>
-                  {locale === 'ar' ? 'طباعة البطاقة' : 'Print badge'}
+                  {t('printBadge')}
                 </button>
               </PermissionGate>
               <PermissionGate permission="checkin.desk.perform">
                 <button type="button" className="button-secondary" onClick={() => void handleManualCheckIn()} disabled={busyAction !== null}>
-                  {locale === 'ar' ? 'تسجيل حضور يدوي' : 'Manual check-in'}
+                  {t('manualCheckIn')}
                 </button>
               </PermissionGate>
             </div>
+            <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-slate-500">{t('reissueCredential')}</dt>
+                <dd className="mt-1 text-sm text-slate-700">{t('attendeeActionReissueHelp')}</dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-slate-500">{t('printBadge')}</dt>
+                <dd className="mt-1 text-sm text-slate-700">{t('attendeeActionPrintBadgeHelp')}</dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-slate-500">{t('manualCheckIn')}</dt>
+                <dd className="mt-1 text-sm text-slate-700">{t('attendeeActionManualCheckInHelp')}</dd>
+              </div>
+            </dl>
           </section>
         )}
 
