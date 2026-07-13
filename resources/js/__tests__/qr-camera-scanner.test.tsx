@@ -8,9 +8,11 @@ const scannerMocks = vi.hoisted(() => ({
   start: vi.fn().mockResolvedValue(undefined),
   stop: vi.fn().mockResolvedValue(undefined),
   clear: vi.fn().mockResolvedValue(undefined),
+  applyVideoConstraints: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('html5-qrcode', () => ({
+  Html5QrcodeSupportedFormats: { QR_CODE: 0 },
   Html5Qrcode: class {
     static getCameras = scannerMocks.getCameras
 
@@ -21,6 +23,7 @@ vi.mock('html5-qrcode', () => ({
     start = scannerMocks.start
     stop = scannerMocks.stop
     clear = scannerMocks.clear
+    applyVideoConstraints = scannerMocks.applyVideoConstraints
   },
 }))
 
@@ -31,10 +34,12 @@ describe('QR camera scanner', () => {
     scannerMocks.start.mockClear()
     scannerMocks.stop.mockClear()
     scannerMocks.clear.mockClear()
+    scannerMocks.applyVideoConstraints.mockClear()
     scannerMocks.getCameras.mockResolvedValue([{ id: 'rear-camera' }])
     scannerMocks.start.mockResolvedValue(undefined)
     scannerMocks.stop.mockResolvedValue(undefined)
     scannerMocks.clear.mockImplementation(() => undefined)
+    scannerMocks.applyVideoConstraints.mockResolvedValue(undefined)
   })
 
   it('does not restart when callback props change', async () => {
@@ -85,10 +90,10 @@ describe('QR camera scanner', () => {
 
   it('fills scanned values through onScan when a QR code is read', async () => {
     const onScan = vi.fn()
-    let decodeHandler: ((value: string) => void) | null = null
+    const decodeHandlers: Array<(value: string) => void> = []
 
-    scannerMocks.start.mockImplementation(async (_cameraId, _config, onSuccess) => {
-      decodeHandler = onSuccess
+    scannerMocks.start.mockImplementation(async (...args: unknown[]) => {
+      decodeHandlers.push(args[2] as (value: string) => void)
     })
 
     render(
@@ -101,10 +106,10 @@ describe('QR camera scanner', () => {
     )
 
     await waitFor(() => {
-      expect(decodeHandler).not.toBeNull()
+      expect(decodeHandlers).toHaveLength(1)
     })
 
-    decodeHandler?.('scanned-token')
+    decodeHandlers[0]('scanned-token')
 
     expect(onScan).toHaveBeenCalledWith('scanned-token')
   })
