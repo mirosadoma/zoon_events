@@ -23,8 +23,13 @@ final class SessionController extends Controller
         private readonly AuditWriter $audit,
     ) {}
 
-    public function create(): Response
+    public function create(Request $request): Response
     {
+        $redirect = (string) $request->query('redirect', '');
+        if ($redirect !== '' && str_starts_with($redirect, '/') && ! str_starts_with($redirect, '//')) {
+            $request->session()->put('url.intended', $redirect);
+        }
+
         return Inertia::render('Auth/Login');
     }
 

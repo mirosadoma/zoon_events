@@ -1,4 +1,26 @@
 import { randomUuid } from '@/lib/uuid'
+import type { AppLocale } from '@/lib/localePath'
+
+let redirectingToLogin = false
+
+function redirectToLogin(): void {
+  if (typeof window === 'undefined' || redirectingToLogin) {
+    return
+  }
+
+  const { pathname, search, hash } = window.location
+  const localeMatch = pathname.match(/^\/(en|ar)(?=\/|$)/)
+  const locale: AppLocale = localeMatch ? (localeMatch[1] as AppLocale) : 'en'
+  const loginPath = `/${locale}/login`
+
+  if (pathname === loginPath) {
+    return
+  }
+
+  redirectingToLogin = true
+  const intended = encodeURIComponent(`${pathname}${search}${hash}`)
+  window.location.assign(`${loginPath}?redirect=${intended}`)
+}
 
 type ApiFetchOptions = Omit<RequestInit, 'body'> & {
   tenantId?: string
@@ -104,6 +126,9 @@ export async function apiFetch<T = unknown>(
   const payload = await response.json().catch(() => ({})) as Record<string, unknown>
 
   if (!response.ok) {
+    if (response.status === 401) {
+      redirectToLogin()
+    }
     const detail = String(payload.detail ?? payload.message ?? payload.title ?? payload.code ?? 'Request failed')
     const missing = Array.isArray(payload.missing)
       ? payload.missing.map((item) => String(item)).filter(Boolean)

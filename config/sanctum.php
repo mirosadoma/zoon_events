@@ -4,11 +4,24 @@ use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Laravel\Sanctum\Http\Middleware\AuthenticateSession;
 
+$statefulDomains = explode(',', (string) env(
+    'SANCTUM_STATEFUL_DOMAINS',
+    'localhost,localhost:8000,127.0.0.1,127.0.0.1:8000,zoon.test',
+));
+
+$appUrl = (string) env('APP_URL', '');
+$appHost = is_string($host = parse_url($appUrl, PHP_URL_HOST)) ? $host : null;
+$appPort = parse_url($appUrl, PHP_URL_PORT);
+
+if ($appHost !== null) {
+    $statefulDomains[] = $appHost;
+    if (is_int($appPort)) {
+        $statefulDomains[] = "{$appHost}:{$appPort}";
+    }
+}
+
 return [
-    'stateful' => array_filter(explode(',', (string) env(
-        'SANCTUM_STATEFUL_DOMAINS',
-        'localhost,localhost:8000,127.0.0.1,127.0.0.1:8000,zoon.test',
-    ))),
+    'stateful' => array_values(array_unique(array_filter(array_map('trim', $statefulDomains)))),
     'guard' => ['web'],
     'expiration' => null,
     'token_prefix' => env('SANCTUM_TOKEN_PREFIX', ''),
