@@ -559,3 +559,32 @@ ticketing@zonetec.test
 TicketDemo2026!
 Ticketing Manager
 تذاكر وطلبات
+
+
+------------------------------------------------------------------------------------
+
+
+1) توليد مفاتيح متطابقة
+cd /var/www/zonetec_tickets
+php -r '
+$pair = sodium_crypto_sign_keypair();
+$keyId = "staging-" . date("Ymd");
+$ref = "CREDENTIAL_STAGING_PRIVATE_KEY";
+echo "CREDENTIAL_CURRENT_KEY_ID=" . $keyId . PHP_EOL;
+echo "CREDENTIAL_KEY_RING=" . json_encode([
+  $keyId => [
+    "status" => "active",
+    "public_key" => sodium_bin2base64(
+      sodium_crypto_sign_publickey($pair),
+      SODIUM_BASE64_VARIANT_URLSAFE_NO_PADDING
+    ),
+    "private_key_reference" => $ref,
+  ],
+], JSON_UNESCAPED_SLASHES) . PHP_EOL;
+echo $ref . "=" . sodium_bin2base64(
+  sodium_crypto_sign_secretkey($pair),
+  SODIUM_BASE64_VARIANT_URLSAFE_NO_PADDING
+) . PHP_EOL;
+'
+انسخ المخرجات الثلاث. ل .env
+

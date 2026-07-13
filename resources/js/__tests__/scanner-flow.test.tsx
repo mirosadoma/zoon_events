@@ -121,6 +121,7 @@ describe('scanner flow', () => {
       }))
       expect(screen.getByTestId('scan-result-card')).toHaveTextContent('Camera Attendee')
       expect(screen.getByTestId('scan-result-card')).toHaveTextContent('VIP')
+      expect(screen.getByRole('textbox', { name: /qrPayload/ })).toHaveValue('camera-token')
     })
   })
 
@@ -157,6 +158,6 @@ describe('scanner flow', () => {
     })
 
     expect(apiFetchMock).toHaveBeenCalledTimes(1)
-    expect(screen.getByRole('textbox', { name: /qrPayload/ })).toHaveValue('')
+    expect(screen.getByRole('textbox', { name: /qrPayload/ })).toHaveValue('valid-token')
   })
 })
