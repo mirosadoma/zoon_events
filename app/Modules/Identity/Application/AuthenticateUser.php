@@ -14,7 +14,7 @@ final class AuthenticateUser
 
         if (! $user instanceof User || ! Hash::check($password, $user->password)) {
             Hash::check($password, '$2y$12$usesomesillystringfore7hnbRJHxXVLeakoG8K30oukPsA.ztMG');
-            throw FoundationException::unauthenticated('The provided credentials are invalid.');
+            throw FoundationException::unauthenticated('These credentials do not match our records.');
         }
 
         if (! $user->isActive()) {

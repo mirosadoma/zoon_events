@@ -1,13 +1,28 @@
-import { useEffect, useRef } from 'react'
+import { usePage } from '@inertiajs/react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useFormValidation, type UseFormValidationOptions } from '@/hooks/useFormValidation'
+import { normalizeInertiaErrors } from '@/lib/formatValidationErrors'
 
 export function useInertiaFormValidation(
-  errors: Record<string, string>,
+  formErrors: Record<string, string | string[]>,
   options?: UseFormValidationOptions,
 ) {
+  const pageErrors = usePage().props.errors as Record<string, string | string[]> | undefined
+  const errors = useMemo(
+    () => ({
+      ...normalizeInertiaErrors(pageErrors),
+      ...normalizeInertiaErrors(formErrors),
+    }),
+    [formErrors, pageErrors],
+  )
   const validation = useFormValidation(options)
-  const { applyErrors } = validation
+  const { applyErrors, clearValidation: clearValidationState } = validation
   const previousErrors = useRef('')
+
+  const clearValidation = useCallback(() => {
+    previousErrors.current = ''
+    clearValidationState()
+  }, [clearValidationState])
 
   useEffect(() => {
     const serialized = JSON.stringify(errors)
@@ -22,5 +37,8 @@ export function useInertiaFormValidation(
     }
   }, [errors, applyErrors])
 
-  return validation
+  return {
+    ...validation,
+    clearValidation,
+  }
 }

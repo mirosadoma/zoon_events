@@ -1,3 +1,4 @@
+import { FormEvent } from 'react'
 import { Head, useForm } from '@inertiajs/react'
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import { CheckboxInput, FormActions, SubmitButtonWithLoader, TextInput } from '@/components/forms'
@@ -5,9 +6,26 @@ import ValidationHintPopover from '@/components/feedback/ValidationHintPopover'
 import AppBrand from '@/components/layout/AppBrand'
 import { useInertiaFormValidation } from '@/hooks/useInertiaFormValidation'
 import { useLocale } from '@/hooks/useLocale'
-import { LOGIN_FIELD_LABELS, formFieldProps } from '@/lib/formatValidationErrors'
+import { LOGIN_FIELD_LABELS, formFieldProps, normalizeInertiaErrors } from '@/lib/formatValidationErrors'
 import en from '@/locales/en'
 import ar from '@/locales/ar'
+
+function loginClientErrors(email: string, password: string): Record<string, string> {
+  const errors: Record<string, string> = {}
+  const trimmedEmail = email.trim()
+
+  if (trimmedEmail === '') {
+    errors.email = 'The email field is required.'
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+    errors.email = 'The email field must be a valid email address.'
+  }
+
+  if (password === '') {
+    errors.password = 'The password field is required.'
+  }
+
+  return errors
+}
 
 export default function Login() {
   const { locale, direction, localizedPath } = useLocale()
@@ -18,16 +36,30 @@ export default function Login() {
     fieldLabels: LOGIN_FIELD_LABELS,
   })
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    validation.clearValidation()
+
+    const clientErrors = loginClientErrors(form.data.email, form.data.password)
+    if (validation.applyErrors(clientErrors)) {
+      return
+    }
+
+    form.post(localizedPath('/login'), {
+      onError: (errors) => {
+        validation.applyErrors(normalizeInertiaErrors(errors))
+      },
+      onFinish: () => form.reset('password'),
+    })
+  }
+
   return (
     <main dir={direction} lang={locale} className="grid min-h-screen place-items-center bg-[var(--surface)] p-6">
       <Head title={messages.loginTitle} />
       <form
+        noValidate
         className="relative ta-card w-full max-w-md space-y-5 p-8"
-        onSubmit={(event) => {
-          event.preventDefault()
-          validation.clearValidation()
-          form.post(localizedPath('/login'), { onFinish: () => form.reset('password') })
-        }}
+        onSubmit={handleSubmit}
       >
         <div className="flex items-center gap-3">
           <AppBrand nameClassName="text-2xl font-bold" />
