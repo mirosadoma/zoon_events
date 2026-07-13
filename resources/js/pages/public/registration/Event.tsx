@@ -11,8 +11,10 @@ import FormSavingOverlay from '@/components/loaders/FormSavingOverlay'
 import { useFormValidation } from '@/hooks/useFormValidation'
 import { useLocale } from '@/hooks/useLocale'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
+import { normalizeRegistrationPhone } from '@/lib/normalizeRegistrationPhone'
 import {
   buildPublicRegistrationFieldLabels,
+  collectPublicRegistrationClientErrors,
   publicRegistrationFieldSelector,
   remapPublicRegistrationApiErrors,
 } from '@/lib/publicRegistrationValidation'
@@ -86,15 +88,22 @@ export default function PublicRegistrationEvent({
 }: Props) {
   const { t } = useLocale()
   const direction = locale === 'ar' ? 'rtl' : 'ltr'
+  const registrationFields = useMemo(
+    () => form.fields.filter((field) => field.type !== 'consent'),
+    [form.fields],
+  )
   const fieldLabels = useMemo(
-    () => buildPublicRegistrationFieldLabels(form.fields, {
+    () => buildPublicRegistrationFieldLabels(registrationFields, {
       en: 'Location - Date',
       ar: 'الموقع - التاريخ',
     }, {
-      en: t('publicRegistrationAcceptTerms'),
-      ar: t('publicRegistrationAcceptTerms'),
+      en: t('publicRegistrationConsentLabel'),
+      ar: t('publicRegistrationConsentLabel'),
+    }, {
+      en: t('publicRegistrationChooseTicket'),
+      ar: t('publicRegistrationChooseTicket'),
     }),
-    [form.fields, t],
+    [registrationFields, t],
   )
   const validation = useFormValidation({
     titleKey: 'couldNotCompleteRegistration',
@@ -140,34 +149,14 @@ export default function PublicRegistrationEvent({
       return
     }
 
-    if (!ticketTypeId) {
-      setError(t('publicRegistrationSelectTicketFirst'))
-      return
-    }
-
-    if (venues.length > 0 && !venueId) {
-      setError(t('publicRegistrationSelectLocationDate'))
-      return
-    }
-
-    if (!acceptedTerms) {
-      setError(t('publicRegistrationAcceptTermsRequired'))
-      return
-    }
-
     const formData = new FormData(submitEvent.currentTarget)
     const answers: Record<string, string | boolean | string[]> = {}
-    form.fields.forEach((field) => {
+    registrationFields.forEach((field) => {
       if (field.type === 'multi_select' || field.type === 'checkbox') {
         const values = formData.getAll(field.key).map(String).filter(Boolean)
         if (values.length > 0) {
           answers[field.key] = values
         }
-        return
-      }
-
-      if (field.type === 'consent') {
-        answers[field.key] = formData.get(field.key) === 'true'
         return
       }
 
@@ -177,11 +166,26 @@ export default function PublicRegistrationEvent({
       }
     })
 
+    if (typeof answers.phone === 'string') {
+      answers.phone = normalizeRegistrationPhone(answers.phone)
+    }
+
+    const clientErrors = collectPublicRegistrationClientErrors(registrationFields, answers, {
+      ticketTypeId,
+      venueRequired: venues.length > 0,
+      venueId,
+      acceptedTerms,
+    })
+
+    if (validation.applyErrors(clientErrors)) {
+      return
+    }
+
     const fullName = answerText(answers.full_name)
       || answerText(answers.name)
       || `${answerText(answers.first_name)} ${answerText(answers.last_name)}`.trim()
     const email = answerText(answers.email)
-    const phone = answerText(answers.phone) || undefined
+    const phone = answerText(answers.phone) ? normalizeRegistrationPhone(answerText(answers.phone)) : undefined
     const person = { ...splitName(fullName), email, phone }
 
     setSubmitting(true)
@@ -218,11 +222,11 @@ export default function PublicRegistrationEvent({
     } catch (caught) {
       if (validation.applyApiError(caught)) {
         setError(null)
+      } else if (caught instanceof ApiFetchError) {
+        const fieldMessages = Object.values(caught.errors).map((message) => message.trim()).filter(Boolean)
+        setError(fieldMessages.length > 0 ? fieldMessages.join(' ') : caught.message)
       } else {
-        const message = caught instanceof ApiFetchError
-          ? caught.message
-          : t('publicRegistrationFailed')
-        setError(message)
+        setError(t('publicRegistrationFailed'))
       }
     } finally {
       setSubmitting(false)
@@ -283,7 +287,11 @@ export default function PublicRegistrationEvent({
       <main className={`registration-invite${isPreview ? ' registration-invite-preview' : ''}`} lang={locale} dir={direction}>
         <RegistrationEventHero locale={locale} event={event} isPreview={isPreview}>
           {ticketTypes.length > 0 ? (
-            <section className="registration-ticket-picker" aria-label={t('publicRegistrationTicketSelection')}>
+            <section
+              className={`registration-ticket-picker${validation.fieldError('ticket_type') ? ' form-field-invalid' : ''}`}
+              aria-label={t('publicRegistrationTicketSelection')}
+              data-form-field="ticket_type"
+            >
               <h2>{t('publicRegistrationChooseTicket')}</h2>
               <div className="registration-ticket-options">
                 {ticketTypes.map((ticket) => {
@@ -318,6 +326,7 @@ export default function PublicRegistrationEvent({
 
           <form
             ref={formRef}
+            noValidate
             className="registration-invite-form form-saving-scope-root"
             aria-label={t('publicRegistrationFormAria')}
             onSubmit={handleSubmit}
@@ -328,12 +337,15 @@ export default function PublicRegistrationEvent({
               locale={locale}
               venues={venues}
               value={venueId}
-              onChange={setVenueId}
+              onChange={(nextVenueId) => {
+                setVenueId(nextVenueId)
+                validation.clearField('event_venue_id')
+              }}
               disabled={isPreview}
               error={validation.fieldError('event_venue_id')}
             />
 
-            {form.fields.map((field) => (
+            {registrationFields.map((field) => (
               <RegistrationField
                 key={field.key}
                 field={field}
@@ -349,23 +361,16 @@ export default function PublicRegistrationEvent({
                 type="checkbox"
                 name="consent"
                 checked={acceptedTerms}
-                onChange={(changeEvent) => setAcceptedTerms(changeEvent.target.checked)}
+                onChange={(changeEvent) => {
+                  setAcceptedTerms(changeEvent.target.checked)
+                  validation.clearField('consent')
+                }}
                 required={!isPreview}
                 disabled={isPreview}
                 data-form-field="consent"
                 aria-invalid={validation.fieldError('consent') ? 'true' : undefined}
               />
-              <span>
-                {t('publicRegistrationAcceptTerms')}
-                {' '}
-                {t('publicRegistrationTerms')}
-                {' '}
-                {form.terms_version}
-                {' '}
-                {t('publicRegistrationAndPrivacy')}
-                {' '}
-                {form.privacy_notice_version}
-              </span>
+              <span>{t('publicRegistrationConsentLabel')}</span>
             </label>
 
             {error ? <p role="alert" className="registration-invite-error">{error}</p> : null}

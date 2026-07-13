@@ -1298,6 +1298,7 @@ body {
 
 .scanner-camera-viewport {
   @apply h-full w-full;
+  min-height: min(72dvh, 44rem);
 }
 
 .scanner-camera-viewport video {

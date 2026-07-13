@@ -3,6 +3,7 @@
 namespace App\Modules\AdminConsole\Http\Controllers\Public;
 
 use App\Http\Controllers\Controller;
+use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
 use App\Modules\Events\Application\Support\PublicRegistrationEventPresenter;
 use App\Modules\Events\Application\Support\ShareablePublicEventResolver;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
@@ -22,6 +23,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Throwable;
@@ -55,7 +57,8 @@ final class PublicEventRegistrationController extends Controller
         $fields = collect(is_array($formVersion->fields) ? $formVersion->fields : [])
             ->filter(fn (mixed $field): bool => is_array($field)
                 && ($field['visibility'] ?? 'public') === 'public'
-                && ($field['type'] ?? '') !== 'hidden')
+                && ($field['type'] ?? '') !== 'hidden'
+                && ($field['type'] ?? '') !== 'consent')
             ->map(fn (array $field, int $index): array => $this->registrationFields->clientField($field, $index))
             ->values()
             ->all();
@@ -115,6 +118,16 @@ final class PublicEventRegistrationController extends Controller
             'consents.privacy' => ['required', 'accepted'],
             'consents.marketing' => ['sometimes', 'boolean'],
         ]);
+
+        if (EventVenue::query()
+            ->where('tenant_id', $event->tenant_id)
+            ->where('event_id', $event->id)
+            ->exists()
+            && (($validated['event_venue_id'] ?? '') === '')) {
+            throw ValidationException::withMessages([
+                'event_venue_id' => ['Please select a location and date.'],
+            ]);
+        }
 
         $answers = (array) $validated['answers'];
         unset($answers['event_venue_id'], $answers['event_venue']);

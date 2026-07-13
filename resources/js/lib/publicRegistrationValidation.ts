@@ -1,15 +1,18 @@
 import type { PublicFormField } from '@/components/registration/RegistrationField'
 import type { FieldLabelMap } from '@/lib/formatValidationErrors'
 import { formFieldProps, formFieldSelector } from '@/lib/formatValidationErrors'
+import { normalizeRegistrationPhone } from '@/lib/normalizeRegistrationPhone'
 
 export function buildPublicRegistrationFieldLabels(
   fields: PublicFormField[],
   venueLabel: { en: string; ar: string },
   consentLabel: { en: string; ar: string },
+  ticketLabel: { en: string; ar: string },
 ): FieldLabelMap {
   const labels: FieldLabelMap = {
     event_venue_id: venueLabel,
     consent: consentLabel,
+    ticket_type: ticketLabel,
   }
 
   for (const field of fields) {
@@ -54,9 +57,74 @@ export function publicRegistrationFieldSelector(apiKey: string): string | null {
     return '[data-form-field="consent"]'
   }
 
+  if (normalized === 'ticket_type') {
+    return '[data-form-field="ticket_type"]'
+  }
+
   return formFieldSelector(normalized)
 }
 
 export function publicRegistrationFieldProps(key: string): { 'data-form-field': string } {
   return formFieldProps(normalizePublicRegistrationErrorKey(key))
+}
+
+function answerIsEmpty(value: string | boolean | string[] | undefined): boolean {
+  if (value === undefined || value === false) {
+    return true
+  }
+
+  if (Array.isArray(value)) {
+    return value.length === 0
+  }
+
+  return String(value).trim() === ''
+}
+
+export function collectPublicRegistrationClientErrors(
+  fields: PublicFormField[],
+  answers: Record<string, string | boolean | string[]>,
+  options: {
+    ticketTypeId: string
+    venueRequired: boolean
+    venueId: string
+    acceptedTerms: boolean
+  },
+): Record<string, string> {
+  const errors: Record<string, string> = {}
+
+  if (!options.ticketTypeId) {
+    errors.ticket_type = 'is required.'
+  }
+
+  if (options.venueRequired && !options.venueId) {
+    errors.event_venue_id = 'is required.'
+  }
+
+  if (!options.acceptedTerms) {
+    errors.consent = 'You must accept the terms and privacy notice.'
+  }
+
+  for (const field of fields) {
+    const value = answers[field.key]
+
+    if (field.required && answerIsEmpty(value)) {
+      errors[field.key] = 'is required.'
+      continue
+    }
+
+    if (field.type === 'email' && typeof value === 'string' && value.trim() !== ''
+      && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) {
+      errors[field.key] = 'must be a valid email address.'
+      continue
+    }
+
+    if (field.type === 'phone' && typeof value === 'string' && value.trim() !== '') {
+      const normalized = normalizeRegistrationPhone(value)
+      if (!/^\+?[0-9]{8,15}$/.test(normalized)) {
+        errors[field.key] = 'must be a valid phone number.'
+      }
+    }
+  }
+
+  return errors
 }

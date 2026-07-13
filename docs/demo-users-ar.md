@@ -435,3 +435,127 @@ flowchart LR
 ---
 
 *هذا الملف هو المرجع العربي لشجرة المستخدمين والصلاحيات في بيئة التطوير. حدّثه عند تغيير `FoundationSeeder` أو `PermissionSeeder`.*
+
+
+
+
+
+--------------------------------------------------------------------------------------------
+
+=== fixture.alpha@example.test ===
+Password: synthetic-only-alpha-password
+Platform roles: NONE
+Tenant fixture-alpha: Tenant Administrator
+  Tenant perms: 46/50
+Platform perms: 0/15
+
+=== fixture.bravo@example.test ===
+Password: synthetic-only-bravo-password
+Platform roles: NONE
+Tenant fixture-bravo: Event Manager
+  Tenant perms: 14/50
+Platform perms: 0/15
+
+=== fixture.creator@example.test ===
+Password: synthetic-only-creator-password
+Platform roles: NONE
+Platform perms: 0/15
+
+=== platform.admin@admin.com ===
+Password: admin1234
+Platform roles: Platform Administrator
+Platform perms: 15/15
+
+
+
+
+=== Seeded user credentials & permission audit ===
+
+User: Meeting Demo Organizer
+  Email:    demo@zonetec.test
+  Password: (unknown — check .env or seeder)
+  Platform roles: NONE
+  Tenant fixture-alpha: roles=Tenant Administrator
+    Effective tenant permissions: 46 / 50
+  Effective platform permissions: 0 / 15
+
+User: Fixture alpha
+  Email:    fixture.alpha@example.test
+  Password: synthetic-only-alpha-password
+  Platform roles: NONE
+  Tenant fixture-alpha: roles=Tenant Administrator
+    Effective tenant permissions: 46 / 50
+  Effective platform permissions: 0 / 15
+
+User: Fixture bravo
+  Email:    fixture.bravo@example.test
+  Password: synthetic-only-bravo-password
+  Platform roles: NONE
+  Tenant fixture-bravo: roles=Event Manager
+    Effective tenant permissions: 14 / 50
+  Effective platform permissions: 0 / 15
+
+User: Fixture Creator
+  Email:    fixture.creator@example.test
+  Password: synthetic-only-creator-password
+  Platform roles: NONE
+  Tenant memberships: NONE
+  Effective platform permissions: 0 / 15
+
+User: Platform Administrator
+  Email:    platform.admin@admin.com
+  Password: admin1234
+  Platform roles: Platform Administrator
+  Tenant fixture-alpha: roles=Tenant Administrator
+    Effective tenant permissions: 46 / 50
+  Effective platform permissions: 15 / 15
+
+=== SystemRoleSeeder role definitions (expected) ===
+
+Platform roles: Platform Administrator, Security Auditor, Operations Viewer
+Tenant roles (per tenant): Tenant Administrator, Event Manager, Ticketing Manager, On-Site Staff, ACS Operator
+
+Run after `php artisan db:seed` to verify assignments.
+
+
+مدير منصة (إعدادات المنصة وطلبات المنظمين)
+super.admin@admin.com
+admin1234
+Platform + Tenant Admin
+
+مدير مستأجر (تجربة كاملة للمنظم)
+demo@zonetec.test
+DemoMeet2026!
+Tenant Administrator
+
+fixture.creator@example.test
+synthetic-only-creator-password
+Platform + Tenant Admin
+
+fixture.alpha@example.test
+synthetic-only-alpha-password
+Tenant Administrator
+مستأجر alpha
+
+fixture.bravo@example.test
+synthetic-only-bravo-password
+Event Manager (35 صلاحية)
+صلاحيات محدودة
+
+طاقم ميداني (مسح وطباعة شارات الحضور)
+onsite@zonetec.test
+OnsiteDemo2026!
+On-Site Staff
+مسح + مكتب يدوي
+
+ACS (بوابات ومناطق)
+acs@zonetec.test
+AcsDemo2026!
+ACS Operator
+تحكم وصول
+
+تذاكر (طلبات وتذاكر)
+ticketing@zonetec.test
+TicketDemo2026!
+Ticketing Manager
+تذاكر وطلبات

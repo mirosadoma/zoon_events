@@ -12,6 +12,7 @@ type Props = {
   onScan: (value: string) => void
   unavailableLabel: string
   startingLabel: string
+  restartLabel: string
   className?: string
 }
 
@@ -53,18 +54,63 @@ const scanConfig: Html5QrcodeCameraScanConfig = {
   },
 }
 
+function nextPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => resolve())
+    })
+  })
+}
+
+async function waitForViewportLayout(element: HTMLElement, signal: AbortSignal): Promise<void> {
+  if (element.clientWidth > 0 && element.clientHeight > 0) {
+    return
+  }
+
+  if (typeof ResizeObserver === 'undefined') {
+    await nextPaint()
+    return
+  }
+
+  await new Promise<void>((resolve) => {
+    const observer = new ResizeObserver(() => {
+      if (element.clientWidth > 0 && element.clientHeight > 0) {
+        observer.disconnect()
+        resolve()
+      }
+    })
+
+    observer.observe(element)
+
+    const timeoutId = window.setTimeout(() => {
+      observer.disconnect()
+      resolve()
+    }, 3000)
+
+    signal.addEventListener('abort', () => {
+      observer.disconnect()
+      window.clearTimeout(timeoutId)
+      resolve()
+    }, { once: true })
+  })
+}
+
 export default function QrCameraScanner({
   active,
   onScan,
   unavailableLabel,
   startingLabel,
+  restartLabel,
   className = '',
 }: Props) {
   const containerId = useId().replace(/:/g, '')
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const handledRef = useRef(false)
   const mountedRef = useRef(true)
+  const bootGenerationRef = useRef(0)
   const [status, setStatus] = useState<ScanStatus>('starting')
+  const [restartToken, setRestartToken] = useState(0)
   const handleScan = useEffectEvent(onScan)
 
   useEffect(() => {
@@ -72,6 +118,20 @@ export default function QrCameraScanner({
 
     return () => {
       mountedRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        setRestartToken((current) => current + 1)
+      }
+    }
+
+    window.addEventListener('pageshow', onPageShow)
+
+    return () => {
+      window.removeEventListener('pageshow', onPageShow)
     }
   }, [])
 
@@ -89,7 +149,11 @@ export default function QrCameraScanner({
       return
     }
 
+    const generation = bootGenerationRef.current + 1
+    bootGenerationRef.current = generation
+    const abortController = new AbortController()
     let cancelled = false
+
     const scanner = new Html5Qrcode(containerId, {
       formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
       useBarCodeDetectorIfSupported: true,
@@ -101,15 +165,75 @@ export default function QrCameraScanner({
       setStatus('starting')
     }
 
-    void Html5Qrcode.getCameras()
-      .then(async (cameras) => {
-        if (cancelled) {
-          return
+    async function startCamera(): Promise<boolean> {
+      const cameras = await Html5Qrcode.getCameras()
+
+      if (cancelled || generation !== bootGenerationRef.current) {
+        return false
+      }
+
+      const cameraId = selectBackCamera(cameras)
+
+      if (cameraId === undefined) {
+        return false
+      }
+
+      await scanner.start(
+        cameraId,
+        scanConfig,
+        (decodedText) => {
+          if (handledRef.current || cancelled || generation !== bootGenerationRef.current) {
+            return
+          }
+
+          handledRef.current = true
+          handleScan(decodedText)
+
+          window.setTimeout(() => {
+            handledRef.current = false
+          }, 1500)
+        },
+        () => undefined,
+      )
+
+      try {
+        await scanner.applyVideoConstraints({
+          advanced: [{ focusMode: 'continuous' }],
+        } as unknown as MediaTrackConstraints)
+      } catch {
+        // Some mobile browsers do not expose camera focus controls.
+      }
+
+      return true
+    }
+
+    async function boot(): Promise<void> {
+      await nextPaint()
+
+      if (cancelled || generation !== bootGenerationRef.current) {
+        return
+      }
+
+      const container = containerRef.current ?? document.getElementById(containerId)
+
+      if (!(container instanceof HTMLElement)) {
+        if (mountedRef.current) {
+          setStatus('unavailable')
         }
 
-        const cameraId = selectBackCamera(cameras)
+        return
+      }
 
-        if (cameraId === undefined) {
+      await waitForViewportLayout(container, abortController.signal)
+
+      if (cancelled || generation !== bootGenerationRef.current) {
+        return
+      }
+
+      try {
+        const started = await startCamera()
+
+        if (!started) {
           if (mountedRef.current) {
             setStatus('unavailable')
           }
@@ -117,48 +241,53 @@ export default function QrCameraScanner({
           return
         }
 
-        await scanner.start(
-          cameraId,
-          scanConfig,
-          (decodedText) => {
-            if (handledRef.current || cancelled) {
-              return
-            }
-
-            handledRef.current = true
-            handleScan(decodedText)
-
-            window.setTimeout(() => {
-              handledRef.current = false
-            }, 1500)
-          },
-          () => undefined,
-        )
-
-        try {
-          await scanner.applyVideoConstraints({
-            advanced: [{ focusMode: 'continuous' }],
-          } as unknown as MediaTrackConstraints)
-        } catch {
-          // Some mobile browsers do not expose camera focus controls.
-        }
-
-        if (!cancelled && mountedRef.current) {
+        if (!cancelled && generation === bootGenerationRef.current && mountedRef.current) {
           setStatus('ready')
         }
-      })
-      .catch(() => {
-        if (!cancelled && mountedRef.current) {
-          setStatus('unavailable')
+      } catch {
+        if (cancelled || generation !== bootGenerationRef.current) {
+          return
         }
-      })
+
+        await new Promise((resolve) => {
+          window.setTimeout(resolve, 400)
+        })
+
+        if (cancelled || generation !== bootGenerationRef.current) {
+          return
+        }
+
+        try {
+          const started = await startCamera()
+
+          if (!started || cancelled || generation !== bootGenerationRef.current) {
+            if (mountedRef.current) {
+              setStatus('unavailable')
+            }
+
+            return
+          }
+
+          if (mountedRef.current) {
+            setStatus('ready')
+          }
+        } catch {
+          if (!cancelled && generation === bootGenerationRef.current && mountedRef.current) {
+            setStatus('unavailable')
+          }
+        }
+      }
+    }
+
+    void boot()
 
     return () => {
       cancelled = true
+      abortController.abort()
       scannerRef.current = null
       void disposeScanner(scanner)
     }
-  }, [active, containerId])
+  }, [active, containerId, restartToken])
 
   const overlayMessage = status === 'starting'
     ? startingLabel
@@ -173,6 +302,7 @@ export default function QrCameraScanner({
     >
       <div className="scanner-camera-screen">
         <div
+          ref={containerRef}
           id={containerId}
           className="scanner-camera-viewport"
           aria-live="polite"
@@ -180,6 +310,15 @@ export default function QrCameraScanner({
         {overlayMessage ? (
           <div className="scanner-camera-overlay" role="status">
             <p>{overlayMessage}</p>
+            {status === 'unavailable' ? (
+              <button
+                type="button"
+                className="button-secondary mt-4"
+                onClick={() => setRestartToken((current) => current + 1)}
+              >
+                {restartLabel}
+              </button>
+            ) : null}
           </div>
         ) : null}
       </div>
