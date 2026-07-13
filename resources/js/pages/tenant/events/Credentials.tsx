@@ -31,7 +31,7 @@ type Props = {
 }
 
 export default function Credentials({ event, credentials }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
@@ -56,7 +56,7 @@ export default function Credentials({ event, credentials }: Props) {
         title={locale === 'ar' ? 'بيانات الدخول' : 'Credentials'}
         description={event.name[locale]}
         breadcrumbs={[
-          { label: locale === 'ar' ? 'نظرة عامة' : 'Overview', href: '/' },
+          { label: t('overview'), href: '/dashboard' },
           { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: locale === 'ar' ? 'بيانات الدخول' : 'Credentials' },

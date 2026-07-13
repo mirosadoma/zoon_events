@@ -127,7 +127,7 @@ export default function IdentityVerificationDetailPage({
         title={t('identityVerificationDetail')}
         description={event.name[locale]}
         breadcrumbs={[
-          { label: t('overview'), href: '/' },
+          { label: t('overview'), href: '/dashboard' },
           { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: t('identityReviewQueue'), href: `/tenant/events/${event.id}/identity/review` },

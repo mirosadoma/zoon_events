@@ -1,6 +1,7 @@
 export default {
   appName: 'Zonetec Foundation',
-  overview: 'Overview',
+  overview: 'Main Page',
+  publicSite: 'Public site',
   tenants: 'Tenants',
   users: 'Users',
   roles: 'Roles & permissions',

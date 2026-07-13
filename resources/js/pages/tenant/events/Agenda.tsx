@@ -158,7 +158,7 @@ export default function EventAgenda({ event, tenantId, items: initialItems }: Pr
         title={t('eventAgendaTitle')}
         description={t('eventAgendaDescription')}
         breadcrumbs={[
-          { label: t('overview'), href: '/' },
+          { label: t('overview'), href: '/dashboard' },
           { label: t('overviewEvents'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: t('eventAgendaTitle') },

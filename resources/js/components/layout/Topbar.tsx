@@ -1,5 +1,5 @@
 import { router, usePage } from '@inertiajs/react'
-import { ChevronDown, CircleHelp, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, Sun, User } from 'lucide-react'
+import { ChevronDown, CircleHelp, ExternalLink, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, Sun, User } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useShellLayout } from '@/contexts/ShellLayoutContext'
 import { useClickOutside } from '@/hooks/useClickOutside'
@@ -30,7 +30,7 @@ function resolveIsDark(theme: ReturnType<typeof useTheme>['theme']): boolean {
 }
 
 export default function Topbar() {
-  const { locale } = useLocale()
+  const { locale, localizedPath } = useLocale()
   const localizedRouter = useLocalizedRouter()
   const { theme, setTheme } = useTheme()
   const { sidebarCollapsed, toggleSidebar, toggleMobileSidebar } = useShellLayout()
@@ -171,6 +171,14 @@ export default function Topbar() {
                 <User className="h-4 w-4" />
                 {messages.profile}
               </button>
+              <a
+                href={localizedPath('/')}
+                className="ta-topbar-menu-item"
+                onClick={closeMenus}
+              >
+                <ExternalLink className="h-4 w-4" />
+                {messages.publicSite}
+              </a>
               <button
                 type="button"
                 className="ta-topbar-menu-item ta-topbar-menu-item-danger"

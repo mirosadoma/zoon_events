@@ -45,7 +45,7 @@ type Props = {
 }
 
 export default function KioskDetailPage({ event, kiosk }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
 
   return (
     <DashboardLayout title={kiosk.device_name}>
@@ -53,7 +53,7 @@ export default function KioskDetailPage({ event, kiosk }: Props) {
         title={kiosk.device_name}
         description={event.name[locale]}
         breadcrumbs={[
-          { label: locale === 'ar' ? 'نظرة عامة' : 'Overview', href: '/dashboard' },
+          { label: t('overview'), href: '/dashboard' },
           { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: locale === 'ar' ? 'الكشكات' : 'Kiosks', href: `/tenant/events/${event.id}/kiosks` },

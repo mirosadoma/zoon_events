@@ -26,7 +26,7 @@ type Props = {
 }
 
 export default function WalkUpRegistration({ event, tenantId, ticketTypes }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const [ticketTypeId, setTicketTypeId] = useState(ticketTypes[0]?.id ?? '')
   const [registeredId, setRegisteredId] = useState<string | null>(null)
 
@@ -36,7 +36,7 @@ export default function WalkUpRegistration({ event, tenantId, ticketTypes }: Pro
         title={locale === 'ar' ? 'تسجيل مباشر' : 'Walk-up registration'}
         description={event.name[locale]}
         breadcrumbs={[
-          { label: locale === 'ar' ? 'نظرة عامة' : 'Overview', href: '/dashboard' },
+          { label: t('overview'), href: '/dashboard' },
           { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: locale === 'ar' ? 'مكتب الاستقبال' : 'Manual desk', href: `/tenant/events/${event.id}/manual-desk` },

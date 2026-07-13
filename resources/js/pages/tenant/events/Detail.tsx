@@ -43,7 +43,7 @@ type Props = {
 }
 
 export default function EventDetail({ event, setupTabs, operationsTabs, tenantId, eventCapabilities }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const { toast } = useToast()
   const [publishOpen, setPublishOpen] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
@@ -140,7 +140,7 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
         title={event.name[locale]}
         description={locale === 'ar' ? 'تفاصيل الفعالية وإعداداتها.' : 'Event details and configuration.'}
         breadcrumbs={[
-          { label: locale === 'ar' ? 'نظرة عامة' : 'Overview', href: '/' },
+          { label: t('overview'), href: '/dashboard' },
           { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale] },
         ]}

@@ -37,7 +37,7 @@ function readinessContextFor(event: EventRow): PublishReadinessContext {
 }
 
 export default function EventList({ events }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const { toast } = useToast()
 
   async function copyRegistrationLink(url: string) {
@@ -54,7 +54,7 @@ export default function EventList({ events }: Props) {
       <PageHeader
         title={locale === 'ar' ? 'الفعاليات' : 'Events'}
         description={locale === 'ar' ? 'إدارة فعاليات المستأجر.' : 'Manage tenant events.'}
-        breadcrumbs={[{ label: locale === 'ar' ? 'نظرة عامة' : 'Overview', href: '/dashboard' }, { label: locale === 'ar' ? 'الفعاليات' : 'Events' }]}
+        breadcrumbs={[{ label: t('overview'), href: '/dashboard' }, { label: locale === 'ar' ? 'الفعاليات' : 'Events' }]}
         actions={
           <LocalizedLink className="button-primary" href="/tenant/events/create">
             {locale === 'ar' ? 'فعالية جديدة' : 'New event'}

@@ -19,7 +19,7 @@ type Props = {
 }
 
 export default function AcsLanes({ event, tenantId, zones, lanes: initialLanes }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const [lanes, setLanes] = useState(initialLanes)
   const [zoneId, setZoneId] = useState(zones[0]?.id ?? '')
   const [name, setName] = useState('')
@@ -69,7 +69,7 @@ export default function AcsLanes({ event, tenantId, zones, lanes: initialLanes }
         title={locale === 'ar' ? 'مسارات ACS' : 'ACS lanes'}
         description={event.name[locale]}
         breadcrumbs={[
-          { label: locale === 'ar' ? 'نظرة عامة' : 'Overview', href: '/dashboard' },
+          { label: t('overview'), href: '/dashboard' },
           { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: 'ACS', href: `/tenant/events/${event.id}/acs` },

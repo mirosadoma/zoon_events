@@ -23,7 +23,7 @@ type Props = {
 }
 
 export default function AcsGateHealth({ event, tenantId, health: initialHealth }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const [health, setHealth] = useState(initialHealth)
 
   useEffect(() => {
@@ -54,7 +54,7 @@ export default function AcsGateHealth({ event, tenantId, health: initialHealth }
         title={locale === 'ar' ? 'صحة البوابة' : 'Gate health'}
         description={event.name[locale]}
         breadcrumbs={[
-          { label: locale === 'ar' ? 'نظرة عامة' : 'Overview', href: '/dashboard' },
+          { label: t('overview'), href: '/dashboard' },
           { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: 'ACS', href: `/tenant/events/${event.id}/acs` },

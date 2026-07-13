@@ -85,7 +85,7 @@ export default function CheckInDashboard({
         title={locale === 'ar' ? 'لوحة تسجيل الحضور' : 'Check-in dashboard'}
         description={event.name[locale]}
         breadcrumbs={[
-          { label: locale === 'ar' ? 'نظرة عامة' : 'Overview', href: '/dashboard' },
+          { label: t('overview'), href: '/dashboard' },
           { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: locale === 'ar' ? 'لوحة تسجيل الحضور' : 'Check-in dashboard' },

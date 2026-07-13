@@ -134,7 +134,6 @@ export default function FoundationDashboard({ overview, title }: Props) {
       <PageHeader
         title={messages.overviewTitle}
         description={messages.overviewDescription}
-        breadcrumbs={[{ label: messages.overview }]}
       />
       <PageContent>
         <section className="ta-dashboard-hero" aria-label={messages.overviewWelcome}>

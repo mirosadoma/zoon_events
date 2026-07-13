@@ -27,7 +27,7 @@ type Props = {
 }
 
 export default function WalletPasses({ event, walletPasses }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
 
   return (
     <DashboardLayout title={locale === 'ar' ? 'تذاكر المحفظة' : 'Wallet passes'}>
@@ -35,7 +35,7 @@ export default function WalletPasses({ event, walletPasses }: Props) {
         title={locale === 'ar' ? 'تذاكر المحفظة' : 'Wallet passes'}
         description={event.name[locale]}
         breadcrumbs={[
-          { label: locale === 'ar' ? 'نظرة عامة' : 'Overview', href: '/dashboard' },
+          { label: t('overview'), href: '/dashboard' },
           { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: locale === 'ar' ? 'تذاكر المحفظة' : 'Wallet passes' },

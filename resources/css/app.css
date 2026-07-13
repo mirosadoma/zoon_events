@@ -564,12 +564,44 @@ body {
   @apply mt-1 block text-sm font-semibold text-[var(--ink)] sm:text-base;
 }
 
+.event-setup-progress-bar {
+  @apply relative z-10 mt-6 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)]/90 px-4 py-3 backdrop-blur-sm;
+}
+
+.event-setup-progress-bar-header {
+  @apply mb-2.5 flex items-center justify-between gap-3;
+}
+
+.event-setup-progress-bar-label {
+  @apply text-xs font-semibold uppercase tracking-wide text-[var(--muted)];
+}
+
+.event-setup-progress-bar-percent {
+  @apply text-sm font-bold tabular-nums text-[var(--brand)];
+}
+
 .event-setup-progress-track {
-  @apply relative z-10 mt-5 h-1.5 overflow-hidden rounded-full bg-[var(--border)];
+  @apply relative h-3 overflow-hidden rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--border)_55%,var(--surface))];
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--ink) 6%, transparent);
 }
 
 .event-setup-progress-fill {
-  @apply block h-full rounded-full bg-[var(--brand)] transition-[width] duration-500 ease-out;
+  @apply block h-full min-w-0 rounded-full transition-[width] duration-500 ease-out;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--brand) 82%, var(--ink)),
+    var(--brand)
+  );
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 35%, transparent);
+}
+
+[dir='rtl'] .event-setup-progress-fill {
+  @apply ms-auto;
+  background: linear-gradient(
+    270deg,
+    color-mix(in srgb, var(--brand) 82%, var(--ink)),
+    var(--brand)
+  );
 }
 
 .event-next-steps-header {

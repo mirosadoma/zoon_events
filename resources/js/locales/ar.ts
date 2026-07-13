@@ -1,6 +1,7 @@
 export default {
   appName: 'أساس زونتك',
-  overview: 'نظرة عامة',
+  overview: 'الصفحة الرئيسية',
+  publicSite: 'الموقع الخارجي',
   tenants: 'المستأجرون',
   users: 'المستخدمون',
   roles: 'الأدوار والصلاحيات',

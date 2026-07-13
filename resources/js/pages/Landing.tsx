@@ -1,4 +1,4 @@
-import { router } from '@inertiajs/react'
+import { router, usePage } from '@inertiajs/react'
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import {
   ArrowRight,
@@ -44,6 +44,7 @@ const copy = {
       'Unify registration, identity verification, ticketing, on-site check-in, badges, wallet passes, and access control in one secure platform.',
     ctaLogin: 'Sign in',
     ctaRegister: 'Register as organizer',
+    ctaDashboard: 'Dashboard',
     ctaFeatures: 'Explore capabilities',
     statsTitle: 'Designed for scale',
     featuresTitle: 'Everything your event team needs',
@@ -81,6 +82,7 @@ const copy = {
       'وحّد التسجيل والتحقق من الهوية والتذاكر وتسجيل الحضور والشارات وتذاكر المحفظة والتحكم في الوصول في منصة آمنة واحدة.',
     ctaLogin: 'تسجيل الدخول',
     ctaRegister: 'تسجيل منظم جديد',
+    ctaDashboard: 'لوحة التحكم',
     ctaFeatures: 'استكشف الإمكانيات',
     statsTitle: 'مصممة للنطاق الواسع',
     featuresTitle: 'كل ما يحتاجه فريق الفعالية',
@@ -126,6 +128,8 @@ export default function Landing({
   about_ar,
 }: Props) {
   const { locale, direction } = useLocale()
+  const { props } = usePage<{ auth?: { user?: { id: string } | null } }>()
+  const isAuthenticated = Boolean(props.auth?.user)
   const { theme, setTheme } = useTheme()
   const messages = locale === 'ar' ? ar : en
   const t = copy[locale]
@@ -192,12 +196,20 @@ export default function Landing({
             </button>
 
             <div className="landing-header__desktop-actions">
-              <LocalizedLink href={localizedPath(locale, '/login')} className="button-secondary">
-                {t.ctaLogin}
-              </LocalizedLink>
-              <LocalizedLink href={localizedPath(locale, '/register')} className="button-primary">
-                {t.ctaRegister}
-              </LocalizedLink>
+              {isAuthenticated ? (
+                <LocalizedLink href={localizedPath(locale, '/dashboard')} className="button-primary">
+                  {t.ctaDashboard}
+                </LocalizedLink>
+              ) : (
+                <>
+                  <LocalizedLink href={localizedPath(locale, '/login')} className="button-secondary">
+                    {t.ctaLogin}
+                  </LocalizedLink>
+                  <LocalizedLink href={localizedPath(locale, '/register')} className="button-primary">
+                    {t.ctaRegister}
+                  </LocalizedLink>
+                </>
+              )}
             </div>
 
             <button
@@ -219,20 +231,32 @@ export default function Landing({
             ref={mobileMenuRef}
             className="landing-header__mobile-menu"
           >
-            <LocalizedLink
-              href={localizedPath(locale, '/login')}
-              className="button-secondary w-full"
-              onClick={closeMobileMenu}
-            >
-              {t.ctaLogin}
-            </LocalizedLink>
-            <LocalizedLink
-              href={localizedPath(locale, '/register')}
-              className="button-primary w-full"
-              onClick={closeMobileMenu}
-            >
-              {t.ctaRegister}
-            </LocalizedLink>
+            {isAuthenticated ? (
+              <LocalizedLink
+                href={localizedPath(locale, '/dashboard')}
+                className="button-primary w-full"
+                onClick={closeMobileMenu}
+              >
+                {t.ctaDashboard}
+              </LocalizedLink>
+            ) : (
+              <>
+                <LocalizedLink
+                  href={localizedPath(locale, '/login')}
+                  className="button-secondary w-full"
+                  onClick={closeMobileMenu}
+                >
+                  {t.ctaLogin}
+                </LocalizedLink>
+                <LocalizedLink
+                  href={localizedPath(locale, '/register')}
+                  className="button-primary w-full"
+                  onClick={closeMobileMenu}
+                >
+                  {t.ctaRegister}
+                </LocalizedLink>
+              </>
+            )}
           </div>
         ) : null}
       </header>
