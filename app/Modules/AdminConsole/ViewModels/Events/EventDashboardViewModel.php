@@ -4,18 +4,21 @@ namespace App\Modules\AdminConsole\ViewModels\Events;
 
 use App\Modules\Events\Application\Publication\PublicationReadiness;
 use App\Modules\Events\Application\Support\PublicRegistrationUrlBuilder;
+use App\Modules\Events\Domain\EventRegistrationProfile;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
+use App\Modules\IdentityVerification\Infrastructure\Persistence\Models\IdentityVerificationRequirement;
+use App\Modules\Ticketing\Contracts\ActiveTicketCounter;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\PriceTier;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketInventory;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketType;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 final readonly class EventDashboardViewModel
 {
     public function __construct(
         private PublicationReadiness $readiness,
         private PublicRegistrationUrlBuilder $registrationUrls,
+        private ActiveTicketCounter $tickets,
     ) {}
 
     /**
@@ -30,46 +33,48 @@ final readonly class EventDashboardViewModel
     }
 
     /**
-     * @return array{event:array<string,mixed>,tabs:list<array<string,string>>}
+     * @return array{
+     *   event:array<string,mixed>,
+     *   setupTabs:list<array{label:string,href:string,key:string,completed:bool}>,
+     *   operationsTabs:list<array{label:string,href:string,key:string,completed:bool}>,
+     *   eventCapabilities:array<string,bool>
+     * }
      */
     public function detail(Event $event): array
     {
+        $capabilities = EventRegistrationProfile::capabilities($event);
+        $missing = $this->readiness->missingForEvent(
+            $event,
+            $this->tickets->countOrganizerTicketTypesForEvent($event->tenant_id, $event->id),
+        );
+        $setupProgress = $this->setupProgress($event, $missing, $capabilities);
+        $tabs = $this->tabsFor($event, $capabilities, $setupProgress);
+
         return [
-            'event' => $this->eventRow($event),
-            'tabs' => [
-                ['label' => 'Agenda', 'href' => "/tenant/events/{$event->id}/agenda"],
-                ['label' => 'Registration form', 'href' => "/tenant/events/{$event->id}/registration-form"],
-                ['label' => 'Identity requirements', 'href' => "/tenant/events/{$event->id}/identity"],
-                ['label' => 'Ticket types', 'href' => "/tenant/events/{$event->id}/ticket-types"],
-                ['label' => 'Price tiers', 'href' => "/tenant/events/{$event->id}/price-tiers"],
-                ['label' => 'Orders', 'href' => "/tenant/events/{$event->id}/orders"],
-                ['label' => 'Attendees', 'href' => "/tenant/events/{$event->id}/attendees"],
-                ['label' => 'Credentials', 'href' => "/tenant/events/{$event->id}/credentials"],
-                ['label' => 'Wallet passes', 'href' => "/tenant/events/{$event->id}/wallet-passes"],
-                ['label' => 'Check-in dashboard', 'href' => "/tenant/events/{$event->id}/check-in-dashboard"],
-                ['label' => 'Scanner', 'href' => "/tenant/events/{$event->id}/scanner"],
-                ['label' => 'Scan events', 'href' => "/tenant/events/{$event->id}/scan-events"],
-                ['label' => 'Kiosks', 'href' => "/tenant/events/{$event->id}/kiosks"],
-                ['label' => 'Badge templates', 'href' => "/tenant/events/{$event->id}/badge-templates"],
-                ['label' => 'Badge print jobs', 'href' => "/tenant/events/{$event->id}/badge-print-jobs"],
-                ['label' => 'Manual desk', 'href' => "/tenant/events/{$event->id}/manual-desk"],
-                ['label' => 'ACS', 'href' => "/tenant/events/{$event->id}/acs"],
-                ['label' => 'Reports', 'href' => "/tenant/events/{$event->id}/reports"],
+            'event' => [
+                ...$this->eventRow($event),
+                'setup_progress' => $setupProgress,
             ],
+            'eventCapabilities' => $capabilities,
+            'setupTabs' => $tabs['setupTabs'],
+            'operationsTabs' => $tabs['operationsTabs'],
         ];
     }
 
     /**
      * @param  Collection<int, TicketType>  $tickets
      * @param  Collection<string, TicketInventory>  $inventory
-     * @return array{tenantId:string,event:array<string,mixed>,tickets:list<array<string,mixed>>}
+     * @return array{tenantId:string,event:array<string,mixed>,tickets:list<array<string,mixed>>,eventCapabilities:array<string,bool>}
      */
     public function ticketing(Event $event, string $tenantId, Collection $tickets, Collection $inventory): array
     {
         return [
             'tenantId' => $tenantId,
             'event' => $this->eventRow($event),
-            'tickets' => $tickets->map(function (TicketType $ticket) use ($inventory): array {
+            'eventCapabilities' => EventRegistrationProfile::capabilities($event),
+            'tickets' => $tickets
+                ->reject(fn (TicketType $ticket): bool => $ticket->code === EventRegistrationProfile::SYSTEM_REGISTRATION_TICKET_CODE)
+                ->map(function (TicketType $ticket) use ($inventory): array {
                 $stock = $inventory->get($ticket->id);
 
                 return [
@@ -94,14 +99,19 @@ final readonly class EventDashboardViewModel
     /**
      * @param  Collection<int, PriceTier>  $tiers
      * @param  Collection<int, TicketType>  $ticketTypes
-     * @return array{tenantId:string,event:array<string,mixed>,ticketTypes:list<array<string,mixed>>,priceTiers:list<array<string,mixed>>}
+     * @return array{tenantId:string,event:array<string,mixed>,ticketTypes:list<array<string,mixed>>,priceTiers:list<array<string,mixed>>,eventCapabilities:array<string,bool>}
      */
     public function priceTiers(Event $event, string $tenantId, Collection $tiers, Collection $ticketTypes): array
     {
+        $organizerTickets = $ticketTypes->reject(
+            fn (TicketType $ticket): bool => $ticket->code === EventRegistrationProfile::SYSTEM_REGISTRATION_TICKET_CODE,
+        );
+
         return [
             'tenantId' => $tenantId,
             'event' => $this->eventRow($event),
-            'ticketTypes' => $ticketTypes->map(fn (TicketType $ticket): array => [
+            'eventCapabilities' => EventRegistrationProfile::capabilities($event),
+            'ticketTypes' => $organizerTickets->map(fn (TicketType $ticket): array => [
                 'id' => $ticket->id,
                 'code' => $ticket->code,
                 'name' => ['en' => $ticket->name_en, 'ar' => $ticket->name_ar],
@@ -126,7 +136,7 @@ final readonly class EventDashboardViewModel
     }
 
     /** @return array<string,mixed> */
-    private function eventRow(Event $event): array
+    public function eventRow(Event $event): array
     {
         return [
             'id' => $event->id,
@@ -134,20 +144,101 @@ final readonly class EventDashboardViewModel
             'name' => ['en' => $event->name_en, 'ar' => $event->name_ar],
             'status' => $event->status,
             'tier' => $event->tier,
+            'event_type' => $event->event_type ?? 'seminar',
+            'registration_mode' => $event->registration_mode ?? 'free_registration',
             'timezone' => $event->timezone,
             'start_at' => $event->start_at?->toIso8601String(),
             'end_at' => $event->end_at?->toIso8601String(),
             'capacity' => $event->capacity,
-            'readiness' => $this->readiness->missing([
-                ...$event->only(['name_en', 'name_ar', 'timezone', 'start_at', 'end_at', 'registration_opens_at', 'registration_closes_at', 'active_form_version_id', 'main_image_path']),
-                'active_ticket_types' => DB::table('ticket_types')
+            'readiness' => $this->readiness->missingForEvent(
+                $event,
+                $this->tickets->countOrganizerTicketTypesForEvent($event->tenant_id, $event->id),
+            ),
+            'registration_url' => $this->registrationUrls->forEvent($event),
+            'capabilities' => EventRegistrationProfile::capabilities($event),
+        ];
+    }
+
+    /**
+     * @param  list<string>  $missing
+     * @param  array{requires_ticketing:bool,requires_price_tiers:bool}  $capabilities
+     * @return array{
+     *   registration_form:bool,
+     *   ticket_types:bool,
+     *   price_tiers:bool,
+     *   agenda:bool,
+     *   identity:bool,
+     *   published:bool
+     * }
+     */
+    private function setupProgress(Event $event, array $missing, array $capabilities): array
+    {
+        return [
+            'registration_form' => ! in_array('active_form_version_id', $missing, true),
+            'ticket_types' => ! $capabilities['requires_ticketing'] || ! in_array('active_ticket_type', $missing, true),
+            'price_tiers' => ! $capabilities['requires_price_tiers']
+                || PriceTier::query()
                     ->where('tenant_id', $event->tenant_id)
                     ->where('event_id', $event->id)
-                    ->where('status', 'active')
-                    ->count(),
-                'branding_active' => $event->branding()->where('status', 'active')->exists(),
-            ]),
-            'registration_url' => $this->registrationUrls->forEvent($event),
+                    ->exists(),
+            'agenda' => $event->agendaItems()->exists(),
+            'identity' => IdentityVerificationRequirement::query()
+                ->where('tenant_id', $event->tenant_id)
+                ->where('event_id', $event->id)
+                ->exists(),
+            'published' => ! in_array($event->status, ['draft', 'configured'], true),
+        ];
+    }
+
+    /**
+     * @param  array{requires_ticketing:bool,requires_price_tiers:bool}  $capabilities
+     * @param  array{
+     *   registration_form:bool,
+     *   ticket_types:bool,
+     *   price_tiers:bool,
+     *   agenda:bool,
+     *   identity:bool,
+     *   published:bool
+     * }  $setupProgress
+     * @return array{
+     *   setupTabs:list<array{label:string,href:string,key:string,completed:bool}>,
+     *   operationsTabs:list<array{label:string,href:string,key:string,completed:bool}>
+     * }
+     */
+    private function tabsFor(Event $event, array $capabilities, array $setupProgress): array
+    {
+        $base = "/tenant/events/{$event->id}";
+        $setupTabs = [
+            ['label' => 'Agenda', 'href' => "{$base}/agenda", 'key' => 'agenda', 'completed' => $setupProgress['agenda']],
+            ['label' => 'Registration form', 'href' => "{$base}/registration-form", 'key' => 'registration_form', 'completed' => $setupProgress['registration_form']],
+        ];
+
+        if ($capabilities['requires_ticketing']) {
+            $setupTabs[] = ['label' => 'Ticket types', 'href' => "{$base}/ticket-types", 'key' => 'ticket_types', 'completed' => $setupProgress['ticket_types']];
+        }
+
+        if ($capabilities['requires_price_tiers']) {
+            $setupTabs[] = ['label' => 'Price tiers', 'href' => "{$base}/price-tiers", 'key' => 'price_tiers', 'completed' => $setupProgress['price_tiers']];
+        }
+
+        return [
+            'setupTabs' => $setupTabs,
+            'operationsTabs' => [
+                ['label' => 'Identity requirements', 'href' => "{$base}/identity", 'key' => 'identity', 'completed' => false],
+                ['label' => 'Orders', 'href' => "{$base}/orders", 'key' => 'orders', 'completed' => false],
+                ['label' => 'Attendees', 'href' => "{$base}/attendees", 'key' => 'attendees', 'completed' => false],
+                ['label' => 'Credentials', 'href' => "{$base}/credentials", 'key' => 'credentials', 'completed' => false],
+                ['label' => 'Wallet passes', 'href' => "{$base}/wallet-passes", 'key' => 'wallet_passes', 'completed' => false],
+                ['label' => 'Check-in dashboard', 'href' => "{$base}/check-in-dashboard", 'key' => 'check_in_dashboard', 'completed' => false],
+                ['label' => 'Scanner', 'href' => "{$base}/scanner", 'key' => 'scanner', 'completed' => false],
+                ['label' => 'Scan events', 'href' => "{$base}/scan-events", 'key' => 'scan_events', 'completed' => false],
+                ['label' => 'Kiosks', 'href' => "{$base}/kiosks", 'key' => 'kiosks', 'completed' => false],
+                ['label' => 'Badge templates', 'href' => "{$base}/badge-templates", 'key' => 'badge_templates', 'completed' => false],
+                ['label' => 'Badge print jobs', 'href' => "{$base}/badge-print-jobs", 'key' => 'badge_print_jobs', 'completed' => false],
+                ['label' => 'Manual desk', 'href' => "{$base}/manual-desk", 'key' => 'manual_desk', 'completed' => false],
+                ['label' => 'ACS', 'href' => "{$base}/acs", 'key' => 'acs', 'completed' => false],
+                ['label' => 'Reports', 'href' => "{$base}/reports", 'key' => 'reports', 'completed' => false],
+            ],
         ];
     }
 

@@ -1,6 +1,32 @@
 import type { NavigationGroup, NavigationItem } from '@/types/shell'
+import { stripLocalePrefix } from '@/lib/localePath'
 
 export type { NavigationGroup }
+
+export function normalizeNavPath(path: string): string {
+  return stripLocalePrefix(path.split('?')[0] ?? path)
+}
+
+export function isNavItemActive(currentPath: string, itemHref: string): boolean {
+  const path = normalizeNavPath(currentPath)
+  const itemPath = normalizeNavPath(itemHref)
+
+  if (path === itemPath) {
+    return true
+  }
+
+  if (itemPath === '/tenant/events') {
+    return path === '/tenant/events/create'
+  }
+
+  const isEventDetailRoot = /\/tenant\/events\/[^/]+$/.test(itemPath)
+
+  if (isEventDetailRoot) {
+    return false
+  }
+
+  return path.startsWith(`${itemPath}/`)
+}
 
 export const platformNavigationGroups: NavigationGroup[] = [
   {

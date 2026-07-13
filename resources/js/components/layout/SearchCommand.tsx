@@ -125,12 +125,12 @@ export default function SearchCommand() {
   }
 
   return (
-    <div ref={ref} className="relative hidden min-w-0 flex-1 sm:block sm:max-w-md" data-tour="search">
-      <label className="ta-search flex">
+    <div ref={ref} className="relative min-w-0 flex-1 sm:max-w-md" data-tour="search">
+      <label className="ta-search">
         <Search className="h-4 w-4 shrink-0" aria-hidden />
         <input
           type="search"
-          className="w-full border-0 bg-transparent text-sm outline-none"
+          className="w-full border-0 bg-transparent text-sm text-[var(--ink)] outline-none placeholder:text-[var(--muted)]"
           placeholder={t('searchPlaceholder')}
           aria-label={t('searchPlaceholder')}
           value={query}
@@ -141,7 +141,7 @@ export default function SearchCommand() {
             }
           }}
         />
-        <kbd className="hidden rounded border border-[var(--border)] px-1.5 text-xs text-slate-400 md:inline">⌘K</kbd>
+        <kbd>⌘K</kbd>
       </label>
 
       {open ? (

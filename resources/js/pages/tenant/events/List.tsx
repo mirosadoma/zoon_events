@@ -1,26 +1,39 @@
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
+import CopyRegistrationLinkButton from '@/components/events/CopyRegistrationLinkButton'
+import PublishReadinessBadge from '@/components/events/PublishReadinessBadge'
 import { PageContent, PageHeader } from '@/components/layout'
 import StatusBadge from '@/components/status/StatusBadge'
 import { DataTable } from '@/components/tables'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
-import { CopyIcon } from 'lucide-react'
+import { requiresTicketing } from '@/lib/eventOptions'
+import type { PublishReadinessContext } from '@/lib/publishReadinessCatalog'
 
 type EventRow = {
   id: string
   name: { en: string; ar: string }
   status: string
   tier: string
+  event_type?: string
+  registration_mode?: string
   timezone: string
   start_at?: string | null
   capacity?: number | null
   registration_url?: string | null
+  readiness?: string[]
 }
 
 type Props = {
   events: EventRow[]
+}
+
+function readinessContextFor(event: EventRow): PublishReadinessContext {
+  return {
+    status: event.status,
+    requiresTicketing: requiresTicketing(event.tier, event.registration_mode ?? 'free_registration'),
+  }
 }
 
 export default function EventList({ events }: Props) {
@@ -66,10 +79,26 @@ export default function EventList({ events }: Props) {
                 },
               },
               { key: 'tier', header: locale === 'ar' ? 'الفئة' : 'Tier' },
+              { key: 'event_type', header: locale === 'ar' ? 'النوع' : 'Type' },
+              { key: 'registration_mode', header: locale === 'ar' ? 'التسجيل' : 'Registration' },
               {
                 key: 'status',
                 header: locale === 'ar' ? 'الحالة' : 'Status',
                 render: (row) => <StatusBadge status={String(row.status)} />,
+              },
+              {
+                key: 'publish_readiness',
+                header: locale === 'ar' ? 'جاهزية النشر' : 'Publish readiness',
+                render: (row) => {
+                  const event = row as unknown as EventRow
+
+                  return (
+                    <PublishReadinessBadge
+                      readiness={event.readiness ?? []}
+                      context={readinessContextFor(event)}
+                    />
+                  )
+                },
               },
               { key: 'timezone', header: locale === 'ar' ? 'المنطقة الزمنية' : 'Timezone' },
               { key: 'capacity', header: locale === 'ar' ? 'السعة' : 'Capacity' },
@@ -82,14 +111,10 @@ export default function EventList({ events }: Props) {
                   return (
                     <div className="ta-table-actions">
                       {event.registration_url ? (
-                        <button
-                          type="button"
-                          className="ta-table-action"
+                        <CopyRegistrationLinkButton
+                          compact
                           onClick={() => void copyRegistrationLink(event.registration_url!)}
-                        >
-                          <CopyIcon className="w-4 h-4 mx-2" />
-                          {locale === 'ar' ? 'نسخ رابط التسجيل' : 'Copy registration link'}
-                        </button>
+                        />
                       ) : null}
                       <LocalizedLink href={`/tenant/events/${event.id}`} className="ta-table-action">
                         {locale === 'ar' ? 'عرض' : 'View'}

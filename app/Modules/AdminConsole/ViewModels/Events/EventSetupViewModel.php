@@ -6,17 +6,19 @@ use App\Models\User;
 use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
 use App\Modules\Events\Application\Publication\PublicationReadiness;
 use App\Modules\Events\Application\Support\EventMediaPresenter;
+use App\Modules\Events\Domain\EventRegistrationProfile;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
-use Illuminate\Support\Facades\DB;
+use App\Modules\Ticketing\Contracts\ActiveTicketCounter;
 
 final readonly class EventSetupViewModel
 {
     public function __construct(
         private PublicationReadiness $readiness,
         private EventMediaPresenter $media,
+        private ActiveTicketCounter $tickets,
     ) {}
 
-    /** @return array{event:array<string,mixed>,can:array{manage:bool,publish:bool}} */
+    /** @return array{event:array<string,mixed>,eventPermissions:array{manage:bool,publish:bool}} */
     public function make(Event $event, bool $canManage, bool $canPublish): array
     {
         $organizer = $event->created_by_user_id !== null
@@ -31,6 +33,9 @@ final readonly class EventSetupViewModel
                 'description' => ['en' => $event->description_en ?? '', 'ar' => $event->description_ar ?? ''],
                 'status' => $event->status,
                 'tier' => $event->tier,
+                'event_type' => $event->event_type ?? 'seminar',
+                'registration_mode' => $event->registration_mode ?? 'free_registration',
+                'capabilities' => EventRegistrationProfile::capabilities($event),
                 'timezone' => $event->timezone,
                 'start_at' => $event->start_at?->toIso8601String(),
                 'end_at' => $event->end_at?->toIso8601String(),
@@ -68,17 +73,12 @@ final readonly class EventSetupViewModel
                     ])
                     ->values()
                     ->all(),
-                'readiness' => $this->readiness->missing([
-                    ...$event->only(['name_en', 'name_ar', 'timezone', 'start_at', 'end_at', 'registration_opens_at', 'registration_closes_at', 'active_form_version_id', 'main_image_path']),
-                    'active_ticket_types' => DB::table('ticket_types')
-                        ->where('tenant_id', $event->tenant_id)
-                        ->where('event_id', $event->id)
-                        ->where('status', 'active')
-                        ->count(),
-                    'branding_active' => $event->branding()->where('status', 'active')->exists(),
-                ]),
+                'readiness' => $this->readiness->missingForEvent(
+                    $event,
+                    $this->tickets->countOrganizerTicketTypesForEvent($event->tenant_id, $event->id),
+                ),
             ],
-            'can' => ['manage' => $canManage, 'publish' => $canPublish],
+            'eventPermissions' => ['manage' => $canManage, 'publish' => $canPublish],
         ];
     }
 }

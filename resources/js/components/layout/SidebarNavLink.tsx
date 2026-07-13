@@ -1,4 +1,5 @@
 import { Link, usePage } from '@inertiajs/react'
+import { useEffect, useRef } from 'react'
 import { useShellLayout } from '@/contexts/ShellLayoutContext'
 import {
   Activity,
@@ -19,8 +20,9 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { clsx } from 'clsx'
+import { isNavItemActive } from '@/lib/navigation'
 import type { NavigationItem } from '@/types/shell'
-import { localizedPath, stripLocalePrefix, type AppLocale } from '@/lib/localePath'
+import { localizedPath, type AppLocale } from '@/lib/localePath'
 
 const NAV_ICONS: Record<string, LucideIcon> = {
   overview: LayoutDashboard,
@@ -84,21 +86,26 @@ export default function SidebarNavLink({
 }: SidebarNavLinkProps) {
   const { url } = usePage()
   const { closeMobileSidebar } = useShellLayout()
-  const path = stripLocalePrefix(url.split('?')[0] ?? url)
+  const linkRef = useRef<HTMLAnchorElement>(null)
   const href = localizedPath(locale, item.href)
-  const itemPath = stripLocalePrefix(item.href)
-  const isEventRoot = /\/tenant\/events\/[^/]+$/.test(itemPath)
-  const active = isEventRoot
-    ? path === itemPath
-    : path === itemPath || path.startsWith(`${itemPath}/`)
+  const active = isNavItemActive(url, item.href)
   const Icon = NAV_ICONS[item.icon ?? item.key] ?? LayoutDashboard
+
+  useEffect(() => {
+    if (!active || !linkRef.current) {
+      return
+    }
+
+    linkRef.current.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [active, url])
 
   return (
     <Link
+      ref={linkRef}
       href={href}
       onClick={closeMobileSidebar}
       className={clsx(
-        'ta-nav-link flex items-center gap-2',
+        'ta-nav-link',
         active && 'ta-nav-link-active',
         collapsed && 'justify-center px-2',
         eventContext && !active && 'hover:bg-[var(--surface-elevated)]',
@@ -107,7 +114,9 @@ export default function SidebarNavLink({
       title={collapsed ? label : undefined}
       data-tour={`nav-${item.key}`}
     >
-      <Icon className={clsx('shrink-0', collapsed ? 'h-5 w-5' : 'h-4 w-4')} aria-hidden />
+      <span className={clsx('ta-nav-link-icon', collapsed && 'h-8 w-8')} aria-hidden="true">
+        <Icon className={clsx(collapsed ? 'h-4 w-4' : 'h-3.5 w-3.5')} />
+      </span>
       <span className={clsx('truncate', collapsed && 'sr-only')}>{label}</span>
     </Link>
   )

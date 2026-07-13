@@ -1,20 +1,35 @@
 import type { NavigationGroup, NavigationItem } from '@/types/shell'
+import type { EventCapabilities } from '@/lib/eventOptions'
 
 export type { NavigationGroup }
 
-export function eventNavigationGroups(eventId: string): NavigationGroup[] {
+export function eventNavigationGroups(eventId: string, capabilities?: EventCapabilities): NavigationGroup[] {
   const base = `/tenant/events/${eventId}`
+  const showTicketing = capabilities?.requires_ticketing ?? true
+  const showPriceTiers = capabilities?.requires_price_tiers ?? showTicketing
+
+  const setupItems: NavigationItem[] = [
+    { key: 'event-detail', label: 'eventDetail', href: base, permission: 'event.view' },
+    { key: 'registration-form', label: 'registrationForm', href: `${base}/registration-form`, permission: 'registration.manage' },
+  ]
+
+  if (showTicketing) {
+    setupItems.push(
+      { key: 'ticket-types', label: 'ticketTypes', href: `${base}/ticket-types`, permission: 'ticketing.manage' },
+    )
+  }
+
+  if (showPriceTiers) {
+    setupItems.push(
+      { key: 'price-tiers', label: 'priceTiers', href: `${base}/price-tiers`, permission: 'ticketing.manage' },
+    )
+  }
 
   return [
     {
       key: 'event-setup',
       label: 'navGroupEventSetup',
-      items: [
-        { key: 'event-detail', label: 'eventDetail', href: base, permission: 'event.view' },
-        { key: 'registration-form', label: 'registrationForm', href: `${base}/registration-form`, permission: 'registration.manage' },
-        { key: 'ticket-types', label: 'ticketTypes', href: `${base}/ticket-types`, permission: 'ticketing.manage' },
-        { key: 'price-tiers', label: 'priceTiers', href: `${base}/price-tiers`, permission: 'ticketing.manage' },
-      ],
+      items: setupItems,
     },
     {
       key: 'orders-attendees',

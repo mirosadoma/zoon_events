@@ -2,6 +2,9 @@
 
 namespace App\Modules\Events\Http\Requests;
 
+use App\Modules\Events\Domain\EventRegistrationProfile;
+use App\Modules\Events\Domain\EventType;
+use App\Modules\Events\Domain\RegistrationMode;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
@@ -18,6 +21,8 @@ final class EventWriteRequest extends FormRequest
             'description.en' => ['nullable', 'string', 'max:5000'],
             'description.ar' => ['nullable', 'string', 'max:5000'],
             'tier' => ['nullable', Rule::in(['corporate', 'public', 'vip', 'vvip'])],
+            'event_type' => ['nullable', Rule::in(EventType::values())],
+            'registration_mode' => ['nullable', Rule::in(RegistrationMode::values())],
             'organizer_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'timezone' => ['required', 'string', 'max:64', Rule::exists('timezones', 'identifier')],
             'capacity' => ['required', 'integer', 'min:1'],
@@ -72,6 +77,11 @@ final class EventWriteRequest extends FormRequest
     {
         $data = $this->validated();
         $schedule = self::scheduleFromVenues($data['venues']);
+        $tier = $data['tier'] ?? 'public';
+        $registrationMode = EventRegistrationProfile::normalizeRegistrationMode(
+            $tier,
+            $data['registration_mode'] ?? RegistrationMode::FreeRegistration->value,
+        );
 
         return [
             'slug' => $data['slug'],
@@ -79,7 +89,9 @@ final class EventWriteRequest extends FormRequest
             'name_ar' => $data['name']['ar'],
             'description_en' => $data['description']['en'] ?? null,
             'description_ar' => $data['description']['ar'] ?? null,
-            'tier' => $data['tier'] ?? 'public',
+            'tier' => $tier,
+            'event_type' => $data['event_type'] ?? EventType::Seminar->value,
+            'registration_mode' => $registrationMode,
             'organizer_user_id' => isset($data['organizer_user_id']) ? (int) $data['organizer_user_id'] : null,
             'timezone' => $data['timezone'],
             'start_at' => $schedule['start_at'],
@@ -108,6 +120,21 @@ final class EventWriteRequest extends FormRequest
                 'registration_closes_at' => $venue['registration_closes_at'] ?? null,
             ])->all(),
         ];
+    }
+
+    public function withValidator(\Illuminate\Validation\Validator $validator): void
+    {
+        $validator->after(function (\Illuminate\Validation\Validator $validator): void {
+            $tier = (string) ($this->input('tier') ?? 'public');
+            $mode = (string) ($this->input('registration_mode') ?? RegistrationMode::FreeRegistration->value);
+
+            if ($mode === RegistrationMode::PaidTicketing->value && ! EventRegistrationProfile::allowsPaidTicketing($tier)) {
+                $validator->errors()->add(
+                    'registration_mode',
+                    'Paid ticketing is only available for public events.',
+                );
+            }
+        });
     }
 
     /**
