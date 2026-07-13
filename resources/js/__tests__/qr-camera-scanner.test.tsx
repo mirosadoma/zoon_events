@@ -49,6 +49,7 @@ describe('QR camera scanner', () => {
         onScan={vi.fn()}
         unavailableLabel="Camera access is unavailable on this device or browser."
         startingLabel="Starting camera…"
+        restartLabel="Start camera"
       />,
     )
 
@@ -62,6 +63,7 @@ describe('QR camera scanner', () => {
         onScan={vi.fn()}
         unavailableLabel="Camera access is unavailable on this device or browser."
         startingLabel="Starting camera…"
+        restartLabel="Start camera"
       />,
     )
 
@@ -80,6 +82,7 @@ describe('QR camera scanner', () => {
         onScan={vi.fn()}
         unavailableLabel="Camera access is unavailable on this device or browser."
         startingLabel="Starting camera…"
+        restartLabel="Start camera"
       />,
     )
 
@@ -102,6 +105,7 @@ describe('QR camera scanner', () => {
         onScan={onScan}
         unavailableLabel="Camera access is unavailable on this device or browser."
         startingLabel="Starting camera…"
+        restartLabel="Start camera"
       />,
     )
 

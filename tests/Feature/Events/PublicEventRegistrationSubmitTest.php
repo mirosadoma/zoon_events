@@ -19,6 +19,58 @@ final class PublicEventRegistrationSubmitTest extends Phase1MySqlTestCase
     use CreatesPhase1RegistrationFixture;
     use DatabaseTransactions;
 
+    public function test_public_web_registration_accepts_company_field_and_local_phone(): void
+    {
+        $fixture = $this->createRegistrationFixture();
+        $fields = [
+            ...\App\Modules\Registration\Domain\Fields\RegistrationSystemFields::definitions(),
+            [
+                'key' => 'company',
+                'type' => 'text',
+                'label_en' => 'Company',
+                'label_ar' => 'الشركة',
+                'required' => true,
+                'visibility' => 'public',
+            ],
+        ];
+        $form = \App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationFormVersion::query()->create([
+            'tenant_id' => $fixture['tenant']->id,
+            'event_id' => $fixture['event']->id,
+            'registration_form_id' => $fixture['form']->registration_form_id,
+            'version' => 2,
+            'status' => 'published',
+            'fields' => $fields,
+            'schema_hash' => hash('sha256', json_encode($fields)),
+            'privacy_notice_version' => 'privacy-v1',
+            'terms_version' => 'terms-v1',
+            'published_by_user_id' => $fixture['actor']->id,
+            'published_at' => now(),
+        ]);
+        $fixture['event']->forceFill([
+            'slug' => 'summit-company-'.Str::lower((string) Str::ulid()),
+            'status' => 'published',
+            'active_form_version_id' => $form->id,
+        ])->save();
+
+        $response = $this->withHeader('Idempotency-Key', 'web-reg-company-'.Str::ulid())
+            ->postJson("/en/events/{$fixture['event']->slug}/register", [
+                'form_version_id' => (string) $form->id,
+                'ticket_type_id' => (string) $fixture['ticket']->id,
+                'buyer' => ['first_name' => 'Amr', 'last_name' => 'Sadoma', 'email' => 'amr@example.test', 'phone' => '01276069689'],
+                'attendee' => ['first_name' => 'Amr', 'last_name' => 'Sadoma', 'email' => 'amr@example.test', 'phone' => '01276069689'],
+                'answers' => [
+                    'full_name' => 'Amr Sadoma',
+                    'email' => 'amr@example.test',
+                    'phone' => '01276069689',
+                    'company' => 'sadoma',
+                ],
+                'consents' => ['terms' => true, 'privacy' => true, 'marketing' => false],
+            ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.credential_status', 'issued');
+    }
+
     public function test_public_web_registration_returns_credential_qr_when_identity_gate_allows_issuance(): void
     {
         $fixture = $this->createRegistrationFixture();

@@ -119,6 +119,7 @@ export default function CheckInScanner({ event, tenantId }: Props) {
               onScan={handleCameraScan}
               unavailableLabel={t('scanCameraUnavailable')}
               startingLabel={t('scanCameraStarting')}
+              restartLabel={t('scanCameraRestart')}
             />
 
             <form className="scanner-entry-form" onSubmit={submitScan}>

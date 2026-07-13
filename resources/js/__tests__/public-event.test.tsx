@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import PublicRegistrationEvent from '@/pages/public/registration/Event'
 
@@ -43,7 +43,7 @@ describe('public event registration shell', () => {
     expect(container.querySelector('main')).toHaveAttribute('dir', 'ltr')
     expect(screen.getByRole('heading', { name: 'Synthetic Summit' })).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: /Email/i })).toBeRequired()
-    expect(screen.getByText(/privacy-v1/)).toBeInTheDocument()
+    expect(screen.getByText(/I accept the terms and privacy notice/i)).toBeInTheDocument()
   })
 
   it('renders Arabic RTL labels without changing stable field keys', () => {
@@ -61,6 +61,29 @@ describe('public event registration shell', () => {
     expect(screen.getByLabelText('Email')).toBeDisabled()
     expect(screen.getByRole('button', { name: 'التبديل إلى العربية' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Dark mode' })).toBeInTheDocument()
+  })
+
+  it('highlights the first invalid field with a validation tour popover', async () => {
+    render(
+      <PublicRegistrationEvent
+        locale="en"
+        event={event}
+        form={{ ...form, version_id: 'form_v1' }}
+        submitUrl="/en/events/summit/register"
+        ticketTypes={[{
+          id: 'ticket_1',
+          code: 'STD',
+          name: { en: 'Standard', ar: 'عادي' },
+          price_minor: 0,
+          currency: 'USD',
+        }]}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Complete registration' }))
+
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
+    expect(screen.getByText(/Email: is required/i)).toBeInTheDocument()
   })
 
   it('renders language and theme controls', () => {

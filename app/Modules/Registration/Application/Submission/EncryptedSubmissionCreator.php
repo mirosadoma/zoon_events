@@ -2,6 +2,7 @@
 
 namespace App\Modules\Registration\Application\Submission;
 
+use App\Modules\Registration\Application\Support\RegistrationPhoneNormalizer;
 use App\Modules\Registration\Contracts\SubmissionCreator;
 use App\Modules\Registration\Domain\Fields\FormFieldChoiceOptions;
 use App\Modules\Registration\Domain\Fields\FormFieldType;
@@ -34,7 +35,8 @@ final readonly class EncryptedSubmissionCreator implements SubmissionCreator
             ->findOrFail($formVersionId);
         $clientFields = collect($form->fields)->filter(
             fn (array $field): bool => ($field['visibility'] ?? 'public') === 'public'
-                && ($field['type'] ?? '') !== FormFieldType::Hidden->value,
+                && ($field['type'] ?? '') !== FormFieldType::Hidden->value
+                && ($field['type'] ?? '') !== FormFieldType::Consent->value,
         )->values();
         $answers = $this->validateAnswers($clientFields, $answers);
         $storedAnswers = [];
@@ -44,6 +46,10 @@ final readonly class EncryptedSubmissionCreator implements SubmissionCreator
             ->all();
         foreach ($form->fields as $field) {
             $key = $field['key'];
+            if (($field['type'] ?? '') === FormFieldType::Consent->value) {
+                $storedAnswers[$key] = true;
+                continue;
+            }
             $storedAnswers[$key] = in_array($key, $activeKeys, true)
                 ? $answers[$key]
                 : ($field['default'] ?? null);
@@ -117,6 +123,9 @@ final readonly class EncryptedSubmissionCreator implements SubmissionCreator
             }
 
             if ($value !== null && $value !== '' && $value !== []) {
+                if (FormFieldType::from($field['type']) === FormFieldType::Phone && is_string($value)) {
+                    $value = RegistrationPhoneNormalizer::normalize($value);
+                }
                 $normalized[$key] = $value;
             } elseif (($field['required'] ?? false) === false) {
                 $normalized[$key] = $value;
@@ -142,10 +151,17 @@ final readonly class EncryptedSubmissionCreator implements SubmissionCreator
         }
 
         $type = FormFieldType::from($field['type']);
+        if ($type === FormFieldType::Phone && is_string($value)) {
+            $value = RegistrationPhoneNormalizer::normalize($value);
+            if ($value === '') {
+                return ($field['required'] ?? false) ? 'is required.' : null;
+            }
+        }
+
         $valid = match ($type) {
             FormFieldType::Text => is_string($value),
             FormFieldType::Email => is_string($value) && filter_var($value, FILTER_VALIDATE_EMAIL) !== false,
-            FormFieldType::Phone => is_string($value) && preg_match('/^\+?[0-9]{8,15}$/', $value) === 1,
+            FormFieldType::Phone => is_string($value) && RegistrationPhoneNormalizer::isValid($value),
             FormFieldType::Number => is_int($value) || is_float($value) || (is_string($value) && is_numeric($value)),
             FormFieldType::Date => is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) === 1,
             FormFieldType::Select, FormFieldType::Radio => in_array(

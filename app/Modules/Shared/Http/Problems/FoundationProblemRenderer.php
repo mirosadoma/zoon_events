@@ -20,7 +20,14 @@ final readonly class FoundationProblemRenderer
         $correlationId = $this->contexts->current()?->correlationId->value
             ?? CorrelationId::fromHeader($request->headers->get('X-Correlation-ID'))->value;
         $safeThrowable = $throwable instanceof InvalidArgumentException
-            ? FoundationException::validation('validation_failed', 'One or more fields are invalid.')
+            ? FoundationException::validation(
+                'validation_failed',
+                match (true) {
+                    str_contains($throwable->getMessage(), 'Personal data key is unavailable.'),
+                    str_contains($throwable->getMessage(), 'Blind-index key is unavailable.') => 'Registration is temporarily unavailable. Please try again later.',
+                    default => 'One or more fields are invalid.',
+                },
+            )
             : $throwable;
 
         if (! $safeThrowable instanceof FoundationException) {

@@ -57,7 +57,7 @@ export default function ValidationHintPopover({
 
     const element = document.querySelector(targetSelector)
 
-    if (element instanceof HTMLElement) {
+    if (element instanceof HTMLElement && typeof element.scrollIntoView === 'function') {
       element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' })
     }
 
