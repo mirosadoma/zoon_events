@@ -57,12 +57,54 @@ final readonly class CredentialKeyRing
 
     public function isReady(): bool
     {
-        try {
-            $this->sign('readiness');
+        return $this->readinessFailure() === null;
+    }
 
-            return true;
+    public function readinessFailure(): ?string
+    {
+        if ($this->currentKeyId === '') {
+            return 'CREDENTIAL_CURRENT_KEY_ID is missing.';
+        }
+
+        $reference = '';
+
+        try {
+            $key = $this->key($this->currentKeyId);
+            if (CredentialKeyStatus::from($key['status']) !== CredentialKeyStatus::Active) {
+                return 'Current credential signing key is not active.';
+            }
+
+            $reference = trim((string) ($key['private_key_reference'] ?? ''));
+            if ($reference === '') {
+                return 'Credential signing key is missing a private_key_reference.';
+            }
+
+            $secret = $this->decode($this->secrets->load($reference), SODIUM_CRYPTO_SIGN_SECRETKEYBYTES);
+            sodium_crypto_sign_detached('readiness', $secret);
+
+            return null;
+        } catch (InvalidArgumentException $exception) {
+            return match ($exception->getMessage()) {
+                'Credential signing key is unavailable.' => sprintf(
+                    'CREDENTIAL_CURRENT_KEY_ID "%s" is not present in CREDENTIAL_KEY_RING.',
+                    $this->currentKeyId,
+                ),
+                'Credential secret reference is unavailable.' => $reference === ''
+                    ? 'The credential private key secret reference is missing or empty.'
+                    : sprintf(
+                        'Environment variable "%s" is missing or empty.',
+                        $reference,
+                    ),
+                'Credential signing key is invalid.' => $reference === ''
+                    ? 'The credential private key secret is malformed or has the wrong length.'
+                    : sprintf(
+                        'Environment variable "%s" does not contain a valid Ed25519 signing secret.',
+                        $reference,
+                    ),
+                default => $exception->getMessage(),
+            };
         } catch (\Throwable) {
-            return false;
+            return 'Credential signing failed for an unknown reason.';
         }
     }
 

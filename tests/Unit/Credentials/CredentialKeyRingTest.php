@@ -31,6 +31,25 @@ final class CredentialKeyRingTest extends TestCase
         self::assertTrue($ring->isReady());
     }
 
+    public function test_readiness_failure_reports_missing_secret_reference(): void
+    {
+        $active = $this->key('active', 'missing-secret');
+        $ring = new CredentialKeyRing('active', ['active' => $active['metadata']], new ArraySecretReferenceLoader([]));
+
+        self::assertFalse($ring->isReady());
+        self::assertSame(
+            'Environment variable "missing-secret" is missing or empty.',
+            $ring->readinessFailure(),
+        );
+    }
+
+    public function test_readiness_failure_reports_missing_key_id(): void
+    {
+        $ring = new CredentialKeyRing('', [], new ArraySecretReferenceLoader([]));
+
+        self::assertSame('CREDENTIAL_CURRENT_KEY_ID is missing.', $ring->readinessFailure());
+    }
+
     public function test_retired_compromised_and_unknown_keys_fail_closed(): void
     {
         $active = $this->key('active', 'active-secret');

@@ -55,34 +55,33 @@ export default function ValidationHintPopover({
       return
     }
 
-    const element = document.querySelector(targetSelector)
-
-    if (element instanceof HTMLElement && typeof element.scrollIntoView === 'function') {
-      element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' })
-    }
-
-    window.setTimeout(() => {
-      setTargetRect(targetSelector ? readTargetRect(targetSelector) : null)
-    }, 180)
+    setTargetRect(readTargetRect(targetSelector))
   }, [targetSelector])
 
   useLayoutEffect(() => {
     if (!open) {
-      setTargetRect(null)
       return
     }
 
-    refreshTarget()
+    const element = targetSelector ? document.querySelector(targetSelector) : null
+    if (element instanceof HTMLElement && typeof element.scrollIntoView === 'function') {
+      element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' })
+    }
+
+    const refreshFrame = window.requestAnimationFrame(refreshTarget)
+    const settleTimer = window.setTimeout(refreshTarget, 180)
 
     const onReflow = () => refreshTarget()
     window.addEventListener('resize', onReflow)
     window.addEventListener('scroll', onReflow, true)
 
     return () => {
+      window.cancelAnimationFrame(refreshFrame)
+      window.clearTimeout(settleTimer)
       window.removeEventListener('resize', onReflow)
       window.removeEventListener('scroll', onReflow, true)
     }
-  }, [open, refreshTarget])
+  }, [open, refreshTarget, targetSelector])
 
   if (!open || messages.length === 0) {
     return null
@@ -98,13 +97,20 @@ export default function ValidationHintPopover({
       }
     : null
 
-  const popoverTop = spotlight
-    ? Math.min(spotlight.top + spotlight.height + 16, window.innerHeight - 280)
-    : Math.max(window.innerHeight / 2 - 140, 16)
-
   const popoverLeft = spotlight
     ? Math.min(Math.max(spotlight.left, 16), window.innerWidth - 360)
     : Math.max((window.innerWidth - 352) / 2, 16)
+  const popoverStyle = spotlight
+    ? {
+        bottom: Math.max(window.innerHeight - spotlight.top + 16, 16),
+        left: popoverLeft,
+        maxHeight: Math.max(80, spotlight.top - 32),
+        overflowY: 'auto' as const,
+      }
+    : {
+        top: Math.max(window.innerHeight / 2 - 140, 16),
+        left: popoverLeft,
+      }
 
   return (
     <>
@@ -127,7 +133,7 @@ export default function ValidationHintPopover({
 
       <div
         className="product-tour-popover fixed z-[90] w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4 shadow-2xl"
-        style={{ top: popoverTop, left: popoverLeft }}
+        style={popoverStyle}
         role="alertdialog"
         aria-labelledby="validation-hint-title"
       >

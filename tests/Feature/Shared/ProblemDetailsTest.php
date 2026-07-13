@@ -31,6 +31,7 @@ class ProblemDetailsTest extends TestCase
             });
             Route::get('/rate-limited', fn () => abort(429));
             Route::get('/service-unavailable', fn () => throw new HttpException(503, 'Unavailable'));
+            Route::get('/invalid-server-configuration', fn () => throw new \InvalidArgumentException('Credential signing key is unavailable.'));
         });
     }
 
@@ -45,6 +46,7 @@ class ProblemDetailsTest extends TestCase
             '/api/v1/_test/problems/validation' => [422, 'validation_failed'],
             '/api/v1/_test/problems/rate-limited' => [429, 'rate_limited'],
             '/api/v1/_test/problems/service-unavailable' => [503, 'service_unavailable'],
+            '/api/v1/_test/problems/invalid-server-configuration' => [503, 'service_unavailable'],
         ];
 
         foreach ($cases as $path => [$status, $code]) {
