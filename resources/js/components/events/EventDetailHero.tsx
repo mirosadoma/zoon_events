@@ -135,8 +135,23 @@ export default function EventDetailHero({
         </div>
       </div>
 
-      <div className="event-setup-progress-track" aria-hidden="true">
-        <span className="event-setup-progress-fill" style={{ width: `${setupPercent}%` }} />
+      <div
+        className="event-setup-progress-bar"
+        role="progressbar"
+        aria-valuenow={setupPercent}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={locale === 'ar' ? 'تقدم الإعداد' : 'Setup progress'}
+      >
+        <div className="event-setup-progress-bar-header">
+          <span className="event-setup-progress-bar-label">
+            {locale === 'ar' ? 'تقدم الإعداد' : 'Setup progress'}
+          </span>
+          <span className="event-setup-progress-bar-percent">{setupPercent}%</span>
+        </div>
+        <div className="event-setup-progress-track">
+          <span className="event-setup-progress-fill" style={{ width: `${setupPercent}%` }} />
+        </div>
       </div>
     </section>
   )

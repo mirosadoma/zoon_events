@@ -28,7 +28,7 @@ describe('shell navigation visibility', () => {
       </ShellLayoutProvider>,
     )
 
-    expect(screen.getByRole('link', { name: 'Overview' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Main Page' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Tenants' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Events' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Users' })).not.toBeInTheDocument()

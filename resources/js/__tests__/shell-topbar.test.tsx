@@ -41,7 +41,7 @@ describe('shell topbar and nav', () => {
 
     renderWithShell(<Sidebar />)
 
-    expect(screen.getByRole('link', { name: 'Overview' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Main Page' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Tenants' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Users' })).not.toBeInTheDocument()
   })

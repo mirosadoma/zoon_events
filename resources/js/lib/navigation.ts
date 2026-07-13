@@ -34,7 +34,6 @@ export const platformNavigationGroups: NavigationGroup[] = [
     label: 'navGroupMenu',
     items: [
       { key: 'overview', label: 'overview', href: '/dashboard', icon: 'overview', permission: null },
-      { key: 'profile', label: 'profile', href: '/profile', icon: 'profile', permission: null },
     ],
   },
   {

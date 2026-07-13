@@ -30,7 +30,7 @@ type Props = {
 }
 
 export default function AcsOverview({ event, tenantId, overview }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
 
   return (
     <DashboardLayout title={locale === 'ar' ? 'نظام التحكم بالوصول' : 'ACS overview'}>
@@ -38,7 +38,7 @@ export default function AcsOverview({ event, tenantId, overview }: Props) {
         title={locale === 'ar' ? 'نظام التحكم بالوصول' : 'ACS overview'}
         description={event.name[locale]}
         breadcrumbs={[
-          { label: locale === 'ar' ? 'نظرة عامة' : 'Overview', href: '/dashboard' },
+          { label: t('overview'), href: '/dashboard' },
           { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: 'ACS' },

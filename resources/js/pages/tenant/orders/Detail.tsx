@@ -41,7 +41,7 @@ type Props = {
 }
 
 export default function OrderDetailPage({ event, order }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
 
   return (
     <DashboardLayout title={order.buyer_name ?? order.reference}>
@@ -49,7 +49,7 @@ export default function OrderDetailPage({ event, order }: Props) {
         title={order.buyer_name ?? order.reference}
         description={event.name[locale]}
         breadcrumbs={[
-          { label: locale === 'ar' ? 'نظرة عامة' : 'Overview', href: '/' },
+          { label: t('overview'), href: '/dashboard' },
           { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: locale === 'ar' ? 'الطلبات' : 'Orders', href: `/tenant/events/${event.id}/orders` },

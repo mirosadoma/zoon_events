@@ -115,7 +115,7 @@ export default function CredentialDetailPage({ event, credential, tenantId: page
         title={credential.code}
         description={event.name[locale]}
         breadcrumbs={[
-          { label: locale === 'ar' ? 'نظرة عامة' : 'Overview', href: '/' },
+          { label: t('overview'), href: '/dashboard' },
           { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: locale === 'ar' ? 'بيانات الدخول' : 'Credentials', href: `/tenant/events/${event.id}/credentials` },

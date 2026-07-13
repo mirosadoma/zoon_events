@@ -175,7 +175,7 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
         title={attendee.label}
         description={event.name[locale]}
         breadcrumbs={[
-          { label: locale === 'ar' ? 'نظرة عامة' : 'Overview', href: '/' },
+          { label: t('overview'), href: '/dashboard' },
           { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: t('attendees'), href: `/tenant/events/${event.id}/attendees` },

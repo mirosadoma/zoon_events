@@ -24,7 +24,7 @@ type Props = {
 }
 
 export default function KioskIndex({ event, tenantId, kiosks: initialKiosks }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const [kiosks, setKiosks] = useState(initialKiosks)
   const [selectedKiosk, setSelectedKiosk] = useState<Kiosk | null>(null)
   const [retireTarget, setRetireTarget] = useState<Kiosk | null>(null)
@@ -66,7 +66,7 @@ export default function KioskIndex({ event, tenantId, kiosks: initialKiosks }: P
         title={locale === 'ar' ? 'إدارة الكشك' : 'Kiosk management'}
         description={event.name[locale]}
         breadcrumbs={[
-          { label: locale === 'ar' ? 'نظرة عامة' : 'Overview', href: '/dashboard' },
+          { label: t('overview'), href: '/dashboard' },
           { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: locale === 'ar' ? 'الكشكات' : 'Kiosks' },

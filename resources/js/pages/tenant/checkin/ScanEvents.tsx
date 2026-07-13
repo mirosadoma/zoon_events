@@ -36,7 +36,7 @@ type Props = {
 }
 
 export default function ScanEvents({ event, scanEvents }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const [resultFilter, setResultFilter] = useState('')
   const [scannerFilter, setScannerFilter] = useState('')
   const [offlineOnly, setOfflineOnly] = useState(false)
@@ -65,7 +65,7 @@ export default function ScanEvents({ event, scanEvents }: Props) {
         title={locale === 'ar' ? 'أحداث المسح' : 'Scan events'}
         description={event.name[locale]}
         breadcrumbs={[
-          { label: locale === 'ar' ? 'نظرة عامة' : 'Overview', href: '/dashboard' },
+          { label: t('overview'), href: '/dashboard' },
           { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: locale === 'ar' ? 'أحداث المسح' : 'Scan events' },

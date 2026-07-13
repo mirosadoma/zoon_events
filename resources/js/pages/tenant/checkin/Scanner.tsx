@@ -102,7 +102,7 @@ export default function CheckInScanner({ event, tenantId }: Props) {
         title={locale === 'ar' ? 'ماسح تسجيل الحضور' : 'Check-in scanner'}
         description={event.name[locale]}
         breadcrumbs={[
-          { label: locale === 'ar' ? 'نظرة عامة' : 'Overview', href: '/dashboard' },
+          { label: t('overview'), href: '/dashboard' },
           { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: locale === 'ar' ? 'الماسح' : 'Scanner' },
