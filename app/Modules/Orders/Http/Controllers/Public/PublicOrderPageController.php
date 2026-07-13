@@ -4,7 +4,6 @@ namespace App\Modules\Orders\Http\Controllers\Public;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
-use App\Modules\Credentials\Application\Presentation\CredentialPresentationToken;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Orders\Infrastructure\Persistence\Models\Order;
@@ -18,7 +17,6 @@ final class PublicOrderPageController extends Controller
 {
     public function __construct(
         private readonly PersonalDataCipher $cipher,
-        private readonly CredentialPresentationToken $presentationTokens,
     ) {}
 
     public function show(Request $request): Response
@@ -96,10 +94,6 @@ final class PublicOrderPageController extends Controller
             return null;
         }
 
-        try {
-            return $this->presentationTokens->resolve($credential);
-        } catch (Throwable) {
-            return null;
-        }
+        return $order->public_reference;
     }
 }

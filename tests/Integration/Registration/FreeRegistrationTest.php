@@ -31,6 +31,8 @@ final class FreeRegistrationTest extends Phase1MySqlTestCase
             ->assertJsonPath('data.total_minor', 0);
         self::assertIsString($created->json('data.access_token'));
         self::assertIsString($created->json('data.credential.qr_payload'));
+        self::assertSame($created->json('data.public_reference'), $created->json('data.credential.qr_payload'));
+        self::assertStringStartsWith('ord_', (string) $created->json('data.credential.qr_payload'));
 
         $replayed = $this->withHeaders($headers)->postJson($url, $this->registrationPayload($fixture));
         $replayed->assertOk()->assertJsonMissingPath('data.access_token')->assertJsonMissingPath('data.credential.qr_payload');

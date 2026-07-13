@@ -77,19 +77,20 @@ final class PublicRegistrationController extends Controller
         return array_filter([
             'public_reference' => $order->public_reference,
             'access_token' => $accessToken,
+            'credential_token' => $accessToken !== null ? $credentialToken : null,
             'status' => $order->status,
             'payment_status' => 'not_required',
             'total_minor' => $order->total_minor,
             'currency' => $order->currency,
-            'credential' => $credentialId === null ? null : [
+            'credential' => $credentialId === null ? null : array_filter([
                 'id' => $credentialId,
                 'status' => 'active',
-                'qr_payload' => $credentialToken,
+                'qr_payload' => $accessToken !== null ? $order->public_reference : null,
                 'issued_at' => now()->toIso8601String(),
                 'expires_at' => $credentialExpiresAt?->toIso8601String(),
                 'revoked_at' => null,
-            ],
+            ], fn ($value, $key) => ! ($value === null && $key === 'qr_payload'), ARRAY_FILTER_USE_BOTH),
             'expires_at' => $order->created_at?->addDay()->toIso8601String(),
-        ], fn ($value, $key) => ! ($value === null && in_array($key, ['access_token'], true)), ARRAY_FILTER_USE_BOTH);
+        ], fn ($value, $key) => ! ($value === null && in_array($key, ['access_token', 'credential_token'], true)), ARRAY_FILTER_USE_BOTH);
     }
 }

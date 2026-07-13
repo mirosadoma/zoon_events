@@ -8,6 +8,7 @@ import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
 import { PageContent, PageHeader } from '@/components/layout'
 import { useLocale } from '@/hooks/useLocale'
 import { ApiFetchError, apiFetch } from '@/lib/apiFetch'
+import { normalizeScanPayload } from '@/lib/normalizeScanPayload'
 
 type EventRow = {
   id: string
@@ -28,7 +29,7 @@ export default function CheckInScanner({ event, tenantId }: Props) {
   const idempotencyKey = useRef<string | null>(null)
 
   async function submitPayload(rawPayload: string) {
-    const trimmed = rawPayload.trim()
+    const trimmed = normalizeScanPayload(rawPayload)
 
     if (submitting || trimmed === '') {
       return
@@ -77,8 +78,9 @@ export default function CheckInScanner({ event, tenantId }: Props) {
   }
 
   function handleCameraScan(value: string) {
-    setPayload(value)
-    void submitPayload(value)
+    const normalized = normalizeScanPayload(value)
+    setPayload(normalized)
+    void submitPayload(normalized)
   }
 
   function scanErrorMessage(code: string): string {

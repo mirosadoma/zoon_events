@@ -39,7 +39,7 @@ final class CredentialLifecycleTest extends Phase1MySqlTestCase
         self::assertSame('active', app(CredentialValidator::class)->validate($replacement->token, $fixture['tenant']->id)['status']);
         self::assertSame(1, Credential::query()->where('attendee_id', $credential->attendee_id)->where('status', 'active')->count());
         self::assertSame('superseded', $credential->refresh()->status);
-        self::assertSame($replacement->id, $credential->superseded_by_id);
+        self::assertSame((string) $replacement->id, (string) $credential->superseded_by_id);
     }
 
     /** @return array{array<string,mixed>,string,Credential} */
@@ -53,7 +53,7 @@ final class CredentialLifecycleTest extends Phase1MySqlTestCase
 
         return [
             $fixture,
-            $response->json('data.credential.qr_payload'),
+            $response->json('data.credential_token'),
             Credential::query()->where('event_id', $fixture['event']->id)->firstOrFail(),
         ];
     }

@@ -211,7 +211,7 @@ export default function PublicRegistrationEvent({
       setSuccess({
         reference: result.public_reference,
         accessToken: result.access_token,
-        credentialToken: result.credential_token ?? result.credential?.qr_payload ?? null,
+        credentialToken: result.credential_token ?? null,
         identityVerifyUrl: result.identity_verify_url ?? null,
         credentialStatus: result.credential_status,
       })
@@ -252,10 +252,10 @@ export default function PublicRegistrationEvent({
               </div>
             ) : null}
           </div>
-          {success.credentialToken ? (
+          {success.credentialStatus === 'issued' && success.reference ? (
             <div className="registration-qr-panel">
               <p>{t('publicRegistrationScanQr')}</p>
-              <QRCodeSVG value={success.credentialToken} size={220} className="registration-qr-code" />
+              <QRCodeSVG value={success.reference} size={220} className="registration-qr-code" />
             </div>
           ) : success.credentialStatus === 'pending_identity' && (success.identityVerifyUrl || (success.accessToken && event.slug)) ? (
             <div className="registration-qr-panel">
