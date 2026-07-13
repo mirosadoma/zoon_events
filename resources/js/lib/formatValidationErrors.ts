@@ -86,6 +86,23 @@ export function formFieldProps(key: string): { 'data-form-field': string } {
   return { 'data-form-field': key }
 }
 
+export function normalizeInertiaErrors(
+  errors?: Record<string, string | string[]> | null,
+): Record<string, string> {
+  if (!errors) {
+    return {}
+  }
+
+  return Object.fromEntries(
+    Object.entries(errors)
+      .map(([key, value]) => [
+        key,
+        Array.isArray(value) ? (value[0] ?? '') : value,
+      ])
+      .filter((entry): entry is [string, string] => entry[1] !== ''),
+  )
+}
+
 const AGENDA_FIELD_LABELS: FieldLabelMap = {
   title_en: { en: 'Title (EN)', ar: 'العنوان (EN)' },
   title_ar: { en: 'Title (AR)', ar: 'العنوان (AR)' },

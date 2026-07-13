@@ -15,6 +15,8 @@ export const VALIDATION_MESSAGE_CATALOG: Record<string, string> = {
   'City is linked to event venues and cannot be deleted.': 'المدينة مرتبطة بمواقع فعاليات ولا يمكن حذفها.',
   'Mandatory security controls cannot be represented as feature flags.': 'لا يمكن تمثيل ضوابط الأمان الإلزامية كميزات اختيارية.',
   'These credentials do not match our records.': 'بيانات الاعتماد هذه غير صحيحة.',
+  'The provided credentials are invalid.': 'بيانات الاعتماد هذه غير صحيحة.',
+  'The user account is inactive.': 'حساب المستخدم غير نشط.',
   'The email field must be a valid email address.': 'يجب أن يكون بريداً إلكترونياً صالحاً.',
   'The password field is required.': 'مطلوب.',
   'The email field is required.': 'مطلوب.',
