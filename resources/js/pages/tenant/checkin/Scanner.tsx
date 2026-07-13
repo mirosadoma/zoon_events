@@ -60,7 +60,7 @@ export default function CheckInScanner({ event, tenantId }: Props) {
         ticket_type_label: data.ticket_type_label ?? null,
       })
       idempotencyKey.current = null
-      setPayload('')
+      setPayload(trimmed)
     } catch (caught) {
       if (caught instanceof ApiFetchError) {
         setError(caught.code ?? caught.message)
