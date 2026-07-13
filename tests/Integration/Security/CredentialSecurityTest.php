@@ -23,7 +23,7 @@ final class CredentialSecurityTest extends Phase1MySqlTestCase
             "http://register.example.test/api/v1/public/events/{$fixture['event']->slug}/registrations",
             $this->registrationPayload($fixture),
         )->assertCreated();
-        $token = $created->json('data.credential.qr_payload');
+        $token = $created->json('data.credential_token');
         $other = $this->createRegistrationFixture();
         $codes = [];
         foreach ([substr($token, 0, -1).'x', $token] as $index => $candidate) {

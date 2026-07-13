@@ -23,7 +23,8 @@ final class CredentialLeakageTest extends Phase1MySqlTestCase
             "http://register.example.test/api/v1/public/events/{$fixture['event']->slug}/registrations",
             $this->registrationPayload($fixture),
         )->assertCreated();
-        $token = $created->json('data.credential.qr_payload');
+        $token = $created->json('data.credential_token');
+        self::assertStringStartsWith('ord_', (string) $created->json('data.credential.qr_payload'));
         $credential = Credential::query()->where('event_id', $fixture['event']->id)->firstOrFail();
 
         self::assertNotSame($token, $credential->token_digest);

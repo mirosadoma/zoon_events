@@ -4,7 +4,6 @@ namespace App\Modules\Notifications\Application\Jobs;
 
 use App\Modules\AdminConsole\Application\SiteSettingsRepository;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
-use App\Modules\Credentials\Application\Presentation\CredentialPresentationToken;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
 use App\Modules\Events\Contracts\ConfirmationEventReader;
 use App\Modules\Notifications\Application\NotificationAdapterRegistry;
@@ -44,7 +43,6 @@ final class DeliverNotificationJob implements ShouldQueue
         PersonalDataCipher $cipher,
         ConfirmationEventReader $events,
         ConfirmationOrderReader $orders,
-        CredentialPresentationToken $presentationTokens,
         SiteSettingsRepository $siteSettings,
     ): void {
         $notification = DB::transaction(function (): ?Notification {
@@ -78,11 +76,7 @@ final class DeliverNotificationJob implements ShouldQueue
                         ->first();
 
                     if ($credential instanceof Credential) {
-                        try {
-                            $qrPayload = $presentationTokens->resolve($credential);
-                        } catch (Throwable) {
-                            $qrPayload = '';
-                        }
+                        $qrPayload = $order->publicReference;
                     }
                 }
 

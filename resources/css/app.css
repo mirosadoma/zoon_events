@@ -566,6 +566,30 @@ body {
   animation-delay: -4s;
 }
 
+.landing-header__inner {
+  @apply mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:gap-4 sm:px-6 sm:py-4;
+}
+
+.landing-header__brand {
+  @apply flex min-w-0 items-center gap-2 text-base font-bold sm:text-xl;
+}
+
+.landing-header__toolbar {
+  @apply flex shrink-0 items-center gap-1.5 sm:gap-2;
+}
+
+.landing-header__desktop-actions {
+  @apply hidden items-center gap-2 md:flex;
+}
+
+.landing-header__menu-toggle {
+  @apply inline-flex md:hidden;
+}
+
+.landing-header__mobile-menu {
+  @apply flex flex-col gap-2 border-t border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-3 md:hidden;
+}
+
 .registration-invite {
   min-height: 100vh;
   background:

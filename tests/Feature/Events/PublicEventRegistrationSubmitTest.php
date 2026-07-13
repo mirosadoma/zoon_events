@@ -43,7 +43,8 @@ final class PublicEventRegistrationSubmitTest extends Phase1MySqlTestCase
 
         $response->assertCreated()
             ->assertJsonPath('data.credential_status', 'issued')
-            ->assertJsonPath('data.credential.qr_payload', fn ($value): bool => is_string($value) && $value !== '');
+            ->assertJsonPath('data.credential.qr_payload', fn ($value): bool => is_string($value) && str_starts_with($value, 'ord_'))
+            ->assertJsonPath('data.public_reference', fn ($value): bool => is_string($value) && str_starts_with($value, 'ord_'));
 
         self::assertSame(1, Credential::query()->where('event_id', $fixture['event']->id)->count());
         self::assertSame(1, Notification::query()->where('event_id', $fixture['event']->id)->where('channel', 'email')->count());

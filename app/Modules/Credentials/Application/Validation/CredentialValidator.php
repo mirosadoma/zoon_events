@@ -4,6 +4,7 @@ namespace App\Modules\Credentials\Application\Validation;
 
 use App\Modules\Credentials\Application\Signing\CanonicalCredentialToken;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
+use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Shared\Http\Problems\Phase1Problem;
 
 final readonly class CredentialValidator
@@ -18,11 +19,8 @@ final readonly class CredentialValidator
         } catch (\Throwable) {
             throw Phase1Problem::make('credential_invalid');
         }
-        if ($claims['exp'] <= time()) {
-            throw Phase1Problem::make('credential_expired');
-        }
-        if (($expectedTenantId !== null && $claims['tid'] !== $expectedTenantId)
-            || ($expectedEventId !== null && $claims['eid'] !== $expectedEventId)) {
+        if (($expectedTenantId !== null && (string) $claims['tid'] !== (string) $expectedTenantId)
+            || ($expectedEventId !== null && (string) $claims['eid'] !== (string) $expectedEventId)) {
             throw Phase1Problem::make('credential_invalid');
         }
         $credential = Credential::query()
@@ -33,9 +31,7 @@ final readonly class CredentialValidator
         if ($credential === null || ! hash_equals($credential->nonce_hash, hash('sha256', $claims['nonce']))) {
             throw Phase1Problem::make('credential_invalid');
         }
-        if ($credential->expires_at->isPast()) {
-            throw Phase1Problem::make('credential_expired');
-        }
+        $this->assertCredentialStillValid($credential, (int) $claims['exp']);
         if ($credential->status !== 'active') {
             throw Phase1Problem::make('credential_'.$credential->status);
         }
@@ -61,14 +57,32 @@ final readonly class CredentialValidator
             throw Phase1Problem::make('credential_invalid');
         }
 
-        if ($credential->expires_at->isPast()) {
-            throw Phase1Problem::make('credential_expired');
-        }
-
+        $this->assertCredentialStillValid($credential);
         if ($credential->status !== 'active') {
             throw Phase1Problem::make('credential_'.$credential->status);
         }
 
         return ['credential_id' => $credential->id, 'status' => 'active', 'event_id' => $credential->event_id];
+    }
+
+    private function assertCredentialStillValid(Credential $credential, ?int $tokenExp = null): void
+    {
+        $event = Event::query()
+            ->where('tenant_id', $credential->tenant_id)
+            ->find($credential->event_id);
+
+        $effectiveExpiry = $credential->expires_at->getTimestamp();
+
+        if ($tokenExp !== null) {
+            $effectiveExpiry = max($effectiveExpiry, $tokenExp);
+        }
+
+        if ($event?->end_at !== null) {
+            $effectiveExpiry = max($effectiveExpiry, $event->end_at->getTimestamp());
+        }
+
+        if ($effectiveExpiry <= time()) {
+            throw Phase1Problem::make('credential_expired');
+        }
     }
 }

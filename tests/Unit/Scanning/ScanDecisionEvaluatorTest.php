@@ -105,10 +105,25 @@ final class ScanDecisionEvaluatorTest extends Phase2MySqlTestCase
     {
         $scan = $this->createIssuedCredentialScanFixture();
         $scan['credential']->refresh();
+        $scan['fixture']['event']->forceFill(['end_at' => $scan['credential']->expires_at])->save();
         $this->travelTo($scan['credential']->expires_at->addMinute());
 
         $decision = app(ScanDecisionEvaluatorImpl::class)->evaluate($this->contextFor($scan));
         self::assertSame('expired', $decision->result);
+    }
+
+    public function test_credential_remains_valid_when_event_end_is_extended_after_issuance(): void
+    {
+        $scan = $this->createIssuedCredentialScanFixture();
+        $scan['credential']->refresh();
+        $scan['fixture']['event']->forceFill([
+            'end_at' => $scan['credential']->expires_at->addDays(2),
+        ])->save();
+
+        $this->travelTo($scan['credential']->expires_at->addMinute());
+
+        $decision = app(ScanDecisionEvaluatorImpl::class)->evaluate($this->contextFor($scan));
+        self::assertSame('accepted', $decision->result);
     }
 
     public function test_malformed_payload_returns_rejected(): void

@@ -158,14 +158,14 @@ final class PublicEventRegistrationController extends Controller
             'public_reference' => $order->public_reference,
             'access_token' => $result->accessToken,
             'credential_id' => $result->credentialId,
-            'credential_token' => $result->credentialToken,
+            'credential_token' => $result->accessToken !== null ? $result->credentialToken : null,
             'credential_expires_at' => $result->credentialExpiresAt?->toIso8601String(),
-            'credential' => $result->credentialId === null ? null : [
+            'credential' => $result->credentialId === null ? null : array_filter([
                 'id' => $result->credentialId,
                 'status' => 'active',
-                'qr_payload' => $result->credentialToken,
+                'qr_payload' => $result->accessToken !== null ? $order->public_reference : null,
                 'expires_at' => $result->credentialExpiresAt?->toIso8601String(),
-            ],
+            ], fn ($value, $key) => ! ($value === null && $key === 'qr_payload'), ARRAY_FILTER_USE_BOTH),
             'identity_verify_url' => $result->accessToken !== null
                 ? url("/{$resolvedLocale}/identity/{$event->slug}/{$result->accessToken}")
                 : null,

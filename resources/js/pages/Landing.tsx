@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Globe,
   Mail,
+  Menu,
   Moon,
   Phone,
   ScanLine,
@@ -14,10 +15,15 @@ import {
   Sun,
   Ticket,
   Users,
+  X,
 } from 'lucide-react'
+import { useCallback, useRef, useState } from 'react'
+import { useClickOutside } from '@/hooks/useClickOutside'
 import { useLocale } from '@/hooks/useLocale'
 import { useTheme } from '@/hooks/useTheme'
 import { localizedPath, swapLocaleInPath } from '@/lib/localePath'
+import en from '@/locales/en'
+import ar from '@/locales/ar'
 
 type Props = {
   app_name_en: string
@@ -121,17 +127,27 @@ export default function Landing({
 }: Props) {
   const { locale, direction } = useLocale()
   const { theme, setTheme } = useTheme()
+  const messages = locale === 'ar' ? ar : en
   const t = copy[locale]
   const appName = locale === 'ar' ? app_name_ar : app_name_en
   const about = locale === 'ar' ? about_ar : about_en
   const contactEmail = support_email ?? 'hello@zonetec.com'
   const contactPhone = support_phone ?? '+20 100 000 0000'
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const mobileMenuRef = useRef<HTMLDivElement>(null)
+
+  const closeMobileMenu = useCallback(() => {
+    setMobileMenuOpen(false)
+  }, [])
+
+  useClickOutside(mobileMenuRef, closeMobileMenu, mobileMenuOpen)
 
   const toggleLocale = () => {
     const next = locale === 'ar' ? 'en' : 'ar'
     const currentPath = `${window.location.pathname}${window.location.search}`
     document.cookie = `locale=${next};path=/;max-age=${60 * 60 * 24 * 365};SameSite=Lax`
     router.visit(swapLocaleInPath(currentPath, next), { preserveState: false })
+    closeMobileMenu()
   }
 
   const toggleTheme = () => {
@@ -143,32 +159,82 @@ export default function Landing({
       <div className="landing-orb landing-orb-a" aria-hidden />
       <div className="landing-orb landing-orb-b" aria-hidden />
 
-      <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--surface-elevated)]/90 backdrop-blur">
-        <div className="mx-auto flex max-w-[80%] items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <div className="landing-fade-in flex items-center gap-2 text-xl font-bold">
-              {logo_url ? (
-                <span><img src={logo_url} alt="" className="h-12 w-12 rounded object-contain" /></span>
-              ) : (
-                <span className="ta-sidebar-brand-icon"><CalendarDays className="h-5 w-5" /></span>
-              )}
-            {appName}
+      <header className="landing-header sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--surface-elevated)]/90 backdrop-blur">
+        <div className="landing-header__inner">
+          <div className="landing-header__brand landing-fade-in">
+            {logo_url ? (
+              <img src={logo_url} alt="" className="h-10 w-10 shrink-0 rounded object-contain sm:h-12 sm:w-12" />
+            ) : (
+              <span className="ta-sidebar-brand-icon shrink-0">
+                <CalendarDays className="h-5 w-5" />
+              </span>
+            )}
+            <span className="truncate">{appName}</span>
           </div>
-          <div className="landing-fade-in landing-delay-1 flex items-center gap-2">
-            <button type="button" className="button-secondary cursor-pointer p-2" onClick={toggleLocale} aria-label="Toggle language">
+
+          <div className="landing-header__toolbar landing-fade-in landing-delay-1">
+            <button
+              type="button"
+              className="button-secondary cursor-pointer p-2"
+              onClick={toggleLocale}
+              aria-label={messages.toggleLocale}
+            >
               <Globe className="h-4 w-4" />
               <span className="text-xs font-semibold">{locale === 'ar' ? 'EN' : 'ع'}</span>
             </button>
-            <button type="button" className="button-secondary cursor-pointer p-2" onClick={toggleTheme} aria-label="Toggle theme">
+            <button
+              type="button"
+              className="button-secondary cursor-pointer p-2"
+              onClick={toggleTheme}
+              aria-label={messages.theme}
+            >
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
-            <LocalizedLink href={localizedPath(locale, '/login')} className="button-secondary">
+
+            <div className="landing-header__desktop-actions">
+              <LocalizedLink href={localizedPath(locale, '/login')} className="button-secondary">
+                {t.ctaLogin}
+              </LocalizedLink>
+              <LocalizedLink href={localizedPath(locale, '/register')} className="button-primary">
+                {t.ctaRegister}
+              </LocalizedLink>
+            </div>
+
+            <button
+              type="button"
+              className="button-secondary landing-header__menu-toggle p-2"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="landing-mobile-menu"
+              aria-label={mobileMenuOpen ? messages.closeMenu : messages.openMenu}
+            >
+              {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+
+        {mobileMenuOpen ? (
+          <div
+            id="landing-mobile-menu"
+            ref={mobileMenuRef}
+            className="landing-header__mobile-menu"
+          >
+            <LocalizedLink
+              href={localizedPath(locale, '/login')}
+              className="button-secondary w-full"
+              onClick={closeMobileMenu}
+            >
               {t.ctaLogin}
             </LocalizedLink>
-            <LocalizedLink href={localizedPath(locale, '/register')} className="button-primary">
+            <LocalizedLink
+              href={localizedPath(locale, '/register')}
+              className="button-primary w-full"
+              onClick={closeMobileMenu}
+            >
               {t.ctaRegister}
             </LocalizedLink>
           </div>
-        </div>
+        ) : null}
       </header>
 
       <section className="relative">
