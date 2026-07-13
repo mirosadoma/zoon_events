@@ -1,6 +1,6 @@
 import { router, usePage } from '@inertiajs/react'
-import { ChevronDown, CircleHelp, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, User } from 'lucide-react'
-import { useCallback, useRef, useState } from 'react'
+import { ChevronDown, CircleHelp, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, Sun, User } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useShellLayout } from '@/contexts/ShellLayoutContext'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { useLocale } from '@/hooks/useLocale'
@@ -17,6 +17,18 @@ type PageProps = {
   session?: SessionContext | null
 }
 
+function resolveIsDark(theme: ReturnType<typeof useTheme>['theme']): boolean {
+  if (theme === 'dark') {
+    return true
+  }
+
+  if (theme === 'light') {
+    return false
+  }
+
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+}
+
 export default function Topbar() {
   const { locale } = useLocale()
   const localizedRouter = useLocalizedRouter()
@@ -26,6 +38,7 @@ export default function Topbar() {
   const messages = locale === 'ar' ? ar : en
   const session = page.props.session
   const [menuOpen, setMenuOpen] = useState(false)
+  const [isDark, setIsDark] = useState(() => resolveIsDark(theme))
 
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -35,6 +48,20 @@ export default function Topbar() {
 
   useClickOutside(menuRef, () => setMenuOpen(false), menuOpen)
 
+  useEffect(() => {
+    setIsDark(resolveIsDark(theme))
+
+    if (theme !== 'system') {
+      return undefined
+    }
+
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const onChange = () => setIsDark(media.matches)
+    media.addEventListener('change', onChange)
+
+    return () => media.removeEventListener('change', onChange)
+  }, [theme])
+
   const toggleLocale = () => {
     const next = locale === 'ar' ? 'en' : 'ar'
     const currentPath = `${window.location.pathname}${window.location.search}`
@@ -42,12 +69,16 @@ export default function Topbar() {
     router.visit(swapLocaleInPath(currentPath, next), { preserveScroll: true, preserveState: false })
   }
 
+  const toggleTheme = () => {
+    setTheme(isDark ? 'light' : 'dark')
+  }
+
   return (
     <header className="ta-topbar">
-      <div className="flex min-w-0 flex-1 items-center gap-2">
+      <div className="ta-topbar-start">
         <button
           type="button"
-          className="button-secondary hidden p-2 max-lg:inline-flex lg:!hidden"
+          className="ta-topbar-action ta-topbar-action-mobile-only"
           onClick={toggleMobileSidebar}
           aria-label={messages.openMenu}
         >
@@ -55,7 +86,7 @@ export default function Topbar() {
         </button>
         <button
           type="button"
-          className="button-secondary hidden p-2 lg:inline-flex max-lg:!hidden"
+          className="ta-topbar-action ta-topbar-action-desktop-only"
           onClick={toggleSidebar}
           aria-label={sidebarCollapsed ? messages.openMenu : messages.closeMenu}
         >
@@ -65,58 +96,73 @@ export default function Topbar() {
         <SearchCommand />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-        {session?.tenant && (
-          <span className="hidden rounded-full bg-[var(--brand-soft)] px-2.5 py-0.5 text-xs font-medium text-[var(--brand)] md:inline">
-            {session.tenant.name}
-          </span>
-        )}
-        {session?.role_label && (
-          <span className="hidden rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600 dark:bg-slate-800 md:inline">
-            {session.role_label}
-          </span>
-        )}
+      <div className="ta-topbar-end">
+        <div className="ta-topbar-meta">
+          {session?.tenant ? (
+            <span className="ta-topbar-chip ta-topbar-chip-brand hidden sm:inline-flex" title={session.tenant.name}>
+              {session.tenant.name}
+            </span>
+          ) : null}
+          {session?.role_label ? (
+            <span className="ta-topbar-chip ta-topbar-chip-neutral hidden md:inline-flex">
+              {session.role_label}
+            </span>
+          ) : null}
+        </div>
 
-        <button
-          type="button"
-          className="button-secondary !hidden p-2 lg:!inline-flex"
-          onClick={() => window.dispatchEvent(new CustomEvent('zonetec:tour-start'))}
-          aria-label={messages.productTourKicker}
-          title={messages.productTourKicker}
-        >
-          <CircleHelp className="h-4 w-4" />
-        </button>
+        <div className="ta-topbar-actions">
+          <button
+            type="button"
+            className="ta-topbar-action ta-topbar-action-desktop-only"
+            onClick={() => window.dispatchEvent(new CustomEvent('zonetec:tour-start'))}
+            aria-label={messages.productTourKicker}
+            title={messages.productTourKicker}
+          >
+            <CircleHelp className="h-4 w-4" />
+          </button>
 
-        <button type="button" className="button-secondary p-2" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={messages.theme}>
-          <Moon className="h-4 w-4" />
-        </button>
+          <button
+            type="button"
+            className="ta-topbar-action"
+            onClick={toggleTheme}
+            aria-label={messages.theme}
+            title={isDark ? (locale === 'ar' ? 'الوضع الفاتح' : 'Light mode') : (locale === 'ar' ? 'الوضع الداكن' : 'Dark mode')}
+          >
+            {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
 
-        <button type="button" className="button-secondary p-2" onClick={toggleLocale} aria-label={messages.toggleLocale}>
-          {locale === 'ar' ? 'EN' : 'ع'}
-        </button>
+          <button
+            type="button"
+            className="ta-topbar-action min-w-10 px-2 text-xs font-semibold"
+            onClick={toggleLocale}
+            aria-label={messages.toggleLocale}
+          >
+            {locale === 'ar' ? 'EN' : 'ع'}
+          </button>
 
-        <NotificationDropdown />
+          <NotificationDropdown />
+        </div>
 
         <div ref={menuRef} className="relative">
           <button
             type="button"
-            className="flex items-center gap-2 rounded-lg border border-[var(--border)] px-2 py-1.5 text-sm"
+            className="ta-topbar-user-trigger"
             onClick={() => {
               setMenuOpen((value) => !value)
             }}
             aria-expanded={menuOpen}
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--brand-soft)] text-[var(--brand)]">
+            <span className="ta-topbar-user-avatar">
               <User className="h-4 w-4" />
             </span>
             <span className="hidden max-w-[8rem] truncate font-medium sm:inline">{session?.user.name}</span>
-            <ChevronDown className="h-4 w-4 text-slate-400" />
+            <ChevronDown className="hidden h-4 w-4 text-[var(--muted)] sm:inline" />
           </button>
-          {menuOpen && (
-            <div className="absolute end-0 z-50 mt-2 w-48 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] py-1 shadow-lg">
+          {menuOpen ? (
+            <div className="ta-topbar-menu">
               <button
                 type="button"
-                className="flex w-full items-center gap-2 px-4 py-2 text-start text-sm hover:bg-[var(--brand-soft)]"
+                className="ta-topbar-menu-item"
                 onClick={() => {
                   closeMenus()
                   localizedRouter.visit('/profile')
@@ -127,14 +173,14 @@ export default function Topbar() {
               </button>
               <button
                 type="button"
-                className="flex w-full items-center gap-2 px-4 py-2 text-start text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                className="ta-topbar-menu-item ta-topbar-menu-item-danger"
                 onClick={() => localizedRouter.post('/logout')}
               >
                 <LogOut className="h-4 w-4" />
                 {messages.logout}
               </button>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </header>

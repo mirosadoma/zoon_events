@@ -65,6 +65,25 @@ final class DemoContentSeeder extends Seeder
             'Zonetec Summit 2026',
             'قمة زونتك 2026',
             500,
+            [
+                'tier' => 'public',
+                'event_type' => 'conference',
+                'registration_mode' => 'free_registration',
+            ],
+        );
+
+        $this->ensurePublishedEvent(
+            $tenant,
+            $actor,
+            'leadership-seminar-2026',
+            'Leadership Seminar 2026',
+            'ندوة القيادة 2026',
+            150,
+            [
+                'tier' => 'corporate',
+                'event_type' => 'seminar',
+                'registration_mode' => 'free_registration',
+            ],
         );
 
         $this->ensurePublishedEvent(
@@ -74,9 +93,16 @@ final class DemoContentSeeder extends Seeder
             'Gala Night 2026',
             'أمسية جالا 2026',
             200,
+            [
+                'tier' => 'public',
+                'event_type' => 'corporate_gathering',
+                'registration_mode' => 'paid_ticketing',
+                'with_paid_tickets' => true,
+                'with_price_tiers' => true,
+            ],
         );
 
-        $this->ensureDraftEvent($tenant, $actor, 'workshop-draft', 'Leadership Workshop', 'ورشة القيادة');
+        $this->ensureDraftEvent($tenant, $actor, 'workshop-draft', 'Leadership Workshop', 'ورشة القيادة', 'corporate', 'workshop');
 
         $bravo = Tenant::query()->where('slug', 'fixture-bravo')->first();
         $bravoActor = User::query()->where('email', DemoAccounts::FIXTURE_BRAVO_EMAIL)->first();

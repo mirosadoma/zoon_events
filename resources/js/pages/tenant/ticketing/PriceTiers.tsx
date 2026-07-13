@@ -10,6 +10,7 @@ import SelectInput from '@/components/forms/SelectInput'
 import DateTimeInput from '@/components/forms/DateTimeInput'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
+import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
 import { formatMoney } from '@/lib/formatMoney'
 import { CURRENCIES, currencyLabel } from '@/lib/ticketingOptions'
 import { router } from '@inertiajs/react'
@@ -135,32 +136,6 @@ export default function PriceTiers({ tenantId, event, ticketTypes, priceTiers }:
     [ticketTypes, locale],
   )
 
-  const apiHeaders = useMemo(
-    () => ({
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      'X-Tenant-ID': tenantId,
-    }),
-    [tenantId],
-  )
-
-  function extractErrors(body: unknown): FormErrors {
-    if (typeof body !== 'object' || body === null) return {}
-    const maybe = body as { errors?: Record<string, string[] | string> }
-    if (!maybe.errors) return {}
-    const mapped: FormErrors = {}
-    Object.entries(maybe.errors).forEach(([key, value]) => {
-      mapped[key] = Array.isArray(value) ? String(value[0] ?? '') : String(value)
-    })
-    return mapped
-  }
-
-  function extractError(body: unknown, fallback: string): string {
-    if (typeof body !== 'object' || body === null) return fallback
-    const maybe = body as { detail?: string; message?: string; title?: string; code?: string }
-    return maybe.detail ?? maybe.message ?? maybe.title ?? maybe.code ?? fallback
-  }
-
   function onTicketTypeChange(ticketTypeId: string, form: TierFormState, setForm: (value: TierFormState) => void) {
     const ticket = ticketTypes.find((row) => row.id === ticketTypeId)
     setForm({ ...form, ticket_type_id: ticketTypeId, currency: ticket?.currency ?? form.currency })
@@ -184,21 +159,12 @@ export default function PriceTiers({ tenantId, event, ticketTypes, priceTiers }:
       : `/api/v1/tenant/events/${event.id}/ticket-types/${ticketTypeId}/price-tiers`
 
     try {
-      const response = await fetch(url, {
+      await apiFetch(url, {
         method: editingTier ? 'PATCH' : 'POST',
-        credentials: 'include',
-        headers: { ...apiHeaders, 'Idempotency-Key': crypto.randomUUID() },
-        body: JSON.stringify(formToPayload(tierForm)),
+        tenantId,
+        idempotency: true,
+        body: formToPayload(tierForm),
       })
-      const body = await response.json()
-
-      if (!response.ok) {
-        const errors = extractErrors(body)
-        setFormErrors(errors)
-        toast(extractError(body, locale === 'ar' ? 'تعذر حفظ شريحة السعر.' : 'Failed to save price tier.'), 'error')
-        setSubmitting(null)
-        return
-      }
 
       toast(
         editingTier
@@ -207,36 +173,40 @@ export default function PriceTiers({ tenantId, event, ticketTypes, priceTiers }:
         'success',
       )
       resetForm()
-      setSubmitting(null)
       router.reload()
-    } catch {
-      toast(locale === 'ar' ? 'تعذر حفظ شريحة السعر.' : 'Failed to save price tier.', 'error')
+    } catch (error) {
+      if (error instanceof ApiFetchError) {
+        setFormErrors(error.errors)
+        toast(error.message || (locale === 'ar' ? 'تعذر حفظ شريحة السعر.' : 'Failed to save price tier.'), 'error')
+      } else {
+        toast(locale === 'ar' ? 'تعذر حفظ شريحة السعر.' : 'Failed to save price tier.', 'error')
+      }
+    } finally {
       setSubmitting(null)
     }
   }
 
   async function retireTier(tier: PriceTierRow) {
     setSubmitting(tier.id)
-    try {
-      const response = await fetch(`/api/v1/tenant/events/${event.id}/ticket-types/${tier.ticket_type_id}/price-tiers/${tier.id}`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { ...apiHeaders, 'Idempotency-Key': crypto.randomUUID() },
-        body: JSON.stringify({ status: 'retired' }),
-      })
-      const body = await response.json()
 
-      if (!response.ok) {
-        toast(extractError(body, locale === 'ar' ? 'تعذر تعطيل شريحة السعر.' : 'Failed to disable price tier.'), 'error')
-        setSubmitting(null)
-        return
-      }
+    try {
+      await apiFetch(`/api/v1/tenant/events/${event.id}/ticket-types/${tier.ticket_type_id}/price-tiers/${tier.id}`, {
+        method: 'PATCH',
+        tenantId,
+        idempotency: true,
+        body: { status: 'retired' },
+      })
 
       toast(locale === 'ar' ? 'تم تعطيل شريحة السعر.' : 'Price tier disabled.', 'success')
-      setSubmitting(null)
       router.reload()
-    } catch {
-      toast(locale === 'ar' ? 'تعذر تعطيل شريحة السعر.' : 'Failed to disable price tier.', 'error')
+    } catch (error) {
+      toast(
+        error instanceof ApiFetchError
+          ? error.message
+          : (locale === 'ar' ? 'تعذر تعطيل شريحة السعر.' : 'Failed to disable price tier.'),
+        'error',
+      )
+    } finally {
       setSubmitting(null)
     }
   }

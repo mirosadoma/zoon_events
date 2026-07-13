@@ -13,7 +13,7 @@ vi.mock('@inertiajs/react', () => ({
 }))
 
 vi.mock('@/hooks/useLocale', () => ({
-  useLocale: () => ({ locale: 'en', direction: 'ltr' }),
+  useLocale: () => ({ locale: 'en', direction: 'ltr', t: (key: string) => key }),
 }))
 
 vi.mock('@/hooks/useToast', () => ({
@@ -39,10 +39,11 @@ describe('phase 6 events browser journeys', () => {
       <EventDetail
         tenantId="ten_1"
         event={event}
-        tabs={[
+        setupTabs={[
           { label: 'Registration form', href: '/tenant/events/evt_1/registration-form' },
           { label: 'Ticket types', href: '/tenant/events/evt_1/ticket-types' },
         ]}
+        operationsTabs={[]}
       />,
     )
 
@@ -66,6 +67,6 @@ describe('phase 6 events browser journeys', () => {
     )
 
     expect(screen.getByRole('heading', { name: 'Registration form' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Preview' })).toHaveAttribute('href', '/tenant/events/evt_1/registration-preview')
+    expect(screen.getByRole('link', { name: 'Preview' })).toHaveAttribute('href', '/en/tenant/events/evt_1/registration-preview')
   })
 })

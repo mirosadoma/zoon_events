@@ -22,7 +22,7 @@ final class EventTierDefaults
             'registration_visibility' => $visibility,
             'approval_required' => $approval,
             'credential_validity_hours' => $validity,
-            'enabled_capabilities' => ['registration', 'ticketing', 'credential'],
+            'enabled_capabilities' => ['registration', 'credential'],
         ];
     }
 }

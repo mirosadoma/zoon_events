@@ -17,13 +17,13 @@ export default function NotificationDropdown() {
     <div ref={ref} className="relative">
       <button
         type="button"
-        className="button-secondary relative p-2"
+        className="ta-topbar-action relative"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-label={messages.notifications}
       >
         <Bell className="h-4 w-4" />
-        <span className="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-orange-500" />
+        <span className="absolute end-2 top-2 h-2 w-2 rounded-full bg-[var(--warning)] ring-2 ring-[var(--surface-elevated)]" />
       </button>
       {open ? (
         <>

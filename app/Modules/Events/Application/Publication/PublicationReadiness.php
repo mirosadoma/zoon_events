@@ -2,6 +2,9 @@
 
 namespace App\Modules\Events\Application\Publication;
 
+use App\Modules\Events\Domain\EventRegistrationProfile;
+use App\Modules\Events\Domain\EventStatus;
+use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use Carbon\CarbonImmutable;
 use DateTimeZone;
 
@@ -12,7 +15,7 @@ final class PublicationReadiness
      *   name_en?:string,name_ar?:string,timezone?:string,start_at?:string,
      *   end_at?:string,registration_opens_at?:string,registration_closes_at?:string,
      *   active_form_version_id?:string,active_ticket_types?:int,branding_active?:bool,
-     *   main_image_path?:string
+     *   main_image_path?:string,tier?:string,registration_mode?:string
      * } $event
      * @return list<string>
      */
@@ -24,9 +27,14 @@ final class PublicationReadiness
                 $missing[] = $key;
             }
         }
-        if (($event['active_ticket_types'] ?? 0) < 1) {
+
+        if (EventRegistrationProfile::requiresTicketConfiguration(
+            (string) ($event['tier'] ?? 'corporate'),
+            (string) ($event['registration_mode'] ?? 'free_registration'),
+        ) && ($event['active_ticket_types'] ?? 0) < 1) {
             $missing[] = 'active_ticket_type';
         }
+
         if (($event['branding_active'] ?? false) !== true) {
             $missing[] = 'active_branding';
         }
@@ -49,6 +57,28 @@ final class PublicationReadiness
             if (! in_array('valid_schedule', $missing, true)) {
                 $missing[] = 'valid_schedule';
             }
+        }
+
+        return array_values(array_unique($missing));
+    }
+
+    /** @return list<string> */
+    public function missingForEvent(Event $event, int $activeTicketTypes): array
+    {
+        $missing = $this->missing([
+            ...$event->only([
+                'name_en', 'name_ar', 'timezone', 'start_at', 'end_at',
+                'registration_opens_at', 'registration_closes_at', 'active_form_version_id',
+                'main_image_path', 'tier', 'registration_mode',
+            ]),
+            'active_ticket_types' => $activeTicketTypes,
+            'branding_active' => $event->branding()->where('status', 'active')->exists(),
+        ]);
+
+        $status = EventStatus::tryFrom((string) $event->status);
+
+        if ($status !== null && $status !== EventStatus::Draft && $status !== EventStatus::Configured) {
+            $missing[] = 'status_'.$event->status;
         }
 
         return array_values(array_unique($missing));

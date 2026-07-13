@@ -17,6 +17,8 @@ use App\Modules\Registration\Application\Queries\ResolvePublishedRegistrationFor
 use App\Modules\Registration\Application\Support\RegistrationFieldPresenter;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationFormVersion;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
+use App\Modules\Events\Domain\EventRegistrationProfile;
+use App\Modules\Ticketing\Application\Queries\PublicTicketTypeCatalog;
 use App\Modules\Ticketing\Contracts\TicketPriceReader;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketType;
 use Carbon\CarbonImmutable;
@@ -34,6 +36,7 @@ final class PublicEventRegistrationController extends Controller
 
     public function __construct(
         private readonly ShareablePublicEventResolver $shareableEvents,
+        private readonly PublicTicketTypeCatalog $publicTickets,
         private readonly TicketPriceReader $prices,
         private readonly PublicRegistrationEventPresenter $eventPages,
         private readonly RegistrationFieldPresenter $registrationFields,
@@ -63,12 +66,7 @@ final class PublicEventRegistrationController extends Controller
             ->values()
             ->all();
 
-        $ticketTypes = TicketType::query()
-            ->where('tenant_id', $event->tenant_id)
-            ->where('event_id', $event->id)
-            ->where('status', 'active')
-            ->orderBy('created_at')
-            ->get()
+        $ticketTypes = $this->publicTickets->forEvent($event)
             ->map(fn (TicketType $ticket): array => [
                 'id' => (string) $ticket->id,
                 'code' => $ticket->code,
@@ -91,6 +89,7 @@ final class PublicEventRegistrationController extends Controller
                 'terms_version' => (string) ($formVersion->terms_version ?? 'v1'),
             ],
             'ticketTypes' => $ticketTypes,
+            'requiresTicketSelection' => EventRegistrationProfile::requiresTicketConfiguration($event),
             'isPreview' => false,
             'submitUrl' => "/{$resolvedLocale}/events/{$event->slug}/register",
         ]);
@@ -100,7 +99,7 @@ final class PublicEventRegistrationController extends Controller
     {
         $validated = $request->validate([
             'form_version_id' => ['required'],
-            'ticket_type_id' => ['required'],
+            'ticket_type_id' => [EventRegistrationProfile::requiresTicketConfiguration($event) ? 'required' : 'nullable'],
             'event_venue_id' => ['nullable', 'string', 'max:64'],
             'buyer' => ['required', 'array'],
             'buyer.first_name' => ['required', 'string', 'max:120'],
@@ -141,11 +140,22 @@ final class PublicEventRegistrationController extends Controller
             ? CarbonImmutable::now()->addDay()
             : CarbonImmutable::parse($event->end_at);
 
+        $ticketTypeId = (string) ($validated['ticket_type_id'] ?? '');
+        if ($ticketTypeId === '') {
+            $ticketTypeId = (string) ($this->publicTickets->forEvent($event)->first()?->id ?? '');
+        }
+
+        if ($ticketTypeId === '') {
+            throw ValidationException::withMessages([
+                'ticket_type_id' => ['Registration is not available for this event.'],
+            ]);
+        }
+
         $input = new FreeRegistrationInput(
             $event->tenant_id,
             $event->id,
             (string) $validated['form_version_id'],
-            (string) $validated['ticket_type_id'],
+            $ticketTypeId,
             $idempotencyKey,
             $answers,
             [
@@ -159,7 +169,7 @@ final class PublicEventRegistrationController extends Controller
             $expiresAt,
         );
 
-        $price = $this->prices->price($event->tenant_id, $event->id, (string) $validated['ticket_type_id']);
+        $price = $this->prices->price($event->tenant_id, $event->id, $ticketTypeId);
         $result = ($price->minor === 0 ? app(CompleteFreeRegistration::class) : app(StartPaidRegistration::class))->execute($input);
         $order = Order::query()->findOrFail($result->orderId);
 

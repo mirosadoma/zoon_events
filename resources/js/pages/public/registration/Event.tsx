@@ -43,6 +43,7 @@ type Props = {
     terms_version: string
   }
   ticketTypes?: TicketTypeOption[]
+  requiresTicketSelection?: boolean
 }
 
 type SuccessState = {
@@ -85,6 +86,7 @@ export default function PublicRegistrationEvent({
   event,
   form,
   ticketTypes = [],
+  requiresTicketSelection = true,
 }: Props) {
   const { t } = useLocale()
   const direction = locale === 'ar' ? 'rtl' : 'ltr'
@@ -286,7 +288,7 @@ export default function PublicRegistrationEvent({
       <RegistrationPageControls locale={locale} />
       <main className={`registration-invite${isPreview ? ' registration-invite-preview' : ''}`} lang={locale} dir={direction}>
         <RegistrationEventHero locale={locale} event={event} isPreview={isPreview}>
-          {ticketTypes.length > 0 ? (
+          {requiresTicketSelection && ticketTypes.length > 0 ? (
             <section
               className={`registration-ticket-picker${validation.fieldError('ticket_type') ? ' form-field-invalid' : ''}`}
               aria-label={t('publicRegistrationTicketSelection')}

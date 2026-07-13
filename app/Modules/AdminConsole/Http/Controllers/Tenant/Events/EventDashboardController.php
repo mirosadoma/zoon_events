@@ -13,6 +13,7 @@ use App\Modules\Authorization\Application\PermissionEvaluator;
 use App\Modules\Events\Application\Support\EventMediaPresenter;
 use App\Modules\Events\Application\Support\PublicRegistrationEventPresenter;
 use App\Modules\Events\Application\Support\ResolvesEventOrganizer;
+use App\Modules\Events\Domain\EventRegistrationProfile;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventAgendaItem;
 use App\Modules\IdentityVerification\Application\Actions\ViewIdentityDataAction;
@@ -27,6 +28,7 @@ use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationFormV
 use App\Modules\Tenancy\Domain\Context\TenantContext;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\PriceTier;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketInventory;
+use App\Modules\Ticketing\Application\Queries\PublicTicketTypeCatalog;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketType;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -46,6 +48,7 @@ final class EventDashboardController extends Controller
         private readonly PublicRegistrationEventPresenter $eventPages,
         private readonly RegistrationFieldPresenter $registrationFields,
         private readonly ResolvePublishedRegistrationForm $publishedForms,
+        private readonly PublicTicketTypeCatalog $publicTickets,
     ) {}
 
     public function index(): Response
@@ -72,7 +75,9 @@ final class EventDashboardController extends Controller
                 'name' => ['en' => 'New event', 'ar' => 'فعالية جديدة'],
                 'description' => ['en' => '', 'ar' => ''],
                 'status' => 'draft',
-                'tier' => 'public',
+                'tier' => 'corporate',
+                'event_type' => 'seminar',
+                'registration_mode' => 'free_registration',
                 'timezone' => 'Africa/Cairo',
                 'start_at' => null,
                 'end_at' => null,
@@ -85,9 +90,11 @@ final class EventDashboardController extends Controller
                 'main_image' => null,
                 'images' => [],
                 'venues' => [],
+                'event_type' => 'seminar',
+                'registration_mode' => 'free_registration',
                 'readiness' => ['Save the event before publishing.'],
             ],
-            'can' => [
+            'eventPermissions' => [
                 'manage' => $this->permissions->hasTenantPermission($context, 'event.manage'),
                 'publish' => false,
             ],
@@ -265,12 +272,7 @@ final class EventDashboardController extends Controller
             $version = $this->publishedForms->forEvent($event);
         }
 
-        $ticketTypes = TicketType::query()
-            ->where('tenant_id', $context->tenant->id)
-            ->where('event_id', $event->id)
-            ->where('status', 'active')
-            ->orderBy('created_at')
-            ->get()
+        $ticketTypes = $this->publicTickets->forEvent($event)
             ->map(fn (TicketType $ticket): array => [
                 'id' => (string) $ticket->id,
                 'code' => $ticket->code,
@@ -304,6 +306,7 @@ final class EventDashboardController extends Controller
                 'terms_version' => $formState['termsVersion'],
             ],
             'ticketTypes' => $ticketTypes,
+            'requiresTicketSelection' => EventRegistrationProfile::requiresTicketConfiguration($event),
             'isPreview' => true,
         ]);
     }
@@ -336,6 +339,8 @@ final class EventDashboardController extends Controller
     {
         $context = $this->authorizeTenant('ticketing.manage');
         $event = $this->event($context, $eventId);
+        abort_unless(EventRegistrationProfile::requiresTicketConfiguration($event), 404);
+
         $tickets = TicketType::query()
             ->where('tenant_id', $context->tenant->id)
             ->where('event_id', $event->id)
@@ -354,6 +359,8 @@ final class EventDashboardController extends Controller
     {
         $context = $this->authorizeTenant('ticketing.manage');
         $event = $this->event($context, $eventId);
+        abort_unless(EventRegistrationProfile::requiresPriceTiers($event), 404);
+
         $tiers = PriceTier::query()
             ->where('tenant_id', $context->tenant->id)
             ->where('event_id', $event->id)

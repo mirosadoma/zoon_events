@@ -7,7 +7,7 @@ export default function DetailsCard({ title, items }: DetailsCardProps) {
   return (
     <section className="state-panel">
       <h2 className="text-lg font-semibold">{title}</h2>
-      <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+      <dl className="mt-4 grid gap-3 sm:grid-cols-4">
         {items.map((item) => (
           <div key={item.label}>
             <dt className="text-xs uppercase tracking-wide text-slate-500">{item.label}</dt>

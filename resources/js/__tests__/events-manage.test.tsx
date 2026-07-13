@@ -14,7 +14,11 @@ vi.mock('@inertiajs/react', () => ({
 }))
 
 vi.mock('@/hooks/useLocale', () => ({
-  useLocale: () => ({ locale: 'en', direction: 'ltr' }),
+  useLocale: () => ({
+    locale: 'en',
+    direction: 'ltr',
+    t: (key: string) => key,
+  }),
 }))
 
 const toastMock = vi.fn()
@@ -57,8 +61,8 @@ describe('events manage flow', () => {
     )
 
     expect(screen.getByRole('heading', { name: 'Events' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'New event' })).toHaveAttribute('href', '/tenant/events/create')
-    expect(screen.getByRole('link', { name: 'Summit' })).toHaveAttribute('href', '/tenant/events/evt_1')
+    expect(screen.getByRole('link', { name: 'New event' })).toHaveAttribute('href', '/en/tenant/events/create')
+    expect(screen.getByRole('link', { name: 'Summit' })).toHaveAttribute('href', '/en/tenant/events/evt_1')
   })
 
   it('copies registration link and shows toast', async () => {
@@ -100,6 +104,8 @@ describe('events manage flow', () => {
           description: { en: '', ar: '' },
           status: 'draft',
           tier: 'public',
+          event_type: 'seminar',
+          registration_mode: 'free_registration',
           timezone: 'Africa/Cairo',
           start_at: null,
           end_at: null,
@@ -112,15 +118,16 @@ describe('events manage flow', () => {
           domain_reference: null,
           readiness: ['Save the event before publishing.'],
         }}
-        can={{ manage: true, publish: false }}
+        eventPermissions={{ manage: true, publish: false }}
       />,
     )
 
     expect(screen.getByRole('heading', { name: 'New event' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Save changes' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument()
   })
 
   it('calls publish endpoint with expected request metadata', async () => {
+    document.cookie = 'XSRF-TOKEN=test-token'
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
       json: async () => ({ data: { id: 'evt_1', status: 'published' } }),
@@ -137,7 +144,8 @@ describe('events manage flow', () => {
           timezone: 'Africa/Cairo',
           capacity: 100,
         }}
-        tabs={[]}
+        setupTabs={[]}
+        operationsTabs={[]}
       />,
     )
 
@@ -146,18 +154,23 @@ describe('events manage flow', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Publish' }).at(-1)!)
 
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith(
-        '/api/v1/tenant/events/evt_1/publish',
-        expect.objectContaining({
-          method: 'POST',
-          credentials: 'include',
-          headers: expect.objectContaining({
-            'X-Tenant-ID': 'ten_1',
-            'Idempotency-Key': 'event-idempotency-key',
-          }),
-        }),
+      const publishCall = vi.mocked(fetch).mock.calls.find(
+        ([input]) => input === '/api/v1/tenant/events/evt_1/publish',
       )
+      expect(publishCall).toBeDefined()
     })
+
+    const publishCall = vi.mocked(fetch).mock.calls.find(
+      ([input]) => input === '/api/v1/tenant/events/evt_1/publish',
+    )!
+    const init = publishCall[1] as RequestInit
+    expect(init.method).toBe('POST')
+    expect(init.credentials).toBe('include')
+    const headers = new Headers(init.headers)
+    expect(headers.get('X-Tenant-ID')).toBe('ten_1')
+    expect(headers.get('Idempotency-Key')).toBe('event-idempotency-key')
+    expect(headers.get('X-XSRF-TOKEN')).toBe('test-token')
+
     expect(toastMock).toHaveBeenCalledWith('Event published.', 'success')
   })
 
@@ -178,7 +191,8 @@ describe('events manage flow', () => {
           timezone: 'Africa/Cairo',
           capacity: 100,
         }}
-        tabs={[]}
+        setupTabs={[]}
+        operationsTabs={[]}
       />,
     )
 

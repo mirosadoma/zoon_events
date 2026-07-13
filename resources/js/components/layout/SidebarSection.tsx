@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { usePage } from '@inertiajs/react'
 import { ChevronDown } from 'lucide-react'
 import { clsx } from 'clsx'
 import type { NavigationGroup } from '@/types/shell'
-import { resolveLabel } from '@/lib/navigation'
+import { isNavItemActive, resolveLabel } from '@/lib/navigation'
 import SidebarNavLink from './SidebarNavLink'
 import type { AppLocale } from '@/lib/localePath'
 
@@ -27,7 +28,17 @@ export default function SidebarSection({
   locale,
   eventContext = false,
 }: SidebarSectionProps) {
-  const [open, setOpen] = useState(defaultOpen)
+  const { url } = usePage()
+  const containsActiveItem = group.items.some((item) => isNavItemActive(url, item.href))
+  const [override, setOverride] = useState<boolean | null>(null)
+  const [lastUrl, setLastUrl] = useState(url)
+
+  if (lastUrl !== url) {
+    setLastUrl(url)
+    setOverride(null)
+  }
+
+  const open = override ?? (defaultOpen || containsActiveItem)
 
   if (collapsed) {
     return (
@@ -47,19 +58,19 @@ export default function SidebarSection({
   }
 
   return (
-    <div className="mt-2">
+    <div className="mt-1.5">
       <button
         type="button"
-        className="flex w-full items-center justify-between px-3 py-1 text-start"
-        onClick={() => setOpen((value) => !value)}
+        className="ta-sidebar-section-toggle"
+        onClick={() => setOverride(open ? false : true)}
         aria-expanded={open}
       >
         <span className={clsx('ta-nav-group-title mb-0 mt-0', eventContext && 'text-[var(--brand)]')}>
           {resolveLabel(messages, group.label)}
         </span>
-        <ChevronDown className={clsx('h-4 w-4 text-[var(--muted)] transition', open && 'rotate-180')} />
+        <ChevronDown className={clsx('h-3.5 w-3.5 text-[var(--muted)] transition', open && 'rotate-180')} />
       </button>
-      {open && (
+      {open ? (
         <nav className="mt-1 space-y-0.5" aria-label={resolveLabel(messages, group.label)}>
           {group.items.map((item) => (
             <SidebarNavLink
@@ -71,7 +82,7 @@ export default function SidebarSection({
             />
           ))}
         </nav>
-      )}
+      ) : null}
     </div>
   )
 }
