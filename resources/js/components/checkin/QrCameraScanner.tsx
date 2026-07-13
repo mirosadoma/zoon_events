@@ -1,4 +1,8 @@
-import { Html5Qrcode } from 'html5-qrcode'
+import {
+  Html5Qrcode,
+  Html5QrcodeSupportedFormats,
+  type Html5QrcodeCameraScanConfig,
+} from 'html5-qrcode'
 import { useEffect, useEffectEvent, useId, useRef, useState } from 'react'
 
 type ScanStatus = 'starting' | 'ready' | 'unavailable'
@@ -23,6 +27,30 @@ async function disposeScanner(scanner: Html5Qrcode): Promise<void> {
   } catch {
     // Container may already be cleared or detached.
   }
+}
+
+function selectBackCamera(cameras: Array<{ id: string; label?: string }>): string | undefined {
+  const backCamera = cameras.find((camera) => /back|rear|environment|الخلف/i.test(camera.label ?? ''))
+
+  return backCamera?.id ?? cameras.at(-1)?.id ?? cameras[0]?.id
+}
+
+function responsiveQrbox(viewfinderWidth: number, viewfinderHeight: number) {
+  const shortestSide = Math.min(viewfinderWidth, viewfinderHeight)
+  const size = Math.max(180, Math.min(420, shortestSide - 32, Math.round(shortestSide * 0.72)))
+
+  return { width: size, height: size }
+}
+
+const scanConfig: Html5QrcodeCameraScanConfig = {
+  fps: 15,
+  qrbox: responsiveQrbox,
+  disableFlip: true,
+  videoConstraints: {
+    facingMode: { ideal: 'environment' },
+    width: { ideal: 1920 },
+    height: { ideal: 1080 },
+  },
 }
 
 export default function QrCameraScanner({
@@ -62,7 +90,11 @@ export default function QrCameraScanner({
     }
 
     let cancelled = false
-    const scanner = new Html5Qrcode(containerId)
+    const scanner = new Html5Qrcode(containerId, {
+      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+      useBarCodeDetectorIfSupported: true,
+      verbose: false,
+    })
     scannerRef.current = scanner
 
     if (mountedRef.current) {
@@ -75,7 +107,7 @@ export default function QrCameraScanner({
           return
         }
 
-        const cameraId = cameras.at(-1)?.id ?? cameras[0]?.id
+        const cameraId = selectBackCamera(cameras)
 
         if (cameraId === undefined) {
           if (mountedRef.current) {
@@ -87,11 +119,7 @@ export default function QrCameraScanner({
 
         await scanner.start(
           cameraId,
-          {
-            fps: 10,
-            qrbox: { width: 220, height: 220 },
-            aspectRatio: 1,
-          },
+          scanConfig,
           (decodedText) => {
             if (handledRef.current || cancelled) {
               return
@@ -106,6 +134,14 @@ export default function QrCameraScanner({
           },
           () => undefined,
         )
+
+        try {
+          await scanner.applyVideoConstraints({
+            advanced: [{ focusMode: 'continuous' }],
+          } as unknown as MediaTrackConstraints)
+        } catch {
+          // Some mobile browsers do not expose camera focus controls.
+        }
 
         if (!cancelled && mountedRef.current) {
           setStatus('ready')

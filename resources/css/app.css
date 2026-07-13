@@ -1260,15 +1260,16 @@ body {
 }
 
 .scanner-workspace-grid {
-  @apply grid gap-4 lg:grid-cols-2 lg:items-stretch;
+  @apply grid min-h-0 flex-1 gap-4 lg:grid-cols-2 lg:items-stretch;
 }
 
 .scanner-camera-panel {
-  @apply w-full;
+  @apply flex min-h-0 w-full;
 }
 
 .scanner-camera-screen {
-  @apply relative aspect-[10/7] w-full overflow-hidden rounded-xl border border-[var(--border)] bg-black;
+  @apply relative min-h-[min(72dvh,44rem)] w-full overflow-hidden rounded-xl border border-[var(--border)] bg-black lg:min-h-0;
+  height: 100%;
 }
 
 .scanner-camera-viewport {
@@ -1293,6 +1294,18 @@ body {
 
 .scanner-entry-form__actions {
   @apply mt-auto pt-2;
+}
+
+.scanner-workspace {
+  min-height: calc(100dvh - 12rem);
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 1024px) {
+  .scanner-camera-screen {
+    min-height: 100%;
+  }
 }
 
 .scan-attendee-panel {
