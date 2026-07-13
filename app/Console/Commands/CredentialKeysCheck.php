@@ -13,8 +13,10 @@ final class CredentialKeysCheck extends Command
 
     public function handle(CredentialKeyRing $keys): int
     {
-        if (! $keys->isReady()) {
+        $failure = $keys->readinessFailure();
+        if ($failure !== null) {
             $this->components->error('Credential signing is not ready.');
+            $this->components->warn($failure);
 
             return self::FAILURE;
         }

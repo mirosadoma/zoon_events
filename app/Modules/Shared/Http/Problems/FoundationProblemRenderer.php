@@ -19,16 +19,22 @@ final readonly class FoundationProblemRenderer
     {
         $correlationId = $this->contexts->current()?->correlationId->value
             ?? CorrelationId::fromHeader($request->headers->get('X-Correlation-ID'))->value;
-        $safeThrowable = $throwable instanceof InvalidArgumentException
-            ? FoundationException::validation(
-                'validation_failed',
-                match (true) {
-                    str_contains($throwable->getMessage(), 'Personal data key is unavailable.'),
-                    str_contains($throwable->getMessage(), 'Blind-index key is unavailable.') => 'Registration is temporarily unavailable. Please try again later.',
-                    default => 'One or more fields are invalid.',
-                },
-            )
-            : $throwable;
+        if ($throwable instanceof InvalidArgumentException) {
+            Log::error('Request failed because application configuration or state is invalid.', [
+                'correlation_id' => $correlationId,
+                'exception' => $throwable,
+                'path' => $request->path(),
+            ]);
+        }
+
+        $safeThrowable = match (true) {
+            $throwable instanceof InvalidArgumentException
+                && $this->isServiceConfigurationFailure($throwable) => FoundationException::serviceUnavailable(
+                    'This operation is temporarily unavailable. Please try again later.',
+                ),
+            $throwable instanceof InvalidArgumentException => FoundationException::validation(),
+            default => $throwable,
+        };
 
         if (! $safeThrowable instanceof FoundationException) {
             Log::error($safeThrowable->getMessage(), [
@@ -50,5 +56,18 @@ final readonly class FoundationProblemRenderer
                 'X-Correlation-ID' => $problem->correlationId,
             ],
         );
+    }
+
+    private function isServiceConfigurationFailure(InvalidArgumentException $throwable): bool
+    {
+        $message = $throwable->getMessage();
+
+        return str_contains($message, 'key is unavailable')
+            || str_contains($message, 'key is not active')
+            || str_contains($message, 'key is invalid')
+            || str_contains($message, 'secret reference is unavailable')
+            || str_contains($message, 'adapter is unavailable')
+            || str_contains($message, 'gateway is not configured')
+            || str_contains($message, 'price tiers are ambiguous');
     }
 }

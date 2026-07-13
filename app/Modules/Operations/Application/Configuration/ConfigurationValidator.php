@@ -2,6 +2,8 @@
 
 namespace App\Modules\Operations\Application\Configuration;
 
+use App\Modules\Credentials\Application\Signing\CredentialKeyRing;
+
 final class ConfigurationValidator
 {
     /** @return list<ConfigurationIssue> */
@@ -116,6 +118,13 @@ final class ConfigurationValidator
         }
         if (strlen($publicKey) !== SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES || trim((string) ($key['private_key_reference'] ?? '')) === '') {
             $issues[] = new ConfigurationIssue('CREDENTIAL_KEY_RING', 'credential_signing_key_invalid', 'The current credential signing key metadata is invalid.');
+
+            return;
+        }
+
+        $readinessFailure = app(CredentialKeyRing::class)->readinessFailure();
+        if ($readinessFailure !== null) {
+            $issues[] = new ConfigurationIssue('CREDENTIAL_KEY_RING', 'credential_signing_not_ready', $readinessFailure);
         }
     }
 

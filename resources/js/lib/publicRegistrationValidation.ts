@@ -100,10 +100,6 @@ export function collectPublicRegistrationClientErrors(
     errors.event_venue_id = 'is required.'
   }
 
-  if (!options.acceptedTerms) {
-    errors.consent = 'You must accept the terms and privacy notice.'
-  }
-
   for (const field of fields) {
     const value = answers[field.key]
 
@@ -124,6 +120,10 @@ export function collectPublicRegistrationClientErrors(
         errors[field.key] = 'must be a valid phone number.'
       }
     }
+  }
+
+  if (!options.acceptedTerms) {
+    errors.consent = 'You must accept the terms and privacy notice.'
   }
 
   return errors

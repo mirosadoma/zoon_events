@@ -31,6 +31,11 @@ class FoundationException extends Exception
         return new self($code, 422, 'Validation failed', $detail);
     }
 
+    public static function serviceUnavailable(string $detail = 'The service is temporarily unavailable.'): self
+    {
+        return new self('service_unavailable', 503, 'Service unavailable', $detail);
+    }
+
     public static function unauthenticated(string $detail = 'Authentication is required to access this resource.'): self
     {
         return new self('unauthenticated', 401, 'Unauthenticated', $detail);

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import PublicRegistrationEvent from '@/pages/public/registration/Event'
 
@@ -80,9 +80,25 @@ describe('public event registration shell', () => {
       />,
     )
 
+    const emailField = document.querySelector('[data-form-field="email"]')
+    expect(emailField).toBeInstanceOf(HTMLElement)
+    vi.spyOn(emailField as HTMLElement, 'getBoundingClientRect').mockReturnValue({
+      top: 400,
+      left: 40,
+      width: 320,
+      height: 48,
+      right: 360,
+      bottom: 448,
+      x: 40,
+      y: 400,
+      toJSON: () => ({}),
+    })
     fireEvent.click(screen.getByRole('button', { name: 'Complete registration' }))
 
-    expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
+    const hint = await screen.findByRole('alertdialog')
+    expect(hint).toBeInTheDocument()
+    await waitFor(() => expect(hint.style.bottom).not.toBe(''))
+    expect(hint.style.top).toBe('')
     expect(screen.getByText(/Email: is required/i)).toBeInTheDocument()
   })
 
