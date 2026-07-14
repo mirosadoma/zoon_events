@@ -31,73 +31,103 @@ type Props = {
 
 export default function AcsOverview({ event, tenantId, overview }: Props) {
   const { locale, t } = useLocale()
+  const ar = locale === 'ar'
+
+  const stats = [
+    {
+      label: ar ? 'المناطق' : 'Zones',
+      value: overview.zones_total,
+      href: `/tenant/events/${event.id}/acs/zones`,
+      tone: 'ta-stat-card-sky',
+    },
+    {
+      label: ar ? 'المسارات' : 'Lanes',
+      value: overview.lanes_total,
+      href: `/tenant/events/${event.id}/acs/lanes`,
+      tone: 'ta-stat-card-violet',
+    },
+    {
+      label: ar ? 'القواعد' : 'Rules',
+      value: overview.rules_total,
+      href: `/tenant/events/${event.id}/acs/rules`,
+      tone: 'ta-stat-card-emerald',
+    },
+  ]
 
   return (
-    <DashboardLayout title={locale === 'ar' ? 'نظام التحكم بالوصول' : 'ACS overview'}>
+    <DashboardLayout title={ar ? 'نظام التحكم بالوصول' : 'ACS overview'}>
       <PageHeader
-        title={locale === 'ar' ? 'نظام التحكم بالوصول' : 'ACS overview'}
+        title={ar ? 'نظام التحكم بالوصول' : 'ACS overview'}
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: ar ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: 'ACS' },
         ]}
+        actions={(
+          <div className="flex flex-wrap gap-2">
+            <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/acs/access-logs`}>
+              {ar ? 'سجلات الوصول' : 'Access logs'}
+            </LocalizedLink>
+            <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/acs/gate-health`}>
+              {ar ? 'صحة البوابة' : 'Gate health'}
+            </LocalizedLink>
+          </div>
+        )}
       />
       <PageContent>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-            <p className="text-sm text-slate-500">{locale === 'ar' ? 'المناطق' : 'Zones'}</p>
-            <p className="text-2xl font-semibold">{overview.zones_total}</p>
-            <LocalizedLink className="text-sm hover:underline" href={`/tenant/events/${event.id}/acs/zones`}>{locale === 'ar' ? 'إدارة' : 'Manage'}</LocalizedLink>
-          </div>
-          <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-            <p className="text-sm text-slate-500">{locale === 'ar' ? 'المسارات' : 'Lanes'}</p>
-            <p className="text-2xl font-semibold">{overview.lanes_total}</p>
-            <LocalizedLink className="text-sm hover:underline" href={`/tenant/events/${event.id}/acs/lanes`}>{locale === 'ar' ? 'إدارة' : 'Manage'}</LocalizedLink>
-          </div>
-          <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-            <p className="text-sm text-slate-500">{locale === 'ar' ? 'القواعد' : 'Rules'}</p>
-            <p className="text-2xl font-semibold">{overview.rules_total}</p>
-            <LocalizedLink className="text-sm hover:underline" href={`/tenant/events/${event.id}/acs/rules`}>{locale === 'ar' ? 'إدارة' : 'Manage'}</LocalizedLink>
-          </div>
-          <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-            <p className="text-sm text-slate-500">{locale === 'ar' ? 'التكامل' : 'Integration'}</p>
-            <StatusBadge status={overview.integration_status} />
-            <p className="mt-2 text-sm">
-              {locale === 'ar' ? 'بوابات غير متصلة' : 'Offline gates'}: <StatusBadge status={overview.gates_offline > 0 ? 'offline' : 'healthy'} label={String(overview.gates_offline)} />
+          {stats.map((stat) => (
+            <div key={stat.label} className={`ta-card ta-stat-card ${stat.tone}`}>
+              <p className="ta-stat-label">{stat.label}</p>
+              <p className="ta-stat-value">{stat.value}</p>
+              <LocalizedLink className="mt-3 inline-block text-sm font-medium text-[var(--brand)] hover:underline" href={stat.href}>
+                {ar ? 'إدارة' : 'Manage'}
+              </LocalizedLink>
+            </div>
+          ))}
+          <div className="ta-card ta-stat-card ta-stat-card-amber">
+            <p className="ta-stat-label">{ar ? 'التكامل' : 'Integration'}</p>
+            <div className="mt-2">
+              <StatusBadge status={overview.integration_status} size="md" />
+            </div>
+            <p className="mt-3 text-sm text-[var(--muted)]">
+              {ar ? 'بوابات غير متصلة' : 'Offline gates'}:{' '}
+              <StatusBadge status={overview.gates_offline > 0 ? 'offline' : 'healthy'} label={String(overview.gates_offline)} />
             </p>
           </div>
         </div>
 
         {overview.active_emergency && (
-          <p className="mt-4 rounded-lg bg-amber-100 p-3 text-amber-900" role="alert">
-            {locale === 'ar' ? 'خروج الطوارئ نشط' : 'Emergency egress is active'}
+          <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200" role="alert">
+            {ar ? 'خروج الطوارئ نشط' : 'Emergency egress is active'}
           </p>
         )}
 
-        <section className="mt-6">
-          <EmergencyControls eventId={event.id} tenantId={tenantId} activeEmergency={overview.active_emergency} />
-        </section>
-
-        <section className="mt-8 flex flex-wrap gap-3">
-          <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/acs/access-logs`}>{locale === 'ar' ? 'سجلات الوصول' : 'Access logs'}</LocalizedLink>
-          <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/acs/gate-health`}>{locale === 'ar' ? 'صحة البوابة' : 'Gate health'}</LocalizedLink>
+        <section className="ta-card mt-6">
+          <h2 className="text-lg font-semibold text-[var(--ink)]">{ar ? 'طوارئ' : 'Emergency'}</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            {ar ? 'تفعيل أو إلغاء وضع خروج الطوارئ للبوابات.' : 'Raise or clear emergency egress across gates.'}
+          </p>
+          <div className="mt-4">
+            <EmergencyControls eventId={event.id} tenantId={tenantId} activeEmergency={overview.active_emergency} />
+          </div>
         </section>
 
         <section className="mt-8">
-          <h2 className="mb-4 text-lg font-semibold">{locale === 'ar' ? 'أحدث أحداث البوابة' : 'Latest gate events'}</h2>
           {overview.latest_gate_events.length === 0 ? (
-            <EmptyState title={locale === 'ar' ? 'لا توجد أحداث بعد' : 'No gate events yet'} />
+            <EmptyState title={ar ? 'لا توجد أحداث بعد' : 'No gate events yet'} />
           ) : (
             <DataTable
+              title={ar ? 'أحدث أحداث البوابة' : 'Latest gate events'}
               rows={overview.latest_gate_events as unknown as Record<string, unknown>[]}
               getRowKey={(row) => String(row.id)}
               columns={[
-                { key: 'event_type', header: locale === 'ar' ? 'النوع' : 'Type' },
-                { key: 'decision', header: locale === 'ar' ? 'القرار' : 'Decision' },
-                { key: 'reason_code', header: locale === 'ar' ? 'السبب' : 'Reason' },
-                { key: 'occurred_at', header: locale === 'ar' ? 'الوقت' : 'Time' },
+                { key: 'event_type', header: ar ? 'النوع' : 'Type' },
+                { key: 'decision', header: ar ? 'القرار' : 'Decision' },
+                { key: 'reason_code', header: ar ? 'السبب' : 'Reason' },
+                { key: 'occurred_at', header: ar ? 'الوقت' : 'Time' },
               ]}
             />
           )}

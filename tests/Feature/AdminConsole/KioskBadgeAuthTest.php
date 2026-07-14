@@ -46,6 +46,10 @@ class KioskBadgeAuthTest extends TestCase
         $this->get("/kiosk/{$kiosk->device_code}")
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page->component('kiosk/Mode')->where('deviceCode', 'PUBLICK1'));
+
+        $this->get("/en/kiosk/{$kiosk->device_code}")
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page->component('kiosk/Mode')->where('deviceCode', 'PUBLICK1'));
     }
 
     public function test_tenant_administrator_can_view_kiosk_badge_and_desk_pages(): void

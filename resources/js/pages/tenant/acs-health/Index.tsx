@@ -33,13 +33,19 @@ export default function AcsHealthIndex({ eventId, tenantId }: AcsHealthIndexProp
   }, [eventId, tenantId])
 
   return (
-    <div>
-      <h1>{t('acsHealthTitle')}</h1>
+    <div className="space-y-4">
+      <h1 className="text-xl font-semibold text-[var(--ink)]">{t('acsHealthTitle')}</h1>
       {health && (
         <>
-          <p>{t('acsHealthIntegration')}: {health.integration_status}</p>
-          {health.active_emergency && <p role="alert">{t('acsHealthEmergencyActive')}</p>}
-          <section>
+          <p className="text-sm text-[var(--muted)]">
+            {t('acsHealthIntegration')}: <span className="text-[var(--ink)]">{health.integration_status}</span>
+          </p>
+          {health.active_emergency && (
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="alert">
+              {t('acsHealthEmergencyActive')}
+            </p>
+          )}
+          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {health.lanes.map(lane => (
               <LaneHealthCard
                 key={lane.lane_id}

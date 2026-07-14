@@ -20,10 +20,21 @@ final readonly class KioskViewModel
 
     /**
      * @param  Collection<int, Kiosk>  $kiosks
-     * @return array{event: array<string, mixed>, tenantId: string, kiosks: list<array<string, mixed>>}
+     * @param  array{page: int, per_page: int, total: int, last_page: int}  $pagination
+     * @return array{
+     *     event: array<string, mixed>,
+     *     tenantId: string,
+     *     kiosks: list<array<string, mixed>>,
+     *     pagination: array{page: int, per_page: int, total: int, last_page: int}
+     * }
      */
-    public function index(Event $event, string $tenantId, Collection $kiosks, int $threshold): array
-    {
+    public function index(
+        Event $event,
+        string $tenantId,
+        Collection $kiosks,
+        int $threshold,
+        array $pagination = ['page' => 1, 'per_page' => 15, 'total' => 0, 'last_page' => 1],
+    ): array {
         return [
             'event' => $this->eventRow($event),
             'tenantId' => $tenantId,
@@ -31,6 +42,12 @@ final readonly class KioskViewModel
                 ->map(fn (Kiosk $kiosk): array => $this->kioskRow($kiosk, $threshold))
                 ->values()
                 ->all(),
+            'pagination' => [
+                'page' => (int) $pagination['page'],
+                'per_page' => (int) $pagination['per_page'],
+                'total' => (int) $pagination['total'],
+                'last_page' => (int) $pagination['last_page'],
+            ],
         ];
     }
 
@@ -53,8 +70,8 @@ final readonly class KioskViewModel
                 'location_label' => $kiosk->location_label,
                 'recent_checkins' => $recentCheckins
                     ->map(fn (ScanEvent $scan): array => [
-                        'id' => $scan->id,
-                        'result' => $scan->result,
+                        'id' => (string) $scan->id,
+                        'result' => $scan->result instanceof \BackedEnum ? $scan->result->value : (string) $scan->result,
                         'reason' => $scan->reason,
                         'scanned_at' => $scan->scanned_at?->toIso8601String(),
                     ])
@@ -62,9 +79,9 @@ final readonly class KioskViewModel
                     ->all(),
                 'recent_print_jobs' => $recentPrintJobs
                     ->map(fn (BadgePrintJob $job): array => [
-                        'id' => $job->id,
-                        'status' => $job->status,
-                        'is_reprint' => $job->is_reprint,
+                        'id' => (string) $job->id,
+                        'status' => $job->status instanceof \BackedEnum ? $job->status->value : (string) $job->status,
+                        'is_reprint' => (bool) $job->is_reprint,
                         'reprint_reason' => $job->reprint_reason,
                         'printed_at' => $job->printed_at?->toIso8601String(),
                     ])
@@ -98,13 +115,15 @@ final readonly class KioskViewModel
     private function kioskRow(Kiosk $kiosk, int $threshold): array
     {
         return [
-            'id' => $kiosk->id,
+            'id' => (string) $kiosk->id,
             'device_name' => $kiosk->device_name,
             'device_code' => $kiosk->device_code,
             'status' => $this->deriver->derive($kiosk, $threshold, $this->clock->now()),
-            'printer_status' => $kiosk->printer_status,
+            'printer_status' => $kiosk->printer_status instanceof \BackedEnum
+                ? $kiosk->printer_status->value
+                : (string) $kiosk->printer_status,
             'last_heartbeat_at' => $kiosk->last_heartbeat_at?->toIso8601String(),
-            'confirmation_required' => $kiosk->confirmation_required,
+            'confirmation_required' => (bool) $kiosk->confirmation_required,
         ];
     }
 }

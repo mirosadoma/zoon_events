@@ -11,8 +11,18 @@ vi.mock('@inertiajs/react', () => ({
   usePage: () => ({ props: { can: { 'badge.print': true, 'badge.reprint': true, 'attendee.walkup.register': true } } }),
 }))
 
+vi.mock('@/components/routing/LocalizedLink', () => ({
+  default: ({ href, children, className }: { href: string; children: React.ReactNode; className?: string }) => (
+    <a href={href} className={className}>{children}</a>
+  ),
+}))
+
 vi.mock('@/hooks/useLocale', () => ({
-  useLocale: () => ({ locale: 'en', direction: 'ltr' }),
+  useLocale: () => ({
+    locale: 'en',
+    direction: 'ltr',
+    t: (key: string) => key,
+  }),
 }))
 
 const event = { id: 'evt_1', name: { en: 'Summit', ar: 'القمة' } }
@@ -47,7 +57,7 @@ describe('manual desk flow', () => {
 
     render(<ManualDesk event={event} tenantId="ten_1" ticketTypes={[]} />)
 
-    fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'Synthetic' } })
+    fireEvent.change(screen.getByLabelText(/^Search/), { target: { value: 'Synthetic' } })
     fireEvent.click(screen.getByRole('button', { name: 'Search' }))
 
     await waitFor(() => {
@@ -74,7 +84,7 @@ describe('manual desk flow', () => {
 
     render(<ManualDesk event={event} tenantId="ten_1" ticketTypes={[]} />)
 
-    fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'Rejected' } })
+    fireEvent.change(screen.getByLabelText(/^Search/), { target: { value: 'Rejected' } })
     fireEvent.click(screen.getByRole('button', { name: 'Search' }))
 
     await waitFor(() => {

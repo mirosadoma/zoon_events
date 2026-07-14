@@ -12,16 +12,36 @@ vi.mock('@/layouts/DashboardLayout', () => ({
 vi.mock('@inertiajs/react', () => ({
   Link: ({ href, children }: { href: string; children: React.ReactNode }) => <a href={href}>{children}</a>,
   usePage: () => ({ props: { can: { 'kiosk.manage': true, 'badge.reprint': true, 'attendee.walkup.register': true } } }),
+  router: { get: vi.fn() },
 }))
 
 vi.mock('@/hooks/useLocale', () => ({
-  useLocale: () => ({ locale: 'en', direction: 'ltr' }),
+  useLocale: () => ({
+    locale: 'en',
+    direction: 'ltr',
+    t: (key: string) => key,
+  }),
+}))
+
+vi.mock('@/hooks/useLocalizedRouter', () => ({
+  useLocalizedRouter: () => ({ get: vi.fn() }),
+}))
+
+vi.mock('@/components/routing/LocalizedLink', () => ({
+  default: ({ href, children, className }: { href: string; children: React.ReactNode; className?: string }) => (
+    <a href={href} className={className}>{children}</a>
+  ),
 }))
 
 const event = { id: 'evt_1', name: { en: 'Summit', ar: 'القمة' } }
 
 describe('phase 6 kiosk and badge browser journeys', () => {
   it('renders kiosk management without serious axe violations', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [] }),
+    }))
+
     const { container } = render(
       <KioskIndex
         event={event}

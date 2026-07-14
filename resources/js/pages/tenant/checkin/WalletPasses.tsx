@@ -4,7 +4,10 @@ import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
+import Pagination from '@/components/tables/Pagination'
 import { useLocale } from '@/hooks/useLocale'
+import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
+import { defaultPagination, type PaginationMeta, withPage } from '@/lib/pagination'
 
 type EventRow = {
   id: string
@@ -24,21 +27,34 @@ type WalletPassRow = {
 type Props = {
   event: EventRow
   walletPasses: WalletPassRow[]
+  pagination?: PaginationMeta
 }
 
-export default function WalletPasses({ event, walletPasses }: Props) {
+export default function WalletPasses({
+  event,
+  walletPasses,
+  pagination = defaultPagination,
+}: Props) {
   const { locale, t } = useLocale()
+  const localizedRouter = useLocalizedRouter()
+
+  function changePage(page: number) {
+    localizedRouter.get(`/tenant/events/${event.id}/wallet-passes`, withPage({}, page), {
+      preserveState: true,
+      preserveScroll: true,
+    })
+  }
 
   return (
-    <DashboardLayout title={locale === 'ar' ? 'تذاكر المحفظة' : 'Wallet passes'}>
+    <DashboardLayout title={t('walletPasses')}>
       <PageHeader
-        title={locale === 'ar' ? 'تذاكر المحفظة' : 'Wallet passes'}
+        title={t('walletPasses')}
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
           { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
-          { label: locale === 'ar' ? 'تذاكر المحفظة' : 'Wallet passes' },
+          { label: t('walletPasses') },
         ]}
       />
       <PageContent>
@@ -48,49 +64,59 @@ export default function WalletPasses({ event, walletPasses }: Props) {
             detail={locale === 'ar' ? 'ستظهر التذاكر بعد الإصدار.' : 'Passes will appear after generation.'}
           />
         ) : (
-          <DataTable
-            rows={walletPasses as unknown as Record<string, unknown>[]}
-            getRowKey={(row) => String(row.id)}
-            columns={[
-              {
-                key: 'serial',
-                header: locale === 'ar' ? 'الرقم التسلسلي' : 'Serial',
-                render: (row) => {
-                  const pass = row as unknown as WalletPassRow
+          <>
+            <DataTable
+              rows={walletPasses as unknown as Record<string, unknown>[]}
+              getRowKey={(row) => String(row.id)}
+              columns={[
+                {
+                  key: 'serial',
+                  header: locale === 'ar' ? 'الرقم التسلسلي' : 'Serial',
+                  render: (row) => {
+                    const pass = row as unknown as WalletPassRow
 
-                  return (
-                    <LocalizedLink href={`/tenant/events/${event.id}/wallet-passes/${pass.id}`} className="font-medium text-sky-700 hover:underline">
-                      {pass.serial}
-                    </LocalizedLink>
-                  )
+                    return (
+                      <LocalizedLink href={`/tenant/events/${event.id}/wallet-passes/${pass.id}`} className="font-medium text-sky-700 hover:underline">
+                        {pass.serial}
+                      </LocalizedLink>
+                    )
+                  },
                 },
-              },
-              { key: 'provider', header: locale === 'ar' ? 'المزود' : 'Provider' },
-              {
-                key: 'status',
-                header: locale === 'ar' ? 'الحالة' : 'Status',
-                render: (row) => <StatusBadge status={String(row.status)} />,
-              },
-              {
-                key: 'attendee_id',
-                header: locale === 'ar' ? 'الحاضر' : 'Attendee',
-                render: (row) => {
-                  const pass = row as unknown as WalletPassRow
-
-                  if (!pass.attendee_id) {
-                    return '—'
-                  }
-
-                  return (
-                    <LocalizedLink href={`/tenant/events/${event.id}/attendees/${pass.attendee_id}`} className="text-sky-700 hover:underline">
-                      {String(pass.attendee_id).slice(-8)}
-                    </LocalizedLink>
-                  )
+                { key: 'provider', header: locale === 'ar' ? 'المزود' : 'Provider' },
+                {
+                  key: 'status',
+                  header: locale === 'ar' ? 'الحالة' : 'Status',
+                  render: (row) => <StatusBadge status={String(row.status)} />,
                 },
-              },
-              { key: 'last_pushed_at', header: locale === 'ar' ? 'آخر دفع' : 'Last pushed' },
-            ]}
-          />
+                {
+                  key: 'attendee_id',
+                  header: t('attendees'),
+                  render: (row) => {
+                    const pass = row as unknown as WalletPassRow
+
+                    if (!pass.attendee_id) {
+                      return '—'
+                    }
+
+                    return (
+                      <LocalizedLink href={`/tenant/events/${event.id}/attendees/${pass.attendee_id}`} className="text-sky-700 hover:underline">
+                        {String(pass.attendee_id).slice(-8)}
+                      </LocalizedLink>
+                    )
+                  },
+                },
+                { key: 'last_pushed_at', header: locale === 'ar' ? 'آخر دفع' : 'Last pushed' },
+              ]}
+            />
+            <Pagination
+              page={pagination.page}
+              totalPages={pagination.last_page}
+              onPageChange={changePage}
+              previousLabel={t('previousPage')}
+              nextLabel={t('nextPage')}
+              pageLabel={t('pageOf').replace(':page', String(pagination.page)).replace(':total', String(pagination.last_page))}
+            />
+          </>
         )}
       </PageContent>
     </DashboardLayout>

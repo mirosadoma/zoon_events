@@ -1,14 +1,17 @@
 import LocalizedLink from '@/components/routing/LocalizedLink'
-import { useMemo, useState } from 'react'
+import { FormEvent, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import FiltersBar from '@/components/tables/FiltersBar'
+import Pagination from '@/components/tables/Pagination'
 import SearchInput from '@/components/tables/SearchInput'
 import SelectInput from '@/components/forms/SelectInput'
 import { useLocale } from '@/hooks/useLocale'
+import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
+import { checkinStatusLabel } from '@/lib/scanLabels'
 
 type EventRow = {
   id: string
@@ -26,37 +29,83 @@ type AttendeeRow = {
   credential_status?: string | null
 }
 
+type Filters = {
+  search: string
+  status: string
+}
+
+type PaginationMeta = {
+  page: number
+  per_page: number
+  total: number
+  last_page: number
+}
+
 type Props = {
   event: EventRow
   attendees: AttendeeRow[]
+  filters?: Filters
+  pagination?: PaginationMeta
 }
 
 function displayValue(value: string | null | undefined, fallback: string): string {
   return value?.trim() ? value.trim() : fallback
 }
 
-export default function Attendees({ event, attendees }: Props) {
-  const { locale, t } = useLocale()
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+export default function Attendees({
+  event,
+  attendees,
+  filters = { search: '', status: '' },
+  pagination = { page: 1, per_page: 25, total: 0, last_page: 1 },
+}: Props) {
+  const { locale, t, localizedPath } = useLocale()
+  const localizedRouter = useLocalizedRouter()
+  const [search, setSearch] = useState(filters.search)
+  const [statusFilter, setStatusFilter] = useState(filters.status)
   const notAvailable = t('notAvailable')
 
-  const filtered = useMemo(() => attendees.filter((attendee) => {
-    const needle = search.trim().toLowerCase()
-    const matchesSearch = needle === ''
-      || attendee.id.toLowerCase().includes(needle)
-      || (attendee.display_name ?? '').toLowerCase().includes(needle)
-      || (attendee.email ?? '').toLowerCase().includes(needle)
-      || (attendee.phone ?? '').toLowerCase().includes(needle)
-      || attendee.label.toLowerCase().includes(needle)
-    const matchesStatus = statusFilter === '' || attendee.status === statusFilter
+  function queryParams(overrides: Partial<Filters & { page?: number }> = {}): Record<string, string> {
+    const nextSearch = overrides.search ?? search
+    const nextStatus = overrides.status ?? statusFilter
+    const nextPage = overrides.page ?? pagination.page
+    const query: Record<string, string> = {}
 
-    return matchesSearch && matchesStatus
-  }), [attendees, search, statusFilter])
+    if (nextSearch.trim() !== '') {
+      query.search = nextSearch.trim()
+    }
+    if (nextStatus !== '') {
+      query.status = nextStatus
+    }
+    if (nextPage > 1) {
+      query.page = String(nextPage)
+    }
+
+    return query
+  }
+
+  function applyFilters(overrides: Partial<Filters & { page?: number }> = {}) {
+    localizedRouter.get(`/tenant/events/${event.id}/attendees`, queryParams(overrides), {
+      preserveState: true,
+      preserveScroll: true,
+    })
+  }
+
+  function submitFilters(eventForm: FormEvent) {
+    eventForm.preventDefault()
+    applyFilters({ page: 1 })
+  }
+
+  function exportHref(): string {
+    const params = new URLSearchParams(queryParams({ page: 1 }))
+    const query = params.toString()
+
+    return localizedPath(`/tenant/events/${event.id}/attendees/export${query ? `?${query}` : ''}`)
+  }
 
   const statusOptions = [
     { value: '', label: t('allStatuses') },
-    ...Array.from(new Set(attendees.map((attendee) => attendee.status))).map((status) => ({ value: status, label: status })),
+    { value: 'not_checked_in', label: checkinStatusLabel('not_checked_in', locale) },
+    { value: 'checked_in', label: checkinStatusLabel('checked_in', locale) },
   ]
 
   return (
@@ -70,74 +119,96 @@ export default function Attendees({ event, attendees }: Props) {
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: t('attendees') },
         ]}
+        actions={(
+          <a href={exportHref()} className="button-secondary">
+            {t('exportExcel')}
+          </a>
+        )}
       />
       <PageContent>
-        <FiltersBar>
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            label={locale === 'ar' ? 'بحث' : 'Search'}
-            placeholder={t('searchAttendee')}
-          />
-          <SelectInput
-            label={t('checkInStatus')}
-            name="status"
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-            options={statusOptions}
-          />
-        </FiltersBar>
+        <form onSubmit={submitFilters}>
+          <FiltersBar>
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              label={t('search')}
+              placeholder={t('searchAttendee')}
+            />
+            <SelectInput
+              label={t('checkInStatus')}
+              name="status"
+              value={statusFilter}
+              onChange={(changeEvent) => {
+                const nextStatus = changeEvent.target.value
+                setStatusFilter(nextStatus)
+                applyFilters({ status: nextStatus, page: 1 })
+              }}
+              options={statusOptions}
+            />
+            <button type="submit" className="button-primary">{t('search')}</button>
+          </FiltersBar>
+        </form>
 
-        {filtered.length === 0 ? (
+        {attendees.length === 0 ? (
           <EmptyState
             title={t('noAttendees')}
             detail={t('noAttendeesDetail')}
           />
         ) : (
-          <DataTable
-            rows={filtered as unknown as Record<string, unknown>[]}
-            getRowKey={(row) => String(row.id)}
-            columns={[
-              {
-                key: 'display_name',
-                header: t('attendeeName'),
-                render: (row) => {
-                  const attendee = row as unknown as AttendeeRow
-                  const name = displayValue(attendee.display_name, notAvailable)
+          <>
+            <DataTable
+              rows={attendees as unknown as Record<string, unknown>[]}
+              getRowKey={(row) => String(row.id)}
+              columns={[
+                {
+                  key: 'display_name',
+                  header: t('attendeeName'),
+                  render: (row) => {
+                    const attendee = row as unknown as AttendeeRow
+                    const name = displayValue(attendee.display_name, notAvailable)
 
-                  return (
-                    <LocalizedLink href={`/tenant/events/${event.id}/attendees/${attendee.id}`} className="font-medium text-sky-700 hover:underline">
-                      {name}
-                    </LocalizedLink>
-                  )
+                    return (
+                      <LocalizedLink href={`/tenant/events/${event.id}/attendees/${attendee.id}`} className="font-medium text-sky-700 hover:underline">
+                        {name}
+                      </LocalizedLink>
+                    )
+                  },
                 },
-              },
-              {
-                key: 'email',
-                header: t('attendeeEmail'),
-                render: (row) => displayValue((row as unknown as AttendeeRow).email, notAvailable),
-              },
-              {
-                key: 'phone',
-                header: t('attendeePhone'),
-                render: (row) => displayValue((row as unknown as AttendeeRow).phone, notAvailable),
-              },
-              {
-                key: 'status',
-                header: t('checkIn'),
-                render: (row) => <StatusBadge status={String(row.status)} />,
-              },
-              {
-                key: 'credential_status',
-                header: locale === 'ar' ? 'الاعتماد' : 'Credential',
-                render: (row) => {
-                  const status = row.credential_status as string | null | undefined
+                {
+                  key: 'email',
+                  header: t('attendeeEmail'),
+                  render: (row) => displayValue((row as unknown as AttendeeRow).email, notAvailable),
+                },
+                {
+                  key: 'phone',
+                  header: t('attendeePhone'),
+                  render: (row) => displayValue((row as unknown as AttendeeRow).phone, notAvailable),
+                },
+                {
+                  key: 'status',
+                  header: t('checkIn'),
+                  render: (row) => <StatusBadge status={String(row.status)} />,
+                },
+                {
+                  key: 'credential_status',
+                  header: locale === 'ar' ? 'الاعتماد' : 'Credential',
+                  render: (row) => {
+                    const status = row.credential_status as string | null | undefined
 
-                  return status ? <StatusBadge status={status} /> : '—'
+                    return status ? <StatusBadge status={status} /> : '—'
+                  },
                 },
-              },
-            ]}
-          />
+              ]}
+            />
+            <Pagination
+              page={pagination.page}
+              totalPages={pagination.last_page}
+              onPageChange={(page) => applyFilters({ page })}
+              previousLabel={t('previousPage')}
+              nextLabel={t('nextPage')}
+              pageLabel={t('pageOf').replace(':page', String(pagination.page)).replace(':total', String(pagination.last_page))}
+            />
+          </>
         )}
       </PageContent>
     </DashboardLayout>

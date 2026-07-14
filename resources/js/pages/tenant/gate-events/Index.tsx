@@ -28,24 +28,28 @@ export default function GateEventsIndex({ eventId, tenantId }: GateEventsIndexPr
   }, [eventId, tenantId])
 
   return (
-    <div>
-      <h1>{t('gateEventsTitle')}</h1>
-      <table>
-        <thead>
-          <tr>
-            <th>{t('gateEventsOccurred')}</th>
-            <th>{t('gateEventsType')}</th>
-            <th>{t('gateEventsDirection')}</th>
-            <th>{t('gateEventsDecision')}</th>
-            <th>{t('gateEventsReason')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {events.map(event => (
-            <GateEventRow key={event.id} event={event} />
-          ))}
-        </tbody>
-      </table>
+    <div className="space-y-4">
+      <h1 className="text-xl font-semibold text-[var(--ink)]">{t('gateEventsTitle')}</h1>
+      <div className="ta-card overflow-hidden p-0">
+        <div className="ta-table-wrap">
+          <table className="ta-table">
+            <thead>
+              <tr>
+                <th>{t('gateEventsOccurred')}</th>
+                <th>{t('gateEventsType')}</th>
+                <th>{t('gateEventsDirection')}</th>
+                <th>{t('gateEventsDecision')}</th>
+                <th>{t('gateEventsReason')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map(event => (
+                <GateEventRow key={event.id} event={event} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 }

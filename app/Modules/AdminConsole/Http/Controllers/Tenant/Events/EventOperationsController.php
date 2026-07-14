@@ -4,8 +4,11 @@ namespace App\Modules\AdminConsole\Http\Controllers\Tenant\Events;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Modules\AdminConsole\Application\Exports\AttendeesExcelExport;
 use App\Modules\AdminConsole\Application\PersonalDataReader;
+use App\Modules\AdminConsole\Application\Queries\ListEventAttendeesQuery;
 use App\Modules\AdminConsole\Application\SessionContextBuilder;
+use App\Modules\AdminConsole\Application\Support\InertiaListPaginator;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Events\Concerns\ResolvesTenantEventFromRoute;
 use App\Modules\AdminConsole\ViewModels\Attendees\AttendeeDetailViewModel;
 use App\Modules\AdminConsole\ViewModels\Credentials\CredentialDetailViewModel;
@@ -19,8 +22,10 @@ use App\Modules\Notifications\Infrastructure\Persistence\Models\Notification;
 use App\Modules\Orders\Infrastructure\Persistence\Models\Order;
 use App\Modules\Orders\Infrastructure\Persistence\Models\OrderItem;
 use App\Modules\Tenancy\Domain\Context\TenantContext;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class EventOperationsController extends Controller
 {
@@ -33,21 +38,40 @@ final class EventOperationsController extends Controller
         private readonly OrderDetailViewModel $orders,
         private readonly AttendeeDetailViewModel $attendees,
         private readonly CredentialDetailViewModel $credentials,
+        private readonly ListEventAttendeesQuery $listAttendees,
+        private readonly AttendeesExcelExport $attendeesExcelExport,
     ) {}
 
-    public function orders(string $eventId): Response
+    public function orders(Request $request, string $eventId): Response
     {
         $context = $this->authorizeTenant('order.view');
         $event = $this->event($context, $eventId);
-        $orders = Order::query()
+        $filters = $this->orderFilters($request);
+
+        $query = Order::query()
             ->where('tenant_id', $context->tenant->id)
             ->where('event_id', $event->id)
+            ->when($filters['status'] !== '', fn ($builder) => $builder->where('status', $filters['status']))
+            ->when($filters['search'] !== '', function ($builder) use ($filters): void {
+                $needle = '%'.$filters['search'].'%';
+                $builder->where(function ($inner) use ($needle, $filters): void {
+                    $inner->where('public_reference', 'like', $needle)
+                        ->orWhere('id', $filters['search']);
+                });
+            })
             ->latest('created_at')
-            ->limit(200)
-            ->get();
-        $notificationStatuses = $this->latestNotificationStatuses($context, $event->id, $orders->pluck('id')->all());
+            ->orderByDesc('id');
 
-        return Inertia::render('tenant/events/Orders', $this->orders->index($event, $orders, $notificationStatuses));
+        $result = InertiaListPaginator::paginate($query, $request);
+        $notificationStatuses = $this->latestNotificationStatuses($context, $event->id, $result['items']->pluck('id')->all());
+
+        return Inertia::render('tenant/events/Orders', $this->orders->index(
+            $event,
+            $result['items'],
+            $notificationStatuses,
+            $filters,
+            $result['pagination'],
+        ));
     }
 
     public function orderShow(string $eventId, string $orderId): Response
@@ -83,19 +107,59 @@ final class EventOperationsController extends Controller
         ));
     }
 
-    public function attendees(string $eventId): Response
+    public function attendees(Request $request, string $eventId): Response
     {
         $context = $this->authorizeTenant('attendee.view');
         $event = $this->event($context, $eventId);
-        $attendees = Attendee::query()
-            ->where('tenant_id', $context->tenant->id)
-            ->where('event_id', $event->id)
-            ->latest('registered_at')
-            ->limit(200)
-            ->get();
-        $credentialStatuses = $this->credentialStatusesForAttendees($context, $event->id, $attendees->pluck('id')->all());
+        $filters = $this->attendeeFilters($request);
+        $result = $this->listAttendees->paginate(
+            (string) $context->tenant->id,
+            (string) $event->id,
+            $filters['search'] !== '' ? $filters['search'] : null,
+            $filters['status'] !== '' ? $filters['status'] : null,
+            (int) $request->integer('page', 1),
+        );
+        $credentialStatuses = $this->credentialStatusesForAttendees(
+            $context,
+            $event->id,
+            $result['attendees']->pluck('id')->all(),
+        );
 
-        return Inertia::render('tenant/events/Attendees', $this->attendees->index($event, $attendees, $credentialStatuses));
+        return Inertia::render('tenant/events/Attendees', $this->attendees->index(
+            $event,
+            $result['attendees'],
+            $credentialStatuses,
+            $filters,
+            [
+                'page' => $result['page'],
+                'per_page' => $result['per_page'],
+                'total' => $result['total'],
+                'last_page' => $result['last_page'],
+            ],
+        ));
+    }
+
+    public function attendeesExport(Request $request, string $eventId): StreamedResponse
+    {
+        $context = $this->authorizeTenant('attendee.view');
+        $event = $this->event($context, $eventId);
+        $filters = $this->attendeeFilters($request);
+        $attendees = $this->listAttendees->forExport(
+            (string) $context->tenant->id,
+            (string) $event->id,
+            $filters['search'] !== '' ? $filters['search'] : null,
+            $filters['status'] !== '' ? $filters['status'] : null,
+        );
+        $credentialStatuses = $this->credentialStatusesForAttendees(
+            $context,
+            $event->id,
+            $attendees->pluck('id')->all(),
+        );
+
+        $slug = preg_replace('/[^a-zA-Z0-9_-]+/', '-', $event->slug ?? (string) $event->id) ?: (string) $event->id;
+        $filename = 'attendees-'.$slug.'-'.now()->format('Ymd-His').'.xlsx';
+
+        return $this->attendeesExcelExport->download($attendees, $credentialStatuses, $filename);
     }
 
     public function attendeeShow(string $eventId, string $attendeeId): Response
@@ -118,19 +182,35 @@ final class EventOperationsController extends Controller
         ]);
     }
 
-    public function credentials(string $eventId): Response
+    public function credentials(Request $request, string $eventId): Response
     {
         $context = $this->authorizeTenant('credential.view');
         $event = $this->event($context, $eventId);
+        $filters = $this->credentialFilters($request);
 
-        $credentials = Credential::query()
+        $query = Credential::query()
             ->where('tenant_id', $context->tenant->id)
             ->where('event_id', $event->id)
+            ->when($filters['status'] !== '', fn ($builder) => $builder->where('status', $filters['status']))
+            ->when($filters['search'] !== '', function ($builder) use ($filters): void {
+                $needle = '%'.$filters['search'].'%';
+                $builder->where(function ($inner) use ($needle, $filters): void {
+                    $inner->where('id', 'like', $needle)
+                        ->orWhere('attendee_id', 'like', $needle)
+                        ->orWhere('attendee_id', $filters['search']);
+                });
+            })
             ->latest('issued_at')
-            ->limit(200)
-            ->get();
+            ->orderByDesc('id');
 
-        return Inertia::render('tenant/events/Credentials', $this->credentials->index($event, $credentials));
+        $result = InertiaListPaginator::paginate($query, $request);
+
+        return Inertia::render('tenant/events/Credentials', $this->credentials->index(
+            $event,
+            $result['items'],
+            $filters,
+            $result['pagination'],
+        ));
     }
 
     public function credentialShow(string $eventId, string $credentialId): Response
@@ -179,7 +259,7 @@ final class EventOperationsController extends Controller
         return Order::query()
             ->where('tenant_id', $context->tenant->id)
             ->where('event_id', $event->id)
-            ->findOrFail($orderId);
+            ->findOrFail($this->routeParamOrNull('order_id') ?? $orderId);
     }
 
     private function attendee(TenantContext $context, Event $event, string $attendeeId): Attendee
@@ -187,7 +267,7 @@ final class EventOperationsController extends Controller
         return Attendee::query()
             ->where('tenant_id', $context->tenant->id)
             ->where('event_id', $event->id)
-            ->findOrFail($attendeeId);
+            ->findOrFail($this->routeParamOrNull('attendee_id') ?? $attendeeId);
     }
 
     private function credential(TenantContext $context, Event $event, string $credentialId): Credential
@@ -195,7 +275,7 @@ final class EventOperationsController extends Controller
         return Credential::query()
             ->where('tenant_id', $context->tenant->id)
             ->where('event_id', $event->id)
-            ->findOrFail($credentialId);
+            ->findOrFail($this->routeParamOrNull('credential_id') ?? $credentialId);
     }
 
     /**
@@ -218,6 +298,55 @@ final class EventOperationsController extends Controller
             ->unique('order_id');
 
         return $rows->pluck('status', 'order_id')->all();
+    }
+
+    /**
+     * @return array{search: string, status: string}
+     */
+    private function attendeeFilters(Request $request): array
+    {
+        $status = trim((string) $request->query('status', ''));
+        if (! in_array($status, ['not_checked_in', 'checked_in'], true)) {
+            $status = '';
+        }
+
+        return [
+            'search' => trim((string) $request->query('search', '')),
+            'status' => $status,
+        ];
+    }
+
+    /**
+     * @return array{search: string, status: string}
+     */
+    private function orderFilters(Request $request): array
+    {
+        $status = trim((string) $request->query('status', ''));
+        $allowed = ['draft', 'pending_payment', 'paid', 'failed', 'cancelled', 'refunded', 'partially_refunded'];
+        if (! in_array($status, $allowed, true)) {
+            $status = '';
+        }
+
+        return [
+            'search' => trim((string) $request->query('search', '')),
+            'status' => $status,
+        ];
+    }
+
+    /**
+     * @return array{search: string, status: string}
+     */
+    private function credentialFilters(Request $request): array
+    {
+        $status = trim((string) $request->query('status', ''));
+        if (! in_array($status, ['active', 'revoked', 'expired', 'superseded'], true)) {
+            $status = '';
+        }
+
+        return [
+            'search' => trim((string) $request->query('search', '')),
+            'status' => $status,
+        ];
     }
 
     /**

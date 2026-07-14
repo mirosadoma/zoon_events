@@ -1,14 +1,17 @@
 import LocalizedLink from '@/components/routing/LocalizedLink'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import FiltersBar from '@/components/tables/FiltersBar'
+import Pagination from '@/components/tables/Pagination'
 import SelectInput from '@/components/forms/SelectInput'
 import CheckboxInput from '@/components/forms/CheckboxInput'
 import { useLocale } from '@/hooks/useLocale'
+import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
+import { defaultPagination, type PaginationMeta, withPage } from '@/lib/pagination'
 import { scanReasonLabel } from '@/lib/scanLabels'
 
 type EventRow = {
@@ -30,33 +33,69 @@ type ScanEventRow = {
   scanned_at?: string | null
 }
 
+type Filters = {
+  result: string
+  scanner_type: string
+  offline: boolean
+}
+
 type Props = {
   event: EventRow
   scanEvents: ScanEventRow[]
+  filters?: Filters
+  pagination?: PaginationMeta
 }
 
-export default function ScanEvents({ event, scanEvents }: Props) {
+const SCAN_RESULTS = [
+  'accepted', 'manual_override', 'duplicate', 'revoked', 'expired',
+  'rejected', 'unauthorized_zone', 'anti_passback_rejected',
+]
+
+const SCANNER_TYPES = [
+  'staff_phone', 'handheld_scanner', 'kiosk', 'gate', 'acs_lane', 'acs_gate', 'manual_desk',
+]
+
+export default function ScanEvents({
+  event,
+  scanEvents,
+  filters = { result: '', scanner_type: '', offline: false },
+  pagination = defaultPagination,
+}: Props) {
   const { locale, t } = useLocale()
-  const [resultFilter, setResultFilter] = useState('')
-  const [scannerFilter, setScannerFilter] = useState('')
-  const [offlineOnly, setOfflineOnly] = useState(false)
+  const localizedRouter = useLocalizedRouter()
+  const [resultFilter, setResultFilter] = useState(filters.result)
+  const [scannerFilter, setScannerFilter] = useState(filters.scanner_type)
+  const [offlineOnly, setOfflineOnly] = useState(filters.offline)
 
-  const filtered = useMemo(() => scanEvents.filter((scan) => {
-    const matchesResult = resultFilter === '' || scan.result === resultFilter
-    const matchesScanner = scannerFilter === '' || scan.scanner_type === scannerFilter
-    const matchesOffline = !offlineOnly || scan.offline
+  function queryParams(overrides: Partial<Filters & { page?: number }> = {}): Record<string, string> {
+    const nextResult = overrides.result ?? resultFilter
+    const nextScanner = overrides.scanner_type ?? scannerFilter
+    const nextOffline = overrides.offline ?? offlineOnly
+    const nextPage = overrides.page ?? pagination.page
+    const query: Record<string, string> = {}
 
-    return matchesResult && matchesScanner && matchesOffline
-  }), [scanEvents, resultFilter, scannerFilter, offlineOnly])
+    if (nextResult !== '') query.result = nextResult
+    if (nextScanner !== '') query.scanner_type = nextScanner
+    if (nextOffline) query.offline = '1'
+
+    return withPage(query, nextPage)
+  }
+
+  function applyFilters(overrides: Partial<Filters & { page?: number }> = {}) {
+    localizedRouter.get(`/tenant/events/${event.id}/scan-events`, queryParams(overrides), {
+      preserveState: true,
+      preserveScroll: true,
+    })
+  }
 
   const resultOptions = [
     { value: '', label: locale === 'ar' ? 'كل النتائج' : 'All results' },
-    ...Array.from(new Set(scanEvents.map((scan) => scan.result))).map((result) => ({ value: result, label: result })),
+    ...SCAN_RESULTS.map((result) => ({ value: result, label: result })),
   ]
 
   const scannerOptions = [
     { value: '', label: locale === 'ar' ? 'كل الماسحات' : 'All scanners' },
-    ...Array.from(new Set(scanEvents.map((scan) => scan.scanner_type))).map((type) => ({ value: type, label: type })),
+    ...SCANNER_TYPES.map((type) => ({ value: type, label: type })),
   ]
 
   return (
@@ -78,69 +117,91 @@ export default function ScanEvents({ event, scanEvents }: Props) {
             label={locale === 'ar' ? 'النتيجة' : 'Result'}
             name="result"
             value={resultFilter}
-            onChange={(changeEvent) => setResultFilter(changeEvent.target.value)}
+            onChange={(changeEvent) => {
+              const next = changeEvent.target.value
+              setResultFilter(next)
+              applyFilters({ result: next, page: 1 })
+            }}
             options={resultOptions}
           />
           <SelectInput
             label={locale === 'ar' ? 'نوع الماسح' : 'Scanner type'}
             name="scanner_type"
             value={scannerFilter}
-            onChange={(changeEvent) => setScannerFilter(changeEvent.target.value)}
+            onChange={(changeEvent) => {
+              const next = changeEvent.target.value
+              setScannerFilter(next)
+              applyFilters({ scanner_type: next, page: 1 })
+            }}
             options={scannerOptions}
           />
           <CheckboxInput
             label={locale === 'ar' ? 'غير متصل فقط' : 'Offline only'}
             name="offline"
             checked={offlineOnly}
-            onChange={(changeEvent) => setOfflineOnly(changeEvent.target.checked)}
+            onChange={(changeEvent) => {
+              const next = changeEvent.target.checked
+              setOfflineOnly(next)
+              applyFilters({ offline: next, page: 1 })
+            }}
           />
         </FiltersBar>
 
-        {filtered.length === 0 ? (
+        {scanEvents.length === 0 ? (
           <EmptyState
             title={locale === 'ar' ? 'لا توجد أحداث مسح' : 'No scan events yet'}
             detail={locale === 'ar' ? 'ستظهر الأحداث بعد المسح.' : 'Events will appear after scans are submitted.'}
           />
         ) : (
-          <DataTable
-            rows={filtered as unknown as Record<string, unknown>[]}
-            getRowKey={(row) => String(row.id)}
-            columns={[
-              {
-                key: 'result',
-                header: locale === 'ar' ? 'النتيجة' : 'Result',
-                render: (row) => <StatusBadge status={String(row.result)} />,
-              },
-              { key: 'scanner_type', header: locale === 'ar' ? 'الماسح' : 'Scanner' },
-              {
-                key: 'gate_id',
-                header: locale === 'ar' ? 'البوابة' : 'Gate',
-                render: (row) => {
-                  const scan = row as unknown as ScanEventRow
-                  return scan.gate_name ?? scan.gate_id ?? '—'
+          <>
+            <DataTable
+              rows={scanEvents as unknown as Record<string, unknown>[]}
+              getRowKey={(row) => String(row.id)}
+              columns={[
+                {
+                  key: 'result',
+                  header: locale === 'ar' ? 'النتيجة' : 'Result',
+                  render: (row) => <StatusBadge status={String(row.result)} />,
                 },
-              },
-              {
-                key: 'zone_id',
-                header: locale === 'ar' ? 'المنطقة' : 'Zone',
-                render: (row) => {
-                  const scan = row as unknown as ScanEventRow
-                  return scan.zone_name ?? scan.zone_id ?? '—'
+                { key: 'scanner_type', header: locale === 'ar' ? 'الماسح' : 'Scanner' },
+                {
+                  key: 'gate_id',
+                  header: locale === 'ar' ? 'البوابة' : 'Gate',
+                  render: (row) => {
+                    const scan = row as unknown as ScanEventRow
+                    return scan.gate_name ?? scan.gate_id ?? '—'
+                  },
                 },
-              },
-              {
-                key: 'offline',
-                header: locale === 'ar' ? 'غير متصل' : 'Offline',
-                render: (row) => (row.offline ? (locale === 'ar' ? 'نعم' : 'Yes') : '—'),
-              },
-              {
-                key: 'reason',
-                header: locale === 'ar' ? 'السبب' : 'Reason',
-                render: (row) => scanReasonLabel(String(row.reason ?? ''), locale),
-              },
-              { key: 'scanned_at', header: locale === 'ar' ? 'وقت المسح' : 'Scanned at' },
-            ]}
-          />
+                {
+                  key: 'zone_id',
+                  header: locale === 'ar' ? 'المنطقة' : 'Zone',
+                  render: (row) => {
+                    const scan = row as unknown as ScanEventRow
+                    return scan.zone_name ?? scan.zone_id ?? '—'
+                  },
+                },
+                {
+                  key: 'offline',
+                  header: locale === 'ar' ? 'غير متصل' : 'Offline',
+                  render: (row) => (row.offline ? (locale === 'ar' ? 'نعم' : 'Yes') : '—'),
+                },
+                {
+                  key: 'reason',
+                  header: locale === 'ar' ? 'السبب' : 'Reason',
+                  render: (row) => scanReasonLabel(String(row.reason ?? ''), locale),
+                },
+                { key: 'scanned_at', header: locale === 'ar' ? 'وقت المسح' : 'Scanned at' },
+              ]}
+            />
+            <Pagination
+              page={pagination.page}
+              totalPages={pagination.last_page}
+              onPageChange={(page) => applyFilters({ page })}
+              previousLabel={t('previousPage')}
+              nextLabel={t('nextPage')}
+              pageLabel={t('pageOf').replace(':page', String(pagination.page)).replace(':total', String(pagination.last_page))}
+            />
+          </>
         )}
       </PageContent>
     </DashboardLayout>

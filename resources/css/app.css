@@ -2156,3 +2156,80 @@ body {
 .scan-attendee-panel__reason {
   @apply font-medium text-[var(--ink)];
 }
+
+.kiosk-shell {
+  @apply relative min-h-screen overflow-x-hidden p-6 sm:p-8;
+  background:
+    radial-gradient(circle at top center, color-mix(in srgb, var(--brand) 16%, transparent), transparent 42%),
+    linear-gradient(180deg, color-mix(in srgb, var(--brand-soft) 55%, var(--surface)), var(--surface));
+  color: var(--ink);
+}
+
+.kiosk-shell__glow {
+  @apply pointer-events-none absolute -top-24 start-1/2 h-64 w-[36rem] -translate-x-1/2 rounded-full opacity-60 blur-3xl;
+  background: color-mix(in srgb, var(--brand) 22%, transparent);
+}
+
+.kiosk-hero {
+  @apply relative z-10 mx-auto mb-8 max-w-3xl text-center;
+}
+
+.kiosk-hero__meta {
+  @apply mb-3 flex flex-wrap items-center justify-center gap-2;
+}
+
+.kiosk-hero__code {
+  @apply rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1 font-mono text-xs font-semibold tracking-wider text-[var(--muted)];
+}
+
+.kiosk-hero__title {
+  @apply text-3xl font-bold tracking-tight text-[var(--ink)] sm:text-4xl;
+}
+
+.kiosk-hero__device {
+  @apply mt-2 text-base text-[var(--muted)];
+}
+
+.kiosk-main {
+  @apply relative z-10 mx-auto w-full max-w-5xl;
+}
+
+.kiosk-grid {
+  @apply grid gap-4 lg:grid-cols-2;
+}
+
+.kiosk-panel {
+  @apply rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface-elevated)] p-5 shadow-[var(--card-shadow)] sm:p-6;
+}
+
+.kiosk-panel--result {
+  @apply w-full;
+}
+
+.kiosk-panel__intro {
+  @apply mb-5 flex items-start gap-3;
+}
+
+.kiosk-panel__icon {
+  @apply flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--brand-soft)] text-[var(--brand)];
+}
+
+.kiosk-panel__icon--muted {
+  @apply bg-[var(--surface)] text-[var(--muted)];
+}
+
+.kiosk-panel__title {
+  @apply text-lg font-semibold text-[var(--ink)];
+}
+
+.kiosk-panel__copy {
+  @apply mt-1 text-sm text-[var(--muted)];
+}
+
+.kiosk-footer {
+  @apply relative z-10 mx-auto mt-10 flex max-w-5xl justify-center;
+}
+
+.kiosk-footer__action {
+  @apply text-sm font-medium text-[var(--muted)] underline-offset-4 hover:text-[var(--ink)] hover:underline;
+}

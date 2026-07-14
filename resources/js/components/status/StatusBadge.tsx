@@ -27,6 +27,13 @@ const STATUS_TONE: Record<string, BadgeTone> = {
   rejected: 'danger',
   duplicate: 'warning',
   offline: 'neutral',
+  online: 'success',
+  registered: 'info',
+  retired: 'neutral',
+  ready: 'success',
+  error: 'danger',
+  disconnected: 'warning',
+  manual_override: 'success',
   ok: 'success',
   unavailable: 'danger',
   system: 'info',
@@ -38,6 +45,7 @@ const STATUS_TONE: Record<string, BadgeTone> = {
   closed: 'neutral',
   paired: 'success',
   unpaired: 'warning',
+  queued: 'info',
 }
 
 const TONE_CLASS: Record<BadgeTone, string> = {

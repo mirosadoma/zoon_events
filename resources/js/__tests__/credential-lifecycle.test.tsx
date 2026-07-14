@@ -9,10 +9,30 @@ vi.mock('@/layouts/DashboardLayout', () => ({
 
 vi.mock('@inertiajs/react', () => ({
   Link: ({ href, children }: { href: string; children: React.ReactNode }) => <a href={href}>{children}</a>,
+  router: { get: vi.fn() },
 }))
 
 vi.mock('@/hooks/useLocale', () => ({
-  useLocale: () => ({ locale: 'ar', direction: 'rtl' }),
+  useLocale: () => ({
+    locale: 'ar',
+    direction: 'rtl',
+    t: (key: string) => ({
+      credentials: 'بيانات الدخول',
+      overview: 'نظرة عامة',
+      search: 'بحث',
+      allStatuses: 'كل الحالات',
+      noCredentials: 'لا توجد بيانات دخول',
+      noCredentialsDetail: 'ستظهر بيانات الدخول بعد الإصدار.',
+      attendees: 'الحضور',
+      previousPage: 'السابق',
+      nextPage: 'التالي',
+      pageOf: 'صفحة :page من :total',
+    } as Record<string, string>)[key] ?? key,
+  }),
+}))
+
+vi.mock('@/hooks/useLocalizedRouter', () => ({
+  useLocalizedRouter: () => ({ get: vi.fn() }),
 }))
 
 describe('credential lifecycle UI', () => {

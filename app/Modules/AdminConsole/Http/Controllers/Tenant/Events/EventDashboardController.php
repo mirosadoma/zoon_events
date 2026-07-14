@@ -20,15 +20,15 @@ use App\Modules\IdentityVerification\Application\Actions\ViewIdentityDataAction;
 use App\Modules\IdentityVerification\Application\Queries\PendingReviewQueue;
 use App\Modules\IdentityVerification\Infrastructure\Persistence\Models\IdentityVerification;
 use App\Modules\IdentityVerification\Infrastructure\Persistence\Models\IdentityVerificationRequirement;
+use App\Modules\Registration\Application\Queries\ResolvePublishedRegistrationForm;
 use App\Modules\Registration\Application\Support\RegistrationFieldPresenter;
 use App\Modules\Registration\Domain\Fields\RegistrationSystemFields;
-use App\Modules\Registration\Application\Queries\ResolvePublishedRegistrationForm;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationForm;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationFormVersion;
 use App\Modules\Tenancy\Domain\Context\TenantContext;
+use App\Modules\Ticketing\Application\Queries\PublicTicketTypeCatalog;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\PriceTier;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketInventory;
-use App\Modules\Ticketing\Application\Queries\PublicTicketTypeCatalog;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketType;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -237,7 +237,7 @@ final class EventDashboardController extends Controller
         $verification = IdentityVerification::query()
             ->where('tenant_id', $context->tenant->id)
             ->where('event_id', $event->id)
-            ->findOrFail($verificationId);
+            ->findOrFail($this->routeParamOrNull('verification_id') ?? $verificationId);
 
         $detail = $viewAction->execute(
             $context,

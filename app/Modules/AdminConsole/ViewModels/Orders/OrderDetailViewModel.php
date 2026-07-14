@@ -11,16 +11,39 @@ use Illuminate\Support\Collection;
 final readonly class OrderDetailViewModel
 {
     public function __construct(private PersonalDataReader $personalData) {}
+
     /**
      * @param  Collection<int, Order>  $orders
      * @param  array<string, string>  $notificationStatuses
-     * @return array{event: array<string, mixed>, orders: list<array<string, mixed>>}
+     * @param  array{search?: string, status?: string}  $filters
+     * @param  array{page: int, per_page: int, total: int, last_page: int}  $pagination
+     * @return array{
+     *     event: array<string, mixed>,
+     *     orders: list<array<string, mixed>>,
+     *     filters: array{search: string, status: string},
+     *     pagination: array{page: int, per_page: int, total: int, last_page: int}
+     * }
      */
-    public function index(Event $event, Collection $orders, array $notificationStatuses = []): array
-    {
+    public function index(
+        Event $event,
+        Collection $orders,
+        array $notificationStatuses = [],
+        array $filters = [],
+        array $pagination = ['page' => 1, 'per_page' => 15, 'total' => 0, 'last_page' => 1],
+    ): array {
         return [
             'event' => $this->eventRow($event),
             'orders' => $orders->map(fn (Order $order): array => $this->orderRow($order, $notificationStatuses[$order->id] ?? null))->values()->all(),
+            'filters' => [
+                'search' => (string) ($filters['search'] ?? ''),
+                'status' => (string) ($filters['status'] ?? ''),
+            ],
+            'pagination' => [
+                'page' => (int) $pagination['page'],
+                'per_page' => (int) $pagination['per_page'],
+                'total' => (int) $pagination['total'],
+                'last_page' => (int) $pagination['last_page'],
+            ],
         ];
     }
 
