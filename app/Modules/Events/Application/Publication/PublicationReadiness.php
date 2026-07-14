@@ -14,7 +14,7 @@ final class PublicationReadiness
      * @param array{
      *   name_en?:string,name_ar?:string,timezone?:string,start_at?:string,
      *   end_at?:string,registration_opens_at?:string,registration_closes_at?:string,
-     *   active_form_version_id?:string,active_ticket_types?:int,branding_active?:bool,
+     *   agenda_items?:int,active_form_version_id?:string,active_ticket_types?:int,branding_active?:bool,
      *   main_image_path?:string,tier?:string,registration_mode?:string
      * } $event
      * @return list<string>
@@ -22,10 +22,18 @@ final class PublicationReadiness
     public function missing(array $event): array
     {
         $missing = [];
-        foreach (['name_en', 'name_ar', 'timezone', 'start_at', 'end_at', 'registration_opens_at', 'registration_closes_at', 'active_form_version_id'] as $key) {
+        foreach (['name_en', 'name_ar', 'timezone', 'start_at', 'end_at', 'registration_opens_at', 'registration_closes_at'] as $key) {
             if (trim((string) ($event[$key] ?? '')) === '') {
                 $missing[] = $key;
             }
+        }
+
+        if (($event['agenda_items'] ?? 0) < 1) {
+            $missing[] = 'published_agenda';
+        }
+
+        if (trim((string) ($event['active_form_version_id'] ?? '')) === '') {
+            $missing[] = 'active_form_version_id';
         }
 
         if (EventRegistrationProfile::requiresTicketConfiguration(
@@ -71,6 +79,7 @@ final class PublicationReadiness
                 'registration_opens_at', 'registration_closes_at', 'active_form_version_id',
                 'main_image_path', 'tier', 'registration_mode',
             ]),
+            'agenda_items' => $event->agendaItems()->count(),
             'active_ticket_types' => $activeTicketTypes,
             'branding_active' => $event->branding()->where('status', 'active')->exists(),
         ]);

@@ -425,7 +425,7 @@ export default function RegistrationBuilder({
             ) : (
               <ul className="space-y-4">
                 {customFields.map((field, index) => (
-                  <li key={field.key} className="space-y-4 rounded-lg border border-slate-200 p-4 dark:border-slate-700" style={{ background: '#293954' }}>
+                  <li key={field.key} className="space-y-4 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/40">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <p className="text-sm text-slate-600">
                         {locale === 'ar' ? 'مفتاح الحقل' : 'Field key'}: <code>{field.key}</code>

@@ -79,7 +79,7 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
     registration_form: !effectiveReadiness.includes('active_form_version_id'),
     ticket_types: !effectiveReadiness.includes('active_ticket_type'),
     price_tiers: false,
-    agenda: false,
+    agenda: !effectiveReadiness.includes('published_agenda'),
     identity: false,
     published: !canPublish,
   }

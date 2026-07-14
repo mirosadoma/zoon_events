@@ -24,7 +24,7 @@ describe('tenant event agenda page', () => {
     render(
       <EventAgenda
         tenantId="ten_1"
-        event={{ id: 'evt_1', name: { en: 'Summit', ar: 'القمة' } }}
+        event={{ id: 'evt_1', name: { en: 'Summit', ar: 'القمة' }, start_at: '2026-07-12T09:00:00Z' }}
         items={[
           {
             id: '1',
@@ -39,5 +39,7 @@ describe('tenant event agenda page', () => {
 
     expect(screen.getByRole('heading', { name: 'eventAgendaTitle' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'eventAgendaSave' })).toBeInTheDocument()
+    expect(screen.getByLabelText(/eventAgendaStartsAt/)).toHaveAttribute('type', 'time')
+    expect(screen.getByLabelText(/eventAgendaEndsAt/)).toHaveAttribute('type', 'time')
   })
 })

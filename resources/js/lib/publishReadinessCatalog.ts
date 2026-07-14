@@ -51,6 +51,11 @@ export const publishReadinessLabels: Record<string, ReadinessEntry> = {
     ar: 'تاريخ ووقت إغلاق التسجيل',
     href: (eventId) => editSection(eventId, 'event-setup-schedule'),
   },
+  published_agenda: {
+    en: 'Published agenda',
+    ar: 'أجندة منشورة',
+    href: (eventId) => `/tenant/events/${eventId}/agenda`,
+  },
   active_form_version_id: {
     en: 'Published registration form',
     ar: 'نموذج تسجيل منشور',

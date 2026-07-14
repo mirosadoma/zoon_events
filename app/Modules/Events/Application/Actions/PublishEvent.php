@@ -37,6 +37,7 @@ final readonly class PublishEvent
                     'registration_opens_at', 'registration_closes_at', 'active_form_version_id',
                     'main_image_path', 'tier', 'registration_mode',
                 ]),
+                'agenda_items' => $event->agendaItems()->count(),
                 'active_ticket_types' => $this->tickets->countOrganizerTicketTypesForEvent($context->tenant->id, $event->id),
                 'branding_active' => $event->branding()->where('status', 'active')->exists(),
             ];

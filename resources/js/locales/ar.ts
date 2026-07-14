@@ -76,6 +76,7 @@ export default {
   loginSubmit: 'تسجيل الدخول',
   loginFailed: 'فشل تسجيل الدخول. تحقق من بيانات الاعتماد وحاول مرة أخرى.',
   eventDetail: 'تفاصيل الفعالية',
+  agenda: 'الأجندة',
   priceTiers: 'شرائح الأسعار',
   checkInDashboard: 'لوحة تسجيل الحضور',
   scanEvents: 'أحداث المسح',

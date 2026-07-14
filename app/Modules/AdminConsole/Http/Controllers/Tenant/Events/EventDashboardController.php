@@ -72,7 +72,7 @@ final class EventDashboardController extends Controller
             'event' => [
                 'id' => null,
                 'slug' => '',
-                'name' => ['en' => 'New event', 'ar' => 'فعالية جديدة'],
+                'name' => ['en' => '', 'ar' => ''],
                 'description' => ['en' => '', 'ar' => ''],
                 'status' => 'draft',
                 'tier' => 'corporate',
