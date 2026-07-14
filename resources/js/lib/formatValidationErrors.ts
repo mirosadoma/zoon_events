@@ -161,13 +161,13 @@ export function remapAgendaApiErrors(
   return remapped
 }
 
-export function buildAgendaPayload(items: Array<{
+export function buildAgendaPayload<T extends {
   id?: string
   title_en: string
   title_ar: string
   start_at: string
   end_at: string
-}>, fromLocalDateTime: (value: string) => string | null): {
+}>(items: T[], convertTime: (value: string, field: 'start_at' | 'end_at', row: T) => string | null): {
   payload: Array<{
     id?: string
     title_en: string
@@ -189,8 +189,8 @@ export function buildAgendaPayload(items: Array<{
       id: row.id,
       title_en: row.title_en.trim(),
       title_ar: row.title_ar.trim(),
-      start_at: fromLocalDateTime(row.start_at),
-      end_at: fromLocalDateTime(row.end_at),
+      start_at: convertTime(row.start_at, 'start_at', row),
+      end_at: convertTime(row.end_at, 'end_at', row),
     }]
   })
 

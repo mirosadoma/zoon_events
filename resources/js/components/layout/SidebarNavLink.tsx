@@ -43,6 +43,7 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   featureFlags: Flag,
   configuration: Settings,
   'event-detail': LayoutDashboard,
+  agenda: CalendarDays,
   'registration-form': ClipboardList,
   'ticket-types': Ticket,
   'price-tiers': Ticket,

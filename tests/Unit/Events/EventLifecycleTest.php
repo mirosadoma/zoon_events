@@ -45,6 +45,7 @@ final class EventLifecycleTest extends TestCase
             'end_at' => '2027-01-10T18:00:00Z',
             'registration_opens_at' => '2027-01-01T00:00:00Z',
             'registration_closes_at' => '2027-01-10T11:00:00Z',
+            'agenda_items' => 1,
             'active_form_version_id' => '01TESTFORMVERSION0000000000',
             'active_ticket_types' => 1,
             'branding_active' => true,
@@ -55,8 +56,8 @@ final class EventLifecycleTest extends TestCase
 
         self::assertTrue($readiness->isReady($valid));
         self::assertEqualsCanonicalizing(
-            ['active_form_version_id', 'active_ticket_type', 'active_branding'],
-            $readiness->missing([...$valid, 'active_form_version_id' => '', 'active_ticket_types' => 0, 'branding_active' => false]),
+            ['published_agenda', 'active_form_version_id', 'active_ticket_type', 'active_branding'],
+            $readiness->missing([...$valid, 'agenda_items' => 0, 'active_form_version_id' => '', 'active_ticket_types' => 0, 'branding_active' => false]),
         );
     }
 
@@ -71,6 +72,7 @@ final class EventLifecycleTest extends TestCase
             'end_at' => '2027-01-10T18:00:00Z',
             'registration_opens_at' => '2027-01-01T00:00:00Z',
             'registration_closes_at' => '2027-01-10T11:00:00Z',
+            'agenda_items' => 1,
             'active_form_version_id' => '01TESTFORMVERSION0000000000',
             'active_ticket_types' => 0,
             'branding_active' => true,

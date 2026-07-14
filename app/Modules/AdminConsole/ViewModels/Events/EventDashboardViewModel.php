@@ -181,7 +181,7 @@ final readonly class EventDashboardViewModel
                     ->where('tenant_id', $event->tenant_id)
                     ->where('event_id', $event->id)
                     ->exists(),
-            'agenda' => $event->agendaItems()->exists(),
+            'agenda' => ! in_array('published_agenda', $missing, true),
             'identity' => IdentityVerificationRequirement::query()
                 ->where('tenant_id', $event->tenant_id)
                 ->where('event_id', $event->id)

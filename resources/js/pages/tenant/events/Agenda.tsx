@@ -1,9 +1,9 @@
 import { FormEvent, useState } from 'react'
 import { router } from '@inertiajs/react'
 import LocalizedLink from '@/components/routing/LocalizedLink'
-import DateTimeInput from '@/components/forms/DateTimeInput'
 import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
 import TextInput from '@/components/forms/TextInput'
+import TimeInput from '@/components/forms/TimeInput'
 import ValidationHintPopover from '@/components/feedback/ValidationHintPopover'
 import { PageContent, PageHeader } from '@/components/layout'
 import DashboardLayout from '@/layouts/DashboardLayout'
@@ -22,6 +22,7 @@ import {
 type EventRow = {
   id: string
   name: { en: string; ar: string }
+  start_at?: string | null
 }
 
 type AgendaRow = {
@@ -31,6 +32,8 @@ type AgendaRow = {
   title_ar: string
   start_at: string
   end_at: string
+  start_at_source: string | null
+  end_at_source: string | null
 }
 
 type Props = {
@@ -45,21 +48,35 @@ type Props = {
   }>
 }
 
-function toLocalDateTime(value: string | null | undefined): string {
+function pad(n: number): string {
+  return n.toString().padStart(2, '0')
+}
+
+function toLocalTime(value: string | null | undefined): string {
   if (!value) return ''
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return ''
-  const pad = (n: number) => n.toString().padStart(2, '0')
 
-  return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`
+  return `${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`
 }
 
-function fromLocalDateTime(value: string): string | null {
+function fromLocalTime(value: string, dateSource: string | null | undefined): string | null {
   if (!value.trim()) return null
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return null
 
-  return parsed.toISOString()
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim())
+  if (!match) return null
+
+  const hours = Number(match[1])
+  const minutes = Number(match[2])
+  if (hours > 23 || minutes > 59) return null
+
+  const base = dateSource ? new Date(dateSource) : new Date()
+  if (Number.isNaN(base.getTime())) return null
+
+  const combined = new Date(base)
+  combined.setHours(hours, minutes, 0, 0)
+
+  return combined.toISOString()
 }
 
 function mapInitialItems(items: Props['items']): AgendaRow[] {
@@ -72,8 +89,10 @@ function mapInitialItems(items: Props['items']): AgendaRow[] {
     id: item.id,
     title_en: item.title_en,
     title_ar: item.title_ar,
-    start_at: toLocalDateTime(item.start_at),
-    end_at: toLocalDateTime(item.end_at),
+    start_at: toLocalTime(item.start_at),
+    end_at: toLocalTime(item.end_at),
+    start_at_source: item.start_at,
+    end_at_source: item.end_at,
   }))
 }
 
@@ -84,6 +103,8 @@ function emptyAgendaRow(): AgendaRow {
     title_ar: '',
     start_at: '',
     end_at: '',
+    start_at_source: null,
+    end_at_source: null,
   }
 }
 
@@ -126,7 +147,16 @@ export default function EventAgenda({ event, tenantId, items: initialItems }: Pr
     validation.clearValidation()
     setSubmitting(true)
 
-    const { payload, formIndexByPayloadIndex: payloadIndexMap } = buildAgendaPayload(items, fromLocalDateTime)
+    const { payload, formIndexByPayloadIndex: payloadIndexMap } = buildAgendaPayload(
+      items,
+      (value, field, row) => {
+        const dateSource = field === 'start_at'
+          ? (row.start_at_source ?? event.start_at)
+          : (row.end_at_source ?? row.start_at_source ?? event.start_at)
+
+        return fromLocalTime(value, dateSource)
+      },
+    )
 
     try {
       await apiFetch(`/api/v1/tenant/events/${event.id}/agenda`, {
@@ -213,7 +243,7 @@ export default function EventAgenda({ event, tenantId, items: initialItems }: Pr
                   {...formFieldProps(`items.${index}.title_ar`)}
                   required
                 />
-                <DateTimeInput
+                <TimeInput
                   label={t('eventAgendaStartsAt')}
                   name={`start_at_${index}`}
                   value={row.start_at}
@@ -222,7 +252,7 @@ export default function EventAgenda({ event, tenantId, items: initialItems }: Pr
                   {...formFieldProps(`items.${index}.start_at`)}
                   required
                 />
-                <DateTimeInput
+                <TimeInput
                   label={t('eventAgendaEndsAt')}
                   name={`end_at_${index}`}
                   value={row.end_at}

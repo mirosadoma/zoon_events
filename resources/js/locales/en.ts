@@ -76,6 +76,7 @@ export default {
   loginSubmit: 'Sign in',
   loginFailed: 'Sign in failed. Check your credentials and try again.',
   eventDetail: 'Event detail',
+  agenda: 'Agenda',
   priceTiers: 'Price tiers',
   checkInDashboard: 'Check-in dashboard',
   scanEvents: 'Scan events',
