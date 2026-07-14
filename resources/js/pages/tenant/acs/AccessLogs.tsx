@@ -1,9 +1,10 @@
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useEffect, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
-import { GateEventRow } from '@/components/gate-events/GateEventRow'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
+import StatusBadge from '@/components/status/StatusBadge'
+import DataTable from '@/components/tables/DataTable'
 import { useLocale } from '@/hooks/useLocale'
 import { ACS_HEALTH_POLL_INTERVAL_MS } from '@/lib/acs-polling'
 import type { AccessEvent } from '@/types/phase4'
@@ -19,6 +20,7 @@ type Props = {
 export default function AcsAccessLogs({ event, tenantId, accessEvents: initialEvents }: Props) {
   const { locale, t } = useLocale()
   const [events, setEvents] = useState(initialEvents)
+  const ar = locale === 'ar'
 
   useEffect(() => {
     let active = true
@@ -42,41 +44,61 @@ export default function AcsAccessLogs({ event, tenantId, accessEvents: initialEv
   }, [event.id, tenantId])
 
   return (
-    <DashboardLayout title={locale === 'ar' ? 'سجلات الوصول' : 'Access logs'}>
+    <DashboardLayout title={ar ? 'سجلات الوصول' : 'Access logs'}>
       <PageHeader
-        title={locale === 'ar' ? 'سجلات الوصول' : 'Access logs'}
+        title={ar ? 'سجلات الوصول' : 'Access logs'}
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: ar ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: 'ACS', href: `/tenant/events/${event.id}/acs` },
-          { label: locale === 'ar' ? 'سجلات الوصول' : 'Access logs' },
+          { label: ar ? 'سجلات الوصول' : 'Access logs' },
         ]}
-        actions={<LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/acs/gate-health`}>{locale === 'ar' ? 'صحة البوابة' : 'Gate health'}</LocalizedLink>}
+        actions={(
+          <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/acs/gate-health`}>
+            {ar ? 'صحة البوابة' : 'Gate health'}
+          </LocalizedLink>
+        )}
       />
       <PageContent>
         {events.length === 0 ? (
-          <EmptyState title={locale === 'ar' ? 'لا توجد أحداث وصول' : 'No access events yet'} />
+          <EmptyState
+            title={ar ? 'لا توجد أحداث وصول' : 'No access events yet'}
+            detail={ar ? 'ستظهر قرارات البوابة هنا عند حدوثها.' : 'Gate decisions will appear here as they happen.'}
+          />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr>
-                  <th>{locale === 'ar' ? 'الوقت' : 'Occurred'}</th>
-                  <th>{locale === 'ar' ? 'النوع' : 'Type'}</th>
-                  <th>{locale === 'ar' ? 'الاتجاه' : 'Direction'}</th>
-                  <th>{locale === 'ar' ? 'القرار' : 'Decision'}</th>
-                  <th>{locale === 'ar' ? 'السبب' : 'Reason'}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {events.map((accessEvent) => (
-                  <GateEventRow key={accessEvent.id} event={accessEvent} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            title={ar ? 'أحدث الأحداث' : 'Recent events'}
+            rows={events as unknown as Record<string, unknown>[]}
+            getRowKey={(row) => String(row.id)}
+            columns={[
+              {
+                key: 'occurred_at',
+                header: ar ? 'الوقت' : 'Occurred',
+                render: (row) => <span className="whitespace-nowrap text-[var(--muted)]">{String(row.occurred_at)}</span>,
+              },
+              {
+                key: 'event_type',
+                header: ar ? 'النوع' : 'Type',
+              },
+              {
+                key: 'direction',
+                header: ar ? 'الاتجاه' : 'Direction',
+              },
+              {
+                key: 'decision',
+                header: ar ? 'القرار' : 'Decision',
+                render: (row) =>
+                  row.decision ? <StatusBadge status={String(row.decision)} /> : <span className="text-[var(--muted)]">—</span>,
+              },
+              {
+                key: 'reason_code',
+                header: ar ? 'السبب' : 'Reason',
+                render: (row) => <span className="font-mono text-xs">{String(row.reason_code)}</span>,
+              },
+            ]}
+          />
         )}
       </PageContent>
     </DashboardLayout>

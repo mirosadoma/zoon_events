@@ -40,7 +40,7 @@ Route::get('/identity/{event_slug}/{order_token}', [IdentityVerifyPageController
     ->middleware('throttle:public-event')
     ->name('public.identity.verify');
 
-Route::middleware(['kiosk.session.clear', 'kiosk.session'])->group(function (): void {
+Route::middleware('kiosk.session.clear')->group(function (): void {
     Route::get('/kiosk/{device_code}', [KioskModeController::class, 'show'])->name('kiosk.mode');
 });
 
@@ -49,6 +49,9 @@ Route::prefix('{locale}')
     ->group(function (): void {
         Route::get('/', LandingController::class)->name('home');
         Route::get('/maintenance', MaintenancePageController::class)->name('maintenance');
+        Route::middleware('kiosk.session.clear')->group(function (): void {
+            Route::get('/kiosk/{device_code}', [KioskModeController::class, 'show'])->name('kiosk.mode.localized');
+        });
         Route::get('/public/orders/{public_reference}', [PublicOrderPageController::class, 'show'])
             ->name('public.order.show');
         Route::get('/events/{event_slug}/agenda', [PublicEventAgendaController::class, 'show'])
@@ -121,6 +124,7 @@ Route::prefix('{locale}')
                 Route::get('/{event_id}/price-tiers', [EventDashboardController::class, 'priceTiers'])->name('tenant.price-tiers.index');
                 Route::get('/{event_id}/orders', [EventOperationsController::class, 'orders'])->name('tenant.orders.index');
                 Route::get('/{event_id}/orders/{order_id}', [EventOperationsController::class, 'orderShow'])->name('tenant.orders.show');
+                Route::get('/{event_id}/attendees/export', [EventOperationsController::class, 'attendeesExport'])->name('tenant.attendees.export');
                 Route::get('/{event_id}/attendees', [EventOperationsController::class, 'attendees'])->name('tenant.attendees.index');
                 Route::get('/{event_id}/attendees/{attendee_id}', [EventOperationsController::class, 'attendeeShow'])->name('tenant.attendees.show');
                 Route::get('/{event_id}/credentials', [EventOperationsController::class, 'credentials'])->name('tenant.credentials.index');

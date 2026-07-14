@@ -3,6 +3,7 @@ import ConfirmModal from '@/components/modals/ConfirmModal'
 import ReasonModal from '@/components/modals/ReasonModal'
 import PermissionGate from '@/components/layout/PermissionGate'
 import { useLocale } from '@/hooks/useLocale'
+import { apiFetch } from '@/lib/apiFetch'
 
 type EmergencyControlsProps = {
   eventId: string
@@ -20,16 +21,11 @@ export function EmergencyControls({ eventId, tenantId, activeEmergency, onChange
   async function submitEmergency(action: 'raise' | 'clear') {
     setLoading(true)
     try {
-      await fetch(`/api/v1/tenant/events/${eventId}/acs/emergency`, {
+      await apiFetch(`/api/v1/tenant/events/${eventId}/acs/emergency`, {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'X-Tenant-ID': tenantId,
-          'Idempotency-Key': crypto.randomUUID(),
-        },
-        body: JSON.stringify({ action }),
+        tenantId,
+        idempotency: true,
+        body: { action },
       })
       onChanged?.()
     } finally {

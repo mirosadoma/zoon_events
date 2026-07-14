@@ -1,7 +1,8 @@
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import { FormEvent, useState } from 'react'
+import { Printer, RotateCcw, Search } from 'lucide-react'
 import DashboardLayout from '@/layouts/DashboardLayout'
-import { AttendeeLookupPanel } from '@/components/manual-desk/AttendeeLookupPanel'
+import { AttendeeLookupPanel, DeskSearchHint } from '@/components/manual-desk/AttendeeLookupPanel'
 import { CheckInResultPanel } from '@/components/manual-desk/CheckInResultPanel'
 import TextInput from '@/components/forms/TextInput'
 import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
@@ -45,6 +46,7 @@ type Props = {
 
 export default function ManualDesk({ event, tenantId }: Props) {
   const { locale, t } = useLocale()
+  const ar = locale === 'ar'
   const [query, setQuery] = useState('')
   const [lookupResult, setLookupResult] = useState<{ too_many: boolean; matches: LookupMatch[] } | null>(null)
   const [scanResult, setScanResult] = useState<ScanResult | null>(null)
@@ -126,81 +128,131 @@ export default function ManualDesk({ event, tenantId }: Props) {
   }
 
   return (
-    <DashboardLayout title={locale === 'ar' ? 'مكتب الاستقبال' : 'Manual desk'}>
+    <DashboardLayout title={ar ? 'مكتب الاستقبال' : 'Manual desk'}>
       <PageHeader
-        title={locale === 'ar' ? 'مكتب الاستقبال' : 'Manual desk'}
+        title={ar ? 'مكتب الاستقبال' : 'Manual desk'}
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: ar ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
-          { label: locale === 'ar' ? 'مكتب الاستقبال' : 'Manual desk' },
+          { label: ar ? 'مكتب الاستقبال' : 'Manual desk' },
         ]}
-        actions={
+        actions={(
           <PermissionGate permission="attendee.walkup.register">
             <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/manual-desk/walk-up`}>
-              {locale === 'ar' ? 'تسجيل مباشر' : 'Walk-up registration'}
+              {ar ? 'تسجيل مباشر' : 'Walk-up registration'}
             </LocalizedLink>
           </PermissionGate>
-        }
+        )}
       />
       <PageContent>
-        <form className="flex flex-wrap gap-3" onSubmit={handleLookup}>
-          <TextInput
-            label={locale === 'ar' ? 'بحث' : 'Search'}
-            name="query"
-            value={query}
-            onChange={(changeEvent) => setQuery(changeEvent.target.value)}
-            placeholder={locale === 'ar' ? 'الاسم أو البريد أو الهاتف' : 'Name, email, or phone'}
-          />
-          <SubmitButtonWithLoader loading={loading} label={locale === 'ar' ? 'بحث' : 'Search'} />
-        </form>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+          <div className="space-y-4">
+            <form className="ta-card space-y-4" onSubmit={handleLookup}>
+              <div>
+                <h2 className="text-lg font-semibold text-[var(--ink)]">
+                  {ar ? 'بحث الحاضرين' : 'Attendee lookup'}
+                </h2>
+                <div className="mt-1">
+                  <DeskSearchHint ar={ar} />
+                </div>
+              </div>
+              <div className="flex flex-wrap items-end gap-3">
+                <TextInput
+                  label={ar ? 'بحث' : 'Search'}
+                  name="query"
+                  value={query}
+                  onChange={(changeEvent) => setQuery(changeEvent.target.value)}
+                  placeholder={ar ? 'الاسم أو البريد أو الهاتف' : 'Name, email, or phone'}
+                  wrapperClassName="min-w-[16rem] flex-1"
+                />
+                <SubmitButtonWithLoader
+                  loading={loading}
+                  label={ar ? 'بحث' : 'Search'}
+                />
+              </div>
+            </form>
 
-        <AttendeeLookupPanel
-          result={lookupResult}
-          loading={loading}
-          onSelect={(match) => {
-            if (match.checkin_status === 'rejected') {
-              setOverrideTarget(match)
-              return
-            }
-            void submitScan(match)
-          }}
-        />
-
-        <CheckInResultPanel result={scanResult} />
-
-        {selectedMatch?.attendee_id && selectedMatch.credential_id && scanResult?.result === 'accepted' && (
-          <div className="mt-4 flex flex-wrap gap-3">
-            <PermissionGate permission="badge.print">
-              <button
-                type="button"
-                className="button-primary"
-                onClick={() => void handlePrint(selectedMatch.attendee_id!, selectedMatch.credential_id!)}
-              >
-                {locale === 'ar' ? 'طباعة الشارة' : 'Print badge'}
-              </button>
-            </PermissionGate>
-            <PermissionGate permission="badge.reprint">
-              <button
-                type="button"
-                className="button-secondary"
-                onClick={() => setReprintJobId('latest')}
-              >
-                {locale === 'ar' ? 'إعادة طباعة' : 'Reprint badge'}
-              </button>
-            </PermissionGate>
+            <AttendeeLookupPanel
+              result={lookupResult}
+              loading={loading}
+              selecting={submitting}
+              onSelect={(match) => {
+                if (match.checkin_status === 'rejected') {
+                  setOverrideTarget(match)
+                  return
+                }
+                void submitScan(match)
+              }}
+            />
           </div>
-        )}
+
+          <div className="space-y-4">
+            {scanResult ? (
+              <>
+                <CheckInResultPanel result={scanResult} />
+                {selectedMatch?.attendee_id && selectedMatch.credential_id && scanResult.result === 'accepted' && (
+                  <div className="ta-card space-y-3">
+                    <h2 className="text-lg font-semibold text-[var(--ink)]">
+                      {ar ? 'الشارة' : 'Badge'}
+                    </h2>
+                    <p className="text-sm text-[var(--muted)]">
+                      {ar ? 'اطبع شارة الحاضر بعد قبول الحضور.' : 'Print the attendee badge after a successful check-in.'}
+                    </p>
+                    <div className="flex flex-wrap gap-3">
+                      <PermissionGate permission="badge.print">
+                        <button
+                          type="button"
+                          className="button-primary inline-flex items-center gap-2"
+                          onClick={() => void handlePrint(selectedMatch.attendee_id!, selectedMatch.credential_id!)}
+                        >
+                          <Printer className="h-4 w-4" aria-hidden />
+                          {ar ? 'طباعة الشارة' : 'Print badge'}
+                        </button>
+                      </PermissionGate>
+                      <PermissionGate permission="badge.reprint">
+                        <button
+                          type="button"
+                          className="button-secondary inline-flex items-center gap-2"
+                          onClick={() => setReprintJobId('latest')}
+                        >
+                          <RotateCcw className="h-4 w-4" aria-hidden />
+                          {ar ? 'إعادة طباعة' : 'Reprint badge'}
+                        </button>
+                      </PermissionGate>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="ta-card flex min-h-48 flex-col items-center justify-center gap-3 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--brand-soft)] text-[var(--brand)]">
+                  <Search className="h-5 w-5" aria-hidden />
+                </div>
+                <div>
+                  <p className="font-semibold text-[var(--ink)]">
+                    {ar ? 'نتيجة الحضور' : 'Check-in result'}
+                  </p>
+                  <p className="mt-1 text-sm text-[var(--muted)]">
+                    {ar
+                      ? 'ستظهر نتيجة تسجيل الحضور هنا بعد اختيار حاضر.'
+                      : 'The check-in outcome will appear here after you select an attendee.'}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </PageContent>
 
       <ReasonModal
         open={overrideTarget !== null}
-        title={locale === 'ar' ? 'تجاوز تسجيل الحضور' : 'Manual override'}
-        message={locale === 'ar' ? 'يرجى تقديم سبب للتجاوز.' : 'Please provide a reason for this override.'}
-        reasonLabel={locale === 'ar' ? 'السبب' : 'Reason'}
-        confirmLabel={locale === 'ar' ? 'تجاوز' : 'Override'}
-        cancelLabel={locale === 'ar' ? 'إلغاء' : 'Cancel'}
+        title={ar ? 'تجاوز تسجيل الحضور' : 'Manual override'}
+        message={ar ? 'يرجى تقديم سبب للتجاوز.' : 'Please provide a reason for this override.'}
+        reasonLabel={ar ? 'السبب' : 'Reason'}
+        confirmLabel={ar ? 'تجاوز' : 'Override'}
+        cancelLabel={ar ? 'إلغاء' : 'Cancel'}
         loading={submitting}
         onConfirm={(reason) => {
           if (overrideTarget) {
@@ -212,11 +264,11 @@ export default function ManualDesk({ event, tenantId }: Props) {
 
       <ReasonModal
         open={reprintJobId !== null}
-        title={locale === 'ar' ? 'إعادة طباعة الشارة' : 'Reprint badge'}
-        message={locale === 'ar' ? 'يرجى تقديم سبب لإعادة الطباعة.' : 'Please provide a reason for this reprint.'}
-        reasonLabel={locale === 'ar' ? 'السبب' : 'Reason'}
-        confirmLabel={locale === 'ar' ? 'إعادة طباعة' : 'Reprint'}
-        cancelLabel={locale === 'ar' ? 'إلغاء' : 'Cancel'}
+        title={ar ? 'إعادة طباعة الشارة' : 'Reprint badge'}
+        message={ar ? 'يرجى تقديم سبب لإعادة الطباعة.' : 'Please provide a reason for this reprint.'}
+        reasonLabel={ar ? 'السبب' : 'Reason'}
+        confirmLabel={ar ? 'إعادة طباعة' : 'Reprint'}
+        cancelLabel={ar ? 'إلغاء' : 'Cancel'}
         onConfirm={handleReprint}
         onCancel={() => setReprintJobId(null)}
       />

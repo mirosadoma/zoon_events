@@ -25,6 +25,7 @@ function redirectToLogin(): void {
 type ApiFetchOptions = Omit<RequestInit, 'body'> & {
   tenantId?: string
   idempotency?: boolean
+  skipAuthRedirect?: boolean
   body?: Record<string, unknown> | BodyInit | null
 }
 
@@ -80,7 +81,14 @@ export async function apiFetch<T = unknown>(
   url: string,
   options: ApiFetchOptions = {},
 ): Promise<T> {
-  const { tenantId, idempotency = false, headers: initHeaders, body, ...rest } = options
+  const {
+    tenantId,
+    idempotency = false,
+    skipAuthRedirect = false,
+    headers: initHeaders,
+    body,
+    ...rest
+  } = options
   const headers = new Headers(initHeaders)
 
   headers.set('Accept', 'application/json')
@@ -126,7 +134,7 @@ export async function apiFetch<T = unknown>(
   const payload = await response.json().catch(() => ({})) as Record<string, unknown>
 
   if (!response.ok) {
-    if (response.status === 401) {
+    if (response.status === 401 && !skipAuthRedirect) {
       redirectToLogin()
     }
     const detail = String(payload.detail ?? payload.message ?? payload.title ?? payload.code ?? 'Request failed')

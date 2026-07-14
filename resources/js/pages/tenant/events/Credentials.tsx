@@ -1,14 +1,17 @@
 import LocalizedLink from '@/components/routing/LocalizedLink'
-import { useMemo, useState } from 'react'
+import { FormEvent, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import FiltersBar from '@/components/tables/FiltersBar'
+import Pagination from '@/components/tables/Pagination'
 import SearchInput from '@/components/tables/SearchInput'
 import SelectInput from '@/components/forms/SelectInput'
 import { useLocale } from '@/hooks/useLocale'
+import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
+import { defaultPagination, type PaginationMeta, withPage } from '@/lib/pagination'
 
 type EventRow = {
   id: string
@@ -25,105 +28,148 @@ type CredentialRow = {
   expires_at?: string | null
 }
 
+type Filters = {
+  search: string
+  status: string
+}
+
 type Props = {
   event: EventRow
   credentials: CredentialRow[]
+  filters?: Filters
+  pagination?: PaginationMeta
 }
 
-export default function Credentials({ event, credentials }: Props) {
+const CREDENTIAL_STATUSES = ['active', 'revoked', 'expired', 'superseded']
+
+export default function Credentials({
+  event,
+  credentials,
+  filters = { search: '', status: '' },
+  pagination = defaultPagination,
+}: Props) {
   const { locale, t } = useLocale()
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const localizedRouter = useLocalizedRouter()
+  const [search, setSearch] = useState(filters.search)
+  const [statusFilter, setStatusFilter] = useState(filters.status)
 
-  const filtered = useMemo(() => credentials.filter((credential) => {
-    const matchesSearch = search.trim() === ''
-      || credential.code.toLowerCase().includes(search.trim().toLowerCase())
-      || credential.attendee_id.toLowerCase().includes(search.trim().toLowerCase())
-      || (credential.attendee_label ?? '').toLowerCase().includes(search.trim().toLowerCase())
-    const matchesStatus = statusFilter === '' || credential.status === statusFilter
+  function queryParams(overrides: Partial<Filters & { page?: number }> = {}): Record<string, string> {
+    const nextSearch = overrides.search ?? search
+    const nextStatus = overrides.status ?? statusFilter
+    const nextPage = overrides.page ?? pagination.page
+    const query: Record<string, string> = {}
 
-    return matchesSearch && matchesStatus
-  }), [credentials, search, statusFilter])
+    if (nextSearch.trim() !== '') query.search = nextSearch.trim()
+    if (nextStatus !== '') query.status = nextStatus
+
+    return withPage(query, nextPage)
+  }
+
+  function applyFilters(overrides: Partial<Filters & { page?: number }> = {}) {
+    localizedRouter.get(`/tenant/events/${event.id}/credentials`, queryParams(overrides), {
+      preserveState: true,
+      preserveScroll: true,
+    })
+  }
+
+  function submitFilters(eventForm: FormEvent) {
+    eventForm.preventDefault()
+    applyFilters({ page: 1 })
+  }
 
   const statusOptions = [
-    { value: '', label: locale === 'ar' ? 'كل الحالات' : 'All statuses' },
-    ...Array.from(new Set(credentials.map((credential) => credential.status))).map((status) => ({ value: status, label: status })),
+    { value: '', label: t('allStatuses') },
+    ...CREDENTIAL_STATUSES.map((status) => ({ value: status, label: status })),
   ]
 
   return (
-    <DashboardLayout title={locale === 'ar' ? 'بيانات الدخول' : 'Credentials'}>
+    <DashboardLayout title={t('credentials')}>
       <PageHeader
-        title={locale === 'ar' ? 'بيانات الدخول' : 'Credentials'}
+        title={t('credentials')}
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
           { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
-          { label: locale === 'ar' ? 'بيانات الدخول' : 'Credentials' },
+          { label: t('credentials') },
         ]}
       />
       <PageContent>
-        <FiltersBar>
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            label={locale === 'ar' ? 'بحث' : 'Search'}
-            placeholder={locale === 'ar' ? 'رمز أو حاضر' : 'Code or attendee'}
-          />
-          <SelectInput
-            label={locale === 'ar' ? 'الحالة' : 'Status'}
-            name="status"
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-            options={statusOptions}
-          />
-        </FiltersBar>
+        <form onSubmit={submitFilters}>
+          <FiltersBar>
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              label={t('search')}
+              placeholder={locale === 'ar' ? 'رمز أو حاضر' : 'Code or attendee'}
+            />
+            <SelectInput
+              label={locale === 'ar' ? 'الحالة' : 'Status'}
+              name="status"
+              value={statusFilter}
+              onChange={(changeEvent) => {
+                const nextStatus = changeEvent.target.value
+                setStatusFilter(nextStatus)
+                applyFilters({ status: nextStatus, page: 1 })
+              }}
+              options={statusOptions}
+            />
+            <button type="submit" className="button-primary">{t('search')}</button>
+          </FiltersBar>
+        </form>
 
-        {filtered.length === 0 ? (
-          <EmptyState
-            title={locale === 'ar' ? 'لا توجد بيانات دخول' : 'No credentials yet'}
-            detail={locale === 'ar' ? 'ستظهر بيانات الدخول بعد الإصدار.' : 'Credentials will appear after issuance.'}
-          />
+        {credentials.length === 0 ? (
+          <EmptyState title={t('noCredentials')} detail={t('noCredentialsDetail')} />
         ) : (
-          <DataTable
-            rows={filtered as unknown as Record<string, unknown>[]}
-            getRowKey={(row) => String(row.id)}
-            columns={[
-              {
-                key: 'code',
-                header: locale === 'ar' ? 'الرمز' : 'Code',
-                render: (row) => {
-                  const credential = row as unknown as CredentialRow
+          <>
+            <DataTable
+              rows={credentials as unknown as Record<string, unknown>[]}
+              getRowKey={(row) => String(row.id)}
+              columns={[
+                {
+                  key: 'code',
+                  header: locale === 'ar' ? 'الرمز' : 'Code',
+                  render: (row) => {
+                    const credential = row as unknown as CredentialRow
 
-                  return (
-                    <LocalizedLink href={`/tenant/events/${event.id}/credentials/${credential.id}`} className="font-medium text-sky-700 hover:underline">
-                      {credential.code}
-                    </LocalizedLink>
-                  )
+                    return (
+                      <LocalizedLink href={`/tenant/events/${event.id}/credentials/${credential.id}`} className="font-medium text-sky-700 hover:underline">
+                        {credential.code}
+                      </LocalizedLink>
+                    )
+                  },
                 },
-              },
-              {
-                key: 'status',
-                header: locale === 'ar' ? 'الحالة' : 'Status',
-                render: (row) => <StatusBadge status={String(row.status)} />,
-              },
-              {
-                key: 'attendee_id',
-                header: locale === 'ar' ? 'الحاضر' : 'Attendee',
-                render: (row) => {
-                  const credential = row as unknown as CredentialRow
+                {
+                  key: 'status',
+                  header: locale === 'ar' ? 'الحالة' : 'Status',
+                  render: (row) => <StatusBadge status={String(row.status)} />,
+                },
+                {
+                  key: 'attendee_id',
+                  header: t('attendees'),
+                  render: (row) => {
+                    const credential = row as unknown as CredentialRow
 
-                  return (
-                    <LocalizedLink href={`/tenant/events/${event.id}/attendees/${credential.attendee_id}`} className="text-sky-700 hover:underline">
-                      {credential.attendee_label ?? credential.attendee_id}
-                    </LocalizedLink>
-                  )
+                    return (
+                      <LocalizedLink href={`/tenant/events/${event.id}/attendees/${credential.attendee_id}`} className="text-sky-700 hover:underline">
+                        {credential.attendee_label ?? credential.attendee_id}
+                      </LocalizedLink>
+                    )
+                  },
                 },
-              },
-              { key: 'issued_at', header: locale === 'ar' ? 'تاريخ الإصدار' : 'Issued' },
-              { key: 'expires_at', header: locale === 'ar' ? 'تاريخ الانتهاء' : 'Expires' },
-            ]}
-          />
+                { key: 'issued_at', header: locale === 'ar' ? 'تاريخ الإصدار' : 'Issued' },
+                { key: 'expires_at', header: locale === 'ar' ? 'تاريخ الانتهاء' : 'Expires' },
+              ]}
+            />
+            <Pagination
+              page={pagination.page}
+              totalPages={pagination.last_page}
+              onPageChange={(page) => applyFilters({ page })}
+              previousLabel={t('previousPage')}
+              nextLabel={t('nextPage')}
+              pageLabel={t('pageOf').replace(':page', String(pagination.page)).replace(':total', String(pagination.last_page))}
+            />
+          </>
         )}
       </PageContent>
     </DashboardLayout>

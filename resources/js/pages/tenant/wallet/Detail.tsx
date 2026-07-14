@@ -28,50 +28,71 @@ type Props = {
   walletPass: WalletPassDetail
 }
 
+function shortId(value: string | number | null | undefined): string {
+  if (value === null || value === undefined || value === '') {
+    return '—'
+  }
+
+  return String(value).slice(-8)
+}
+
 export default function WalletPassDetailPage({ event, walletPass }: Props) {
   const { locale, t } = useLocale()
+  const ar = locale === 'ar'
+  const serial = walletPass.serial || walletPass.id
+  const attendeeId = String(walletPass.attendee_id ?? '')
+  const credentialId = String(walletPass.credential_id ?? '')
 
   return (
-    <DashboardLayout title={walletPass.serial}>
+    <DashboardLayout title={serial}>
       <PageHeader
-        title={walletPass.serial}
+        title={serial}
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: ar ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
-          { label: locale === 'ar' ? 'تذاكر المحفظة' : 'Wallet passes', href: `/tenant/events/${event.id}/wallet-passes` },
-          { label: walletPass.serial },
+          { label: ar ? 'تذاكر المحفظة' : 'Wallet passes', href: `/tenant/events/${event.id}/wallet-passes` },
+          { label: serial },
         ]}
+        actions={(
+          <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/wallet-passes`}>
+            {ar ? 'العودة للقائمة' : 'Back to list'}
+          </LocalizedLink>
+        )}
       />
       <PageContent>
         <DetailsCard
-          title={locale === 'ar' ? 'تفاصيل تذكرة المحفظة' : 'Wallet pass details'}
+          title={ar ? 'تفاصيل تذكرة المحفظة' : 'Wallet pass details'}
           items={[
-            { label: locale === 'ar' ? 'الحالة' : 'Status', value: <StatusBadge status={walletPass.status} /> },
-            { label: locale === 'ar' ? 'المزود' : 'Provider', value: walletPass.provider },
+            { label: ar ? 'الحالة' : 'Status', value: <StatusBadge status={walletPass.status} /> },
+            { label: ar ? 'المزود' : 'Provider', value: walletPass.provider },
             {
-              label: locale === 'ar' ? 'الحاضر' : 'Attendee',
-              value: (
-                <LocalizedLink href={`/tenant/events/${event.id}/attendees/${walletPass.attendee_id}`} className="text-sky-700 hover:underline">
-                  {walletPass.attendee_id.slice(-8)}
+              label: ar ? 'الحاضر' : 'Attendee',
+              value: attendeeId ? (
+                <LocalizedLink href={`/tenant/events/${event.id}/attendees/${attendeeId}`} className="text-sky-700 hover:underline">
+                  {shortId(attendeeId)}
                 </LocalizedLink>
-              ),
+              ) : '—',
             },
             {
-              label: locale === 'ar' ? 'بيانات الدخول' : 'Credential',
-              value: (
-                <LocalizedLink href={`/tenant/events/${event.id}/credentials/${walletPass.credential_id}`} className="text-sky-700 hover:underline">
-                  {walletPass.credential_id.slice(-8)}
+              label: ar ? 'بيانات الدخول' : 'Credential',
+              value: credentialId ? (
+                <LocalizedLink href={`/tenant/events/${event.id}/credentials/${credentialId}`} className="text-sky-700 hover:underline">
+                  {shortId(credentialId)}
                 </LocalizedLink>
-              ),
+              ) : '—',
             },
-            { label: locale === 'ar' ? 'آخر دفع' : 'Last pushed', value: walletPass.last_pushed_at ?? '—' },
-            { label: locale === 'ar' ? 'سبب الدفع' : 'Push reason', value: walletPass.last_push_reason_code ?? '—' },
+            { label: ar ? 'آخر دفع' : 'Last pushed', value: walletPass.last_pushed_at ?? '—' },
+            { label: ar ? 'سبب الدفع' : 'Push reason', value: walletPass.last_push_reason_code ?? '—' },
             {
-              label: locale === 'ar' ? 'رابط التذكرة' : 'Pass URL',
+              label: ar ? 'رابط التذكرة' : 'Pass URL',
               value: walletPass.pass_url
-                ? <a href={walletPass.pass_url} className="text-sky-700 hover:underline" target="_blank" rel="noreferrer">{walletPass.pass_url}</a>
+                ? (
+                  <a href={walletPass.pass_url} className="break-all text-sky-700 hover:underline" target="_blank" rel="noreferrer">
+                    {walletPass.pass_url}
+                  </a>
+                  )
                 : '—',
             },
           ]}

@@ -4,6 +4,7 @@ namespace App\Modules\AdminConsole\Http\Controllers\Tenant\Badges;
 
 use App\Http\Controllers\Controller;
 use App\Modules\AdminConsole\Application\SessionContextBuilder;
+use App\Modules\AdminConsole\Application\Support\InertiaListPaginator;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\CheckIn\Concerns\AuthorizesTenantEventPage;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Events\Concerns\ResolvesTenantEventFromRoute;
 use App\Modules\AdminConsole\ViewModels\Badges\BadgePrintJobsViewModel;
@@ -63,19 +64,29 @@ final class BadgePageController extends Controller
 
         $event = $this->event($context, $eventId);
 
+        $status = trim((string) $request->query('status', ''));
+        if (! in_array($status, ['queued', 'printed', 'failed'], true)) {
+            $status = '';
+        }
+
         $query = BadgePrintJob::query()
             ->where('tenant_id', $context->tenant->id)
             ->where('event_id', $event->id)
+            ->when($status !== '', fn ($builder) => $builder->where('status', $status))
             ->latest('created_at')
-            ->limit(200);
+            ->orderByDesc('id');
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->string('status')->toString());
-        }
+        $result = InertiaListPaginator::paginate($query, $request);
 
         return Inertia::render(
             'tenant/badges/PrintJobs',
-            $this->printJobs->index($event, $context->tenant->id, $query->get()),
+            $this->printJobs->index(
+                $event,
+                $context->tenant->id,
+                $result['items'],
+                ['status' => $status],
+                $result['pagination'],
+            ),
         );
     }
 }

@@ -4,6 +4,7 @@ namespace App\Modules\AdminConsole\Http\Controllers\Tenant\Reports;
 
 use App\Http\Controllers\Controller;
 use App\Modules\AdminConsole\Application\SessionContextBuilder;
+use App\Modules\AdminConsole\Http\Controllers\Concerns\ResolvesRouteParam;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Admin\Concerns\AuthorizesTenantAdminPage;
 use App\Modules\AdminConsole\ViewModels\Reports\EventReportViewModel;
 use App\Modules\Authorization\Application\PermissionEvaluator;
@@ -14,6 +15,7 @@ use Inertia\Response;
 final class EventReportController extends Controller
 {
     use AuthorizesTenantAdminPage;
+    use ResolvesRouteParam;
 
     public function __construct(
         private readonly SessionContextBuilder $sessions,
@@ -27,7 +29,7 @@ final class EventReportController extends Controller
 
         $event = Event::query()
             ->where('tenant_id', $context->tenant->id)
-            ->findOrFail($eventId);
+            ->findOrFail($this->routeParam('event_id'));
 
         return Inertia::render('tenant/reports/EventReport', $this->viewModel->make($event, $context->tenant->id));
     }

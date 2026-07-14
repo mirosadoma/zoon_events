@@ -14,10 +14,21 @@ final readonly class CredentialDetailViewModel
 
     /**
      * @param  Collection<int, Credential>  $credentials
-     * @return array{event: array<string, mixed>, credentials: list<array<string, mixed>>}
+     * @param  array{search?: string, status?: string}  $filters
+     * @param  array{page: int, per_page: int, total: int, last_page: int}  $pagination
+     * @return array{
+     *     event: array<string, mixed>,
+     *     credentials: list<array<string, mixed>>,
+     *     filters: array{search: string, status: string},
+     *     pagination: array{page: int, per_page: int, total: int, last_page: int}
+     * }
      */
-    public function index(Event $event, Collection $credentials): array
-    {
+    public function index(
+        Event $event,
+        Collection $credentials,
+        array $filters = [],
+        array $pagination = ['page' => 1, 'per_page' => 15, 'total' => 0, 'last_page' => 1],
+    ): array {
         $attendeeLabels = $this->attendeeLabelsForCredentials($event, $credentials);
 
         return [
@@ -28,6 +39,16 @@ final readonly class CredentialDetailViewModel
                     $attendeeLabels[(string) $credential->attendee_id] ?? null,
                 ),
             )->values()->all(),
+            'filters' => [
+                'search' => (string) ($filters['search'] ?? ''),
+                'status' => (string) ($filters['status'] ?? ''),
+            ],
+            'pagination' => [
+                'page' => (int) $pagination['page'],
+                'per_page' => (int) $pagination['per_page'],
+                'total' => (int) $pagination['total'],
+                'last_page' => (int) $pagination['last_page'],
+            ],
         ];
     }
 

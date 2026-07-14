@@ -15,16 +15,38 @@ final readonly class AttendeeDetailViewModel
     /**
      * @param  Collection<int, Attendee>  $attendees
      * @param  array<string, string>  $credentialStatuses
-     * @return array{event: array<string, mixed>, attendees: list<array<string, mixed>>}
+     * @param  array{search?: string|null, status?: string|null}  $filters
+     * @param  array{page: int, per_page: int, total: int, last_page: int}  $pagination
+     * @return array{
+     *     event: array<string, mixed>,
+     *     attendees: list<array<string, mixed>>,
+     *     filters: array{search: string, status: string},
+     *     pagination: array{page: int, per_page: int, total: int, last_page: int}
+     * }
      */
-    public function index(Event $event, Collection $attendees, array $credentialStatuses = []): array
-    {
+    public function index(
+        Event $event,
+        Collection $attendees,
+        array $credentialStatuses = [],
+        array $filters = [],
+        array $pagination = ['page' => 1, 'per_page' => 15, 'total' => 0, 'last_page' => 1],
+    ): array {
         return [
             'event' => $this->eventRow($event),
             'attendees' => $attendees->map(fn (Attendee $attendee): array => $this->attendeeRow(
                 $attendee,
                 $credentialStatuses[$attendee->id] ?? null,
             ))->values()->all(),
+            'filters' => [
+                'search' => (string) ($filters['search'] ?? ''),
+                'status' => (string) ($filters['status'] ?? ''),
+            ],
+            'pagination' => [
+                'page' => (int) $pagination['page'],
+                'per_page' => (int) $pagination['per_page'],
+                'total' => (int) $pagination['total'],
+                'last_page' => (int) $pagination['last_page'],
+            ],
         ];
     }
 

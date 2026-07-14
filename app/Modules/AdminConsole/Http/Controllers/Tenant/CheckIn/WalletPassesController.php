@@ -4,10 +4,12 @@ namespace App\Modules\AdminConsole\Http\Controllers\Tenant\CheckIn;
 
 use App\Http\Controllers\Controller;
 use App\Modules\AdminConsole\Application\SessionContextBuilder;
+use App\Modules\AdminConsole\Application\Support\InertiaListPaginator;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\CheckIn\Concerns\AuthorizesTenantEventPage;
 use App\Modules\AdminConsole\ViewModels\Wallet\WalletPassDetailViewModel;
 use App\Modules\Authorization\Application\PermissionEvaluator;
 use App\Modules\WalletPasses\Infrastructure\Persistence\Models\WalletPass;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -21,7 +23,7 @@ final class WalletPassesController extends Controller
         private readonly WalletPassDetailViewModel $viewModel,
     ) {}
 
-    public function index(string $eventId): Response
+    public function index(Request $request, string $eventId): Response
     {
         [$context, $event] = $this->authorizeTenantEvent(
             $this->sessions,
@@ -30,14 +32,18 @@ final class WalletPassesController extends Controller
             'wallet.pass.view',
         );
 
-        $passes = WalletPass::query()
+        $query = WalletPass::query()
             ->where('tenant_id', $context->tenant->id)
             ->where('event_id', $event->id)
             ->latest('last_pushed_at')
-            ->limit(200)
-            ->get();
+            ->orderByDesc('id');
 
-        return Inertia::render('tenant/checkin/WalletPasses', $this->viewModel->index($event, $passes));
+        $result = InertiaListPaginator::paginate($query, $request);
+
+        return Inertia::render(
+            'tenant/checkin/WalletPasses',
+            $this->viewModel->index($event, $result['items'], $result['pagination']),
+        );
     }
 
     public function show(string $eventId, string $passId): Response
@@ -52,7 +58,7 @@ final class WalletPassesController extends Controller
         $pass = WalletPass::query()
             ->where('tenant_id', $context->tenant->id)
             ->where('event_id', $event->id)
-            ->findOrFail($passId);
+            ->findOrFail($this->routeParamOrNull('pass_id') ?? $passId);
 
         return Inertia::render('tenant/wallet/Detail', $this->viewModel->detail($event, $pass));
     }

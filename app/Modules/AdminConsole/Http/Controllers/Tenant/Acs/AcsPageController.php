@@ -174,7 +174,7 @@ final class AcsPageController extends Controller
 
         $event = Event::query()
             ->where('tenant_id', $context->tenant->id)
-            ->findOrFail($eventId);
+            ->findOrFail($this->routeParam('event_id'));
 
         return [$context, $event];
     }

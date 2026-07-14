@@ -29,51 +29,70 @@ export default function WalkUpRegistration({ event, tenantId, ticketTypes }: Pro
   const { locale, t } = useLocale()
   const [ticketTypeId, setTicketTypeId] = useState(ticketTypes[0]?.id ?? '')
   const [registeredId, setRegisteredId] = useState<string | null>(null)
+  const ar = locale === 'ar'
 
   return (
-    <DashboardLayout title={locale === 'ar' ? 'تسجيل مباشر' : 'Walk-up registration'}>
+    <DashboardLayout title={ar ? 'تسجيل مباشر' : 'Walk-up registration'}>
       <PageHeader
-        title={locale === 'ar' ? 'تسجيل مباشر' : 'Walk-up registration'}
+        title={ar ? 'تسجيل مباشر' : 'Walk-up registration'}
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: ar ? 'الفعاليات' : 'Events', href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
-          { label: locale === 'ar' ? 'مكتب الاستقبال' : 'Manual desk', href: `/tenant/events/${event.id}/manual-desk` },
-          { label: locale === 'ar' ? 'تسجيل مباشر' : 'Walk-up' },
+          { label: ar ? 'مكتب الاستقبال' : 'Manual desk', href: `/tenant/events/${event.id}/manual-desk` },
+          { label: ar ? 'تسجيل مباشر' : 'Walk-up' },
         ]}
-        actions={<LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/manual-desk`}>{locale === 'ar' ? 'العودة للمكتب' : 'Back to desk'}</LocalizedLink>}
+        actions={(
+          <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/manual-desk`}>
+            {ar ? 'العودة للمكتب' : 'Back to desk'}
+          </LocalizedLink>
+        )}
       />
       <PageContent>
         {ticketTypes.length === 0 ? (
-          <EmptyState title={locale === 'ar' ? 'لا توجد أنواع تذاكر نشطة' : 'No active ticket types available'} />
+          <EmptyState
+            title={ar ? 'لا توجد أنواع تذاكر نشطة' : 'No active ticket types available'}
+            detail={ar ? 'فعّل نوع تذكرة أولاً قبل التسجيل المباشر.' : 'Activate a ticket type before walk-up registration.'}
+          />
+        ) : registeredId ? (
+          <div className="ta-card space-y-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <StatusBadge status="active" label={ar ? 'تم التسجيل' : 'Registered'} />
+              <p className="text-sm text-[var(--muted)]">{ar ? 'معرّف الحاضر' : 'Attendee ID'}</p>
+            </div>
+            <p className="font-mono text-sm text-[var(--ink)]">{registeredId}</p>
+            <div className="flex flex-wrap gap-3 border-t border-[var(--border)] pt-4">
+              <button type="button" className="button-primary" onClick={() => setRegisteredId(null)}>
+                {ar ? 'تسجيل آخر' : 'Register another'}
+              </button>
+              <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/attendees/${registeredId}`}>
+                {ar ? 'عرض الحاضر' : 'View attendee'}
+              </LocalizedLink>
+            </div>
+          </div>
         ) : (
-          <>
-            <SelectInput
-              label={locale === 'ar' ? 'نوع التذكرة' : 'Ticket type'}
-              name="ticket_type_id"
-              value={ticketTypeId}
-              onChange={(changeEvent) => setTicketTypeId(changeEvent.target.value)}
-              options={ticketTypes.map((ticket) => ({
-                value: ticket.id,
-                label: ticket.name[locale] ?? ticket.code,
-              }))}
-            />
-            {registeredId ? (
-              <p className="mt-4 flex flex-wrap items-center gap-2">
-                <StatusBadge status="active" label={locale === 'ar' ? 'تم التسجيل' : 'Registered'} />
-                <span>{registeredId}</span>
-              </p>
-            ) : (
-              <WalkUpFormPanel
-                eventId={event.id}
-                tenantId={tenantId}
-                ticketTypeId={ticketTypeId}
-                onSuccess={setRegisteredId}
-                onCancel={() => undefined}
+          <div className="space-y-4">
+            <div className="ta-card">
+              <SelectInput
+                label={ar ? 'نوع التذكرة' : 'Ticket type'}
+                name="ticket_type_id"
+                value={ticketTypeId}
+                onChange={(changeEvent) => setTicketTypeId(changeEvent.target.value)}
+                options={ticketTypes.map((ticket) => ({
+                  value: ticket.id,
+                  label: ticket.name[locale] ?? ticket.code,
+                }))}
               />
-            )}
-          </>
+            </div>
+            <WalkUpFormPanel
+              eventId={event.id}
+              tenantId={tenantId}
+              ticketTypeId={ticketTypeId}
+              onSuccess={setRegisteredId}
+              onCancel={() => undefined}
+            />
+          </div>
         )}
       </PageContent>
     </DashboardLayout>

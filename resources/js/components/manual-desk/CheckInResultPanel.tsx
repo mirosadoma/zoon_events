@@ -1,4 +1,7 @@
-interface ScanResult {
+import { ScanResultCard } from '@/components/checkin/ScanResultCard'
+import type { ScanResult } from '@/types/phase2'
+
+interface DeskScanResult {
   scan_event_id: string
   result: string
   reason_code: string | null
@@ -7,7 +10,7 @@ interface ScanResult {
 }
 
 interface CheckInResultPanelProps {
-  result: ScanResult | null
+  result: DeskScanResult | null
 }
 
 export function CheckInResultPanel({ result }: CheckInResultPanelProps) {
@@ -16,11 +19,14 @@ export function CheckInResultPanel({ result }: CheckInResultPanelProps) {
   }
 
   return (
-    <div>
-      <p>Result: {result.result}</p>
-      {result.attendee_display_name && <p>Attendee: {result.attendee_display_name}</p>}
-      {result.ticket_type_label && <p>Ticket: {result.ticket_type_label}</p>}
-      {result.reason_code && <p>Reason: {result.reason_code}</p>}
-    </div>
+    <ScanResultCard
+      result={{
+        scan_event_id: result.scan_event_id,
+        result: result.result as ScanResult,
+        reason_code: result.reason_code ?? 'unknown',
+        attendee_display_name: result.attendee_display_name,
+        ticket_type_label: result.ticket_type_label,
+      }}
+    />
   )
 }
