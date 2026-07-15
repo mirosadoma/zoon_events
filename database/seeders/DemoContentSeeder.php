@@ -33,7 +33,13 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
 /**
- * Seeds rich demo content across events, registrations, check-in, on-site, ACS, identity, and platform pages.
+ * Seeds rich demo content across all three tenants:
+ *
+ * Alpha (venue_owner) — full event lifecycle, registrations, check-in, ACS, kiosks, badges, identity
+ * Bravo (organizer)   — draft event for event-manager walkthrough
+ * Charlie (hybrid)    — placeholder for marketplace scenarios
+ *
+ * Also seeds platform-level extras (organizer requests, feature flags).
  */
 final class DemoContentSeeder extends Seeder
 {
@@ -50,8 +56,17 @@ final class DemoContentSeeder extends Seeder
             'notifications.email_adapter' => 'log',
         ]);
 
+        $this->seedAlphaContent();
+        $this->seedBravoContent();
+        $this->seedPlatformExtras();
+    }
+
+    // ─── Alpha Tenant Content ────────────────────────────────
+
+    private function seedAlphaContent(): void
+    {
         $tenant = Tenant::query()->where('slug', 'fixture-alpha')->first();
-        $actor = User::query()->where('email', DemoAccounts::PRIMARY_DEMO_EMAIL)->first()
+        $actor = User::query()->where('email', DemoAccounts::ALPHA_ADMIN_EMAIL)->first()
             ?? User::query()->orderBy('created_at')->first();
 
         if ($tenant === null || ! $actor instanceof User) {
@@ -59,65 +74,98 @@ final class DemoContentSeeder extends Seeder
         }
 
         $summit = $this->ensurePublishedEvent(
-            $tenant,
-            $actor,
-            'zonetec-summit-2026',
-            'Zonetec Summit 2026',
-            'قمة زونتك 2026',
+            $tenant, $actor,
+            'zonetec-summit-2026', 'Zonetec Summit 2026', 'قمة زونتك 2026',
             500,
-            [
-                'tier' => 'public',
-                'event_type' => 'conference',
-                'registration_mode' => 'free_registration',
-            ],
+            ['tier' => 'public', 'event_type' => 'conference', 'registration_mode' => 'free_registration'],
         );
 
         $this->ensurePublishedEvent(
-            $tenant,
-            $actor,
-            'leadership-seminar-2026',
-            'Leadership Seminar 2026',
-            'ندوة القيادة 2026',
+            $tenant, $actor,
+            'leadership-seminar-2026', 'Leadership Seminar 2026', 'ندوة القيادة 2026',
             150,
-            [
-                'tier' => 'corporate',
-                'event_type' => 'seminar',
-                'registration_mode' => 'free_registration',
-            ],
+            ['tier' => 'corporate', 'event_type' => 'seminar', 'registration_mode' => 'free_registration'],
         );
 
         $this->ensurePublishedEvent(
-            $tenant,
-            $actor,
-            'gala-night-2026',
-            'Gala Night 2026',
-            'أمسية جالا 2026',
+            $tenant, $actor,
+            'gala-night-2026', 'Gala Night 2026', 'أمسية جالا 2026',
             200,
-            [
-                'tier' => 'public',
-                'event_type' => 'corporate_gathering',
-                'registration_mode' => 'paid_ticketing',
-                'with_paid_tickets' => true,
-                'with_price_tiers' => true,
-            ],
+            ['tier' => 'public', 'event_type' => 'corporate_gathering', 'registration_mode' => 'paid_ticketing', 'with_paid_tickets' => true, 'with_price_tiers' => true],
         );
 
         $this->ensureDraftEvent($tenant, $actor, 'workshop-draft', 'Leadership Workshop', 'ورشة القيادة', 'corporate', 'workshop');
-
-        $bravo = Tenant::query()->where('slug', 'fixture-bravo')->first();
-        $bravoActor = User::query()->where('email', DemoAccounts::FIXTURE_BRAVO_EMAIL)->first();
-
-        if ($bravo instanceof Tenant && $bravoActor instanceof User) {
-            $this->ensureDraftEvent($bravo, $bravoActor, 'bravo-planning-event', 'Bravo Planning Session', 'جلسة تخطيط برافو');
-        }
 
         $credentials = $this->seedRegistrations($tenant, $summit);
         $this->seedCheckIn($tenant, $summit['event'], $credentials);
         $this->seedOnSite($tenant, $summit['event'], $credentials, $actor);
         $this->seedAcs($summit['event'], $credentials);
         $this->seedIdentity($tenant, $summit['event'], $summit['ticket_type_id'], $credentials, $actor);
-        $this->seedPlatformExtras($actor);
     }
+
+    // ─── Bravo Tenant Content ────────────────────────────────
+
+    private function seedBravoContent(): void
+    {
+        $tenant = Tenant::query()->where('slug', 'fixture-bravo')->first();
+        $actor = User::query()->where('email', DemoAccounts::BRAVO_ADMIN_EMAIL)->first();
+
+        if (! $tenant instanceof Tenant || ! $actor instanceof User) {
+            return;
+        }
+
+        $this->ensureDraftEvent($tenant, $actor, 'bravo-planning-event', 'Bravo Planning Session', 'جلسة تخطيط برافو');
+    }
+
+    // ─── Platform Extras ─────────────────────────────────────
+
+    private function seedPlatformExtras(): void
+    {
+        $actor = User::query()->where('email', DemoAccounts::PLATFORM_ADMIN_EMAIL)->first();
+
+        if (! $actor instanceof User) {
+            return;
+        }
+
+        OrganizerRegistrationRequest::query()->updateOrCreate(
+            ['email' => 'pending.organizer@demo.zonetec.test', 'status' => 'pending'],
+            [
+                'name' => 'Pending Organizer',
+                'password_hash' => Hash::make('PendingDemo2026!'),
+                'organization_name' => 'Future Events Co.',
+                'phone' => '+20 111 222 3333',
+                'message' => 'We run 10+ corporate events per year and would like to onboard.',
+            ],
+        );
+
+        OrganizerRegistrationRequest::query()->updateOrCreate(
+            ['email' => 'rejected.organizer@demo.zonetec.test', 'status' => 'rejected'],
+            [
+                'name' => 'Rejected Organizer',
+                'password_hash' => Hash::make('RejectedDemo2026!'),
+                'organization_name' => 'Incomplete Org',
+                'rejection_reason' => 'Missing business registration documents.',
+                'reviewed_by_user_id' => $actor->id,
+                'reviewed_at' => now()->subDays(2),
+            ],
+        );
+
+        FeatureFlag::query()->updateOrCreate(
+            ['key' => 'demo.wallet_passes'],
+            [
+                'name' => 'Wallet passes demo',
+                'description' => 'Enables wallet pass generation in demo environments.',
+                'owner' => 'platform',
+                'value_type' => 'boolean',
+                'default_value' => true,
+                'status' => 'active',
+                'security_class' => 'standard',
+                'created_by_user_id' => $actor->id,
+            ],
+        );
+    }
+
+    // ─── Registration & Check-in ─────────────────────────────
 
     /**
      * @param  array{event: Event, form_version_id: string, ticket_type_id: string}  $fixture
@@ -170,9 +218,7 @@ final class DemoContentSeeder extends Seeder
         return $credentials;
     }
 
-    /**
-     * @param  list<Credential>  $credentials
-     */
+    /** @param list<Credential> $credentials */
     private function seedCheckIn(Tenant $tenant, Event $event, array $credentials): void
     {
         EventCheckInSettingFactory::new()->forEvent($tenant, $event)->create();
@@ -193,9 +239,7 @@ final class DemoContentSeeder extends Seeder
         }
     }
 
-    /**
-     * @param  list<Credential>  $credentials
-     */
+    /** @param list<Credential> $credentials */
     private function seedOnSite(Tenant $tenant, Event $event, array $credentials, User $actor): void
     {
         $kiosks = KioskFactory::new()->count(2)->online()->create([
@@ -233,9 +277,7 @@ final class DemoContentSeeder extends Seeder
         }
     }
 
-    /**
-     * @param  list<Credential>  $credentials
-     */
+    /** @param list<Credential> $credentials */
     private function seedAcs(Event $event, array $credentials): void
     {
         if ($credentials === []) {
@@ -284,9 +326,7 @@ final class DemoContentSeeder extends Seeder
         ]);
     }
 
-    /**
-     * @param  list<Credential>  $credentials
-     */
+    /** @param list<Credential> $credentials */
     private function seedIdentity(Tenant $tenant, Event $event, string $ticketTypeId, array $credentials, User $actor): void
     {
         IdentityVerificationRequirement::query()->updateOrCreate(
@@ -315,45 +355,5 @@ final class DemoContentSeeder extends Seeder
                 ],
             );
         }
-    }
-
-    private function seedPlatformExtras(User $actor): void
-    {
-        OrganizerRegistrationRequest::query()->updateOrCreate(
-            ['email' => 'pending.organizer@demo.zonetec.test', 'status' => 'pending'],
-            [
-                'name' => 'Pending Organizer',
-                'password_hash' => Hash::make('PendingDemo2026!'),
-                'organization_name' => 'Future Events Co.',
-                'phone' => '+20 111 222 3333',
-                'message' => 'We run 10+ corporate events per year and would like to onboard.',
-            ],
-        );
-
-        OrganizerRegistrationRequest::query()->updateOrCreate(
-            ['email' => 'rejected.organizer@demo.zonetec.test', 'status' => 'rejected'],
-            [
-                'name' => 'Rejected Organizer',
-                'password_hash' => Hash::make('RejectedDemo2026!'),
-                'organization_name' => 'Incomplete Org',
-                'rejection_reason' => 'Missing business registration documents.',
-                'reviewed_by_user_id' => $actor->id,
-                'reviewed_at' => now()->subDays(2),
-            ],
-        );
-
-        FeatureFlag::query()->updateOrCreate(
-            ['key' => 'demo.wallet_passes'],
-            [
-                'name' => 'Wallet passes demo',
-                'description' => 'Enables wallet pass generation in demo environments.',
-                'owner' => 'platform',
-                'value_type' => 'boolean',
-                'default_value' => true,
-                'status' => 'active',
-                'security_class' => 'standard',
-                'created_by_user_id' => $actor->id,
-            ],
-        );
     }
 }

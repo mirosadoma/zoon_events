@@ -9,9 +9,10 @@ import LocaleDocumentSync from '@/components/routing/LocaleDocumentSync'
 import { NavigationLoadingProvider } from '@/contexts/NavigationLoadingContext'
 import { ToastProvider } from '@/contexts/ToastContext'
 
-const pages = import.meta.glob<{ default: ComponentType }>('./pages/**/*.tsx', {
-  eager: true,
-})
+const pages = import.meta.glob<{ default: ComponentType }>(
+  ['./pages/**/*.tsx', '!./pages/**/__tests__/**', '!./pages/**/*.test.tsx'],
+  { eager: true },
+)
 
 const el = document.getElementById('app')
 

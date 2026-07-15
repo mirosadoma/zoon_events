@@ -24,6 +24,7 @@ final class CreateTenant
         $tenant = $this->transaction->run(function () use ($data, $actor): Tenant {
             $tenant = Tenant::query()->create([
                 'name' => $data['name'], 'slug' => $data['slug'], 'status' => 'active',
+                'organization_type' => $data['organization_type'],
                 'default_locale' => $data['default_locale'], 'timezone' => $data['timezone'],
                 'data_residency_region' => $data['data_residency_region'],
                 'policy_profile' => ['reason' => $data['reason']], 'created_by_user_id' => $actor->id,

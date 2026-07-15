@@ -3,7 +3,11 @@ import createServer from '@inertiajs/react/server'
 import type { ComponentType } from 'react'
 import { renderToString } from 'react-dom/server'
 
-const pages = import.meta.glob<{ default: ComponentType }>('./pages/**/*.tsx')
+const pages = import.meta.glob<{ default: ComponentType }>([
+  './pages/**/*.tsx',
+  '!./pages/**/__tests__/**',
+  '!./pages/**/*.test.tsx',
+])
 
 createServer((page) =>
   createInertiaApp({

@@ -89,7 +89,7 @@ final class SessionContextBuilder
             return null;
         }
 
-        return new TenantContext($membership->tenant, $membership, $user);
+        return $this->contexts->bind($membership->tenant, $membership, $user);
     }
 
     /**

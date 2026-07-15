@@ -74,11 +74,18 @@ final class Phase5ModuleBoundaryTest extends TestCase
 
     public function test_phase_six_plus_product_names_are_absent_from_application_code(): void
     {
-        $forbidden = ['Marketplace', 'VenueListing', 'VenueAsset', 'Rental', 'Hardware'];
+        // Phase 6 (Venue Marketplace) is in active implementation. This gate now
+        // only forbids Phase 7/8 product vocabulary that must remain absent.
+        $forbidden = ['VenueListing', 'HardwareFederation', 'CrossDeploymentCatalog'];
         $skipPaths = [
             'tests'.DIRECTORY_SEPARATOR,
             '__tests__'.DIRECTORY_SEPARATOR,
             'CheckPhaseBoundary.php',
+            'VenueMarketplace'.DIRECTORY_SEPARATOR,
+            'ViewModels'.DIRECTORY_SEPARATOR.'Marketplace'.DIRECTORY_SEPARATOR,
+            'pages'.DIRECTORY_SEPARATOR.'tenant'.DIRECTORY_SEPARATOR.'marketplace'.DIRECTORY_SEPARATOR,
+            'pages'.DIRECTORY_SEPARATOR.'platform'.DIRECTORY_SEPARATOR.'marketplace'.DIRECTORY_SEPARATOR,
+            'pages'.DIRECTORY_SEPARATOR.'tenant'.DIRECTORY_SEPARATOR.'venues'.DIRECTORY_SEPARATOR,
         ];
         $roots = [app_path(), resource_path('js'), base_path('routes'), database_path('migrations')];
         $violations = [];

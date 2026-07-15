@@ -47,6 +47,17 @@ export const platformNavigationGroups: NavigationGroup[] = [
     ],
   },
   {
+    key: 'marketplace',
+    label: 'navGroupMarketplace',
+    items: [
+      { key: 'venues', label: 'venues', href: '/tenant/venues', icon: 'venues', permission: 'venue.manage' },
+      { key: 'marketplace', label: 'marketplace', href: '/tenant/marketplace', icon: 'marketplace', permission: 'marketplace.manage' },
+      { key: 'rentals', label: 'marketplaceRentals', href: '/tenant/marketplace/rentals', icon: 'rentals', permission: null, permissionsAny: ['marketplace.manage', 'rentals.approve', 'reports.view'] },
+      { key: 'statements', label: 'marketplaceStatements', href: '/tenant/marketplace/statements', icon: 'statements', permission: 'reports.view' },
+      { key: 'platform-marketplace', label: 'platformMarketplace', href: '/platform/marketplace', icon: 'platform-marketplace', permission: 'platform.marketplace.view' },
+    ],
+  },
+  {
     key: 'platform',
     label: 'navGroupPlatform',
     items: [
@@ -76,14 +87,16 @@ export function filterNavigation(
 
   for (const item of items) {
     const children = item.children ? filterNavigation(item.children, can) : undefined
-    const permitted = item.permission === null || can[item.permission] === true
+    const permitted = item.permissionsAny !== undefined && item.permissionsAny.length > 0
+      ? item.permissionsAny.some((key) => can[key] === true)
+      : (item.permission === null || can[item.permission] === true)
     const hasVisibleChildren = children !== undefined && children.length > 0
 
     if (!permitted && !hasVisibleChildren) {
       continue
     }
 
-    if (children !== undefined && children.length === 0 && item.permission !== null && !permitted) {
+    if (children !== undefined && children.length === 0 && !permitted) {
       continue
     }
 

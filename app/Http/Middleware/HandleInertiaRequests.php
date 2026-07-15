@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Modules\AdminConsole\Application\SiteSettingsRepository;
 use App\Modules\AdminConsole\Application\SessionContextBuilder;
 use App\Modules\Events\Application\Support\ResolveEventNavContext;
+use App\Modules\Notifications\Infrastructure\Persistence\Models\InAppNotification;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -31,6 +32,9 @@ final class HandleInertiaRequests extends Middleware
             'siteSettings' => $siteSettings,
             'eventNavContext' => $eventNavContext,
             'flash' => ['status' => fn () => $request->session()->get('status')],
+            'unread_notifications_count' => fn () => $request->user()
+                ? InAppNotification::where('user_id', $request->user()->id)->whereNull('read_at')->count()
+                : 0,
         ];
     }
 }

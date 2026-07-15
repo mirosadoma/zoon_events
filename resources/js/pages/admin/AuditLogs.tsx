@@ -10,7 +10,7 @@ import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import FiltersBar from '@/components/tables/FiltersBar'
 import { useLocale } from '@/hooks/useLocale'
-import { auditActionLabel } from '@/lib/permissionCatalog'
+import { auditActionLabel, auditTargetTypeLabel } from '@/lib/permissionCatalog'
 import en from '@/locales/en'
 import ar from '@/locales/ar'
 
@@ -131,7 +131,11 @@ export default function AdminAuditLogs({ auditLogs, filters }: Props) {
                 },
               },
               { key: 'actor_id', header: messages.adminFilterActor },
-              { key: 'target_type', header: messages.adminTargetType },
+              {
+                key: 'target_type',
+                header: messages.adminTargetType,
+                render: (row) => row.target_type ? auditTargetTypeLabel(String(row.target_type), locale) : '—',
+              },
               { key: 'target_id', header: messages.adminTargetId },
             ]}
           />

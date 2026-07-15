@@ -12,9 +12,11 @@
         "openapi:phase3": "redocly lint specs/004-kiosk-badge-printing-manual-desk/contracts/openapi.yaml",
         "openapi:phase4": "redocly lint specs/005-acs-access-control/contracts/openapi.yaml",
         "openapi:phase5": "redocly lint specs/007-identity-verification/contracts/openapi.yaml",
+        "openapi:phase6": "redocly lint specs/009-venue-marketplace/contracts/openapi.yaml",
         "openapi:sync": "php scripts/sync-openapi.php --check",
         "test": "vitest run",
         "test:browser": "vitest run resources/js/__tests__/*-browser.test.tsx",
+        "test:phase6": "vitest run resources/js/pages/tenant/marketplace resources/js/pages/tenant/venues resources/js/pages/platform/marketplace",
         "typecheck": "tsc --noEmit"
     },
     "dependencies": {

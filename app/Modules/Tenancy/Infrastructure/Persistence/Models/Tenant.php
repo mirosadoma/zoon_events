@@ -3,6 +3,7 @@
 namespace App\Modules\Tenancy\Infrastructure\Persistence\Models;
 
 use App\Modules\Shared\Domain\LifecycleStatus;
+use App\Modules\Tenancy\Domain\OrganizationType;
 use Database\Factories\TenantFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -17,6 +18,7 @@ class Tenant extends Model
         'name',
         'slug',
         'status',
+        'organization_type',
         'default_locale',
         'timezone',
         'data_residency_region',
@@ -31,6 +33,7 @@ class Tenant extends Model
         return [
             'policy_profile' => 'array',
             'status' => LifecycleStatus::class,
+            'organization_type' => OrganizationType::class,
             'suspended_at' => 'datetime',
             'deactivated_at' => 'datetime',
         ];

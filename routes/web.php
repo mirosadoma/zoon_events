@@ -9,6 +9,7 @@ use App\Modules\AdminConsole\Http\Controllers\LandingController;
 use App\Modules\AdminConsole\Http\Controllers\LocaleController;
 use App\Modules\AdminConsole\Http\Controllers\MaintenancePageController;
 use App\Modules\AdminConsole\Http\Controllers\OrganizerRequestAdminController;
+use App\Modules\AdminConsole\Http\Controllers\Platform\PlatformMarketplacePageController;
 use App\Modules\AdminConsole\Http\Controllers\PlatformPageController;
 use App\Modules\AdminConsole\Http\Controllers\Public\PublicEventAgendaController;
 use App\Modules\AdminConsole\Http\Controllers\Public\PublicEventRegistrationController;
@@ -26,7 +27,11 @@ use App\Modules\AdminConsole\Http\Controllers\Tenant\Events\EventOperationsContr
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Kiosk\EventKioskController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\ManualDesk\ManualDeskController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Reports\EventReportController;
+use App\Modules\AdminConsole\Http\Controllers\Tenant\TenantMarketplacePageController;
+use App\Modules\AdminConsole\Http\Controllers\Tenant\TenantStatementPageController;
+use App\Modules\AdminConsole\Http\Controllers\Tenant\TenantVenuePageController;
 use App\Modules\IdentityVerification\Http\Controllers\Public\IdentityVerifyPageController;
+use App\Modules\Notifications\Http\Controllers\InAppNotificationController;
 use App\Modules\Notifications\Http\Controllers\Public\UnsubscribePageController;
 use App\Modules\Operations\Http\Controllers\ApiDocsController;
 use App\Modules\Orders\Http\Controllers\Public\PublicOrderPageController;
@@ -98,8 +103,30 @@ Route::prefix('{locale}')
             Route::post('/platform/organizer-requests/{requestId}/approve', [OrganizerRequestAdminController::class, 'approve'])->name('platform.organizer-requests.approve');
             Route::post('/platform/organizer-requests/{requestId}/reject', [OrganizerRequestAdminController::class, 'reject'])->name('platform.organizer-requests.reject');
             Route::get('/platform/configuration', [PlatformPageController::class, 'configuration'])->name('platform.configuration');
+            Route::get('/platform/marketplace', [PlatformMarketplacePageController::class, 'index'])->name('platform.marketplace.index');
+            Route::get('/platform/marketplace/disputes/{dispute_public_id}', [PlatformMarketplacePageController::class, 'disputeShow'])->name('platform.marketplace.disputes.show');
             Route::get('/platform/{section}', [PlatformPageController::class, 'show'])->name('dashboard.platform.section');
+            Route::get('/notifications', [InAppNotificationController::class, 'index'])->name('notifications.index');
+            Route::get('/api/notifications/unread-count', [InAppNotificationController::class, 'unreadCount'])->name('notifications.unread-count');
+            Route::get('/api/notifications/recent', [InAppNotificationController::class, 'recent'])->name('notifications.recent');
+            Route::patch('/api/notifications/{id}/read', [InAppNotificationController::class, 'markRead'])->name('notifications.mark-read');
+            Route::patch('/api/notifications/read-all', [InAppNotificationController::class, 'markAllRead'])->name('notifications.mark-all-read');
+
             Route::get('/docs/api/openapi.yaml', ApiDocsController::class)->name('api.docs');
+
+            Route::prefix('tenant/venues')->group(function (): void {
+                Route::get('/', [TenantVenuePageController::class, 'index'])->name('tenant.venues.index');
+                Route::get('/create', [TenantVenuePageController::class, 'create'])->name('tenant.venues.create');
+                Route::get('/{venue_public_id}', [TenantVenuePageController::class, 'show'])->name('tenant.venues.show');
+            });
+
+            Route::prefix('tenant/marketplace')->group(function (): void {
+                Route::get('/', [TenantMarketplacePageController::class, 'index'])->name('tenant.marketplace.index');
+                Route::get('/rentals', [TenantMarketplacePageController::class, 'rentalsIndex'])->name('tenant.marketplace.rentals.index');
+                Route::get('/rentals/{rental_public_id}', [TenantMarketplacePageController::class, 'rentalShow'])->name('tenant.marketplace.rentals.show');
+                Route::get('/statements', [TenantStatementPageController::class, 'index'])->name('tenant.marketplace.statements.index');
+                Route::get('/statements/{statement_public_id}', [TenantStatementPageController::class, 'show'])->name('tenant.marketplace.statements.show');
+            });
 
             Route::prefix('admin')->group(function (): void {
                 Route::get('/users', [AdminPageController::class, 'users'])->name('admin.users');

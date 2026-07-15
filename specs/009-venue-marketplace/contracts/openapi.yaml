@@ -1,0 +1,1279 @@
+openapi: 3.1.0
+info:
+  title: Zonetec — Phase 6 Venue Marketplace (review contract)
+  version: 0.1.0
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+  description: >
+    Review-stage contract for the authenticated B2B venue marketplace. On
+    acceptance these operations merge into docs/api/openapi.yaml under /api/v1.
+    Tenant routes require trusted tenant context and the stated RBAC permission;
+    platform routes require platform context. Every write requires an
+    Idempotency-Key. Cross-tenant identifiers are opaque public IDs. Catalog
+    responses contain allowlisted publication fields only. No endpoint exposes
+    physical bindings, adapter/device credentials, camera feeds, attendee
+    credentials, or a payment/payout claim.
+servers:
+  - url: /api/v1
+tags:
+  - name: marketplace-owner
+    description: Venue-owner profile, asset, availability, pricing and publication operations.
+  - name: marketplace-catalog
+    description: Organizer discovery and immutable quote operations over allowlisted publications.
+  - name: marketplace-rentals
+    description: Participant-scoped rental decision and delegated-control lifecycle operations.
+  - name: marketplace-statements
+    description: Participant-scoped immutable statements, exports and disputes.
+  - name: marketplace-platform
+    description: Explicit audited platform oversight and dispute-management operations.
+
+components:
+  securitySchemes:
+    sessionTenant:
+      type: apiKey
+      in: cookie
+      name: zonetec_session
+    sessionPlatform:
+      type: apiKey
+      in: cookie
+      name: zonetec_session
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 200
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema: { type: string, maxLength: 2048 }
+    PageSize:
+      name: page_size
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+    VenuePublicId:
+      name: venue_public_id
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/PublicId' }
+    AssetPublicId:
+      name: asset_public_id
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/PublicId' }
+    PublicationPublicId:
+      name: publication_public_id
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/PublicId' }
+    RentalPublicId:
+      name: rental_public_id
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/PublicId' }
+    StatementPublicId:
+      name: statement_public_id
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/PublicId' }
+    DisputePublicId:
+      name: dispute_public_id
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/PublicId' }
+
+  schemas:
+    PublicId:
+      type: string
+      pattern: '^[0-9A-HJKMNP-TV-Z]{26}$'
+      description: Opaque ULID; never an owner-local numeric identifier.
+
+    LocalizedText:
+      type: object
+      required: [en, ar]
+      properties:
+        en: { type: string }
+        ar: { type: string }
+
+    Money:
+      type: object
+      required: [amount_minor, currency]
+      properties:
+        amount_minor: { type: integer, minimum: 0 }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+
+    CursorMeta:
+      type: object
+      required: [page_size]
+      properties:
+        next_cursor: { type: [string, 'null'] }
+        page_size: { type: integer, minimum: 1, maximum: 100 }
+
+    Problem:
+      type: object
+      required: [type, title, status, reason_code, correlation_id]
+      properties:
+        type: { type: string, format: uri-reference }
+        title: { type: string }
+        status: { type: integer, minimum: 400, maximum: 599 }
+        detail: { type: string }
+        reason_code:
+          type: string
+          enum:
+            - organization_type_not_eligible
+            - marketplace_permission_denied
+            - marketplace_venue_not_found
+            - marketplace_venue_not_publishable
+            - marketplace_asset_not_found
+            - marketplace_asset_not_publishable
+            - marketplace_asset_unavailable
+            - marketplace_availability_conflict
+            - marketplace_event_not_found
+            - marketplace_event_ineligible_status
+            - marketplace_window_invalid
+            - marketplace_mixed_venue
+            - marketplace_mixed_currency
+            - marketplace_quote_changed
+            - marketplace_rental_not_found
+            - marketplace_rental_state_conflict
+            - marketplace_reservation_conflict
+            - marketplace_delegation_not_found
+            - marketplace_delegation_not_started
+            - marketplace_delegation_expired
+            - marketplace_delegation_revoked
+            - marketplace_delegation_degraded
+            - marketplace_event_scope_denied
+            - marketplace_asset_scope_denied
+            - marketplace_capability_denied
+            - marketplace_catalog_unavailable
+            - marketplace_adapter_unavailable
+            - marketplace_statement_not_found
+            - marketplace_statement_not_ready
+            - marketplace_dispute_not_found
+            - marketplace_dispute_state_conflict
+        correlation_id: { type: string }
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }
+
+    VenueInput:
+      type: object
+      required:
+        - name_en
+        - name_ar
+        - address_en
+        - address_ar
+        - country_code
+        - city_code
+        - timezone
+      properties:
+        name_en: { type: string, minLength: 1, maxLength: 160 }
+        name_ar: { type: string, minLength: 1, maxLength: 160 }
+        description_en: { type: [string, 'null'], maxLength: 5000 }
+        description_ar: { type: [string, 'null'], maxLength: 5000 }
+        address_en: { type: string, minLength: 1, maxLength: 500 }
+        address_ar: { type: string, minLength: 1, maxLength: 500 }
+        country_code: { type: string, pattern: '^[A-Z]{2}$' }
+        city_code: { type: string, minLength: 1, maxLength: 80 }
+        timezone: { type: string, minLength: 1, maxLength: 64 }
+        business_contact_name: { type: [string, 'null'], maxLength: 160 }
+        business_contact_email: { type: [string, 'null'], format: email, maxLength: 254 }
+        business_contact_phone: { type: [string, 'null'], maxLength: 32 }
+        publish_contact: { type: boolean, default: false }
+
+    Venue:
+      allOf:
+        - $ref: '#/components/schemas/VenueInput'
+        - type: object
+          required: [public_id, status, version, created_at, updated_at]
+          properties:
+            public_id: { $ref: '#/components/schemas/PublicId' }
+            status: { type: string, enum: [draft, active, suspended, archived] }
+            version: { type: integer, minimum: 1 }
+            asset_count: { type: integer, minimum: 0 }
+            published_asset_count: { type: integer, minimum: 0 }
+            created_at: { type: string, format: date-time }
+            updated_at: { type: string, format: date-time }
+
+    VenueStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [active, suspended] }
+        reason: { type: [string, 'null'], maxLength: 2000 }
+
+    AssetInput:
+      type: object
+      required:
+        - asset_type
+        - name_en
+        - name_ar
+        - location_en
+        - location_ar
+        - capabilities
+        - operational_status
+        - pricing_model
+        - price_minor
+        - currency
+      properties:
+        asset_type:
+          type: string
+          enum: [turnstile, security_gate, camera, kiosk, printer, scanner, access_lane, access_zone]
+        name_en: { type: string, minLength: 1, maxLength: 160 }
+        name_ar: { type: string, minLength: 1, maxLength: 160 }
+        description_en: { type: [string, 'null'], maxLength: 5000 }
+        description_ar: { type: [string, 'null'], maxLength: 5000 }
+        location_en: { type: string, minLength: 1, maxLength: 240 }
+        location_ar: { type: string, minLength: 1, maxLength: 240 }
+        capabilities:
+          type: array
+          maxItems: 30
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 80 }
+        capacity_per_minute: { type: [integer, 'null'], minimum: 1 }
+        operational_status: { type: string, enum: [draft, active, maintenance, offline, retired] }
+        pricing_model: { type: string, enum: [per_hour, per_day, per_rental] }
+        price_minor: { type: integer, minimum: 0 }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        binding:
+          type: object
+          writeOnly: true
+          properties:
+            control_family: { type: string, enum: [acs, kiosk, printer, scanner, catalog_only] }
+            adapter_key: { type: [string, 'null'], maxLength: 80 }
+            secret_reference: { type: [string, 'null'], maxLength: 255 }
+            external_reference: { type: [string, 'null'], maxLength: 500 }
+
+    Asset:
+      allOf:
+        - $ref: '#/components/schemas/AssetInput'
+        - type: object
+          required: [public_id, publication_status, binding_status, version, created_at, updated_at]
+          properties:
+            public_id: { $ref: '#/components/schemas/PublicId' }
+            publication_status: { type: string, enum: [private, published, withdrawn] }
+            publication_version: { type: [integer, 'null'], minimum: 1 }
+            binding_status: { type: string, enum: [active, disabled, invalid, catalog_only, missing] }
+            availability:
+              type: array
+              items: { $ref: '#/components/schemas/AvailabilityWindow' }
+            version: { type: integer, minimum: 1 }
+            created_at: { type: string, format: date-time }
+            updated_at: { type: string, format: date-time }
+
+    AvailabilityWindowInput:
+      type: object
+      required: [available_from, available_until]
+      properties:
+        available_from: { type: string, format: date-time }
+        available_until: { type: string, format: date-time }
+        status: { type: string, enum: [available, blocked], default: available }
+        reason_code: { type: [string, 'null'], maxLength: 80 }
+
+    AvailabilityWindow:
+      allOf:
+        - $ref: '#/components/schemas/AvailabilityWindowInput'
+        - type: object
+          required: [public_id]
+          properties:
+            public_id: { $ref: '#/components/schemas/PublicId' }
+
+    AvailabilitySetRequest:
+      type: object
+      required: [windows]
+      properties:
+        windows:
+          type: array
+          maxItems: 365
+          items: { $ref: '#/components/schemas/AvailabilityWindowInput' }
+
+    CatalogItem:
+      type: object
+      required:
+        - publication_public_id
+        - publication_version
+        - venue_public_id
+        - asset_public_id
+        - venue_name
+        - asset_name
+        - country_code
+        - city_code
+        - timezone
+        - asset_type
+        - capabilities
+        - pricing
+        - published_at
+      properties:
+        publication_public_id: { $ref: '#/components/schemas/PublicId' }
+        publication_version: { type: integer, minimum: 1 }
+        venue_public_id: { $ref: '#/components/schemas/PublicId' }
+        asset_public_id: { $ref: '#/components/schemas/PublicId' }
+        venue_name: { $ref: '#/components/schemas/LocalizedText' }
+        venue_description: { $ref: '#/components/schemas/LocalizedText' }
+        asset_name: { $ref: '#/components/schemas/LocalizedText' }
+        asset_description: { $ref: '#/components/schemas/LocalizedText' }
+        address: { $ref: '#/components/schemas/LocalizedText' }
+        location: { $ref: '#/components/schemas/LocalizedText' }
+        country_code: { type: string, pattern: '^[A-Z]{2}$' }
+        city_code: { type: string }
+        timezone: { type: string }
+        asset_type:
+          type: string
+          enum: [turnstile, security_gate, camera, kiosk, printer, scanner, access_lane, access_zone]
+        capabilities:
+          type: array
+          items: { type: string }
+        capacity_per_minute: { type: [integer, 'null'], minimum: 1 }
+        pricing:
+          allOf:
+            - $ref: '#/components/schemas/Money'
+            - type: object
+              required: [model]
+              properties:
+                model: { type: string, enum: [per_hour, per_day, per_rental] }
+        available_for_requested_window: { type: [boolean, 'null'] }
+        public_contact:
+          type: [object, 'null']
+          additionalProperties: false
+          properties:
+            name: { type: [string, 'null'], maxLength: 160 }
+            email: { type: [string, 'null'], format: email, maxLength: 254 }
+            phone: { type: [string, 'null'], maxLength: 32 }
+        published_at: { type: string, format: date-time }
+
+    QuoteRequest:
+      type: object
+      required: [event_id, publication_public_ids, requested_start_at, requested_end_at]
+      properties:
+        event_id: { type: string }
+        publication_public_ids:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/PublicId' }
+        requested_start_at: { type: string, format: date-time }
+        requested_end_at: { type: string, format: date-time }
+
+    QuoteLine:
+      type: object
+      required:
+        - publication_public_id
+        - publication_version
+        - asset_public_id
+        - asset_name
+        - pricing_model
+        - unit_price_minor
+        - billable_units
+        - line_total_minor
+        - currency
+      properties:
+        publication_public_id: { $ref: '#/components/schemas/PublicId' }
+        publication_version: { type: integer, minimum: 1 }
+        asset_public_id: { $ref: '#/components/schemas/PublicId' }
+        asset_name: { $ref: '#/components/schemas/LocalizedText' }
+        pricing_model: { type: string, enum: [per_hour, per_day, per_rental] }
+        unit_price_minor: { type: integer, minimum: 0 }
+        billable_units: { type: integer, minimum: 1 }
+        line_total_minor: { type: integer, minimum: 0 }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+
+    Quote:
+      type: object
+      required:
+        - quote_digest
+        - quote_version
+        - venue_public_id
+        - venue_timezone
+        - requested_start_at
+        - requested_end_at
+        - lines
+        - total_minor
+        - currency
+      properties:
+        quote_digest: { type: string, pattern: '^[a-f0-9]{64}$' }
+        quote_version: { type: integer, minimum: 1 }
+        venue_public_id: { $ref: '#/components/schemas/PublicId' }
+        venue_timezone: { type: string }
+        requested_start_at: { type: string, format: date-time }
+        requested_end_at: { type: string, format: date-time }
+        lines:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/QuoteLine' }
+        total_minor: { type: integer, minimum: 0 }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+
+    RentalCreateRequest:
+      allOf:
+        - $ref: '#/components/schemas/QuoteRequest'
+        - type: object
+          required: [quote_digest, quote_version]
+          properties:
+            quote_digest: { type: string, pattern: '^[a-f0-9]{64}$' }
+            quote_version: { type: integer, minimum: 1 }
+
+    RentalDecisionRequest:
+      type: object
+      properties:
+        reason: { type: [string, 'null'], maxLength: 2000 }
+
+    RequiredReasonRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 2000 }
+
+    Delegation:
+      type: object
+      required: [public_id, status, starts_at, ends_at, resources]
+      properties:
+        public_id: { $ref: '#/components/schemas/PublicId' }
+        status: { type: string, enum: [pending, active, degraded, revoked, expired, completed] }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        degraded_reason_code: { type: [string, 'null'] }
+        resources:
+          type: array
+          items:
+            type: object
+            required: [asset_public_id, module, provisioning_status, capabilities]
+            properties:
+              asset_public_id: { $ref: '#/components/schemas/PublicId' }
+              module: { type: string, enum: [access_control, kiosk, badge_printing, scanning, catalog_only] }
+              resource_public_reference: { type: [string, 'null'] }
+              provisioning_status: { type: string, enum: [pending, provisioned, degraded, released, not_applicable] }
+              capabilities:
+                type: array
+                items: { type: string }
+
+    Rental:
+      type: object
+      required:
+        - public_id
+        - viewer_role
+        - event
+        - venue
+        - status
+        - dispute_status
+        - requested_start_at
+        - requested_end_at
+        - currency
+        - total_minor
+        - lines
+        - submitted_at
+      properties:
+        public_id: { $ref: '#/components/schemas/PublicId' }
+        viewer_role: { type: string, enum: [owner, organizer, platform] }
+        event:
+          type: object
+          required: [id, name, start_at, end_at, timezone]
+          properties:
+            id: { type: string }
+            name: { $ref: '#/components/schemas/LocalizedText' }
+            start_at: { type: string, format: date-time }
+            end_at: { type: string, format: date-time }
+            timezone: { type: string }
+        venue:
+          type: object
+          required: [public_id, name, timezone]
+          properties:
+            public_id: { $ref: '#/components/schemas/PublicId' }
+            name: { $ref: '#/components/schemas/LocalizedText' }
+            timezone: { type: string }
+        status: { type: string, enum: [requested, approved, rejected, active, completed, cancelled, revoked] }
+        dispute_status: { type: string, enum: [none, open, under_review, resolved] }
+        requested_start_at: { type: string, format: date-time }
+        requested_end_at: { type: string, format: date-time }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        total_minor: { type: integer, minimum: 0 }
+        decision_reason: { type: [string, 'null'] }
+        lines:
+          type: array
+          items: { $ref: '#/components/schemas/QuoteLine' }
+        delegation:
+          oneOf:
+            - $ref: '#/components/schemas/Delegation'
+            - type: 'null'
+        submitted_at: { type: string, format: date-time }
+        approved_at: { type: [string, 'null'], format: date-time }
+        completed_at: { type: [string, 'null'], format: date-time }
+
+    Statement:
+      type: object
+      required:
+        - public_id
+        - statement_number
+        - revision
+        - status
+        - dispute_status
+        - rental_public_id
+        - rental_outcome
+        - agreed_start_at
+        - agreed_end_at
+        - currency
+        - agreed_total_minor
+        - lines
+        - issued_at
+      properties:
+        public_id: { $ref: '#/components/schemas/PublicId' }
+        statement_number: { type: string }
+        revision: { type: integer, minimum: 1 }
+        status: { type: string, enum: [issued, superseded] }
+        dispute_status: { type: string, enum: [none, open, under_review, resolved] }
+        supersedes_statement_public_id:
+          oneOf:
+            - $ref: '#/components/schemas/PublicId'
+            - type: 'null'
+        rental_public_id: { $ref: '#/components/schemas/PublicId' }
+        rental_outcome: { type: string, enum: [completed, cancelled, revoked] }
+        agreed_start_at: { type: string, format: date-time }
+        agreed_end_at: { type: string, format: date-time }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        agreed_total_minor: { type: integer, minimum: 0 }
+        funds_moved: { type: boolean, const: false }
+        lines:
+          type: array
+          items: { $ref: '#/components/schemas/QuoteLine' }
+        issued_at: { type: string, format: date-time }
+
+    DisputeCreateRequest:
+      type: object
+      required: [reason_code, reason]
+      properties:
+        reason_code: { type: string, minLength: 1, maxLength: 80 }
+        reason: { type: string, minLength: 1, maxLength: 4000 }
+
+    Dispute:
+      type: object
+      required:
+        - public_id
+        - statement_public_id
+        - rental_public_id
+        - status
+        - reason_code
+        - reason
+        - opened_at
+        - events
+      properties:
+        public_id: { $ref: '#/components/schemas/PublicId' }
+        statement_public_id: { $ref: '#/components/schemas/PublicId' }
+        rental_public_id: { $ref: '#/components/schemas/PublicId' }
+        status: { type: string, enum: [open, under_review, resolved, rejected] }
+        reason_code: { type: string }
+        reason: { type: string }
+        resolution_code: { type: [string, 'null'] }
+        resolution_summary: { type: [string, 'null'] }
+        opened_at: { type: string, format: date-time }
+        resolved_at: { type: [string, 'null'], format: date-time }
+        events:
+          type: array
+          items:
+            type: object
+            required: [event_type, actor_scope, created_at]
+            properties:
+              event_type: { type: string, enum: [opened, review_started, note_added, resolved, rejected] }
+              actor_scope: { type: string, enum: [owner, organizer, platform, system] }
+              visibility: { type: string, enum: [participants, platform_only] }
+              reason_code: { type: [string, 'null'] }
+              note: { type: [string, 'null'] }
+              created_at: { type: string, format: date-time }
+
+    PlatformDisputeNoteRequest:
+      type: object
+      required: [note, visibility]
+      properties:
+        note: { type: string, minLength: 1, maxLength: 4000 }
+        visibility: { type: string, enum: [participants, platform_only] }
+
+    PlatformDisputeResolutionRequest:
+      type: object
+      required: [decision, resolution_code, resolution_summary]
+      properties:
+        decision: { type: string, enum: [resolve, reject] }
+        resolution_code: { type: string, minLength: 1, maxLength: 80 }
+        resolution_summary: { type: string, minLength: 1, maxLength: 4000 }
+
+    StatementRevisionRequest:
+      type: object
+      required: [dispute_public_id, reason_code, lines]
+      properties:
+        dispute_public_id: { $ref: '#/components/schemas/PublicId' }
+        reason_code: { type: string, minLength: 1, maxLength: 80 }
+        lines:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [asset_public_id, unit_price_minor, billable_units]
+            properties:
+              asset_public_id: { $ref: '#/components/schemas/PublicId' }
+              unit_price_minor: { type: integer, minimum: 0 }
+              billable_units: { type: integer, minimum: 1 }
+
+  responses:
+    Forbidden:
+      description: Authenticated but permission/eligibility denied.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: Resource not found in the actor's owner/participant/platform scope.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Conflict:
+      description: Stale quote/version, invalid lifecycle, availability, reservation, delegation or dispute conflict.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Validation:
+      description: Field validation failed.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Unavailable:
+      description: Catalog/provisioner dependency unavailable; no success is fabricated.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+
+paths:
+  /tenant/venues:
+    get:
+      tags: [marketplace-owner]
+      operationId: listVenues
+      security: [{ sessionTenant: [] }]
+      summary: List owner venues. Requires venue.manage and venue-owner/hybrid eligibility.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+        - { name: status, in: query, schema: { type: string, enum: [draft, active, suspended, archived] } }
+      responses:
+        '200':
+          description: Bounded venue page.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Venue' } }
+                  meta: { $ref: '#/components/schemas/CursorMeta' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [marketplace-owner]
+      operationId: createVenue
+      security: [{ sessionTenant: [] }]
+      summary: Create a private draft venue. Requires venue.manage.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VenueInput' }
+      responses:
+        '201':
+          description: Created.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Venue' } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Validation' }
+
+  /tenant/venues/{venue_public_id}:
+    parameters: [{ $ref: '#/components/parameters/VenuePublicId' }]
+    get:
+      tags: [marketplace-owner]
+      operationId: getVenue
+      security: [{ sessionTenant: [] }]
+      summary: Read owner-private venue detail. Requires venue.manage.
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Venue' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [marketplace-owner]
+      operationId: updateVenue
+      security: [{ sessionTenant: [] }]
+      summary: Update owner venue with optimistic version check. Requires venue.manage.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/VenueInput'
+                - type: object
+                  required: [version]
+                  properties: { version: { type: integer, minimum: 1 } }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/Venue' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Validation' }
+
+  /tenant/venues/{venue_public_id}/archive:
+    parameters: [{ $ref: '#/components/parameters/VenuePublicId' }]
+    post:
+      tags: [marketplace-owner]
+      operationId: archiveVenue
+      security: [{ sessionTenant: [] }]
+      summary: Archive a venue when no retained operational constraint blocks it. Requires venue.manage.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: false
+        content: { application/json: { schema: { $ref: '#/components/schemas/RequiredReasonRequest' } } }
+      responses:
+        '200': { description: Archived, content: { application/json: { schema: { $ref: '#/components/schemas/Venue' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /tenant/venues/{venue_public_id}/status:
+    parameters: [{ $ref: '#/components/parameters/VenuePublicId' }]
+    post:
+      tags: [marketplace-owner]
+      operationId: changeVenueStatus
+      security: [{ sessionTenant: [] }]
+      summary: Activate or suspend a venue with lifecycle validation. Requires venue.manage.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/VenueStatusRequest' } } }
+      responses:
+        '200': { description: Changed, content: { application/json: { schema: { $ref: '#/components/schemas/Venue' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Validation' }
+
+  /tenant/venues/{venue_public_id}/assets:
+    parameters: [{ $ref: '#/components/parameters/VenuePublicId' }]
+    get:
+      tags: [marketplace-owner]
+      operationId: listVenueAssets
+      security: [{ sessionTenant: [] }]
+      summary: List owner-private assets. Requires venue.manage.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Bounded asset page.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Asset' } }
+                  meta: { $ref: '#/components/schemas/CursorMeta' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [marketplace-owner]
+      operationId: createVenueAsset
+      security: [{ sessionTenant: [] }]
+      summary: Add an owner-private fixed asset. Requires venue.manage.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/AssetInput' } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Asset' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Validation' }
+
+  /tenant/venues/{venue_public_id}/assets/{asset_public_id}:
+    parameters:
+      - $ref: '#/components/parameters/VenuePublicId'
+      - $ref: '#/components/parameters/AssetPublicId'
+    get:
+      tags: [marketplace-owner]
+      operationId: getVenueAsset
+      security: [{ sessionTenant: [] }]
+      summary: Read owner-private asset; secret binding values remain masked.
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Asset' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [marketplace-owner]
+      operationId: updateVenueAsset
+      security: [{ sessionTenant: [] }]
+      summary: Update asset with optimistic version and reservation checks. Requires venue.manage.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AssetInput'
+                - type: object
+                  required: [version]
+                  properties: { version: { type: integer, minimum: 1 } }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/Asset' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Validation' }
+
+  /tenant/venues/{venue_public_id}/assets/{asset_public_id}/availability:
+    parameters:
+      - $ref: '#/components/parameters/VenuePublicId'
+      - $ref: '#/components/parameters/AssetPublicId'
+    put:
+      tags: [marketplace-owner]
+      operationId: replaceAssetAvailability
+      security: [{ sessionTenant: [] }]
+      summary: Replace future availability atomically. Requires venue.manage.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/AvailabilitySetRequest' } } }
+      responses:
+        '200':
+          description: Saved.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/AvailabilityWindow' } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Validation' }
+
+  /tenant/venues/{venue_public_id}/assets/{asset_public_id}/publication:
+    parameters:
+      - $ref: '#/components/parameters/VenuePublicId'
+      - $ref: '#/components/parameters/AssetPublicId'
+    post:
+      tags: [marketplace-owner]
+      operationId: publishVenueAsset
+      security: [{ sessionTenant: [] }]
+      summary: Create a new allowlisted catalog publication. Requires venue.manage.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      responses:
+        '201': { description: Published, content: { application/json: { schema: { $ref: '#/components/schemas/CatalogItem' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Validation' }
+    delete:
+      tags: [marketplace-owner]
+      operationId: withdrawVenueAssetPublication
+      security: [{ sessionTenant: [] }]
+      summary: Withdraw from discovery without deleting retained facts. Requires venue.manage.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      responses:
+        '204': { description: Withdrawn. }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /tenant/marketplace/catalog:
+    get:
+      tags: [marketplace-catalog]
+      operationId: searchMarketplaceCatalog
+      security: [{ sessionTenant: [] }]
+      summary: Search active allowlisted publications. Requires marketplace.manage and organizer/hybrid eligibility.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+        - { name: venue_public_id, in: query, schema: { $ref: '#/components/schemas/PublicId' } }
+        - { name: country_code, in: query, schema: { type: string, pattern: '^[A-Z]{2}$' } }
+        - { name: city_code, in: query, schema: { type: string, maxLength: 80 } }
+        - { name: asset_type, in: query, schema: { type: string, enum: [turnstile, security_gate, camera, kiosk, printer, scanner, access_lane, access_zone] } }
+        - { name: capability, in: query, schema: { type: string, maxLength: 80 } }
+        - { name: minimum_capacity_per_minute, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: maximum_price_minor, in: query, schema: { type: integer, minimum: 0 } }
+        - { name: currency, in: query, schema: { type: string, pattern: '^[A-Z]{3}$' } }
+        - { name: requested_start_at, in: query, schema: { type: string, format: date-time } }
+        - { name: requested_end_at, in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: Bounded catalog page.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/CatalogItem' } }
+                  meta: { $ref: '#/components/schemas/CursorMeta' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /tenant/marketplace/catalog/{publication_public_id}:
+    parameters: [{ $ref: '#/components/parameters/PublicationPublicId' }]
+    get:
+      tags: [marketplace-catalog]
+      operationId: getMarketplaceCatalogItem
+      security: [{ sessionTenant: [] }]
+      summary: Read one active allowlisted publication. Requires marketplace.manage.
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/CatalogItem' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /tenant/marketplace/quotes:
+    post:
+      tags: [marketplace-catalog]
+      operationId: quoteMarketplaceRental
+      security: [{ sessionTenant: [] }]
+      summary: Calculate an advisory quote for one owned event and one venue. Requires marketplace.manage.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/QuoteRequest' } } }
+      responses:
+        '200': { description: Quote, content: { application/json: { schema: { $ref: '#/components/schemas/Quote' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Validation' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /tenant/marketplace/rentals:
+    get:
+      tags: [marketplace-rentals]
+      operationId: listParticipantRentals
+      security: [{ sessionTenant: [] }]
+      summary: List rentals where current tenant is owner or organizer and has a relevant marketplace/report permission.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+        - { name: viewer_role, in: query, schema: { type: string, enum: [owner, organizer] } }
+        - { name: status, in: query, schema: { type: string, enum: [requested, approved, rejected, active, completed, cancelled, revoked] } }
+        - { name: dispute_status, in: query, schema: { type: string, enum: [none, open, under_review, resolved] } }
+      responses:
+        '200':
+          description: Participant-scoped page.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Rental' } }
+                  meta: { $ref: '#/components/schemas/CursorMeta' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [marketplace-rentals]
+      operationId: submitMarketplaceRental
+      security: [{ sessionTenant: [] }]
+      summary: Submit an immutable quoted request. Requires marketplace.manage and owned event.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/RentalCreateRequest' } } }
+      responses:
+        '201': { description: Requested, content: { application/json: { schema: { $ref: '#/components/schemas/Rental' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Validation' }
+
+  /tenant/marketplace/rentals/{rental_public_id}:
+    parameters: [{ $ref: '#/components/parameters/RentalPublicId' }]
+    get:
+      tags: [marketplace-rentals]
+      operationId: getParticipantRental
+      security: [{ sessionTenant: [] }]
+      summary: Read actor-specific owner/organizer projection.
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Rental' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /tenant/marketplace/rentals/{rental_public_id}/approve:
+    parameters: [{ $ref: '#/components/parameters/RentalPublicId' }]
+    post:
+      tags: [marketplace-rentals]
+      operationId: approveMarketplaceRental
+      security: [{ sessionTenant: [] }]
+      summary: Atomically reserve all lines and approve. Requires owner participant + rentals.approve.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      responses:
+        '200': { description: Approved, content: { application/json: { schema: { $ref: '#/components/schemas/Rental' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /tenant/marketplace/rentals/{rental_public_id}/reject:
+    parameters: [{ $ref: '#/components/parameters/RentalPublicId' }]
+    post:
+      tags: [marketplace-rentals]
+      operationId: rejectMarketplaceRental
+      security: [{ sessionTenant: [] }]
+      summary: Reject request with reason. Requires owner participant + rentals.approve.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/RequiredReasonRequest' } } }
+      responses:
+        '200': { description: Rejected, content: { application/json: { schema: { $ref: '#/components/schemas/Rental' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Validation' }
+
+  /tenant/marketplace/rentals/{rental_public_id}/cancel:
+    parameters: [{ $ref: '#/components/parameters/RentalPublicId' }]
+    post:
+      tags: [marketplace-rentals]
+      operationId: cancelMarketplaceRental
+      security: [{ sessionTenant: [] }]
+      summary: Organizer cancels requested/approved pre-activation rental. Requires organizer participant + marketplace.manage.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: false
+        content: { application/json: { schema: { $ref: '#/components/schemas/RentalDecisionRequest' } } }
+      responses:
+        '200': { description: Cancelled, content: { application/json: { schema: { $ref: '#/components/schemas/Rental' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /tenant/marketplace/rentals/{rental_public_id}/revoke:
+    parameters: [{ $ref: '#/components/parameters/RentalPublicId' }]
+    post:
+      tags: [marketplace-rentals]
+      operationId: revokeMarketplaceRental
+      security: [{ sessionTenant: [] }]
+      summary: Owner immediately revokes approved/active delegation with reason. Requires owner + rentals.approve.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/RequiredReasonRequest' } } }
+      responses:
+        '200': { description: Revoked, content: { application/json: { schema: { $ref: '#/components/schemas/Rental' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /tenant/marketplace/rentals/{rental_public_id}/delegation:
+    parameters: [{ $ref: '#/components/parameters/RentalPublicId' }]
+    get:
+      tags: [marketplace-rentals]
+      operationId: getMarketplaceDelegation
+      security: [{ sessionTenant: [] }]
+      summary: Read participant-visible materialized delegation/resource status; server time/revocation remain authoritative.
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Delegation' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /tenant/marketplace/statements:
+    get:
+      tags: [marketplace-statements]
+      operationId: listParticipantStatements
+      security: [{ sessionTenant: [] }]
+      summary: List participant statements. Requires reports.view.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+        - { name: dispute_status, in: query, schema: { type: string, enum: [none, open, under_review, resolved] } }
+      responses:
+        '200':
+          description: Participant-scoped statement page.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Statement' } }
+                  meta: { $ref: '#/components/schemas/CursorMeta' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /tenant/marketplace/statements/{statement_public_id}:
+    parameters: [{ $ref: '#/components/parameters/StatementPublicId' }]
+    get:
+      tags: [marketplace-statements]
+      operationId: getParticipantStatement
+      security: [{ sessionTenant: [] }]
+      summary: Read immutable participant statement. Requires reports.view; access is audited.
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Statement' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /tenant/marketplace/statements/{statement_public_id}/export:
+    parameters: [{ $ref: '#/components/parameters/StatementPublicId' }]
+    get:
+      tags: [marketplace-statements]
+      operationId: exportParticipantStatement
+      security: [{ sessionTenant: [] }]
+      summary: Stream one audited requester-scoped CSV. Requires reports.view.
+      responses:
+        '200':
+          description: CSV statement stream; no shared stored export.
+          content:
+            text/csv:
+              schema: { type: string, contentMediaType: text/csv }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /tenant/marketplace/statements/{statement_public_id}/disputes:
+    parameters: [{ $ref: '#/components/parameters/StatementPublicId' }]
+    post:
+      tags: [marketplace-statements]
+      operationId: openMarketplaceDispute
+      security: [{ sessionTenant: [] }]
+      summary: Open one participant dispute. Requires reports.view.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/DisputeCreateRequest' } } }
+      responses:
+        '201': { description: Opened, content: { application/json: { schema: { $ref: '#/components/schemas/Dispute' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Validation' }
+
+  /tenant/marketplace/disputes/{dispute_public_id}:
+    parameters: [{ $ref: '#/components/parameters/DisputePublicId' }]
+    get:
+      tags: [marketplace-statements]
+      operationId: getParticipantDispute
+      security: [{ sessionTenant: [] }]
+      summary: Read participant-visible dispute timeline. Platform-only notes are excluded.
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Dispute' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /platform/marketplace/rentals:
+    get:
+      tags: [marketplace-platform]
+      operationId: listPlatformMarketplaceRentals
+      security: [{ sessionPlatform: [] }]
+      summary: Audited minimized marketplace activity. Requires platform.marketplace.view.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+        - { name: status, in: query, schema: { type: string, enum: [requested, approved, rejected, active, completed, cancelled, revoked] } }
+        - { name: dispute_status, in: query, schema: { type: string, enum: [none, open, under_review, resolved] } }
+      responses:
+        '200':
+          description: Platform-scoped activity page.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Rental' } }
+                  meta: { $ref: '#/components/schemas/CursorMeta' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /platform/marketplace/statements:
+    get:
+      tags: [marketplace-platform]
+      operationId: listPlatformMarketplaceStatements
+      security: [{ sessionPlatform: [] }]
+      summary: Audited minimized statement activity. Requires platform.marketplace.view.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Platform-scoped statement page.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Statement' } }
+                  meta: { $ref: '#/components/schemas/CursorMeta' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /platform/marketplace/disputes:
+    get:
+      tags: [marketplace-platform]
+      operationId: listPlatformMarketplaceDisputes
+      security: [{ sessionPlatform: [] }]
+      summary: List dispute queue. Requires platform.marketplace.disputes.manage.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+        - { name: status, in: query, schema: { type: string, enum: [open, under_review, resolved, rejected] } }
+      responses:
+        '200':
+          description: Dispute page.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Dispute' } }
+                  meta: { $ref: '#/components/schemas/CursorMeta' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /platform/marketplace/statements/{statement_public_id}/revisions:
+    parameters: [{ $ref: '#/components/parameters/StatementPublicId' }]
+    post:
+      tags: [marketplace-platform]
+      operationId: revisePlatformMarketplaceStatement
+      security: [{ sessionPlatform: [] }]
+      summary: Issue a linked immutable correction after an associated dispute outcome; never edits the original or moves funds. Requires platform.marketplace.disputes.manage.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/StatementRevisionRequest' } } }
+      responses:
+        '201': { description: Revision issued, content: { application/json: { schema: { $ref: '#/components/schemas/Statement' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Validation' }
+
+  /platform/marketplace/disputes/{dispute_public_id}:
+    parameters: [{ $ref: '#/components/parameters/DisputePublicId' }]
+    get:
+      tags: [marketplace-platform]
+      operationId: getPlatformMarketplaceDispute
+      security: [{ sessionPlatform: [] }]
+      summary: Read full platform dispute projection including platform-only notes. Requires platform.marketplace.disputes.manage.
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Dispute' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /platform/marketplace/disputes/{dispute_public_id}/review:
+    parameters: [{ $ref: '#/components/parameters/DisputePublicId' }]
+    post:
+      tags: [marketplace-platform]
+      operationId: startPlatformMarketplaceDisputeReview
+      security: [{ sessionPlatform: [] }]
+      summary: Mark open dispute under review. Requires platform.marketplace.disputes.manage.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      responses:
+        '200': { description: Under review, content: { application/json: { schema: { $ref: '#/components/schemas/Dispute' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /platform/marketplace/disputes/{dispute_public_id}/notes:
+    parameters: [{ $ref: '#/components/parameters/DisputePublicId' }]
+    post:
+      tags: [marketplace-platform]
+      operationId: addPlatformMarketplaceDisputeNote
+      security: [{ sessionPlatform: [] }]
+      summary: Add append-only participant or platform-only note. Requires platform.marketplace.disputes.manage.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/PlatformDisputeNoteRequest' } } }
+      responses:
+        '201': { description: Added, content: { application/json: { schema: { $ref: '#/components/schemas/Dispute' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Validation' }
+
+  /platform/marketplace/disputes/{dispute_public_id}/resolution:
+    parameters: [{ $ref: '#/components/parameters/DisputePublicId' }]
+    post:
+      tags: [marketplace-platform]
+      operationId: resolvePlatformMarketplaceDispute
+      security: [{ sessionPlatform: [] }]
+      summary: Resolve or reject without changing statement facts or moving funds. Requires platform.marketplace.disputes.manage.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/PlatformDisputeResolutionRequest' } } }
+      responses:
+        '200': { description: Finalized, content: { application/json: { schema: { $ref: '#/components/schemas/Dispute' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Validation' }

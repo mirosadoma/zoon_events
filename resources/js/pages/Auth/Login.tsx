@@ -1,5 +1,6 @@
-import { FormEvent } from 'react'
+import { FormEvent, useState } from 'react'
 import { Head, useForm } from '@inertiajs/react'
+import { Eye, EyeOff } from 'lucide-react'
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import { CheckboxInput, FormActions, SubmitButtonWithLoader, TextInput } from '@/components/forms'
 import ValidationHintPopover from '@/components/feedback/ValidationHintPopover'
@@ -31,6 +32,7 @@ export default function Login() {
   const { locale, direction, localizedPath } = useLocale()
   const messages = locale === 'ar' ? ar : en
   const form = useForm({ email: '', password: '', remember: false })
+  const [showPassword, setShowPassword] = useState(false)
   const validation = useInertiaFormValidation(form.errors, {
     titleKey: 'loginFailed',
     fieldLabels: LOGIN_FIELD_LABELS,
@@ -62,7 +64,9 @@ export default function Login() {
         onSubmit={handleSubmit}
       >
         <div className="flex items-center gap-3">
-          <AppBrand nameClassName="text-2xl font-bold" />
+          <a href="/" className="inline-flex items-center gap-2 transition-opacity hover:opacity-80">
+            <AppBrand nameClassName="text-2xl font-bold" />
+          </a>
           <div>
             <p className="text-sm text-slate-500">{messages.loginTitle}</p>
           </div>
@@ -78,17 +82,30 @@ export default function Login() {
           error={validation.fieldError('email') ?? form.errors.email}
           {...formFieldProps('email')}
         />
-        <TextInput
-          label={messages.loginPassword}
-          name="password"
-          type="password"
-          required
-          autoComplete="current-password"
-          value={form.data.password}
-          onChange={(event) => form.setData('password', event.target.value)}
-          error={validation.fieldError('password') ?? form.errors.password}
-          {...formFieldProps('password')}
-        />
+        <div className="relative">
+          <TextInput
+            label={messages.loginPassword}
+            name="password"
+            type={showPassword ? 'text' : 'password'}
+            required
+            autoComplete="current-password"
+            value={form.data.password}
+            onChange={(event) => form.setData('password', event.target.value)}
+            error={validation.fieldError('password') ?? form.errors.password}
+            {...formFieldProps('password')}
+          />
+          <button
+            type="button"
+            className="absolute end-3 top-[2.15rem] flex h-8 w-8 items-center justify-center rounded-md text-[var(--muted)] transition-colors hover:bg-[var(--brand-soft)] hover:text-[var(--brand)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]/40"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+            tabIndex={-1}
+          >
+            {showPassword
+              ? <EyeOff className="h-[1.125rem] w-[1.125rem]" strokeWidth={1.75} />
+              : <Eye className="h-[1.125rem] w-[1.125rem]" strokeWidth={1.75} />}
+          </button>
+        </div>
         <CheckboxInput
           label={messages.loginRemember}
           name="remember"

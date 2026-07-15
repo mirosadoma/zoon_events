@@ -13,10 +13,14 @@ import {
   ScanLine,
   Settings,
   Shield,
+  Store,
   Ticket,
   UserCircle,
   Users,
   Wallet,
+  Building2,
+  FileText,
+  Scale,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { clsx } from 'clsx'
@@ -68,6 +72,13 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   'acs-access-logs': ClipboardList,
   'acs-gate-health': Activity,
   reports: ClipboardList,
+  venues: Building2,
+  marketplace: Store,
+  rentals: FileText,
+  statements: FileText,
+  'marketplace-rentals': Ticket,
+  'marketplace-statements': FileText,
+  'platform-marketplace': Scale,
 }
 
 type SidebarNavLinkProps = {

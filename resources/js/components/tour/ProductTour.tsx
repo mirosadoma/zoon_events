@@ -4,6 +4,7 @@ import { useIsDesktop } from '@/hooks/useMediaQuery'
 import { useLocale } from '@/hooks/useLocale'
 import {
   buildTourSteps,
+  normalizePermissionList,
   resolveTourProfile,
   tourStorageKey,
   type TourStep,
@@ -14,7 +15,8 @@ import ar from '@/locales/ar'
 type PageProps = {
   auth?: { user?: { id?: string | number } | null }
   session?: { role_label?: string | null; user?: { id?: string | number } | null }
-  permissions?: string[]
+  permissions?: string[] | Record<string, boolean>
+  can?: Record<string, boolean>
 }
 
 type TargetRect = {
@@ -57,7 +59,11 @@ export default function ProductTour({ errorHint }: ProductTourProps) {
   const messages = locale === 'ar' ? ar : en
   const { props } = usePage<PageProps>()
   const userId = props.auth?.user?.id ?? props.session?.user?.id
-  const permissions = props.permissions ?? []
+  // Prefer shared string[] permissions; fall back to `can` map. Page-local
+  // action flags must not use the `permissions` prop key (see marketplace ViewModels).
+  const permissions = normalizePermissionList(
+    Array.isArray(props.permissions) ? props.permissions : (props.can ?? props.permissions),
+  )
   const profile = resolveTourProfile(props.session?.role_label, permissions)
   const steps = useMemo(() => buildTourSteps(profile, permissions), [permissions, profile])
   const storageKey = userId ? tourStorageKey(userId, profile) : null

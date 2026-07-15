@@ -352,7 +352,7 @@ flowchart LR
 | Audit Logs للمنصة | ✅ | `/platform/audit` — `platform.audit.*` |
 | تعطيل Tenant / مستخدم | ✅ | PATCH `/api/v1/platform/tenants/{id}` + إدارة مستخدمي المنصة |
 | SaaS / On-premise / ترخيص محلي | ⏳ مستقبلي | غير منفّذ بعد — `data_residency_region` و feature flags فقط |
-| Venue Marketplace / نزاعات الإيجار | ⏳ مستقبلي | غير منفّذ |
+| Venue Marketplace / نزاعات الإيجار | ✅ | القسم 14 — سوق الأماكن |
 
 **ملاحظة مهمة — اختيار المنظم عند إنشاء فعالية:**  
 عندما يدخل **Super Admin** على مستأجر وينشئ فعالية (`/tenant/events/create`)، يجب اختيار **منظم الفعالية** من قائمة أعضاء المستأجر الذين لديهم `event.manage`. يُخزَّن الاختيار في `events.created_by_user_id`. المنظم العادي (`demo@zonetec.test`) لا يرى هذا الحقل — تُسجَّل الفعالية باسمه تلقائياً.
@@ -430,7 +430,61 @@ flowchart LR
 
 ---
 
-*حدّث هذا القسم عند إضافة On-premise licensing أو Venue Marketplace أو تغيير سلوك اختيار المنظم.*
+*حدّث هذا القسم عند إضافة On-premise licensing أو تغيير سلوك اختيار المنظم.*
+
+---
+
+---
+
+## 14. حسابات سوق الأماكن (Phase 6 — Venue Marketplace)
+
+> **بيئة التطوير فقط** — بيانات اعتماد وهمية لا تُستخدم في الإنتاج.  
+> الصلاحيات مُعرَّفة في `database/seeders/PermissionSeeder.php` (module: `venue-marketplace`).
+
+### 14.1 صلاحيات سوق الأماكن
+
+| المفتاح | النطاق | الوصف |
+|---------|--------|-------|
+| `venue.manage` | tenant | إدارة الأماكن والأصول والتوفّر والتسعير والنشر |
+| `marketplace.manage` | tenant | تصفح الكتالوج، طلب عروض أسعار، تقديم طلبات إيجار |
+| `rentals.approve` | tenant | الموافقة على طلبات الإيجار ورفضها وإلغائها |
+| `reports.view` | tenant | عرض وتصدير كشوف التسوية |
+| `platform.marketplace.view` | platform | إشراف شامل على السوق |
+| `platform.marketplace.disputes.manage` | platform | مراجعة وحل نزاعات التسوية |
+
+### 14.2 الحسابات التجريبية
+
+| الشخصية | البريد | كلمة المرور | نوع المنظمة | الدور | الصلاحيات |
+|---------|--------|-------------|-------------|-------|-----------|
+| منظم فعاليات (Organizer) | `organizer@demo.zonetec.test` | `OrgDemo2026!` | `organizer` | Marketplace Organizer | `marketplace.manage`, `reports.view` |
+| مالك مكان (Venue Owner) | `venue.owner@demo.zonetec.test` | `VenueDemo2026!` | `venue_owner` | Venue Owner | `venue.manage`, `rentals.approve`, `reports.view` |
+| مالك ومنظم (Hybrid) | `hybrid@demo.zonetec.test` | `HybridDemo2026!` | `hybrid` | Hybrid Owner-Organizer | `venue.manage`, `marketplace.manage`, `rentals.approve`, `reports.view` |
+| مراجع أماكن (Venue Approver) | `venue.approver@demo.zonetec.test` | `ApproverDemo2026!` | — | Venue Approver | `venue.manage`, `marketplace.manage` |
+| مشاهد مالي (Finance Viewer) | `finance.viewer@demo.zonetec.test` | `FinanceDemo2026!` | — | Finance Viewer | `reports.view` |
+| مشاهد منصة (Platform Viewer) | `platform.viewer@demo.zonetec.test` | `PlatViewDemo2026!` | — | Platform Marketplace Viewer | `platform.marketplace.view` |
+| مدير نزاعات (Dispute Manager) | `dispute.manager@demo.zonetec.test` | `DisputeDemo2026!` | — | Dispute Manager | `platform.marketplace.view`, `platform.marketplace.disputes.manage` |
+
+### 14.3 مصفوفة سريعة: ماذا يرى كل حساب سوق الأماكن؟
+
+| الحساب | كتالوج السوق | إدارة الأماكن | طلبات الإيجار | تقديم إيجار | كشوف التسوية | إشراف المنصة | نزاعات |
+|--------|-------------|---------------|---------------|-------------|-------------|-------------|--------|
+| organizer@ | ✅ | ❌ | قراءة | ✅ | ✅ | ❌ | ❌ |
+| venue.owner@ | ❌ | ✅ | موافقة/رفض | ❌ | ✅ | ❌ | ❌ |
+| hybrid@ | ✅ | ✅ | موافقة/رفض + تقديم | ✅ | ✅ | ❌ | ❌ |
+| venue.approver@ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| finance.viewer@ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ |
+| platform.viewer@ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| dispute.manager@ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+
+### 14.4 تجربة سريعة
+
+1. **منظم فعاليات:** `organizer@demo.zonetec.test` / `OrgDemo2026!` → Marketplace → تصفح الكتالوج → تقديم طلب إيجار → كشوف التسوية.
+2. **مالك مكان:** `venue.owner@demo.zonetec.test` / `VenueDemo2026!` → Venues → إدارة الأصول → الموافقة على الطلبات → كشوف التسوية.
+3. **مالك ومنظم:** `hybrid@demo.zonetec.test` / `HybridDemo2026!` → كل وظائف المنظم + المالك.
+4. **مراجع أماكن:** `venue.approver@demo.zonetec.test` / `ApproverDemo2026!` → Venues → تصفح الكتالوج (بدون إيجار أو تقارير).
+5. **مشاهد مالي:** `finance.viewer@demo.zonetec.test` / `FinanceDemo2026!` → كشوف التسوية فقط (قراءة + تصدير).
+6. **مشاهد منصة:** `platform.viewer@demo.zonetec.test` / `PlatViewDemo2026!` → Platform → Marketplace (قراءة فقط).
+7. **مدير نزاعات:** `dispute.manager@demo.zonetec.test` / `DisputeDemo2026!` → Platform → Marketplace → Disputes (مراجعة وحل).
 
 ---
 

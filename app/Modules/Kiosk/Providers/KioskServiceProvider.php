@@ -18,6 +18,10 @@ final class KioskServiceProvider extends ServiceProvider
     {
         $this->app->singleton(KioskSessionContextStore::class);
         $this->app->bind(KioskFleetSummaryProvider::class, KioskFleetSummaryService::class);
+        $this->app->bind(
+            \App\Modules\Kiosk\Application\Contracts\DelegatedKioskAssetPort::class,
+            \App\Modules\Kiosk\Application\Services\DatabaseDelegatedKioskAssetPort::class,
+        );
     }
 
     public function boot(): void

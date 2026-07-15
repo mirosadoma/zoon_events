@@ -43,6 +43,7 @@ class PlatformTenantController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:160'],
             'slug' => ['required', 'string', 'max:100', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/', 'unique:tenants,slug'],
+            'organization_type' => ['required', 'in:organizer,venue_owner,hybrid'],
             'default_locale' => ['required', 'in:en,ar'],
             'timezone' => ['required', 'string', 'max:64'],
             'data_residency_region' => ['required', 'string', 'max:64'],
@@ -65,6 +66,7 @@ class PlatformTenantController extends Controller
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:160'],
             'status' => ['sometimes', 'in:active,suspended,deactivated'],
+            'organization_type' => ['sometimes', 'in:organizer,venue_owner,hybrid'],
             'default_locale' => ['sometimes', 'in:en,ar'],
             'timezone' => ['sometimes', 'string', 'max:64'],
             'data_residency_region' => ['sometimes', 'string', 'max:64'],
@@ -90,6 +92,7 @@ class PlatformTenantController extends Controller
             'name' => $tenant->name,
             'slug' => $tenant->slug,
             'status' => $tenant->status->value,
+            'organization_type' => $tenant->organization_type->value,
             'default_locale' => $tenant->default_locale,
             'timezone' => $tenant->timezone,
             'data_residency_region' => $tenant->data_residency_region,

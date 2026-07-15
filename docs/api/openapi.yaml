@@ -7,9 +7,9 @@ info:
     name: Proprietary
     identifier: LicenseRef-Proprietary
   description: |
-    Contract-first API for Zonetec Phase 0 through Phase 5. Kiosks/scanners, check-in,
-    wallets, ACS, identity verification, marketplace behavior, and venue-asset
-    rentals beyond the merged Phase 5 identity surface are not included.
+    Contract-first API for Zonetec Phase 0 through Phase 7. Includes foundation,
+    registration, ticketing, credentials, wallet passes, scanning, ACS, identity
+    verification, and the authenticated B2B venue marketplace.
 servers:
   - url: /api/v1
     description: Current deployment
@@ -74,6 +74,16 @@ tags:
     description: Reviewer queue and manual approve/reject decisions.
   - name: Identity Compliance
     description: Audited sensitive-data access and permitted deletion.
+  - name: Marketplace Owner
+    description: Venue-owner profile, asset, availability, pricing and publication operations.
+  - name: Marketplace Catalog
+    description: Organizer discovery and immutable quote operations over allowlisted publications.
+  - name: Marketplace Rentals
+    description: Participant-scoped rental decision and delegated-control lifecycle operations.
+  - name: Marketplace Statements
+    description: Participant-scoped immutable statements, exports and disputes.
+  - name: Marketplace Platform
+    description: Explicit audited platform oversight and dispute-management operations.
 paths:
   /public/events/{event_slug}:
     $ref: '../../002-registration-ticketing-credentials/contracts/openapi.yaml#/paths/~1public~1events~1{event_slug}'
@@ -173,6 +183,68 @@ paths:
     $ref: '../../007-identity-verification/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1identity~1verifications~1{verification_id}~1review'
   /tenant/events/{event_id}/attendees/{attendee_id}/identity/data:
     $ref: '../../007-identity-verification/contracts/openapi.yaml#/paths/~1tenant~1events~1{event_id}~1attendees~1{attendee_id}~1identity~1data'
+  /tenant/venues:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1tenant~1venues'
+  /tenant/venues/{venue_public_id}:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1tenant~1venues~1{venue_public_id}'
+  /tenant/venues/{venue_public_id}/archive:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1tenant~1venues~1{venue_public_id}~1archive'
+  /tenant/venues/{venue_public_id}/status:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1tenant~1venues~1{venue_public_id}~1status'
+  /tenant/venues/{venue_public_id}/assets:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1tenant~1venues~1{venue_public_id}~1assets'
+  /tenant/venues/{venue_public_id}/assets/{asset_public_id}:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1tenant~1venues~1{venue_public_id}~1assets~1{asset_public_id}'
+  /tenant/venues/{venue_public_id}/assets/{asset_public_id}/availability:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1tenant~1venues~1{venue_public_id}~1assets~1{asset_public_id}~1availability'
+  /tenant/venues/{venue_public_id}/assets/{asset_public_id}/publication:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1tenant~1venues~1{venue_public_id}~1assets~1{asset_public_id}~1publication'
+  /tenant/marketplace/catalog:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1tenant~1marketplace~1catalog'
+  /tenant/marketplace/catalog/{publication_public_id}:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1tenant~1marketplace~1catalog~1{publication_public_id}'
+  /tenant/marketplace/quotes:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1tenant~1marketplace~1quotes'
+  /tenant/marketplace/rentals:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1tenant~1marketplace~1rentals'
+  /tenant/marketplace/rentals/{rental_public_id}:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1tenant~1marketplace~1rentals~1{rental_public_id}'
+  /tenant/marketplace/rentals/{rental_public_id}/approve:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1tenant~1marketplace~1rentals~1{rental_public_id}~1approve'
+  /tenant/marketplace/rentals/{rental_public_id}/reject:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1tenant~1marketplace~1rentals~1{rental_public_id}~1reject'
+  /tenant/marketplace/rentals/{rental_public_id}/cancel:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1tenant~1marketplace~1rentals~1{rental_public_id}~1cancel'
+  /tenant/marketplace/rentals/{rental_public_id}/revoke:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1tenant~1marketplace~1rentals~1{rental_public_id}~1revoke'
+  /tenant/marketplace/rentals/{rental_public_id}/delegation:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1tenant~1marketplace~1rentals~1{rental_public_id}~1delegation'
+  /tenant/marketplace/statements:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1tenant~1marketplace~1statements'
+  /tenant/marketplace/statements/{statement_public_id}:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1tenant~1marketplace~1statements~1{statement_public_id}'
+  /tenant/marketplace/statements/{statement_public_id}/export:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1tenant~1marketplace~1statements~1{statement_public_id}~1export'
+  /tenant/marketplace/statements/{statement_public_id}/disputes:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1tenant~1marketplace~1statements~1{statement_public_id}~1disputes'
+  /tenant/marketplace/disputes/{dispute_public_id}:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1tenant~1marketplace~1disputes~1{dispute_public_id}'
+  /platform/marketplace/rentals:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1platform~1marketplace~1rentals'
+  /platform/marketplace/statements:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1platform~1marketplace~1statements'
+  /platform/marketplace/disputes:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1platform~1marketplace~1disputes'
+  /platform/marketplace/statements/{statement_public_id}/revisions:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1platform~1marketplace~1statements~1{statement_public_id}~1revisions'
+  /platform/marketplace/disputes/{dispute_public_id}:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1platform~1marketplace~1disputes~1{dispute_public_id}'
+  /platform/marketplace/disputes/{dispute_public_id}/review:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1platform~1marketplace~1disputes~1{dispute_public_id}~1review'
+  /platform/marketplace/disputes/{dispute_public_id}/notes:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1platform~1marketplace~1disputes~1{dispute_public_id}~1notes'
+  /platform/marketplace/disputes/{dispute_public_id}/resolution:
+    $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/paths/~1platform~1marketplace~1disputes~1{dispute_public_id}~1resolution'
   /health/live:
     get:
       tags: [Health]
@@ -1521,6 +1593,8 @@ components:
       $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/securitySchemes/AcsIntegrationAuth'
     sessionTenant:
       $ref: '../../007-identity-verification/contracts/openapi.yaml#/components/securitySchemes/sessionTenant'
+    sessionPlatform:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/securitySchemes/sessionPlatform'
     orderAccessToken:
       $ref: '../../007-identity-verification/contracts/openapi.yaml#/components/securitySchemes/orderAccessToken'
   headers:
@@ -1638,6 +1712,18 @@ components:
       schema:
         type: string
         pattern: '^[a-z][a-z0-9_.-]{2,119}$'
+    VenuePublicId:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/parameters/VenuePublicId'
+    AssetPublicId:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/parameters/AssetPublicId'
+    PublicationPublicId:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/parameters/PublicationPublicId'
+    RentalPublicId:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/parameters/RentalPublicId'
+    StatementPublicId:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/parameters/StatementPublicId'
+    DisputePublicId:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/parameters/DisputePublicId'
   responses:
     Problem:
       $ref: '../../005-acs-access-control/contracts/openapi.yaml#/components/responses/Problem'
@@ -1712,6 +1798,16 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
+    MarketplaceForbidden:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/responses/Forbidden'
+    MarketplaceNotFound:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/responses/NotFound'
+    MarketplaceConflict:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/responses/Conflict'
+    MarketplaceValidation:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/responses/Validation'
+    MarketplaceUnavailable:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/responses/Unavailable'
   schemas:
     Ulid:
       type: string
@@ -2702,3 +2798,59 @@ components:
       $ref: '../../007-identity-verification/contracts/openapi.yaml#/components/schemas/VerificationStatus'
     IdentityReviewDecision:
       $ref: '../../007-identity-verification/contracts/openapi.yaml#/components/schemas/ReviewDecision'
+    MarketplacePublicId:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/PublicId'
+    MarketplaceLocalizedText:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/LocalizedText'
+    MarketplaceMoney:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/Money'
+    MarketplaceCursorMeta:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/CursorMeta'
+    MarketplaceProblem:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/Problem'
+    VenueInput:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/VenueInput'
+    Venue:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/Venue'
+    VenueStatusRequest:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/VenueStatusRequest'
+    VenueAssetInput:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/AssetInput'
+    VenueAsset:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/Asset'
+    AvailabilityWindowInput:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/AvailabilityWindowInput'
+    AvailabilityWindow:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/AvailabilityWindow'
+    AvailabilitySetRequest:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/AvailabilitySetRequest'
+    MarketplaceCatalogItem:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/CatalogItem'
+    MarketplaceQuoteRequest:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/QuoteRequest'
+    MarketplaceQuoteLine:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/QuoteLine'
+    MarketplaceQuote:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/Quote'
+    MarketplaceRentalCreateRequest:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/RentalCreateRequest'
+    MarketplaceRentalDecisionRequest:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/RentalDecisionRequest'
+    MarketplaceRequiredReasonRequest:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/RequiredReasonRequest'
+    MarketplaceDelegation:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/Delegation'
+    MarketplaceRental:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/Rental'
+    MarketplaceStatement:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/Statement'
+    MarketplaceDisputeCreateRequest:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/DisputeCreateRequest'
+    MarketplaceDispute:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/Dispute'
+    MarketplacePlatformDisputeNoteRequest:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/PlatformDisputeNoteRequest'
+    MarketplacePlatformDisputeResolutionRequest:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/PlatformDisputeResolutionRequest'
+    MarketplaceStatementRevisionRequest:
+      $ref: '../../009-venue-marketplace/contracts/openapi.yaml#/components/schemas/StatementRevisionRequest'

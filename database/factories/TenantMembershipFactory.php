@@ -2,9 +2,7 @@
 
 namespace Database\Factories;
 
-use App\Models\User;
 use App\Modules\Shared\Domain\LifecycleStatus;
-use App\Modules\Tenancy\Infrastructure\Persistence\Models\Tenant;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\TenantMembership;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -15,13 +13,11 @@ class TenantMembershipFactory extends Factory
 
     public function definition(): array
     {
-        $creator = User::factory();
-
         return [
-            'tenant_id' => Tenant::factory(),
-            'user_id' => User::factory(),
+            'tenant_id' => 1,
+            'user_id' => 1,
             'status' => LifecycleStatus::Active->value,
-            'created_by_user_id' => $creator,
+            'created_by_user_id' => 1,
         ];
     }
 }

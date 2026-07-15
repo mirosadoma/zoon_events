@@ -4,6 +4,8 @@ namespace App\Modules\Tenancy\Providers;
 
 use App\Modules\Authorization\Infrastructure\Persistence\Models\TenantRole;
 use App\Modules\Authorization\Infrastructure\Persistence\Models\TenantRoleAssignment;
+use App\Modules\Tenancy\Application\Contracts\OrganizationEligibility;
+use App\Modules\Tenancy\Application\Services\DatabaseOrganizationEligibility;
 use App\Modules\Tenancy\Contracts\TenantContextResolver;
 use App\Modules\Tenancy\Domain\Context\TenantContextStore;
 use App\Modules\Tenancy\Http\Bindings\TenantScopedBinding;
@@ -16,6 +18,7 @@ class TenancyServiceProvider extends ServiceProvider
     {
         $this->app->singleton(TenantContextStore::class);
         $this->app->alias(TenantContextStore::class, TenantContextResolver::class);
+        $this->app->bind(OrganizationEligibility::class, DatabaseOrganizationEligibility::class);
     }
 
     public function boot(): void

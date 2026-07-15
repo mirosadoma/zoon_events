@@ -16,6 +16,7 @@ final class StoreTenantRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:160'],
             'slug' => ['required', 'string', 'max:100', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/', 'unique:tenants,slug'],
+            'organization_type' => ['required', 'in:organizer,venue_owner,hybrid'],
             'default_locale' => ['required', 'in:en,ar'],
             'timezone' => ['required', 'timezone'],
             'data_residency_region' => ['required', 'string', 'max:64'],

@@ -4,6 +4,8 @@ namespace App\Modules\Events\Providers;
 
 use App\Modules\Events\Application\Context\DatabasePublicEventContextResolver;
 use App\Modules\Events\Application\Context\DatabasePublicOrderHostAuthorizer;
+use App\Modules\Events\Application\Contracts\MarketplaceEventReader;
+use App\Modules\Events\Application\Services\DatabaseMarketplaceEventReader;
 use App\Modules\Events\Contracts\ConfirmationEventReader;
 use App\Modules\Events\Contracts\EventScope;
 use App\Modules\Events\Contracts\PublicEventContextResolver;
@@ -22,5 +24,6 @@ final class EventsServiceProvider extends ServiceProvider
         $this->app->bind(PublicOrderHostAuthorizer::class, DatabasePublicOrderHostAuthorizer::class);
         $this->app->bind(EventScope::class, DatabaseEventScope::class);
         $this->app->bind(ConfirmationEventReader::class, DatabaseConfirmationEventReader::class);
+        $this->app->bind(MarketplaceEventReader::class, DatabaseMarketplaceEventReader::class);
     }
 }

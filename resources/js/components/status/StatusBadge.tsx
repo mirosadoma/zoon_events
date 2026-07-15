@@ -46,6 +46,20 @@ const STATUS_TONE: Record<string, BadgeTone> = {
   paired: 'success',
   unpaired: 'warning',
   queued: 'info',
+  suspended: 'warning',
+  archived: 'neutral',
+  maintenance: 'warning',
+  requested: 'info',
+  completed: 'success',
+  under_review: 'warning',
+  resolved: 'success',
+  issued: 'info',
+  superseded: 'neutral',
+  private: 'neutral',
+  withdrawn: 'warning',
+  reserved: 'info',
+  released: 'neutral',
+  none: 'neutral',
 }
 
 const TONE_CLASS: Record<BadgeTone, string> = {

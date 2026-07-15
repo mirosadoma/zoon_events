@@ -3,6 +3,8 @@
 namespace App\Modules\Authorization\Providers;
 
 use App\Modules\Authorization\Application\PermissionEvaluator;
+use App\Modules\Authorization\Application\Contracts\DelegatedControlGuard;
+use App\Modules\Authorization\Application\Services\DenyingDelegatedControlGuard;
 use App\Modules\Authorization\Contracts\PermissionEvaluator as PermissionEvaluatorContract;
 use App\Modules\Authorization\Policies\Phase1\Phase1Policy;
 use App\Modules\Authorization\Policies\Phase2\Phase2Policy;
@@ -23,6 +25,7 @@ class AuthorizationServiceProvider extends ServiceProvider
         $this->app->singleton(Phase2Policy::class);
         $this->app->singleton(Phase3Policy::class);
         $this->app->singleton(Phase4Policy::class);
+        $this->app->bind(DelegatedControlGuard::class, DenyingDelegatedControlGuard::class);
     }
 
     public function boot(): void
