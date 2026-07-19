@@ -14,8 +14,12 @@ use App\Modules\Events\Application\Support\EventMediaPresenter;
 use App\Modules\Events\Application\Support\PublicRegistrationEventPresenter;
 use App\Modules\Events\Application\Support\ResolvesEventOrganizer;
 use App\Modules\Events\Domain\EventRegistrationProfile;
+use App\Modules\Events\Infrastructure\Persistence\Models\CategoryTemplate;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventAgendaItem;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventBranding;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventCategory;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventCategoryPrivilege;
 use App\Modules\IdentityVerification\Application\Actions\ViewIdentityDataAction;
 use App\Modules\IdentityVerification\Application\Queries\PendingReviewQueue;
 use App\Modules\IdentityVerification\Infrastructure\Persistence\Models\IdentityVerification;
@@ -168,6 +172,132 @@ final class EventDashboardController extends Controller
             'tenantId' => (string) $context->tenant->id,
             'items' => $items,
         ]);
+    }
+
+    public function categories(string $eventId): Response
+    {
+        $context = $this->authorizeTenant('category.view');
+        $event = $this->event($context, $eventId);
+
+        $categories = EventCategory::query()
+            ->where('event_id', $event->id)
+            ->with('privileges')
+            ->orderBy('sort_order')
+            ->get()
+            ->map(fn (EventCategory $category): array => $this->mapCategory($category))
+            ->values()
+            ->all();
+
+        return Inertia::render('tenant/events/Categories', [
+            'event' => $this->events->detail($event)['event'],
+            'tenantId' => (string) $context->tenant->id,
+            'categories' => $categories,
+            'canManage' => $this->permissions->hasTenantPermission($context, 'category.manage'),
+        ]);
+    }
+
+    public function createCategory(string $eventId): Response
+    {
+        $context = $this->authorizeTenant('category.manage');
+        $event = $this->event($context, $eventId);
+
+        return Inertia::render('tenant/events/CategoryForm', [
+            'event' => $this->events->detail($event)['event'],
+            'tenantId' => (string) $context->tenant->id,
+            'category' => null,
+            'privilegeCatalog' => $this->privilegeCatalog((string) $context->tenant->id),
+        ]);
+    }
+
+    public function editCategory(): Response
+    {
+        $context = $this->authorizeTenant('category.manage');
+        $event = $this->event($context);
+        $categoryId = $this->routeParam('category_id');
+
+        $category = EventCategory::query()
+            ->where('event_id', $event->id)
+            ->with('privileges')
+            ->findOrFail($categoryId);
+
+        return Inertia::render('tenant/events/CategoryForm', [
+            'event' => $this->events->detail($event)['event'],
+            'tenantId' => (string) $context->tenant->id,
+            'category' => $this->mapCategory($category),
+            'privilegeCatalog' => $this->privilegeCatalog((string) $context->tenant->id, $category),
+        ]);
+    }
+
+    /**
+     * @return list<array{key: string, label: string, label_ar: string|null, target_type: string|null, target_id: string|null}>
+     */
+    private function privilegeCatalog(string $tenantId, ?EventCategory $category = null): array
+    {
+        $catalog = [];
+
+        $templates = CategoryTemplate::query()
+            ->withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)
+            ->with('privileges')
+            ->orderBy('sort_order')
+            ->get();
+
+        foreach ($templates as $template) {
+            foreach ($template->privileges as $privilege) {
+                if (isset($catalog[$privilege->key])) {
+                    continue;
+                }
+
+                $catalog[$privilege->key] = [
+                    'key' => $privilege->key,
+                    'label' => $privilege->label,
+                    'label_ar' => $privilege->label_ar,
+                    'target_type' => $privilege->target_type,
+                    'target_id' => $privilege->target_id,
+                ];
+            }
+        }
+
+        if ($category !== null) {
+            foreach ($category->privileges as $privilege) {
+                if (isset($catalog[$privilege->key])) {
+                    continue;
+                }
+
+                $catalog[$privilege->key] = [
+                    'key' => $privilege->key,
+                    'label' => $privilege->label,
+                    'label_ar' => $privilege->label_ar,
+                    'target_type' => $privilege->target_type,
+                    'target_id' => $privilege->target_id,
+                ];
+            }
+        }
+
+        return array_values($catalog);
+    }
+
+    /** @return array<string, mixed> */
+    private function mapCategory(EventCategory $category): array
+    {
+        return [
+            'id' => (string) $category->id,
+            'name' => $category->name,
+            'name_ar' => $category->name_ar,
+            'slug' => $category->slug,
+            'color' => $category->color,
+            'capacity' => $category->capacity,
+            'sort_order' => $category->sort_order,
+            'privileges' => $category->privileges->map(fn (EventCategoryPrivilege $privilege): array => [
+                'id' => (string) $privilege->id,
+                'key' => $privilege->key,
+                'label' => $privilege->label,
+                'label_ar' => $privilege->label_ar,
+                'effect' => $privilege->effect,
+                'target_type' => $privilege->target_type,
+                'target_id' => $privilege->target_id,
+            ])->values()->all(),
+        ];
     }
 
     public function identityRequirements(string $eventId): Response
@@ -443,12 +573,18 @@ final class EventDashboardController extends Controller
             && $version->status === 'draft'
             && ($publishedVersion === null || (int) $version->version > (int) $publishedVersion->version);
 
+        $branding = EventBranding::query()
+            ->where('tenant_id', $tenantId)
+            ->where('event_id', $event->id)
+            ->first();
+
         return [
             'formName' => $form?->name ?? 'Registration form',
             'privacyNoticeVersion' => (string) ($version?->privacy_notice_version ?? 'v1'),
             'termsVersion' => (string) ($version?->terms_version ?? 'v1'),
             'fields' => $fields,
             'hasUnpublishedChanges' => $hasUnpublishedChanges,
+            'theme' => $branding?->theme_config,
         ];
     }
 }

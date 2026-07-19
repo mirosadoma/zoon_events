@@ -2,7 +2,7 @@ import { router } from '@inertiajs/react'
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useMemo, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
-import EventDetailHero from '@/components/events/EventDetailHero'
+// import EventDetailHero from '@/components/events/EventDetailHero'
 import EventSectionGrid from '@/components/events/EventSectionGrid'
 import PublishReadinessList from '@/components/events/PublishReadinessList'
 import EventNextSteps from '@/components/events/EventNextSteps'
@@ -53,9 +53,9 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
   async function copyRegistrationLink(url: string) {
     try {
       await navigator.clipboard.writeText(url)
-      toast(locale === 'ar' ? 'تم النسخ' : 'Copied', 'success')
+      toast(t('copied'), 'success')
     } catch {
-      toast(locale === 'ar' ? 'تعذر نسخ الرابط.' : 'Could not copy the link.', 'error')
+      toast(t('eventDetailCouldNotCopyLink'), 'error')
     }
   }
 
@@ -93,12 +93,7 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
         tenantId,
         idempotency: true,
       })
-      toast(
-        action === 'publish'
-          ? (locale === 'ar' ? 'تم نشر الفعالية.' : 'Event published.')
-          : (locale === 'ar' ? 'تم إلغاء الفعالية.' : 'Event cancelled.'),
-        'success',
-      )
+      toast(action === 'publish' ? t('eventDetailPublished') : t('eventDetailCancelled'), 'success')
       setPublishOpen(false)
       setCancelOpen(false)
       setApiPublishMissing(null)
@@ -112,14 +107,12 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
       }
 
       const publishErrorMessage = action === 'publish' && error instanceof ApiFetchError && error.missing.length > 0
-        ? (locale === 'ar'
-          ? `لا يمكن النشر — متبقي ${error.missing.length} متطلبات.`
-          : `Cannot publish — ${error.missing.length} requirement(s) remain.`)
+        ? t('eventDetailCannotPublish').replace(':count', String(error.missing.length))
         : error instanceof ApiFetchError
           ? error.message
           : action === 'publish'
-            ? (locale === 'ar' ? 'تعذر نشر الفعالية.' : 'Failed to publish event.')
-            : (locale === 'ar' ? 'تعذر إلغاء الفعالية.' : 'Failed to cancel event.')
+            ? t('eventDetailFailedToPublish')
+            : t('eventDetailFailedToCancel')
 
       toast(publishErrorMessage, 'error')
     } finally {
@@ -132,16 +125,16 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
     setPublishOpen(true)
   }
 
-  const publishButtonLabel = locale === 'ar' ? 'نشر' : 'Publish'
+  const publishButtonLabel = t('publish')
 
   return (
     <DashboardLayout title={event.name[locale]}>
       <PageHeader
         title={event.name[locale]}
-        description={locale === 'ar' ? 'تفاصيل الفعالية وإعداداتها.' : 'Event details and configuration.'}
+        description={t('eventDetailDescription')}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale] },
         ]}
         actions={(
@@ -153,9 +146,9 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
               />
             ) : null}
             <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/agenda-preview`} target="_blank" rel="noreferrer">
-              {locale === 'ar' ? 'معاينة' : 'Preview'}
+              {t('preview')}
             </LocalizedLink>
-            <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/edit`}>{locale === 'ar' ? 'تعديل' : 'Edit'}</LocalizedLink>
+            <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/edit`}>{t('edit')}</LocalizedLink>
             <PermissionGate permission="event.publish">
               {canPublishNow ? (
                 <button type="button" className="button-primary" onClick={openPublishModal} disabled={submitting === 'publish'}>
@@ -164,13 +157,13 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
               ) : null}
             </PermissionGate>
             <PermissionGate permission="event.cancel">
-              <button type="button" className="button-secondary" onClick={() => setCancelOpen(true)}>{locale === 'ar' ? 'إلغاء' : 'Cancel'}</button>
+              <button type="button" className="button-secondary" onClick={() => setCancelOpen(true)}>{t('cancel')}</button>
             </PermissionGate>
           </div>
         )}
       />
       <PageContent>
-        <EventDetailHero
+        {/* <EventDetailHero
           status={event.status}
           tier={event.tier}
           eventType={event.event_type}
@@ -182,14 +175,14 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
           setupProgress={setupProgress}
           capabilities={capabilities}
           published={setupProgress.published}
-        />
+        /> */}
 
         {statusBlockers.length > 0 ? (
           <PublishReadinessList
             className="mt-6"
             items={statusBlockers}
             eventId={event.id}
-            title={locale === 'ar' ? 'حالة الفعالية' : 'Event status'}
+            title={t('eventDetailEventStatus')}
             variant="info"
             context={readinessContext}
           />
@@ -200,7 +193,7 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
             className="mt-6"
             items={requirements}
             eventId={event.id}
-            title={locale === 'ar' ? 'متطلبات النشر قبل الإطلاق' : 'Requirements before publishing'}
+            title={t('eventDetailRequirementsBeforePublishing')}
             variant="alert"
             context={readinessContext}
           />
@@ -208,6 +201,10 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
 
         <EventNextSteps
           eventId={event.id}
+          status={event.status}
+          tier={event.tier}
+          eventType={event.event_type}
+          registrationMode={event.registration_mode}
           readiness={effectiveReadiness}
           capabilities={capabilities}
           context={readinessContext}
@@ -225,22 +222,22 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
           <div className="event-sections-header">
             <div>
               <p className="event-sections-kicker">
-                {locale === 'ar' ? 'التنقل السريع' : 'Quick navigation'}
+                {t('eventDetailQuickNavigation')}
               </p>
-              <h2 className="text-lg font-semibold">{locale === 'ar' ? 'أقسام الفعالية' : 'Event sections'}</h2>
+              <h2 className="text-lg font-semibold">{t('eventDetailEventSections')}</h2>
             </div>
           </div>
 
           <div className="event-sections-group">
             <h3 className="event-sections-group-title">
-              {locale === 'ar' ? 'إعداد الفعالية' : 'Event setup'}
+              {t('eventDetailEventSetup')}
             </h3>
             <EventSectionGrid tabs={setupTabs} />
           </div>
 
           <div className="event-sections-group">
             <h3 className="event-sections-group-title">
-              {locale === 'ar' ? 'عمليات الفعالية' : 'Event operations'}
+              {t('eventDetailEventOperations')}
             </h3>
             <EventSectionGrid tabs={operationsTabs} />
           </div>
@@ -249,16 +246,10 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
 
       <ConfirmModal
         open={publishOpen}
-        title={locale === 'ar' ? 'نشر الفعالية' : 'Publish event'}
-        message={
-          canPublishNow
-            ? (locale === 'ar' ? 'سيتم نشر الفعالية للمشتركين.' : 'This will publish the event for attendees.')
-            : (locale === 'ar'
-              ? 'لا يمكن نشر الفعالية حتى تكتمل المتطلبات التالية:'
-              : 'The event cannot be published until the following requirements are completed:')
-        }
-        confirmLabel={locale === 'ar' ? 'نشر' : 'Publish'}
-        cancelLabel={locale === 'ar' ? 'إغلاق' : 'Close'}
+        title={t('eventDetailPublishEvent')}
+        message={canPublishNow ? t('eventDetailPublishMessage') : t('eventDetailCannotPublishMessage')}
+        confirmLabel={t('publish')}
+        cancelLabel={t('close')}
         loading={submitting !== null}
         confirmDisabled={!canPublishNow}
         onConfirm={() => void runStatusAction('publish')}
@@ -274,9 +265,9 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
       </ConfirmModal>
       <ConfirmModal
         open={cancelOpen}
-        title={locale === 'ar' ? 'إلغاء الفعالية' : 'Cancel event'}
-        message={locale === 'ar' ? 'سيتم إيقاف التسجيل والعمليات المرتبطة.' : 'This will stop registration and related operations.'}
-        confirmLabel={locale === 'ar' ? 'تأكيد الإلغاء' : 'Confirm cancel'}
+        title={t('eventDetailCancelEvent')}
+        message={t('eventDetailCancelMessage')}
+        confirmLabel={t('eventDetailConfirmCancel')}
         loading={submitting !== null}
         onConfirm={() => void runStatusAction('cancel')}
         onCancel={() => setCancelOpen(false)}

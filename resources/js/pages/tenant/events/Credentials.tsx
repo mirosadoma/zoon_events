@@ -89,7 +89,7 @@ export default function Credentials({
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: t('credentials') },
         ]}
@@ -101,10 +101,10 @@ export default function Credentials({
               value={search}
               onChange={setSearch}
               label={t('search')}
-              placeholder={locale === 'ar' ? 'رمز أو حاضر' : 'Code or attendee'}
+              placeholder={t('credentialsSearchPlaceholder')}
             />
             <SelectInput
-              label={locale === 'ar' ? 'الحالة' : 'Status'}
+              label={t('status')}
               name="status"
               value={statusFilter}
               onChange={(changeEvent) => {
@@ -128,7 +128,7 @@ export default function Credentials({
               columns={[
                 {
                   key: 'code',
-                  header: locale === 'ar' ? 'الرمز' : 'Code',
+                  header: t('credentialsCode'),
                   render: (row) => {
                     const credential = row as unknown as CredentialRow
 
@@ -141,7 +141,7 @@ export default function Credentials({
                 },
                 {
                   key: 'status',
-                  header: locale === 'ar' ? 'الحالة' : 'Status',
+                  header: t('status'),
                   render: (row) => <StatusBadge status={String(row.status)} />,
                 },
                 {
@@ -157,8 +157,8 @@ export default function Credentials({
                     )
                   },
                 },
-                { key: 'issued_at', header: locale === 'ar' ? 'تاريخ الإصدار' : 'Issued' },
-                { key: 'expires_at', header: locale === 'ar' ? 'تاريخ الانتهاء' : 'Expires' },
+                { key: 'issued_at', header: t('credentialsIssued') },
+                { key: 'expires_at', header: t('credentialsExpires') },
               ]}
             />
             <Pagination

@@ -75,7 +75,7 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
       return true
     }
 
-    toast(locale === 'ar' ? 'سياق المستأجر غير متوفر.' : 'Tenant context is unavailable.', 'error')
+    toast(t('attendeeDetailTenantUnavailable'), 'error')
 
     return false
   }
@@ -90,11 +90,11 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
         idempotency: true,
         body: { reason },
       })
-      toast(locale === 'ar' ? 'تم إلغاء بيانات الدخول.' : 'Credential revoked.', 'success')
+      toast(t('attendeeDetailCredentialRevoked'), 'success')
       router.reload({ only: ['attendee'] })
       return true
     } catch (error) {
-      toast(extractError(error, locale === 'ar' ? 'تعذر إلغاء بيانات الدخول.' : 'Failed to revoke credential.'), 'error')
+      toast(extractError(error, t('attendeeDetailCredentialRevokeFailed')), 'error')
       return false
     } finally {
       setBusyAction(null)
@@ -111,11 +111,11 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
         idempotency: true,
         body: { reason },
       })
-      toast(locale === 'ar' ? 'تمت إعادة إصدار بيانات الدخول.' : 'Credential reissued.', 'success')
+      toast(t('attendeeDetailCredentialReissued'), 'success')
       router.reload({ only: ['attendee'] })
       return true
     } catch (error) {
-      toast(extractError(error, locale === 'ar' ? 'تعذر إعادة إصدار بيانات الدخول.' : 'Failed to reissue credential.'), 'error')
+      toast(extractError(error, t('attendeeDetailCredentialReissueFailed')), 'error')
       return false
     } finally {
       setBusyAction(null)
@@ -132,9 +132,9 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
         idempotency: true,
         body: { attendee_id: attendee.id, credential_id: attendee.credential.id },
       })
-      toast(locale === 'ar' ? 'تم إنشاء مهمة طباعة البطاقة.' : 'Badge print job created.', 'success')
+      toast(t('attendeeDetailBadgeJobCreated'), 'success')
     } catch (error) {
-      toast(extractError(error, locale === 'ar' ? 'تعذرت طباعة البطاقة.' : 'Failed to print badge.'), 'error')
+      toast(extractError(error, t('attendeeDetailBadgeFailed')), 'error')
     } finally {
       setBusyAction(null)
     }
@@ -154,10 +154,10 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
           override: false,
         },
       })
-      toast(locale === 'ar' ? 'تم تسجيل الحضور.' : 'Attendee checked in.', 'success')
+      toast(t('attendeeDetailCheckedIn'), 'success')
       router.reload({ only: ['attendee'] })
     } catch (error) {
-      toast(extractError(error, locale === 'ar' ? 'تعذر تسجيل الحضور يدويًا.' : 'Failed to check in attendee manually.'), 'error')
+      toast(extractError(error, t('attendeeDetailCheckinFailed')), 'error')
     } finally {
       setBusyAction(null)
     }
@@ -176,7 +176,7 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: t('attendees'), href: `/tenant/events/${event.id}/attendees` },
           { label: attendee.label },
@@ -208,12 +208,12 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
             { label: t('attendeeEmail'), value: displayValue(attendee.email) },
             { label: t('attendeePhone'), value: displayValue(attendee.phone) },
             { label: t('checkInStatus'), value: <StatusBadge status={attendee.status} /> },
-            { label: locale === 'ar' ? 'اللغة' : 'Locale', value: attendee.locale },
-            { label: locale === 'ar' ? 'المصدر' : 'Origin', value: attendee.origin ?? '—' },
-            { label: locale === 'ar' ? 'تاريخ التسجيل' : 'Registered', value: attendee.registered_at ?? '—' },
-            { label: locale === 'ar' ? 'أول تسجيل حضور' : 'First check-in', value: attendee.first_checked_in_at ?? '—' },
+            { label: t('attendeeDetailLocale'), value: attendee.locale },
+            { label: t('attendeeDetailOrigin'), value: attendee.origin ?? '—' },
+            { label: t('attendeeDetailRegistered'), value: attendee.registered_at ?? '—' },
+            { label: t('attendeeDetailFirstCheckIn'), value: attendee.first_checked_in_at ?? '—' },
             {
-              label: locale === 'ar' ? 'الطلب' : 'Order',
+              label: t('attendeeDetailOrder'),
               value: attendee.order_id
                 ? (
                   <LocalizedLink href={`/tenant/events/${event.id}/orders/${String(attendee.order_id)}`} className="text-sky-700 hover:underline">
@@ -227,14 +227,14 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
 
         {attendee.credential && (
           <section className="state-panel mt-6">
-            <h2 className="text-lg font-semibold">{locale === 'ar' ? 'بيانات الدخول' : 'Credential'}</h2>
+            <h2 className="text-lg font-semibold">{t('attendeeDetailCredential')}</h2>
             <dl className="mt-4 grid gap-3 sm:grid-cols-2">
               <div>
-                <dt className="text-xs uppercase tracking-wide text-slate-500">{locale === 'ar' ? 'الحالة' : 'Status'}</dt>
+                <dt className="text-xs uppercase tracking-wide text-slate-500">{t('attendeeDetailCredentialStatus')}</dt>
                 <dd className="mt-1"><StatusBadge status={attendee.credential.status} /></dd>
               </div>
               <div>
-                <dt className="text-xs uppercase tracking-wide text-slate-500">{locale === 'ar' ? 'الرمز' : 'Credential'}</dt>
+                <dt className="text-xs uppercase tracking-wide text-slate-500">{t('attendeeDetailCredentialCode')}</dt>
                 <dd className="mt-1">
                   <LocalizedLink href={`/tenant/events/${event.id}/credentials/${String(attendee.credential.id)}`} className="text-sky-700 hover:underline">
                     {String(attendee.credential.id).slice(-8)}

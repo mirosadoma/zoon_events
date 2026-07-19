@@ -1,5 +1,7 @@
 import type { AppLocale } from '@/lib/localePath'
 import { allowsPaidTicketing, requiresTicketing } from '@/lib/eventOptions'
+import en from '@/locales/en'
+import ar from '@/locales/ar'
 
 export type EventSetupWizardStep = 'type' | 'details' | 'schedule' | 'branding' | 'review'
 
@@ -95,7 +97,7 @@ export function validateEventSetupWizardStep(
   },
 ): Record<string, string> {
   const errors: Record<string, string> = {}
-  const required = options.locale === 'ar' ? 'هذا الحقل مطلوب.' : 'This field is required.'
+  const required = (options.locale === 'ar' ? ar : en).fieldRequired
 
   if (step === 'type') {
     if (!form.event_type) errors.event_type = required

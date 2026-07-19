@@ -54,7 +54,7 @@ function readTargetRect(selector: string): TargetRect | null {
 }
 
 export default function ProductTour({ errorHint }: ProductTourProps) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const isDesktop = useIsDesktop()
   const messages = locale === 'ar' ? ar : en
   const { props } = usePage<PageProps>()
@@ -232,7 +232,7 @@ export default function ProductTour({ errorHint }: ProductTourProps) {
         <p className="mt-2 text-sm text-[var(--muted)]">{current.body[locale]}</p>
         {!spotlight ? (
           <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-            {locale === 'ar' ? 'افتح القائمة الجانبية أو انتقل للصفحة المناسبة لمتابعة الجولة.' : 'Open the sidebar or navigate to the relevant page to continue the tour.'}
+            {t('productTourNoSpotlight')}
           </p>
         ) : null}
         {hintMessage || errorHint ? (

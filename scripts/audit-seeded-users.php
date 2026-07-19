@@ -20,14 +20,8 @@ $definitions = PermissionSeeder::definitions();
 echo "=== Seeded user credentials & permission audit ===\n\n";
 
 $credentials = [
-    DemoAccounts::PRIMARY_DEMO_EMAIL => DemoAccounts::PRIMARY_DEMO_PASSWORD,
-    DemoAccounts::ONSITE_EMAIL => DemoAccounts::ONSITE_PASSWORD,
-    DemoAccounts::ACS_EMAIL => DemoAccounts::ACS_PASSWORD,
-    DemoAccounts::TICKETING_EMAIL => DemoAccounts::TICKETING_PASSWORD,
-    DemoAccounts::PLATFORM_ADMIN_EMAIL => config('zonetec.bootstrap_admin_password', 'admin1234'),
-    DemoAccounts::FIXTURE_CREATOR_EMAIL => DemoAccounts::FIXTURE_CREATOR_PASSWORD,
-    DemoAccounts::FIXTURE_ALPHA_EMAIL => DemoAccounts::FIXTURE_ALPHA_PASSWORD,
-    DemoAccounts::FIXTURE_BRAVO_EMAIL => DemoAccounts::FIXTURE_BRAVO_PASSWORD,
+    DemoAccounts::ADMIN_EMAIL  => DemoAccounts::ADMIN_PASSWORD,
+    DemoAccounts::TENANT_EMAIL => DemoAccounts::TENANT_PASSWORD,
 ];
 
 foreach (User::query()->orderBy('email')->get() as $user) {
@@ -76,6 +70,6 @@ foreach (User::query()->orderBy('email')->get() as $user) {
 }
 
 echo "=== FoundationSeeder role definitions (expected) ===\n\n";
-echo "Platform roles: Platform Administrator, Security Auditor, Operations Viewer\n";
-echo "Tenant roles (per tenant): Tenant Administrator, Event Manager, Ticketing Manager, On-Site Staff, ACS Operator\n";
+echo "Platform roles: Super Administrator\n";
+echo "Tenant roles: Tenant Administrator, Event Manager\n";
 echo "\nRun after `php artisan db:seed` to verify assignments.\n";

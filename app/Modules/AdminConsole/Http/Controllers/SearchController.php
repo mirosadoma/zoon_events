@@ -76,27 +76,7 @@ final class SearchController extends Controller
             }
         }
 
-        if ($this->permissions->hasPlatformPermission($user, 'platform.user.view')) {
-            $users = User::query()
-                ->where(function ($builder) use ($query): void {
-                    $builder
-                        ->where('name', 'like', "%{$query}%")
-                        ->orWhere('email', 'like', "%{$query}%");
-                })
-                ->orderBy('name')
-                ->limit(5)
-                ->get(['id', 'name', 'email']);
-
-            foreach ($users as $row) {
-                $results[] = [
-                    'type' => 'user',
-                    'id' => (string) $row->id,
-                    'label' => $row->name,
-                    'href' => '/platform/users',
-                    'meta' => $row->email,
-                ];
-            }
-        } elseif ($context !== null && $this->permissions->hasTenantPermission($context, 'membership.view')) {
+        if ($context !== null && $this->permissions->hasTenantPermission($context, 'membership.view')) {
             $visibleUserIds = $this->membershipVisibility
                 ->scopeVisibleMemberships(TenantMembership::query(), $context, $user)
                 ->pluck('user_id');

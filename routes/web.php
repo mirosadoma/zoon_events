@@ -1,6 +1,5 @@
 <?php
 
-use App\Modules\AdminConsole\Http\Controllers\Auth\OrganizerRegistrationController;
 use App\Modules\AdminConsole\Http\Controllers\Auth\SessionController;
 use App\Modules\AdminConsole\Http\Controllers\DashboardController;
 use App\Modules\AdminConsole\Http\Controllers\GeographyAdminController;
@@ -8,11 +7,13 @@ use App\Modules\AdminConsole\Http\Controllers\Kiosk\KioskModeController;
 use App\Modules\AdminConsole\Http\Controllers\LandingController;
 use App\Modules\AdminConsole\Http\Controllers\LocaleController;
 use App\Modules\AdminConsole\Http\Controllers\MaintenancePageController;
-use App\Modules\AdminConsole\Http\Controllers\OrganizerRequestAdminController;
+use App\Modules\AdminConsole\Http\Controllers\MarketingSiteController;
 use App\Modules\AdminConsole\Http\Controllers\Platform\PlatformMarketplacePageController;
 use App\Modules\AdminConsole\Http\Controllers\PlatformPageController;
+use App\Modules\AdminConsole\Http\Controllers\PlatformSubscriptionsController;
 use App\Modules\AdminConsole\Http\Controllers\Public\PublicEventAgendaController;
 use App\Modules\AdminConsole\Http\Controllers\Public\PublicEventRegistrationController;
+use App\Modules\AdminConsole\Http\Controllers\Public\PublicSubscribeController;
 use App\Modules\AdminConsole\Http\Controllers\SearchController;
 use App\Modules\AdminConsole\Http\Controllers\SiteSettingsController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Acs\AcsPageController;
@@ -53,6 +54,11 @@ Route::prefix('{locale}')
     ->where(['locale' => 'en|ar'])
     ->group(function (): void {
         Route::get('/', LandingController::class)->name('home');
+        Route::get('/about', [MarketingSiteController::class, 'about'])->name('marketing.about');
+        Route::get('/solutions', [MarketingSiteController::class, 'solutions'])->name('marketing.solutions');
+        Route::get('/contact', [MarketingSiteController::class, 'contact'])->name('marketing.contact');
+        Route::get('/privacy', [MarketingSiteController::class, 'privacy'])->name('marketing.privacy');
+        Route::get('/terms', [MarketingSiteController::class, 'terms'])->name('marketing.terms');
         Route::get('/maintenance', MaintenancePageController::class)->name('maintenance');
         Route::middleware('kiosk.session.clear')->group(function (): void {
             Route::get('/kiosk/{device_code}', [KioskModeController::class, 'show'])->name('kiosk.mode.localized');
@@ -76,12 +82,11 @@ Route::prefix('{locale}')
         Route::post('/notifications/unsubscribe', [UnsubscribePageController::class, 'store'])
             ->name('public.notifications.unsubscribe.confirm');
         Route::post('/locale', [LocaleController::class, 'update'])->name('locale.update');
+        Route::get('/subscribe/{plan}', [PublicSubscribeController::class, 'show'])->name('public.subscribe');
 
         Route::middleware('guest')->group(function (): void {
             Route::get('/login', [SessionController::class, 'create'])->name('login');
             Route::post('/login', [SessionController::class, 'store'])->middleware('throttle:auth');
-            Route::get('/register', [OrganizerRegistrationController::class, 'create'])->name('register.organizer');
-            Route::post('/register', [OrganizerRegistrationController::class, 'store'])->middleware('throttle:auth');
         });
 
         Route::middleware('auth')->group(function (): void {
@@ -99,12 +104,13 @@ Route::prefix('{locale}')
             Route::post('/platform/geography/cities', [GeographyAdminController::class, 'storeCity'])->name('platform.geography.cities.store');
             Route::patch('/platform/geography/cities/{city}', [GeographyAdminController::class, 'updateCity'])->name('platform.geography.cities.update');
             Route::delete('/platform/geography/cities/{city}', [GeographyAdminController::class, 'destroyCity'])->name('platform.geography.cities.destroy');
-            Route::get('/platform/organizer-requests', [OrganizerRequestAdminController::class, 'index'])->name('platform.organizer-requests');
-            Route::post('/platform/organizer-requests/{requestId}/approve', [OrganizerRequestAdminController::class, 'approve'])->name('platform.organizer-requests.approve');
-            Route::post('/platform/organizer-requests/{requestId}/reject', [OrganizerRequestAdminController::class, 'reject'])->name('platform.organizer-requests.reject');
             Route::get('/platform/configuration', [PlatformPageController::class, 'configuration'])->name('platform.configuration');
             Route::get('/platform/marketplace', [PlatformMarketplacePageController::class, 'index'])->name('platform.marketplace.index');
             Route::get('/platform/marketplace/disputes/{dispute_public_id}', [PlatformMarketplacePageController::class, 'disputeShow'])->name('platform.marketplace.disputes.show');
+            Route::get('/platform/subscriptions', [PlatformSubscriptionsController::class, 'index'])->name('platform.subscriptions.index');
+            Route::get('/platform/subscriptions/create', [PlatformSubscriptionsController::class, 'create'])->name('platform.subscriptions.create');
+            Route::get('/platform/subscriptions/{plan}/edit', [PlatformSubscriptionsController::class, 'edit'])->name('platform.subscriptions.edit');
+            Route::get('/platform/subscriptions/{plan}', [PlatformSubscriptionsController::class, 'show'])->name('platform.subscriptions.show');
             Route::get('/platform/{section}', [PlatformPageController::class, 'show'])->name('dashboard.platform.section');
             Route::get('/notifications', [InAppNotificationController::class, 'index'])->name('notifications.index');
             Route::get('/api/notifications/unread-count', [InAppNotificationController::class, 'unreadCount'])->name('notifications.unread-count');
@@ -142,6 +148,9 @@ Route::prefix('{locale}')
                 Route::get('/{event_id}/edit', [EventDashboardController::class, 'edit'])->where('event_id', '[0-9]+')->name('tenant.events.edit');
                 Route::get('/{event_id}/registration-form', [EventDashboardController::class, 'registrationForm'])->name('tenant.registration.builder');
                 Route::get('/{event_id}/agenda', [EventDashboardController::class, 'agenda'])->where('event_id', '[0-9]+')->name('tenant.events.agenda');
+                Route::get('/{event_id}/categories', [EventDashboardController::class, 'categories'])->where('event_id', '[0-9]+')->name('tenant.events.categories');
+                Route::get('/{event_id}/categories/create', [EventDashboardController::class, 'createCategory'])->where('event_id', '[0-9]+')->name('tenant.events.categories.create');
+                Route::get('/{event_id}/categories/{category_id}/edit', [EventDashboardController::class, 'editCategory'])->where(['event_id' => '[0-9]+', 'category_id' => '[0-9]+'])->name('tenant.events.categories.edit');
                 Route::get('/{event_id}/identity', [EventDashboardController::class, 'identityRequirements'])->name('tenant.identity.requirements');
                 Route::get('/{event_id}/identity/review', [EventDashboardController::class, 'identityReview'])->name('tenant.identity.review');
                 Route::get('/{event_id}/identity/verifications/{verification_id}', [EventDashboardController::class, 'identityVerificationDetail'])->name('tenant.identity.verification');

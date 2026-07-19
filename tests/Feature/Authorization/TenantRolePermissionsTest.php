@@ -50,8 +50,8 @@ final class TenantRolePermissionsTest extends TestCase
     {
         $this->seed();
 
-        $user = User::query()->where('email', DemoAccounts::PRIMARY_DEMO_EMAIL)->firstOrFail();
-        $tenant = Tenant::query()->where('slug', 'fixture-alpha')->firstOrFail();
+        $user = User::query()->where('email', DemoAccounts::TENANT_EMAIL)->firstOrFail();
+        $tenant = Tenant::query()->where('slug', DemoAccounts::TENANT_SLUG)->firstOrFail();
         $role = TenantRole::query()
             ->withoutGlobalScopes()
             ->where('tenant_id', $tenant->id)

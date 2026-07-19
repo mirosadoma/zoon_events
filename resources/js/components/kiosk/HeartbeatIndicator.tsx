@@ -22,17 +22,17 @@ const TONE_DOT: Record<string, string> = {
 }
 
 export function HeartbeatIndicator({ kiosk }: HeartbeatIndicatorProps) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const ar = locale === 'ar'
   const tone = heartbeatTone(kiosk)
   const lastSeen = kiosk.last_heartbeat_at
     ? new Date(kiosk.last_heartbeat_at).toLocaleString(ar ? 'ar-EG' : 'en-US')
-    : (ar ? 'أبداً' : 'never')
+    : t('heartbeatNever')
 
   return (
     <span
       className="inline-flex items-center gap-2 text-sm text-[var(--muted)]"
-      title={`${ar ? 'آخر نبضة' : 'Last heartbeat'}: ${lastSeen}`}
+      title={`${t('heartbeatLastTitle')}: ${lastSeen}`}
     >
       <span
         className={clsx(
@@ -45,7 +45,7 @@ export function HeartbeatIndicator({ kiosk }: HeartbeatIndicatorProps) {
         <span className={clsx('relative inline-flex h-2.5 w-2.5 rounded-full', TONE_DOT[tone])} />
       </span>
       <span className="sr-only">
-        {ar ? 'آخر نبضة' : 'Last heartbeat'}: {lastSeen}
+        {t('heartbeatLastTitle')}: {lastSeen}
       </span>
       <span>{lastSeen}</span>
     </span>

@@ -27,6 +27,15 @@ type TicketTypeOption = {
   currency: string
 }
 
+type ThemeConfig = {
+  primary_color?: string
+  accent_color?: string
+  background_color?: string
+  font_family?: string
+  logo_path?: string
+  header_image_path?: string
+}
+
 type Props = {
   locale: 'en' | 'ar'
   tenantId?: string
@@ -44,6 +53,7 @@ type Props = {
   }
   ticketTypes?: TicketTypeOption[]
   requiresTicketSelection?: boolean
+  theme?: ThemeConfig | null
 }
 
 type SuccessState = {
@@ -87,9 +97,19 @@ export default function PublicRegistrationEvent({
   form,
   ticketTypes = [],
   requiresTicketSelection = true,
+  theme,
 }: Props) {
   const { t } = useLocale()
   const direction = locale === 'ar' ? 'rtl' : 'ltr'
+  const themeStyle = useMemo(() => {
+    if (!theme) return undefined
+    const vars: Record<string, string> = {}
+    if (theme.primary_color) vars['--reg-primary'] = theme.primary_color
+    if (theme.accent_color) vars['--reg-accent'] = theme.accent_color
+    if (theme.background_color) vars['--reg-bg'] = theme.background_color
+    if (theme.font_family) vars['--reg-font'] = theme.font_family
+    return Object.keys(vars).length > 0 ? vars as React.CSSProperties : undefined
+  }, [theme])
   const registrationFields = useMemo(
     () => form.fields.filter((field) => field.type !== 'consent'),
     [form.fields],
@@ -286,7 +306,7 @@ export default function PublicRegistrationEvent({
   return (
     <>
       <RegistrationPageControls locale={locale} />
-      <main className={`registration-invite${isPreview ? ' registration-invite-preview' : ''}`} lang={locale} dir={direction}>
+      <main className={`registration-invite${isPreview ? ' registration-invite-preview' : ''}`} lang={locale} dir={direction} style={themeStyle}>
         <RegistrationEventHero locale={locale} event={event} isPreview={isPreview}>
           {requiresTicketSelection && ticketTypes.length > 0 ? (
             <section

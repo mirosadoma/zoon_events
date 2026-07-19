@@ -31,23 +31,22 @@ type Props = {
 
 export default function AcsOverview({ event, tenantId, overview }: Props) {
   const { locale, t } = useLocale()
-  const ar = locale === 'ar'
 
   const stats = [
     {
-      label: ar ? 'المناطق' : 'Zones',
+      label: t('acsPageZones'),
       value: overview.zones_total,
       href: `/tenant/events/${event.id}/acs/zones`,
       tone: 'ta-stat-card-sky',
     },
     {
-      label: ar ? 'المسارات' : 'Lanes',
+      label: t('acsPageLanes'),
       value: overview.lanes_total,
       href: `/tenant/events/${event.id}/acs/lanes`,
       tone: 'ta-stat-card-violet',
     },
     {
-      label: ar ? 'القواعد' : 'Rules',
+      label: t('acsPageRules'),
       value: overview.rules_total,
       href: `/tenant/events/${event.id}/acs/rules`,
       tone: 'ta-stat-card-emerald',
@@ -55,23 +54,23 @@ export default function AcsOverview({ event, tenantId, overview }: Props) {
   ]
 
   return (
-    <DashboardLayout title={ar ? 'نظام التحكم بالوصول' : 'ACS overview'}>
+    <DashboardLayout title={t('acsPageTitle')}>
       <PageHeader
-        title={ar ? 'نظام التحكم بالوصول' : 'ACS overview'}
+        title={t('acsPageTitle')}
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: ar ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: 'ACS' },
         ]}
         actions={(
           <div className="flex flex-wrap gap-2">
             <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/acs/access-logs`}>
-              {ar ? 'سجلات الوصول' : 'Access logs'}
+              {t('acsPageAccessLogs')}
             </LocalizedLink>
             <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/acs/gate-health`}>
-              {ar ? 'صحة البوابة' : 'Gate health'}
+              {t('acsPageGateHealth')}
             </LocalizedLink>
           </div>
         )}
@@ -83,17 +82,17 @@ export default function AcsOverview({ event, tenantId, overview }: Props) {
               <p className="ta-stat-label">{stat.label}</p>
               <p className="ta-stat-value">{stat.value}</p>
               <LocalizedLink className="mt-3 inline-block text-sm font-medium text-[var(--brand)] hover:underline" href={stat.href}>
-                {ar ? 'إدارة' : 'Manage'}
+                {t('acsPageManage')}
               </LocalizedLink>
             </div>
           ))}
           <div className="ta-card ta-stat-card ta-stat-card-amber">
-            <p className="ta-stat-label">{ar ? 'التكامل' : 'Integration'}</p>
+            <p className="ta-stat-label">{t('acsPageIntegration')}</p>
             <div className="mt-2">
               <StatusBadge status={overview.integration_status} size="md" />
             </div>
             <p className="mt-3 text-sm text-[var(--muted)]">
-              {ar ? 'بوابات غير متصلة' : 'Offline gates'}:{' '}
+              {t('acsPageOfflineGates')}:{' '}
               <StatusBadge status={overview.gates_offline > 0 ? 'offline' : 'healthy'} label={String(overview.gates_offline)} />
             </p>
           </div>
@@ -101,14 +100,14 @@ export default function AcsOverview({ event, tenantId, overview }: Props) {
 
         {overview.active_emergency && (
           <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200" role="alert">
-            {ar ? 'خروج الطوارئ نشط' : 'Emergency egress is active'}
+            {t('acsPageEmergencyActive')}
           </p>
         )}
 
         <section className="ta-card mt-6">
-          <h2 className="text-lg font-semibold text-[var(--ink)]">{ar ? 'طوارئ' : 'Emergency'}</h2>
+          <h2 className="text-lg font-semibold text-[var(--ink)]">{t('acsPageEmergency')}</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            {ar ? 'تفعيل أو إلغاء وضع خروج الطوارئ للبوابات.' : 'Raise or clear emergency egress across gates.'}
+            {t('acsPageEmergencyDescription')}
           </p>
           <div className="mt-4">
             <EmergencyControls eventId={event.id} tenantId={tenantId} activeEmergency={overview.active_emergency} />
@@ -117,17 +116,17 @@ export default function AcsOverview({ event, tenantId, overview }: Props) {
 
         <section className="mt-8">
           {overview.latest_gate_events.length === 0 ? (
-            <EmptyState title={ar ? 'لا توجد أحداث بعد' : 'No gate events yet'} />
+            <EmptyState title={t('acsPageNoEvents')} />
           ) : (
             <DataTable
-              title={ar ? 'أحدث أحداث البوابة' : 'Latest gate events'}
+              title={t('acsPageLatestEvents')}
               rows={overview.latest_gate_events as unknown as Record<string, unknown>[]}
               getRowKey={(row) => String(row.id)}
               columns={[
-                { key: 'event_type', header: ar ? 'النوع' : 'Type' },
-                { key: 'decision', header: ar ? 'القرار' : 'Decision' },
-                { key: 'reason_code', header: ar ? 'السبب' : 'Reason' },
-                { key: 'occurred_at', header: ar ? 'الوقت' : 'Time' },
+                { key: 'event_type', header: t('acsPageType') },
+                { key: 'decision', header: t('acsPageDecision') },
+                { key: 'reason_code', header: t('reason') },
+                { key: 'occurred_at', header: t('time') },
               ]}
             />
           )}

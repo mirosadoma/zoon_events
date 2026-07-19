@@ -55,7 +55,6 @@ function formatDateTime(value: string | null, locale: string): string {
 
 export default function KioskDetailPage({ event, kiosk }: Props) {
   const { locale, t } = useLocale()
-  const ar = locale === 'ar'
   const heartbeatKiosk: Kiosk = {
     id: String(kiosk.id),
     device_name: kiosk.device_name,
@@ -73,18 +72,18 @@ export default function KioskDetailPage({ event, kiosk }: Props) {
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: ar ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
-          { label: ar ? 'الكشكات' : 'Kiosks', href: `/tenant/events/${event.id}/kiosks` },
+          { label: t('kioskPageKiosks'), href: `/tenant/events/${event.id}/kiosks` },
           { label: kiosk.device_name },
         ]}
         actions={(
           <div className="flex flex-wrap gap-2">
             <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/kiosks`}>
-              {ar ? 'العودة للقائمة' : 'Back to list'}
+              {t('kioskPageBackToList')}
             </LocalizedLink>
             <LocalizedLink className="button-primary" href={`/kiosk/${kiosk.device_code}`}>
-              {ar ? 'وضع الكشك' : 'Kiosk mode'}
+              {t('kioskPageMode')}
             </LocalizedLink>
           </div>
         )}
@@ -94,7 +93,7 @@ export default function KioskDetailPage({ event, kiosk }: Props) {
           <div className="ta-card ta-stat-card ta-stat-card-sky">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="ta-stat-label">{ar ? 'الحالة' : 'Status'}</p>
+                <p className="ta-stat-label">{t('status')}</p>
                 <div className="mt-2">
                   <StatusBadge status={kiosk.status} size="md" />
                 </div>
@@ -108,7 +107,7 @@ export default function KioskDetailPage({ event, kiosk }: Props) {
           <div className="ta-card ta-stat-card ta-stat-card-violet">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="ta-stat-label">{ar ? 'الطابعة' : 'Printer'}</p>
+                <p className="ta-stat-label">{t('kioskPagePrinter')}</p>
                 <div className="mt-2">
                   <StatusBadge status={kiosk.printer_status} size="md" />
                 </div>
@@ -120,7 +119,7 @@ export default function KioskDetailPage({ event, kiosk }: Props) {
           </div>
 
           <div className="ta-card ta-stat-card ta-stat-card-emerald">
-            <p className="ta-stat-label">{ar ? 'آخر نبضة' : 'Last heartbeat'}</p>
+            <p className="ta-stat-label">{t('kioskPageLastHeartbeat')}</p>
             <div className="mt-2">
               <HeartbeatIndicator kiosk={heartbeatKiosk} />
             </div>
@@ -129,7 +128,7 @@ export default function KioskDetailPage({ event, kiosk }: Props) {
           <div className="ta-card ta-stat-card ta-stat-card-amber">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="ta-stat-label">{ar ? 'الموقع' : 'Location'}</p>
+                <p className="ta-stat-label">{t('kioskPageLocation')}</p>
                 <p className="mt-2 font-semibold text-[var(--ink)]">
                   {kiosk.location_label ?? '—'}
                 </p>
@@ -143,24 +142,24 @@ export default function KioskDetailPage({ event, kiosk }: Props) {
 
         <div className="mt-6">
           <DetailsCard
-            title={ar ? 'تفاصيل الجهاز' : 'Device details'}
+            title={t('kioskPageDeviceDetails')}
             items={[
               {
-                label: ar ? 'رمز الجهاز' : 'Device code',
+                label: t('kioskPageDeviceCode'),
                 value: <span className="font-mono text-sm">{kiosk.device_code}</span>,
               },
               {
-                label: ar ? 'تأكيد مطلوب' : 'Confirmation required',
+                label: t('kioskPageConfirmationRequired'),
                 value: kiosk.confirmation_required
-                  ? (ar ? 'نعم' : 'Yes')
-                  : (ar ? 'لا' : 'No'),
+                  ? t('yes')
+                  : t('no'),
               },
               {
-                label: ar ? 'معرّف الكشك' : 'Kiosk ID',
+                label: t('kioskPageKioskId'),
                 value: <span className="font-mono text-sm">{String(kiosk.id)}</span>,
               },
               {
-                label: ar ? 'الموقع' : 'Location',
+                label: t('kioskPageLocation'),
                 value: kiosk.location_label ?? '—',
               },
             ]}
@@ -170,23 +169,23 @@ export default function KioskDetailPage({ event, kiosk }: Props) {
         <section className="mt-8 space-y-3">
           {kiosk.recent_checkins.length === 0 ? (
             <EmptyState
-              title={ar ? 'لا توجد عمليات حضور بعد' : 'No check-ins yet'}
-              detail={ar ? 'ستظهر عمليات هذا الكشك هنا عند بدء الاستخدام.' : 'Check-ins from this kiosk will appear here once scanning starts.'}
+              title={t('kioskPageNoCheckIns')}
+              detail={t('kioskPageNoCheckInsDescription')}
             />
           ) : (
             <DataTable
-              title={ar ? 'عمليات تسجيل الحضور الأخيرة' : 'Recent check-ins'}
+              title={t('kioskPageRecentCheckIns')}
               rows={kiosk.recent_checkins as unknown as Record<string, unknown>[]}
               getRowKey={(row) => String(row.id)}
               columns={[
                 {
                   key: 'result',
-                  header: ar ? 'النتيجة' : 'Result',
+                  header: t('kioskPageResult'),
                   render: (row) => <StatusBadge status={String(row.result)} />,
                 },
                 {
                   key: 'reason',
-                  header: ar ? 'السبب' : 'Reason',
+                  header: t('reason'),
                   render: (row) => (
                     <span className="font-mono text-xs text-[var(--muted)]">
                       {row.reason ? String(row.reason) : '—'}
@@ -195,7 +194,7 @@ export default function KioskDetailPage({ event, kiosk }: Props) {
                 },
                 {
                   key: 'scanned_at',
-                  header: ar ? 'الوقت' : 'Time',
+                  header: t('time'),
                   render: (row) => formatDateTime(
                     row.scanned_at ? String(row.scanned_at) : null,
                     locale,
@@ -209,37 +208,37 @@ export default function KioskDetailPage({ event, kiosk }: Props) {
         <section className="mt-8 space-y-3">
           {kiosk.recent_print_jobs.length === 0 ? (
             <EmptyState
-              title={ar ? 'لا توجد مهام طباعة بعد' : 'No print jobs yet'}
-              detail={ar ? 'مهام طباعة الشارات من هذا الكشك ستظهر هنا.' : 'Badge print jobs from this kiosk will show up here.'}
+              title={t('kioskPageNoPrintJobs')}
+              detail={t('kioskPageNoPrintJobsDescription')}
             />
           ) : (
             <DataTable
-              title={ar ? 'طباعة الشارات الأخيرة' : 'Recent print jobs'}
+              title={t('kioskPageRecentPrintJobs')}
               rows={kiosk.recent_print_jobs as unknown as Record<string, unknown>[]}
               getRowKey={(row) => String(row.id)}
               columns={[
                 {
                   key: 'status',
-                  header: ar ? 'الحالة' : 'Status',
+                  header: t('status'),
                   render: (row) => <StatusBadge status={String(row.status)} />,
                 },
                 {
                   key: 'is_reprint',
-                  header: ar ? 'إعادة طباعة' : 'Reprint',
+                  header: t('kioskPageReprint'),
                   render: (row) => (
                     row.is_reprint
-                      ? <StatusBadge status="reissued" label={ar ? 'نعم' : 'Yes'} />
-                      : (ar ? 'لا' : 'No')
+                      ? <StatusBadge status="reissued" label={t('yes')} />
+                      : t('no')
                   ),
                 },
                 {
                   key: 'reprint_reason',
-                  header: ar ? 'سبب الإعادة' : 'Reprint reason',
+                  header: t('kioskPageReprintReason'),
                   render: (row) => (row.reprint_reason ? String(row.reprint_reason) : '—'),
                 },
                 {
                   key: 'printed_at',
-                  header: ar ? 'وقت الطباعة' : 'Printed at',
+                  header: t('kioskPagePrintedAt'),
                   render: (row) => formatDateTime(
                     row.printed_at ? String(row.printed_at) : null,
                     locale,

@@ -1,29 +1,41 @@
-import { router, usePage } from '@inertiajs/react'
+import { usePage } from '@inertiajs/react'
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import {
   ArrowRight,
-  CalendarDays,
+  BadgeCheck,
+  Building2,
   CheckCircle2,
-  Globe,
+  ChevronDown,
+  Fingerprint,
+  Landmark,
   Mail,
-  Menu,
-  Moon,
   Phone,
+  Printer,
   ScanLine,
   ShieldCheck,
-  Sparkles,
-  Sun,
   Ticket,
   Users,
-  X,
+  Wallet,
 } from 'lucide-react'
-import { useCallback, useRef, useState } from 'react'
-import { useClickOutside } from '@/hooks/useClickOutside'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useLocale } from '@/hooks/useLocale'
-import { useTheme } from '@/hooks/useTheme'
-import { localizedPath, swapLocaleInPath } from '@/lib/localePath'
-import en from '@/locales/en'
-import ar from '@/locales/ar'
+import MarketingShell from '@/layouts/MarketingShell'
+import { localizedPath } from '@/lib/localePath'
+
+type SubscriptionPlan = {
+  id: string
+  name: string
+  name_ar: string | null
+  description: string | null
+  description_ar: string | null
+  is_trial: boolean
+  duration_days: number
+  price: string
+  currency: string
+  max_events: number | null
+  max_attendees: number | null
+  max_devices: number | null
+}
 
 type Props = {
   app_name_en: string
@@ -34,89 +46,135 @@ type Props = {
   support_phone: string | null
   about_en: string | null
   about_ar: string | null
+  plans?: SubscriptionPlan[]
 }
 
-const copy = {
-  en: {
-    tagline: 'Enterprise event operations platform',
-    heroTitle: 'Run world-class events with confidence',
-    heroSubtitle:
-      'Unify registration, identity verification, ticketing, on-site check-in, badges, wallet passes, and access control in one secure platform.',
-    ctaLogin: 'Sign in',
-    ctaRegister: 'Register as organizer',
-    ctaDashboard: 'Dashboard',
-    ctaFeatures: 'Explore capabilities',
-    statsTitle: 'Designed for scale',
-    featuresTitle: 'Everything your event team needs',
-    aboutTitle: 'About the platform',
-    contactTitle: 'Talk to our team',
-    contactSubtitle: 'We help governments, enterprises, and organizers deliver secure large-scale experiences.',
-    workflowTitle: 'From registration to gate access',
-    workflowSteps: [
-      'Configure events, tickets, and dynamic registration forms',
-      'Verify identities and issue signed credentials',
-      'Operate scanners, kiosks, badges, and manual desks on site',
-      'Monitor access control zones, lanes, and real-time gate health',
-    ],
-    stats: [
-      { label: 'Modules', value: '6+' },
-      { label: 'Languages', value: 'AR / EN' },
-      { label: 'Roles', value: 'RBAC' },
-      { label: 'Audit', value: 'Immutable' },
-    ],
-    features: [
-      { title: 'Registration & ticketing', text: 'Dynamic forms, ticket types, pricing tiers, and paid orders.' },
-      { title: 'Identity verification', text: 'Consent flows, government verification, face capture, and reviewer workflows.' },
-      { title: 'Credentials & wallet', text: 'Signed credentials, Apple/Google wallet passes, revoke and reissue controls.' },
-      { title: 'On-site operations', text: 'Scanner, manual desk, kiosk pairing, badge templates, and print jobs.' },
-      { title: 'Access control', text: 'ACS zones, lanes, rules, gate health, and emergency egress.' },
-      { title: 'Governance', text: 'Tenant RBAC, platform administration, and immutable audit trails.' },
-    ],
-    footer: 'Built for regulated, high-trust events.',
-    showcaseCaption: 'A unified console for every stage of your event lifecycle.',
-  },
-  ar: {
-    tagline: 'منصة تشغيل فعاليات للمؤسسات',
-    heroTitle: 'أدر فعاليات عالمية بثقة',
-    heroSubtitle:
-      'وحّد التسجيل والتحقق من الهوية والتذاكر وتسجيل الحضور والشارات وتذاكر المحفظة والتحكم في الوصول في منصة آمنة واحدة.',
-    ctaLogin: 'تسجيل الدخول',
-    ctaRegister: 'تسجيل منظم جديد',
-    ctaDashboard: 'لوحة التحكم',
-    ctaFeatures: 'استكشف الإمكانيات',
-    statsTitle: 'مصممة للنطاق الواسع',
-    featuresTitle: 'كل ما يحتاجه فريق الفعالية',
-    aboutTitle: 'عن المنصة',
-    contactTitle: 'تواصل مع فريقنا',
-    contactSubtitle: 'نساعد الجهات الحكومية والشركات والمنظمين على تنفيذ فعاليات كبيرة بأمان.',
-    workflowTitle: 'من التسجيل حتى دخول البوابة',
-    workflowSteps: [
-      'إعداد الفعاليات والتذاكر ونماذج التسجيل الديناميكية',
-      'التحقق من الهوية وإصدار بيانات دخول موقعة',
-      'تشغيل الماسحات والأكشاك والشارات والمكاتب اليدوية في الموقع',
-      'مراقبة مناطق التحكم في الوصول والممرات وصحة البوابات لحظياً',
-    ],
-    stats: [
-      { label: 'الوحدات', value: '6+' },
-      { label: 'اللغات', value: 'عربي / إنجليزي' },
-      { label: 'الصلاحيات', value: 'RBAC' },
-      { label: 'التدقيق', value: 'غير قابل للتلاعب' },
-    ],
-    features: [
-      { title: 'التسجيل والتذاكر', text: 'نماذج ديناميكية وأنواع تذاكر وشرائح أسعار وطلبات مدفوعة.' },
-      { title: 'التحقق من الهوية', text: 'موافقات وتحقق حكومي والتقاط الوجه وسير عمل المراجعة.' },
-      { title: 'بيانات الدخول والمحفظة', text: 'بيانات موقعة وتذاكر محفظة وإلغاء وإعادة إصدار.' },
-      { title: 'العمليات الميدانية', text: 'ماسح ومكتب يدوي وأكشاك وقوالب شارات وطباعة.' },
-      { title: 'التحكم في الوصول', text: 'مناطق وممرات وقواعد وصحة البوابات وخروج طوارئ.' },
-      { title: 'الحوكمة', text: 'صلاحيات المستأجر وإدارة المنصة وسجلات تدقيق غير قابلة للتلاعب.' },
-    ],
-    footer: 'مبنية للفعاليات عالية الثقة والامتثال.',
-    showcaseCaption: 'لوحة تحكم موحدة لكل مراحل دورة حياة الفعالية.',
-  },
-}
-
-const icons = [Ticket, ShieldCheck, ScanLine, Users, CalendarDays, ShieldCheck]
 const screenshots = ['/landing/1.png', '/landing/2.png', '/landing/3.png', '/landing/4.png', '/landing/5.png']
+
+// All copy content moved to locale files (en.ts/ar.ts) under landing* keys
+// Features/audiences/faqs/workflow arrays are now built using t() calls below
+
+const landingStructure = {
+  audiences: [
+    { title: 'landingAudienceCorporateTitle', text: 'landingAudienceCorporateText', icon: 'building' as const },
+    { title: 'landingAudienceGovTitle', text: 'landingAudienceGovText', icon: 'landmark' as const },
+    { title: 'landingAudienceVenueTitle', text: 'landingAudienceVenueText', icon: 'users' as const },
+  ],
+  features: [
+    { title: 'landingFeatureRegTitle', text: 'landingFeatureRegText', icon: 'ticket' as const },
+    { title: 'landingFeatureIdTitle', text: 'landingFeatureIdText', icon: 'fingerprint' as const },
+    { title: 'landingFeatureCredTitle', text: 'landingFeatureCredText', icon: 'wallet' as const },
+    { title: 'landingFeatureOpsTitle', text: 'landingFeatureOpsText', icon: 'scan' as const },
+    { title: 'landingFeatureAcsTitle', text: 'landingFeatureAcsText', icon: 'shield' as const },
+    { title: 'landingFeatureBadgeTitle', text: 'landingFeatureBadgeText', icon: 'printer' as const },
+    { title: 'landingFeatureCategoryTitle', text: 'landingFeatureCategoryText', icon: 'badge' as const },
+    { title: 'landingFeatureGovTitle', text: 'landingFeatureGovText', icon: 'shield' as const },
+  ],
+  workflowSteps: [
+    { title: 'landingWorkflowPlanTitle', text: 'landingWorkflowPlanText' },
+    { title: 'landingWorkflowVerifyTitle', text: 'landingWorkflowVerifyText' },
+    { title: 'landingWorkflowIssueTitle', text: 'landingWorkflowIssueText' },
+    { title: 'landingWorkflowOperateTitle', text: 'landingWorkflowOperateText' },
+  ],
+  securityPoints: [
+    'landingSecurityPoint1',
+    'landingSecurityPoint2',
+    'landingSecurityPoint3',
+    'landingSecurityPoint4',
+  ],
+  useCases: [
+    { title: 'landingUseCaseConferencesTitle', text: 'landingUseCaseConferencesText' },
+    { title: 'landingUseCaseWorkshopsTitle', text: 'landingUseCaseWorkshopsText' },
+    { title: 'landingUseCaseLaunchesTitle', text: 'landingUseCaseLaunchesText' },
+    { title: 'landingUseCaseToursTitle', text: 'landingUseCaseToursText' },
+  ],
+  faqs: [
+    { q: 'landingFaqQ1', a: 'landingFaqA1' },
+    { q: 'landingFaqQ2', a: 'landingFaqA2' },
+    { q: 'landingFaqQ3', a: 'landingFaqA3' },
+    { q: 'landingFaqQ4', a: 'landingFaqA4' },
+  ],
+} as const
+
+const featureIcons = {
+  ticket: Ticket,
+  fingerprint: Fingerprint,
+  wallet: Wallet,
+  scan: ScanLine,
+  shield: ShieldCheck,
+  printer: Printer,
+  badge: BadgeCheck,
+  building: Building2,
+  landmark: Landmark,
+  users: Users,
+} as const
+
+function Reveal({ children, className = '', delay = 0 }: { children: ReactNode; className?: string; delay?: number }) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const node = ref.current
+    if (!node) {
+      return
+    }
+
+    const markVisible = () => {
+      node.classList.add('is-visible')
+    }
+
+    const isInViewport = () => {
+      const rect = node.getBoundingClientRect()
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight
+      return rect.top < viewportHeight && rect.bottom > 0
+    }
+
+    if (isInViewport()) {
+      markVisible()
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          markVisible()
+          observer.unobserve(node)
+        }
+      },
+      { threshold: 0.05, rootMargin: '40px 0px 40px 0px' },
+    )
+
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <div ref={ref} className={`landing-reveal ${className}`} style={{ transitionDelay: `${delay}ms` }}>
+      {children}
+    </div>
+  )
+}
+
+function scrollToLandingHash() {
+  const id = window.location.hash.replace(/^#/, '')
+  if (!id) {
+    return
+  }
+
+  const target = document.getElementById(id)
+  if (!target) {
+    return
+  }
+
+  target.querySelectorAll('.landing-reveal').forEach((element) => {
+    element.classList.add('is-visible')
+  })
+
+  const header = document.querySelector('.landing-header')
+  const headerOffset = header instanceof HTMLElement ? header.getBoundingClientRect().height + 12 : 88
+  const top = target.getBoundingClientRect().top + window.scrollY - headerOffset
+
+  window.scrollTo({ top: Math.max(0, top), behavior: 'auto' })
+}
 
 export default function Landing({
   app_name_en,
@@ -126,274 +184,326 @@ export default function Landing({
   support_phone,
   about_en,
   about_ar,
+  plans = [],
 }: Props) {
-  const { locale, direction } = useLocale()
+  const { locale, t } = useLocale()
   const { props } = usePage<{ auth?: { user?: { id: string } | null } }>()
   const isAuthenticated = Boolean(props.auth?.user)
-  const { theme, setTheme } = useTheme()
-  const messages = locale === 'ar' ? ar : en
-  const t = copy[locale]
   const appName = locale === 'ar' ? app_name_ar : app_name_en
   const about = locale === 'ar' ? about_ar : about_en
   const contactEmail = support_email ?? 'hello@zonetec.com'
   const contactPhone = support_phone ?? '+20 100 000 0000'
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const mobileMenuRef = useRef<HTMLDivElement>(null)
+  const [openFaq, setOpenFaq] = useState<number | null>(0)
+  const featuredPlanIndex =
+    plans.length >= 3 ? 1 : Math.max(0, plans.findIndex((plan) => Number(plan.price) > 0))
 
-  const closeMobileMenu = useCallback(() => {
-    setMobileMenuOpen(false)
-  }, [])
+  useEffect(() => {
+    const run = () => {
+      scrollToLandingHash()
+    }
 
-  useClickOutside(mobileMenuRef, closeMobileMenu, mobileMenuOpen)
+    const frame = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(run)
+    })
+    const timeout = window.setTimeout(run, 120)
 
-  const toggleLocale = () => {
-    const next = locale === 'ar' ? 'en' : 'ar'
-    const currentPath = `${window.location.pathname}${window.location.search}`
-    document.cookie = `locale=${next};path=/;max-age=${60 * 60 * 24 * 365};SameSite=Lax`
-    router.visit(swapLocaleInPath(currentPath, next), { preserveState: false })
-    closeMobileMenu()
-  }
-
-  const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark')
-  }
+    window.addEventListener('hashchange', run)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.clearTimeout(timeout)
+      window.removeEventListener('hashchange', run)
+    }
+  }, [plans.length])
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[var(--surface)] text-[var(--ink)]" dir={direction}>
-      <div className="landing-orb landing-orb-a" aria-hidden />
-      <div className="landing-orb landing-orb-b" aria-hidden />
-
-      <header className="landing-header sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--surface-elevated)]/90 backdrop-blur">
-        <div className="landing-header__inner">
-          <div className="landing-header__brand landing-fade-in">
-            {logo_url ? (
-              <img src={logo_url} alt="" className="h-10 w-10 shrink-0 rounded object-contain sm:h-12 sm:w-12" />
-            ) : (
-              <span className="ta-sidebar-brand-icon shrink-0">
-                <CalendarDays className="h-5 w-5" />
-              </span>
-            )}
-            <span className="truncate">{appName}</span>
-          </div>
-
-          <div className="landing-header__toolbar landing-fade-in landing-delay-1">
-            <button
-              type="button"
-              className="button-secondary cursor-pointer p-2"
-              onClick={toggleLocale}
-              aria-label={messages.toggleLocale}
-            >
-              <Globe className="h-4 w-4" />
-              <span className="text-xs font-semibold">{locale === 'ar' ? 'EN' : 'ع'}</span>
-            </button>
-            <button
-              type="button"
-              className="button-secondary cursor-pointer p-2"
-              onClick={toggleTheme}
-              aria-label={messages.theme}
-            >
-              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </button>
-
-            <div className="landing-header__desktop-actions">
-              {isAuthenticated ? (
-                <LocalizedLink href={localizedPath(locale, '/dashboard')} className="button-primary">
-                  {t.ctaDashboard}
-                </LocalizedLink>
-              ) : (
-                <>
-                  <LocalizedLink href={localizedPath(locale, '/login')} className="button-secondary">
-                    {t.ctaLogin}
-                  </LocalizedLink>
-                  <LocalizedLink href={localizedPath(locale, '/register')} className="button-primary">
-                    {t.ctaRegister}
-                  </LocalizedLink>
-                </>
-              )}
-            </div>
-
-            <button
-              type="button"
-              className="button-secondary landing-header__menu-toggle p-2"
-              onClick={() => setMobileMenuOpen((open) => !open)}
-              aria-expanded={mobileMenuOpen}
-              aria-controls="landing-mobile-menu"
-              aria-label={mobileMenuOpen ? messages.closeMenu : messages.openMenu}
-            >
-              {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-            </button>
-          </div>
+    <MarketingShell
+      branding={{ app_name_en, app_name_ar, logo_url, support_email, support_phone, about_en, about_ar }}
+      active="home"
+    >
+      <section id="top" className="landing-hero" aria-label={appName}>
+        <div className="landing-hero__media" aria-hidden>
+          <img src={screenshots[0]} alt="" className="landing-hero__image" />
+          <div className="landing-hero__veil" />
+          <div className="landing-hero__grain" />
         </div>
-
-        {mobileMenuOpen ? (
-          <div
-            id="landing-mobile-menu"
-            ref={mobileMenuRef}
-            className="landing-header__mobile-menu"
-          >
+        <div className="landing-hero__content">
+          <p className="landing-brand landing-anim-brand">{appName}</p>
+          <h1 className="landing-hero__headline landing-anim-headline">{t('landingHeroTitle')}</h1>
+          <p className="landing-hero__support landing-anim-support">{t('landingHeroSubtitle')}</p>
+          <div className="landing-hero__actions landing-anim-actions">
             {isAuthenticated ? (
-              <LocalizedLink
-                href={localizedPath(locale, '/dashboard')}
-                className="button-primary w-full"
-                onClick={closeMobileMenu}
-              >
-                {t.ctaDashboard}
+              <LocalizedLink href={localizedPath(locale, '/dashboard')} className="button-primary inline-flex items-center gap-2">
+                {t('landingCtaDashboard')}
+                <ArrowRight className="h-4 w-4 rtl:rotate-180" />
               </LocalizedLink>
             ) : (
               <>
-                <LocalizedLink
-                  href={localizedPath(locale, '/login')}
-                  className="button-secondary w-full"
-                  onClick={closeMobileMenu}
-                >
-                  {t.ctaLogin}
-                </LocalizedLink>
-                <LocalizedLink
-                  href={localizedPath(locale, '/register')}
-                  className="button-primary w-full"
-                  onClick={closeMobileMenu}
-                >
-                  {t.ctaRegister}
-                </LocalizedLink>
+                <a href="#pricing" className="button-primary inline-flex items-center gap-2">
+                  {t('landingCtaRegister')}
+                  <ArrowRight className="h-4 w-4 rtl:rotate-180" />
+                </a>
+                <LocalizedLink href={localizedPath(locale, '/solutions')} className="button-secondary">{t('landingCtaExplore')}</LocalizedLink>
               </>
             )}
           </div>
-        ) : null}
-      </header>
-
-      <section className="relative">
-        <div className="absolute inset-0 bg-gradient-to-br from-[var(--brand-soft)] via-transparent to-transparent" />
-        <div className="relative mx-auto grid max-w-[80%] gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:items-center lg:py-24">
-          <div className="landing-slide-up">
-            <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-[var(--brand-soft)] px-3 py-1 text-sm font-semibold text-[var(--brand)]">
-              <Sparkles className="h-4 w-4" />
-              {t.tagline}
-            </p>
-            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">{t.heroTitle}</h1>
-            <p className="mt-4 text-lg text-[var(--muted)]">{t.heroSubtitle}</p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <LocalizedLink href={localizedPath(locale, '/register')} className="button-primary inline-flex items-center gap-2">
-                {t.ctaRegister}
-                <ArrowRight className="h-4 w-4" />
-              </LocalizedLink>
-              <LocalizedLink href={localizedPath(locale, '/login')} className="button-secondary inline-flex items-center gap-2">
-                {t.ctaLogin}
-              </LocalizedLink>
-              <a href="#features" className="button-secondary">
-                {t.ctaFeatures}
-              </a>
-            </div>
-          </div>
-          <div className="landing-float grid grid-cols-2 gap-4">
-            {t.stats.map((stat, index) => (
-              <article key={stat.label} className={`ta-card landing-fade-in landing-delay-${index + 1}`}>
-                <p className="text-sm text-[var(--muted)]">{stat.label}</p>
-                <p className="mt-2 text-2xl font-bold">{stat.value}</p>
-              </article>
-            ))}
-          </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-[80%] px-4 py-12 sm:px-6">
-        <div className="landing-slide-up text-center">
-          <h2 className="text-2xl font-bold sm:text-3xl">{t.statsTitle}</h2>
-          <p className="mx-auto mt-3 max-w-2xl text-[var(--muted)]">{t.showcaseCaption}</p>
-        </div>
-        <div className="mt-8 grid gap-4 lg:grid-cols-12">
-          <figure className="landing-fade-in overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] shadow-[var(--card-shadow)] lg:col-span-7">
-            <img
-              src={screenshots[0]}
-              alt={`${appName} dashboard`}
-              className="h-72 w-full object-cover object-top transition duration-500 hover:scale-[1.02] sm:h-96"
-              loading="lazy"
-            />
-          </figure>
-          <div className="grid gap-4 sm:grid-cols-2 lg:col-span-5">
+      <section id="showcase" className="landing-section">
+        <Reveal>
+          <h2 className="landing-section__title">{t('landingShowcaseTitle')}</h2>
+          <p className="landing-section__subtitle">{t('landingShowcaseSubtitle')}</p>
+        </Reveal>
+        <div className="landing-showcase">
+          <Reveal className="landing-showcase__main" delay={80}>
+            <img src={screenshots[0]} alt={`${appName} dashboard`} loading="lazy" />
+          </Reveal>
+          <div className="landing-showcase__side">
             {screenshots.slice(1).map((src, index) => (
-              <figure
-                key={src}
-                className={`landing-fade-in landing-delay-${index + 1} overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] shadow-[var(--card-shadow)]`}
-              >
-                <img
-                  src={src}
-                  alt={`${appName} screenshot ${index + 2}`}
-                  className="h-40 w-full object-cover object-top transition duration-500 hover:scale-105"
-                  loading="lazy"
-                />
-              </figure>
+              <Reveal key={src} delay={120 + index * 70}>
+                <figure className="landing-showcase__thumb">
+                  <img src={src} alt={`${appName} screen ${index + 2}`} loading="lazy" />
+                </figure>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      <section id="features" className="mx-auto max-w-[80%] px-4 py-16 sm:px-6">
-        <h2 className="landing-slide-up text-3xl font-bold">{t.featuresTitle}</h2>
-        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {t.features.map((feature, index) => {
-            const Icon = icons[index] ?? Ticket
+      <section className="landing-band">
+        <div className="landing-section">
+          <Reveal>
+            <h2 className="landing-section__title">{t('landingAudiencesTitle')}</h2>
+            <p className="landing-section__subtitle">{t('landingAudiencesSubtitle')}</p>
+          </Reveal>
+          <div className="landing-audience-grid">
+            {landingStructure.audiences.map((audience, index) => {
+              const Icon = featureIcons[audience.icon] ?? Building2
+              return (
+                <Reveal key={audience.title} delay={index * 90}>
+                  <article className="landing-audience">
+                    <span className="landing-audience__icon"><Icon className="h-5 w-5" /></span>
+                    <h3>{t(audience.title)}</h3>
+                    <p>{t(audience.text)}</p>
+                  </article>
+                </Reveal>
+              )
+            })}
+          </div>
+        </div>
+      </section>
 
+      <section id="features" className="landing-section">
+        <Reveal>
+          <h2 className="landing-section__title">{t('landingFeaturesTitle')}</h2>
+          <p className="landing-section__subtitle">{t('landingFeaturesSubtitle')}</p>
+        </Reveal>
+        <div className="landing-feature-grid">
+          {landingStructure.features.map((feature, index) => {
+            const Icon = featureIcons[feature.icon] ?? Ticket
             return (
-              <article key={feature.title} className={`ta-card landing-fade-in landing-delay-${(index % 3) + 1}`}>
-                <span className="ta-stat-icon mb-4">
-                  <Icon className="h-5 w-5" />
-                </span>
-                <h3 className="text-lg font-semibold">{feature.title}</h3>
-                <p className="mt-2 text-sm text-[var(--muted)]">{feature.text}</p>
-              </article>
+              <Reveal key={feature.title} delay={(index % 4) * 70}>
+                <article className="landing-feature">
+                  <span className="landing-feature__icon"><Icon className="h-5 w-5" /></span>
+                  <h3>{t(feature.title)}</h3>
+                  <p>{t(feature.text)}</p>
+                </article>
+              </Reveal>
             )
           })}
         </div>
       </section>
 
-      <section className="bg-[var(--surface-elevated)] py-16">
-        <div className="mx-auto grid max-w-[80%] gap-10 px-4 sm:px-6 lg:grid-cols-2 lg:items-center">
-          <div className="landing-slide-up">
-            <h2 className="text-3xl font-bold">{t.workflowTitle}</h2>
-            <ul className="mt-6 space-y-4">
-              {t.workflowSteps.map((step) => (
-                <li key={step} className="flex items-start gap-3 text-[var(--muted)]">
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[var(--brand)]" />
-                  <span>{step}</span>
+      <section id="workflow" className="landing-workflow">
+        <div className="landing-section">
+          <Reveal className="max-w-2xl">
+            <h2 className="landing-section__title">{t('landingWorkflowTitle')}</h2>
+            <p className="landing-section__subtitle">{t('landingWorkflowSubtitle')}</p>
+            {about ? <p className="landing-about">{about}</p> : null}
+          </Reveal>
+          <ol className="landing-workflow__list">
+            {landingStructure.workflowSteps.map((step, index) => (
+              <Reveal key={step.title} delay={index * 100}>
+                <li className="landing-workflow__step">
+                  <span className="landing-workflow__index">{String(index + 1).padStart(2, '0')}</span>
+                  <h3>{t(step.title)}</h3>
+                  <p>{t(step.text)}</p>
                 </li>
-              ))}
-            </ul>
-          </div>
-          <article className="ta-card landing-float p-8">
-            <h3 className="text-xl font-semibold">{t.aboutTitle}</h3>
-            <p className="mt-4 whitespace-pre-wrap text-[var(--muted)]">
-              {about ?? t.heroSubtitle}
-            </p>
-          </article>
+              </Reveal>
+            ))}
+          </ol>
         </div>
       </section>
 
-      <section className="mx-auto max-w-[80%] px-4 py-16 sm:px-6">
-        <div className="landing-slide-up grid gap-8 lg:grid-cols-2">
-          <div>
-            <h2 className="text-3xl font-bold">{t.contactTitle}</h2>
-            <p className="mt-3 text-[var(--muted)]">{t.contactSubtitle}</p>
+      <section className="landing-section landing-split">
+        <Reveal>
+          <h2 className="landing-section__title">{t('landingSecurityTitle')}</h2>
+          <p className="landing-section__subtitle">{t('landingSecuritySubtitle')}</p>
+          <ul className="landing-security-list">
+            {landingStructure.securityPoints.map((point) => (
+              <li key={point}>
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-[var(--brand)]" />
+                <span>{t(point)}</span>
+              </li>
+            ))}
+          </ul>
+        </Reveal>
+        <Reveal delay={120}>
+          <div className="landing-security-visual">
+            <img src={screenshots[2]} alt="" loading="lazy" />
           </div>
-          <div className="ta-card space-y-4">
-            <p className="flex items-center gap-3 text-sm">
-              <Mail className="h-4 w-4 text-[var(--brand)]" />
-              <a href={`mailto:${contactEmail}`} className="hover:underline">{contactEmail}</a>
-            </p>
-            <p className="flex items-center gap-3 text-sm">
-              <Phone className="h-4 w-4 text-[var(--brand)]" />
-              <a href={`tel:${contactPhone}`} className="hover:underline">{contactPhone}</a>
-            </p>
-            <div className="flex flex-wrap gap-3 pt-2">
-              <LocalizedLink href={localizedPath(locale, '/register')} className="button-primary">{t.ctaRegister}</LocalizedLink>
-              <LocalizedLink href={localizedPath(locale, '/login')} className="button-secondary">{t.ctaLogin}</LocalizedLink>
-            </div>
+        </Reveal>
+      </section>
+
+      <section className="landing-band">
+        <div className="landing-section">
+          <Reveal>
+            <h2 className="landing-section__title">{t('landingUseCasesTitle')}</h2>
+            <p className="landing-section__subtitle">{t('landingUseCasesSubtitle')}</p>
+          </Reveal>
+          <div className="landing-usecase-grid">
+            {landingStructure.useCases.map((item, index) => (
+              <Reveal key={item.title} delay={index * 80}>
+                <article className="landing-usecase">
+                  <h3>{t(item.title)}</h3>
+                  <p>{t(item.text)}</p>
+                </article>
+              </Reveal>
+            ))}
           </div>
         </div>
       </section>
 
-      <footer className="border-t border-[var(--border)] py-8 text-center text-sm text-[var(--muted)]">
-        © {appName}. {t.footer}
-      </footer>
-    </div>
+      {plans.length > 0 ? (
+        <section id="pricing" className="landing-section">
+          <Reveal className="text-center sm:mx-auto sm:max-w-2xl">
+            <h2 className="landing-section__title">{t('landingPricingTitle')}</h2>
+            <p className="landing-section__subtitle mx-auto">{t('landingPricingSubtitle')}</p>
+          </Reveal>
+          <div className="landing-pricing-grid">
+            {plans.map((plan, index) => {
+              const planName = locale === 'ar' ? plan.name_ar || plan.name : plan.name
+              const planDesc = locale === 'ar' ? plan.description_ar || plan.description : plan.description
+              const isFree = Number(plan.price) === 0
+              const isFeatured = index === featuredPlanIndex
+              const limits = [
+                { label: t('landingPricingEvents'), value: plan.max_events ?? t('landingPricingUnlimited') },
+                { label: t('landingPricingAttendees'), value: plan.max_attendees ?? t('landingPricingUnlimited') },
+                { label: t('landingPricingDevices'), value: plan.max_devices ?? t('landingPricingUnlimited') },
+              ]
+
+              return (
+                <Reveal key={plan.id} delay={(index % 3) * 90}>
+                  <article className={`landing-plan${isFeatured ? ' landing-plan--featured' : ''}`}>
+                    {isFeatured ? <span className="landing-plan__ribbon">{t('landingPricingPopular')}</span> : null}
+                    <div className="landing-plan__top">
+                      <div className={`landing-plan__heading${isFeatured ? ' landing-plan__heading--featured' : ''}`}>
+                        <h3>{planName}</h3>
+                        {plan.is_trial ? <span className="landing-plan__badge">{t('landingPricingTrial')}</span> : null}
+                      </div>
+                      {planDesc ? <p className="landing-plan__desc">{planDesc}</p> : null}
+                      <div className="landing-plan__price-block">
+                        {isFree ? (
+                          <>
+                            <p className="landing-plan__price">{t('landingPricingFree')}</p>
+                            <p className="landing-plan__period">
+                              {plan.duration_days} {t('landingPricingDays')}
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="landing-plan__price">
+                              <span className="landing-plan__currency">{plan.currency}</span>
+                              {plan.price}
+                            </p>
+                            <p className="landing-plan__period">
+                              {t('landingPricingPer')} {plan.duration_days} {t('landingPricingDays')}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <ul className="landing-plan__limits">
+                      {limits.map((row) => (
+                        <li key={row.label}>
+                          <span>{row.label}</span>
+                          <strong>{row.value}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                    <LocalizedLink
+                      href={localizedPath(locale, `/subscribe/${plan.id}`)}
+                      className={`landing-plan__cta ${isFeatured ? 'button-primary' : 'button-secondary'} w-full text-center`}
+                    >
+                      {t('landingPricingGetStarted')}
+                    </LocalizedLink>
+                  </article>
+                </Reveal>
+              )
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="landing-section">
+        <Reveal>
+          <h2 className="landing-section__title">{t('landingFaqTitle')}</h2>
+          <p className="landing-section__subtitle">{t('landingFaqSubtitle')}</p>
+        </Reveal>
+        <div className="landing-faq">
+          {landingStructure.faqs.map((faq, index) => {
+            const open = openFaq === index
+            return (
+              <Reveal key={faq.q} delay={index * 60}>
+                <div className={`landing-faq__item${open ? ' is-open' : ''}`}>
+                  <button
+                    type="button"
+                    className="landing-faq__trigger"
+                    aria-expanded={open}
+                    onClick={() => setOpenFaq(open ? null : index)}
+                  >
+                    <span>{t(faq.q)}</span>
+                    <ChevronDown className="landing-faq__chevron" />
+                  </button>
+                  <div className="landing-faq__panel" hidden={!open}>
+                    <p>{t(faq.a)}</p>
+                  </div>
+                </div>
+              </Reveal>
+            )
+          })}
+        </div>
+      </section>
+
+      <section id="contact" className="landing-cta-band">
+        <div className="landing-section">
+          <div className="landing-contact">
+            <Reveal>
+              <h2 className="landing-section__title">{t('landingContactTitle')}</h2>
+              <p className="landing-section__subtitle">{t('landingContactSubtitle')}</p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <LocalizedLink href={localizedPath(locale, '/contact')} className="button-primary">
+                  {t('landingContactPage')}
+                </LocalizedLink>
+                <a href="#pricing" className="button-secondary">{t('landingCtaRegister')}</a>
+              </div>
+            </Reveal>
+            <Reveal delay={100}>
+              <div className="landing-contact__panel">
+                <h3 className="mb-4 text-lg font-semibold">{t('landingContactPanelTitle')}</h3>
+                <p className="flex items-center gap-3 text-sm">
+                  <Mail className="h-4 w-4 text-[var(--brand)]" />
+                  <a href={`mailto:${contactEmail}`} className="hover:underline">{contactEmail}</a>
+                </p>
+                <p className="mt-3 flex items-center gap-3 text-sm">
+                  <Phone className="h-4 w-4 text-[var(--brand)]" />
+                  <a href={`tel:${contactPhone}`} className="hover:underline">{contactPhone}</a>
+                </p>
+              </div>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+    </MarketingShell>
   )
 }

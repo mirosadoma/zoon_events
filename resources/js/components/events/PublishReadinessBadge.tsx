@@ -13,7 +13,7 @@ type Props = {
 }
 
 export default function PublishReadinessBadge({ readiness, context, className = '' }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const ready = isReadyToPublish(readiness, context)
   const tooltip = publishReadinessTooltip(readiness, locale, context)
 
@@ -27,8 +27,8 @@ export default function PublishReadinessBadge({ readiness, context, className = 
       title={tooltip}
     >
       {ready
-        ? (locale === 'ar' ? 'جاهزة للنشر' : 'Ready to publish')
-        : (locale === 'ar' ? 'لا يمكن نشرها' : 'Cannot publish')}
+        ? t('publishReadinessReady')
+        : t('publishReadinessCannotPublish')}
     </span>
   )
 }

@@ -154,9 +154,7 @@ export default function Ticketing({ tenantId, event, tickets }: Props) {
     [locale],
   )
 
-  const priceLabel = locale === 'ar'
-    ? `السعر (${currencyLabel(form.currency, 'ar')})`
-    : `Price (${currencyLabel(form.currency, 'en')})`
+  const priceLabel = t('ticketTypePrice').replace(':currency', currencyLabel(form.currency, locale))
 
   function extractErrors(body: unknown): FormErrors {
     if (typeof body !== 'object' || body === null) return {}
@@ -208,24 +206,19 @@ export default function Ticketing({ tenantId, event, tickets }: Props) {
 
       if (!response.ok) {
         validation.applyErrors(extractErrors(body))
-        toast(extractError(body, locale === 'ar' ? 'تعذر حفظ نوع التذكرة.' : 'Failed to save ticket type.'), 'error')
+        toast(extractError(body, t('ticketTypeFailedToSave')), 'error')
         setSubmitting(null)
 
         return
       }
 
-      toast(
-        editingId
-          ? (locale === 'ar' ? 'تم تحديث نوع التذكرة.' : 'Ticket type updated.')
-          : (locale === 'ar' ? 'تم إنشاء نوع التذكرة.' : 'Ticket type created.'),
-        'success',
-      )
+      toast(editingId ? t('ticketTypeUpdated') : t('ticketTypeCreated'), 'success')
       setForm(emptyForm(event))
       setEditingId(null)
       setSubmitting(null)
       router.reload()
     } catch {
-      toast(locale === 'ar' ? 'تعذر حفظ نوع التذكرة.' : 'Failed to save ticket type.', 'error')
+      toast(t('ticketTypeFailedToSave'), 'error')
       setSubmitting(null)
     }
   }
@@ -254,22 +247,17 @@ export default function Ticketing({ tenantId, event, tickets }: Props) {
       const body = await response.json()
 
       if (!response.ok) {
-        toast(extractError(body, locale === 'ar' ? 'تعذر تحديث الحالة.' : 'Failed to update status.'), 'error')
+        toast(extractError(body, t('ticketTypeFailedToUpdateStatus')), 'error')
         setSubmitting(null)
 
         return
       }
 
-      toast(
-        nextStatus === 'paused'
-          ? (locale === 'ar' ? 'تم إيقاف نوع التذكرة.' : 'Ticket type paused.')
-          : (locale === 'ar' ? 'تم تفعيل نوع التذكرة.' : 'Ticket type activated.'),
-        'success',
-      )
+      toast(nextStatus === 'paused' ? t('ticketTypePaused') : t('ticketTypeActivated'), 'success')
       setSubmitting(null)
       router.reload()
     } catch {
-      toast(locale === 'ar' ? 'تعذر تحديث الحالة.' : 'Failed to update status.', 'error')
+      toast(t('ticketTypeFailedToUpdateStatus'), 'error')
       setSubmitting(null)
     }
   }
@@ -282,29 +270,29 @@ export default function Ticketing({ tenantId, event, tickets }: Props) {
   function startEdit(ticket: Ticket) {
     setEditingId(ticket.id)
     setForm(ticketToForm(ticket))
-    setErrors({})
+    validation.clearValidation()
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   function cancelEdit() {
     setEditingId(null)
     setForm(emptyForm(event))
-    setErrors({})
+    validation.clearValidation()
   }
 
   return (
-    <DashboardLayout title={locale === 'ar' ? 'أنواع التذاكر' : 'Ticket types'}>
+    <DashboardLayout title={t('ticketTypes')}>
       <PageHeader
-        title={locale === 'ar' ? 'أنواع التذاكر' : 'Ticket types'}
+        title={t('ticketTypes')}
         description={event.name[locale]}
         breadcrumbs={[
-          { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: localizedPath(locale, '/tenant/events') },
+          { label: t('events'), href: localizedPath(locale, '/tenant/events') },
           { label: event.name[locale], href: localizedPath(locale, `/tenant/events/${event.id}`) },
-          { label: locale === 'ar' ? 'أنواع التذاكر' : 'Ticket types' },
+          { label: t('ticketTypes') },
         ]}
         actions={(
           <LocalizedLink className="button-secondary" href={localizedPath(locale, `/tenant/events/${event.id}/price-tiers`)}>
-            {locale === 'ar' ? 'شرائح الأسعار' : 'Price tiers'}
+            {t('priceTiers')}
           </LocalizedLink>
         )}
       />
@@ -312,32 +300,30 @@ export default function Ticketing({ tenantId, event, tickets }: Props) {
         <section className="mb-8">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold">
-              {editingId
-                ? (locale === 'ar' ? 'تعديل نوع التذكرة' : 'Edit ticket type')
-                : (locale === 'ar' ? 'إضافة نوع تذكرة' : 'Add ticket type')}
+              {editingId ? t('ticketTypeEdit') : t('ticketTypeAdd')}
             </h2>
             {editingId && (
               <button type="button" className="button-secondary cursor-pointer" onClick={cancelEdit}>
-                {locale === 'ar' ? 'إلغاء التعديل' : 'Cancel edit'}
+                {t('ticketTypeCancelEdit')}
               </button>
             )}
           </div>
           <form className="state-panel grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit}>
-            <TextInput label={locale === 'ar' ? 'الرمز' : 'Code'} name="code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} required error={errors.code} />
-            <SelectInput label={locale === 'ar' ? 'نوع الحضور' : 'Attendee type'} name="attendee_type" value={form.attendee_type} onChange={(e) => setForm({ ...form, attendee_type: e.target.value })} options={attendeeOptions} />
-            <TextInput label={locale === 'ar' ? 'الاسم (إنجليزي)' : 'Name (EN)'} name="name_en" value={form.name_en} onChange={(e) => setForm({ ...form, name_en: e.target.value })} required error={errors['name.en']} {...formFieldProps('name.en')} />
-            <TextInput label={locale === 'ar' ? 'الاسم (عربي)' : 'Name (AR)'} name="name_ar" value={form.name_ar} onChange={(e) => setForm({ ...form, name_ar: e.target.value })} required error={errors['name.ar']} {...formFieldProps('name.ar')} />
-            <TextareaInput wrapperClassName="sm:col-span-1" label={locale === 'ar' ? 'الوصف (إنجليزي)' : 'Description (EN)'} name="description_en" value={form.description_en} onChange={(e) => setForm({ ...form, description_en: e.target.value })} />
-            <TextareaInput wrapperClassName="sm:col-span-1" label={locale === 'ar' ? 'الوصف (عربي)' : 'Description (AR)'} name="description_ar" value={form.description_ar} onChange={(e) => setForm({ ...form, description_ar: e.target.value })} />
-            <TextInput label={locale === 'ar' ? 'السعة' : 'Capacity'} name="capacity" type="number" min={1} value={form.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} required error={errors.capacity} />
-            <SelectInput label={locale === 'ar' ? 'العملة' : 'Currency'} name="currency" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} options={currencyOptions} required error={errors.currency} />
+            <TextInput label={t('ticketTypeCode')} name="code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} required error={errors.code} />
+            <SelectInput label={t('ticketTypeAttendeeType')} name="attendee_type" value={form.attendee_type} onChange={(e) => setForm({ ...form, attendee_type: e.target.value })} options={attendeeOptions} />
+            <TextInput label={t('ticketTypeNameEn')} name="name_en" value={form.name_en} onChange={(e) => setForm({ ...form, name_en: e.target.value })} required error={errors['name.en']} {...formFieldProps('name.en')} />
+            <TextInput label={t('ticketTypeNameAr')} name="name_ar" value={form.name_ar} onChange={(e) => setForm({ ...form, name_ar: e.target.value })} required error={errors['name.ar']} {...formFieldProps('name.ar')} />
+            <TextareaInput wrapperClassName="sm:col-span-1" label={t('ticketTypeDescriptionEn')} name="description_en" value={form.description_en} onChange={(e) => setForm({ ...form, description_en: e.target.value })} />
+            <TextareaInput wrapperClassName="sm:col-span-1" label={t('ticketTypeDescriptionAr')} name="description_ar" value={form.description_ar} onChange={(e) => setForm({ ...form, description_ar: e.target.value })} />
+            <TextInput label={t('ticketTypeCapacity')} name="capacity" type="number" min={1} value={form.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} required error={errors.capacity} />
+            <SelectInput label={t('ticketTypeCurrency')} name="currency" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} options={currencyOptions} required error={errors.currency} />
             <TextInput label={priceLabel} name="price" type="number" min={0} step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required error={errors.price_minor} />
-            <DateTimeInput label={locale === 'ar' ? 'بداية البيع' : 'Sale starts'} name="sale_starts_at" value={form.sale_starts_at} onChange={(e) => setForm({ ...form, sale_starts_at: e.target.value })} required error={errors.sale_starts_at} />
-            <DateTimeInput label={locale === 'ar' ? 'نهاية البيع' : 'Sale ends'} name="sale_ends_at" value={form.sale_ends_at} onChange={(e) => setForm({ ...form, sale_ends_at: e.target.value })} required error={errors.sale_ends_at} />
+            <DateTimeInput label={t('ticketTypeSaleStarts')} name="sale_starts_at" value={form.sale_starts_at} onChange={(e) => setForm({ ...form, sale_starts_at: e.target.value })} required error={errors.sale_starts_at} />
+            <DateTimeInput label={t('ticketTypeSaleEnds')} name="sale_ends_at" value={form.sale_ends_at} onChange={(e) => setForm({ ...form, sale_ends_at: e.target.value })} required error={errors.sale_ends_at} />
             <div className="sm:col-span-2">
               <SubmitButtonWithLoader
                 loading={submitting === 'save'}
-                label={editingId ? (locale === 'ar' ? 'تحديث' : 'Update') : (locale === 'ar' ? 'إضافة' : 'Add')}
+                label={editingId ? t('update') : t('add')}
               />
             </div>
           </form>
@@ -345,20 +331,20 @@ export default function Ticketing({ tenantId, event, tickets }: Props) {
 
         {tickets.length === 0 ? (
           <EmptyState
-            title={locale === 'ar' ? 'لا توجد أنواع تذاكر' : 'No ticket types yet'}
-            detail={locale === 'ar' ? 'أنشئ نوع تذكرة لبدء التسعير.' : 'Create a ticket type to start pricing.'}
+            title={t('ticketTypeNoTickets')}
+            detail={t('ticketTypeNoTicketsDetail')}
           />
         ) : (
           <div className="ta-table-wrap rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface-elevated)]">
             <table className="ta-table">
               <thead>
                 <tr>
-                  <th>{locale === 'ar' ? 'الاسم' : 'Name'}</th>
-                  <th>{locale === 'ar' ? 'الرمز' : 'Code'}</th>
-                  <th>{locale === 'ar' ? 'نوع الحضور' : 'Attendee type'}</th>
-                  <th>{locale === 'ar' ? 'السعر' : 'Price'}</th>
-                  <th>{locale === 'ar' ? 'المخزون' : 'Inventory'}</th>
-                  <th>{locale === 'ar' ? 'الحالة' : 'Status'}</th>
+                  <th>{t('ticketTypeName')}</th>
+                  <th>{t('ticketTypeCode')}</th>
+                  <th>{t('ticketTypeAttendeeType')}</th>
+                  <th>{t('ticketTypePrice')}</th>
+                  <th>{t('ticketTypeInventory')}</th>
+                  <th>{t('status')}</th>
                   <th />
                 </tr>
               </thead>
@@ -378,15 +364,15 @@ export default function Ticketing({ tenantId, event, tickets }: Props) {
                     </td>
                     <td className="ta-table-actions">
                       <button type="button" className="ta-table-action cursor-pointer" onClick={() => startEdit(ticket)}>
-                        {locale === 'ar' ? 'تعديل' : 'Edit'}
+                        {t('edit')}
                       </button>
                       {ticket.status === 'paused' ? (
                         <button type="button" className="ta-table-action cursor-pointer" disabled={submitting === ticket.id} onClick={() => void toggleStatus(ticket, 'active')}>
-                          {locale === 'ar' ? 'تفعيل' : 'Activate'}
+                          {t('activate')}
                         </button>
                       ) : (
                         <button type="button" className="ta-table-action cursor-pointer" disabled={submitting === ticket.id} onClick={() => void toggleStatus(ticket, 'paused')}>
-                          {locale === 'ar' ? 'إيقاف' : 'Pause'}
+                          {t('pause')}
                         </button>
                       )}
                     </td>

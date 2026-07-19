@@ -66,7 +66,7 @@ export function emptyVenueRow(): VenueFormRow {
 }
 
 export default function VenueRepeater({ venues, countries, onChange, errors }: VenueRepeaterProps) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
 
   const countryOptions: SearchableOption[] = useMemo(
     () => countries.map((country) => ({
@@ -102,12 +102,10 @@ export default function VenueRepeater({ venues, countries, onChange, errors }: V
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold">
-            {locale === 'ar' ? 'أماكن الفعالية' : 'Event venues'}
+            {t('venueRepeaterTitle')}
           </h2>
           <p className="text-sm text-slate-600">
-            {locale === 'ar'
-              ? 'أضف مواقع متعددة مع تواريخ تسجيل مستقلة لكل موقع.'
-              : 'Add multiple venues with independent registration windows.'}
+            {t('venueRepeaterDescription')}
           </p>
         </div>
         <button
@@ -115,13 +113,13 @@ export default function VenueRepeater({ venues, countries, onChange, errors }: V
           className="button-primary inline-flex w-full cursor-pointer items-center justify-center gap-2 sm:w-auto"
           onClick={() => onChange((current) => [...current, emptyVenueRow()])}
         >
-          {locale === 'ar' ? 'إضافة موقع' : 'Add venue'}
+          {t('venueRepeaterAddVenue')}
         </button>
       </div>
 
       {venues.length === 0 && (
         <p className="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-600">
-          {locale === 'ar' ? 'لا توجد مواقع بعد.' : 'No venues added yet.'}
+          {t('venueRepeaterNoVenues')}
         </p>
       )}
 
@@ -137,12 +135,12 @@ export default function VenueRepeater({ venues, countries, onChange, errors }: V
                 className="text-sm text-red-700"
                 onClick={() => removeVenue(index)}
               >
-                {locale === 'ar' ? 'حذف' : 'Remove'}
+                {t('venueRepeaterRemove')}
               </button>
             </div>
             <div className="grid grid-cols-1 gap-3 @md:grid-cols-2">
               <TextInput
-                label={locale === 'ar' ? 'الاسم (EN)' : 'Name (EN)'}
+                label={t('venueRepeaterNameEn')}
                 name={`venue_${index}_name_en`}
                 value={venue.name_en}
                 onChange={(event) => updateVenue(index, { name_en: event.target.value })}
@@ -150,7 +148,7 @@ export default function VenueRepeater({ venues, countries, onChange, errors }: V
                 {...formFieldProps(`venues.${index}.name.en`)}
               />
               <TextInput
-                label={locale === 'ar' ? 'الاسم (AR)' : 'Name (AR)'}
+                label={t('venueRepeaterNameAr')}
                 name={`venue_${index}_name_ar`}
                 value={venue.name_ar}
                 onChange={(event) => updateVenue(index, { name_ar: event.target.value })}
@@ -158,27 +156,27 @@ export default function VenueRepeater({ venues, countries, onChange, errors }: V
                 {...formFieldProps(`venues.${index}.name.ar`)}
               />
               <SearchableSelect
-                label={locale === 'ar' ? 'الدولة' : 'Country'}
+                label={t('venueRepeaterCountry')}
                 value={venue.country_id}
                 onChange={(countryId) => updateVenue(index, { country_id: countryId, city_id: '' })}
                 options={countryOptions}
-                placeholder={locale === 'ar' ? 'ابحث عن دولة' : 'Search country'}
+                placeholder={t('venueRepeaterSearchCountry')}
                 error={errors[`venues.${index}.country_id`]}
                 {...formFieldProps(`venues.${index}.country_id`)}
               />
               <SearchableSelect
-                label={locale === 'ar' ? 'المدينة' : 'City'}
+                label={t('venueRepeaterCity')}
                 value={venue.city_id}
                 onChange={(cityId) => updateVenue(index, { city_id: cityId })}
                 options={citiesForCountry(venue.country_id)}
-                placeholder={locale === 'ar' ? 'ابحث عن مدينة' : 'Search city'}
+                placeholder={t('venueRepeaterSearchCity')}
                 disabled={!venue.country_id}
                 error={errors[`venues.${index}.city_id`]}
                 {...formFieldProps(`venues.${index}.city_id`)}
               />
               <div className="@md:col-span-2">
                 <TextareaInput
-                  label={locale === 'ar' ? 'العنوان' : 'Address'}
+                  label={t('venueRepeaterAddress')}
                   name={`venue_${index}_address`}
                   value={venue.location_address}
                   onChange={(event) => updateVenue(index, { location_address: event.target.value })}
@@ -189,7 +187,7 @@ export default function VenueRepeater({ venues, countries, onChange, errors }: V
               <div className="@md:col-span-2">
                 <Suspense fallback={<div className="h-56 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-700" />}>
                   <MapPicker
-                    label={locale === 'ar' ? 'الموقع على الخريطة' : 'Map location'}
+                    label={t('venueRepeaterMapLocation')}
                     latitude={venue.latitude}
                     longitude={venue.longitude}
                     onLatitudeChange={(latitude) => updateVenue(index, { latitude })}
@@ -203,7 +201,7 @@ export default function VenueRepeater({ venues, countries, onChange, errors }: V
                 </Suspense>
               </div>
               <DateTimeInput
-                label={locale === 'ar' ? 'بداية الفعالية' : 'Event starts'}
+                label={t('venueRepeaterEventStarts')}
                 name={`venue_${index}_start`}
                 value={venue.start_at}
                 onChange={(event) => updateVenue(index, { start_at: event.target.value })}
@@ -212,7 +210,7 @@ export default function VenueRepeater({ venues, countries, onChange, errors }: V
                 {...formFieldProps(`venues.${index}.start_at`)}
               />
               <DateTimeInput
-                label={locale === 'ar' ? 'نهاية الفعالية' : 'Event ends'}
+                label={t('venueRepeaterEventEnds')}
                 name={`venue_${index}_end`}
                 value={venue.end_at}
                 onChange={(event) => updateVenue(index, { end_at: event.target.value })}
@@ -221,7 +219,7 @@ export default function VenueRepeater({ venues, countries, onChange, errors }: V
                 {...formFieldProps(`venues.${index}.end_at`)}
               />
               <DateTimeInput
-                label={locale === 'ar' ? 'فتح التسجيل' : 'Registration opens'}
+                label={t('venueRepeaterRegistrationOpens')}
                 name={`venue_${index}_reg_open`}
                 value={venue.registration_opens_at}
                 onChange={(event) => updateVenue(index, { registration_opens_at: event.target.value })}
@@ -230,7 +228,7 @@ export default function VenueRepeater({ venues, countries, onChange, errors }: V
                 {...formFieldProps(`venues.${index}.registration_opens_at`)}
               />
               <DateTimeInput
-                label={locale === 'ar' ? 'إغلاق التسجيل' : 'Registration closes'}
+                label={t('venueRepeaterRegistrationCloses')}
                 name={`venue_${index}_reg_close`}
                 value={venue.registration_closes_at}
                 onChange={(event) => updateVenue(index, { registration_closes_at: event.target.value })}

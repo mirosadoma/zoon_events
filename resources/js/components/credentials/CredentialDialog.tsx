@@ -11,7 +11,7 @@ type CredentialDialogProps = {
 }
 
 export function CredentialDialog({ status, loading = false, onRevoked, onReissued }: CredentialDialogProps) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const [revokeOpen, setRevokeOpen] = useState(false)
   const [reissueOpen, setReissueOpen] = useState(false)
 
@@ -20,20 +20,20 @@ export function CredentialDialog({ status, loading = false, onRevoked, onReissue
   return (
     <section className="state-panel mt-6" aria-labelledby="credential-actions">
       <h2 id="credential-actions" className="text-lg font-semibold">
-        {locale === 'ar' ? 'إجراءات بيانات الدخول' : 'Credential actions'}
+        {t('credentialDialogTitle')}
       </h2>
       <div className="mt-4 flex flex-wrap gap-2">
         <PermissionGate permission="credential.revoke">
           {canAct && (
             <button type="button" className="button-secondary" onClick={() => setRevokeOpen(true)} disabled={loading}>
-              {locale === 'ar' ? 'إلغاء بيانات الدخول' : 'Revoke credential'}
+              {t('credentialDialogRevoke')}
             </button>
           )}
         </PermissionGate>
         <PermissionGate permission="credential.reissue">
           {(status === 'revoked' || status === 'expired') && (
             <button type="button" className="button-primary" onClick={() => setReissueOpen(true)} disabled={loading}>
-              {locale === 'ar' ? 'إعادة الإصدار' : 'Reissue credential'}
+              {t('credentialDialogReissue')}
             </button>
           )}
         </PermissionGate>
@@ -41,11 +41,11 @@ export function CredentialDialog({ status, loading = false, onRevoked, onReissue
 
       <ReasonModal
         open={revokeOpen}
-        title={locale === 'ar' ? 'إلغاء بيانات الدخول' : 'Revoke credential'}
-        message={locale === 'ar' ? 'سيتم إيقاف بيانات الدخول فورًا.' : 'This will immediately invalidate the credential.'}
-        reasonLabel={locale === 'ar' ? 'السبب' : 'Reason'}
-        confirmLabel={locale === 'ar' ? 'تأكيد الإلغاء' : 'Confirm revoke'}
-        cancelLabel={locale === 'ar' ? 'إلغاء' : 'Cancel'}
+        title={t('credentialDialogRevokeTitle')}
+        message={t('credentialDialogRevokeMessage')}
+        reasonLabel={t('credentialDialogReason')}
+        confirmLabel={t('credentialDialogRevokeConfirm')}
+        cancelLabel={t('cancel')}
         loading={loading}
         onConfirm={async (reason) => {
           const success = await onRevoked?.(reason)
@@ -58,11 +58,11 @@ export function CredentialDialog({ status, loading = false, onRevoked, onReissue
 
       <ReasonModal
         open={reissueOpen}
-        title={locale === 'ar' ? 'إعادة إصدار بيانات الدخول' : 'Reissue credential'}
-        message={locale === 'ar' ? 'سيتم إنشاء بيانات دخول جديدة مرتبطة بالسابقة.' : 'A new credential will be issued and linked to the prior one.'}
-        reasonLabel={locale === 'ar' ? 'السبب' : 'Reason'}
-        confirmLabel={locale === 'ar' ? 'إعادة الإصدار' : 'Reissue'}
-        cancelLabel={locale === 'ar' ? 'إلغاء' : 'Cancel'}
+        title={t('credentialDialogReissueTitle')}
+        message={t('credentialDialogReissueMessage')}
+        reasonLabel={t('credentialDialogReason')}
+        confirmLabel={t('credentialDialogReissueButton')}
+        cancelLabel={t('cancel')}
         loading={loading}
         onConfirm={async (reason) => {
           const success = await onReissued?.(reason)

@@ -22,17 +22,17 @@ export default function BadgeTemplatesPage({ event, tenantId, templates }: Props
   const [activeTemplate, setActiveTemplate] = useState<BadgeTemplate | undefined>(templates[0])
 
   return (
-    <DashboardLayout title={locale === 'ar' ? 'قوالب الشارات' : 'Badge templates'}>
+    <DashboardLayout title={t('badgeTemplates')}>
       <PageHeader
-        title={locale === 'ar' ? 'قوالب الشارات' : 'Badge templates'}
+        title={t('badgeTemplates')}
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
-          { label: locale === 'ar' ? 'قوالب الشارات' : 'Badge templates' },
+          { label: t('badgeTemplates') },
         ]}
-        actions={<LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/badge-print-jobs`}>{locale === 'ar' ? 'مهام الطباعة' : 'Print jobs'}</LocalizedLink>}
+        actions={<LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/badge-print-jobs`}>{t('badgePrintJobs')}</LocalizedLink>}
       />
       <PageContent>
         <div className="space-y-4">

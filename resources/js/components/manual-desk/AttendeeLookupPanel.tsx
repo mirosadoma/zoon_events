@@ -29,8 +29,7 @@ export function AttendeeLookupPanel({
   onSelect,
   selecting = false,
 }: AttendeeLookupPanelProps) {
-  const { locale } = useLocale()
-  const ar = locale === 'ar'
+  const { locale, t } = useLocale()
 
   if (loading) {
     return <LoadingState />
@@ -39,8 +38,8 @@ export function AttendeeLookupPanel({
   if (result === null) {
     return (
       <EmptyState
-        title={ar ? 'ابحث عن حاضر' : 'Search for an attendee'}
-        detail={ar ? 'أدخل الاسم أو البريد أو الهاتف لبدء تسجيل الحضور.' : 'Enter a name, email, or phone to start check-in.'}
+        title={t('attendeeLookupSearchTitle')}
+        detail={t('attendeeLookupSearchDetail')}
       />
     )
   }
@@ -48,8 +47,8 @@ export function AttendeeLookupPanel({
   if (result.too_many) {
     return (
       <EmptyState
-        title={ar ? 'نتائج كثيرة جداً' : 'Too many matches'}
-        detail={ar ? 'ضيّق البحث للحصول على نتائج أدق.' : 'Please refine your search to narrow the results.'}
+        title={t('attendeeLookupTooMany')}
+        detail={t('attendeeLookupTooManyDetail')}
       />
     )
   }
@@ -57,8 +56,8 @@ export function AttendeeLookupPanel({
   if (result.matches.length === 0) {
     return (
       <EmptyState
-        title={ar ? 'لا توجد نتائج' : 'No attendees found'}
-        detail={ar ? 'جرّب عبارة بحث أخرى.' : 'Try a different search term.'}
+        title={t('attendeeLookupNoResults')}
+        detail={t('attendeeLookupNoResultsDetail')}
       />
     )
   }
@@ -67,15 +66,20 @@ export function AttendeeLookupPanel({
     <section className="ta-card space-y-3 p-0 overflow-hidden">
       <div className="ta-table-toolbar">
         <h2 className="text-lg font-semibold text-[var(--ink)]">
-          {ar ? 'نتائج البحث' : 'Search results'}
+          {t('attendeeLookupResults')}
         </h2>
         <span className="text-sm text-[var(--muted)]">
-          {result.matches.length} {ar ? 'نتيجة' : result.matches.length === 1 ? 'match' : 'matches'}
+          {result.matches.length}{' '}
+          {locale === 'ar'
+            ? t('attendeeLookupResultCount')
+            : result.matches.length === 1
+              ? t('attendeeLookupResultSingular')
+              : t('attendeeLookupResultPlural')}
         </span>
       </div>
       <ul className="divide-y divide-[var(--border)]">
         {result.matches.map((match, index) => {
-          const name = match.display_name ?? (ar ? 'غير معروف' : 'Unknown')
+          const name = match.display_name ?? t('attendeeLookupUnknown')
           const ticket = match.ticket_type_label ?? '—'
           const needsOverride = match.checkin_status === 'rejected'
 
@@ -95,8 +99,8 @@ export function AttendeeLookupPanel({
                   <StatusBadge status={match.checkin_status} />
                   <span className="text-sm font-medium text-[var(--brand)]">
                     {needsOverride
-                      ? (ar ? 'تجاوز' : 'Override')
-                      : (ar ? 'تسجيل حضور' : 'Check in')}
+                      ? t('attendeeLookupOverride')
+                      : t('attendeeLookupCheckIn')}
                   </span>
                 </div>
               </button>
@@ -108,11 +112,12 @@ export function AttendeeLookupPanel({
   )
 }
 
-export function DeskSearchHint({ ar }: { ar: boolean }) {
+export function DeskSearchHint() {
+  const { t } = useLocale()
   return (
     <p className="flex items-center gap-2 text-sm text-[var(--muted)]">
       <Search className="h-4 w-4 shrink-0" aria-hidden />
-      {ar ? 'ابحث ثم اختر الحاضر من النتائج.' : 'Search, then select an attendee from the results.'}
+      {t('attendeeLookupHint')}
     </p>
   )
 }

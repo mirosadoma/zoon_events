@@ -11,6 +11,7 @@ export function eventNavigationGroups(eventId: string, capabilities?: EventCapab
   const setupItems: NavigationItem[] = [
     { key: 'event-detail', label: 'eventDetail', href: base, permission: 'event.view' },
     { key: 'agenda', label: 'agenda', href: `${base}/agenda`, permission: 'event.manage' },
+    { key: 'categories', label: 'categories', href: `${base}/categories`, permission: 'category.view' },
     { key: 'registration-form', label: 'registrationForm', href: `${base}/registration-form`, permission: 'registration.manage' },
   ]
 

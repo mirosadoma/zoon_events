@@ -24,7 +24,6 @@ export default function AcsZones({ event, tenantId, zones: initialZones }: Props
   const [externalId, setExternalId] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const ar = locale === 'ar'
 
   async function handleCreate(formEvent: FormEvent<HTMLFormElement>) {
     formEvent.preventDefault()
@@ -52,20 +51,20 @@ export default function AcsZones({ event, tenantId, zones: initialZones }: Props
   }
 
   return (
-    <DashboardLayout title={ar ? 'مناطق ACS' : 'ACS zones'}>
+    <DashboardLayout title={t('acsPageZones')}>
       <PageHeader
-        title={ar ? 'مناطق ACS' : 'ACS zones'}
+        title={t('acsPageZones')}
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: ar ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: 'ACS', href: `/tenant/events/${event.id}/acs` },
-          { label: ar ? 'المناطق' : 'Zones' },
+          { label: t('acsPageZones') },
         ]}
         actions={(
           <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/acs/lanes`}>
-            {ar ? 'المسارات' : 'Lanes'}
+            {t('acsPageLanes')}
           </LocalizedLink>
         )}
       />
@@ -74,15 +73,15 @@ export default function AcsZones({ event, tenantId, zones: initialZones }: Props
 
         <form className="ta-card mt-6 space-y-4" onSubmit={handleCreate}>
           <div>
-            <h2 className="text-lg font-semibold text-[var(--ink)]">{ar ? 'إنشاء منطقة' : 'Create zone'}</h2>
+            <h2 className="text-lg font-semibold text-[var(--ink)]">{t('acsPageCreateZone')}</h2>
             <p className="mt-1 text-sm text-[var(--muted)]">
-              {ar ? 'أضف منطقة تحكم جديدة واربطها بمعرف ACS الخارجي.' : 'Add a new access zone and map it to the external ACS id.'}
+              {t('acsPageCreateZoneDescription')}
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <TextInput label={ar ? 'الاسم' : 'Name'} name="name" value={name} onChange={(e) => setName(e.target.value)} required />
+            <TextInput label={t('name')} name="name" value={name} onChange={(e) => setName(e.target.value)} required />
             <TextInput
-              label={ar ? 'المعرف الخارجي' : 'External zone ID'}
+              label={t('acsPageExternalZoneId')}
               name="external_acs_zone_id"
               value={externalId}
               onChange={(e) => setExternalId(e.target.value)}
@@ -94,7 +93,7 @@ export default function AcsZones({ event, tenantId, zones: initialZones }: Props
               {error}
             </p>
           )}
-          <SubmitButtonWithLoader loading={submitting} label={ar ? 'إنشاء منطقة' : 'Create zone'} />
+          <SubmitButtonWithLoader loading={submitting} label={t('acsPageCreateZone')} />
         </form>
       </PageContent>
     </DashboardLayout>

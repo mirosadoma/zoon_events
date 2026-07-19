@@ -45,7 +45,6 @@ vi.mock('@/hooks/useLocale', () => ({
       adminAddUserSuccess: 'Team member added.',
       adminDefaultLocale: 'Default locale',
       adminNoUsers: 'No team members yet.',
-      cancel: 'Cancel',
       errorState: 'Something went wrong.',
       audit: 'Audit',
       adminAuditDescription: 'Search tenant audit activity with bounded filters.',

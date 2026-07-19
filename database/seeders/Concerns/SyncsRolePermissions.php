@@ -11,20 +11,12 @@ use Illuminate\Support\Facades\DB;
 
 trait SyncsRolePermissions
 {
-    /**
-     * @param  list<string>  $permissionKeys
-     */
+    /** @param list<string> $permissionKeys */
     protected function syncPlatformRolePermissions(PlatformRole $role, array $permissionKeys, User $grantor): void
     {
-        $permissionIds = Permission::query()
-            ->where('scope', 'platform')
-            ->whereIn('key', $permissionKeys)
-            ->pluck('id')
-            ->all();
-
-        if ($permissionKeys === ['*']) {
-            $permissionIds = Permission::query()->where('scope', 'platform')->pluck('id')->all();
-        }
+        $permissionIds = $permissionKeys === ['*']
+            ? Permission::query()->where('scope', 'platform')->pluck('id')->all()
+            : Permission::query()->where('scope', 'platform')->whereIn('key', $permissionKeys)->pluck('id')->all();
 
         DB::table('platform_role_permissions')->where('platform_role_id', $role->id)->delete();
 
@@ -38,20 +30,12 @@ trait SyncsRolePermissions
         }
     }
 
-    /**
-     * @param  list<string>  $permissionKeys
-     */
+    /** @param list<string> $permissionKeys */
     protected function syncTenantRolePermissions(Tenant $tenant, TenantRole $role, array $permissionKeys, User $grantor): void
     {
-        $permissionIds = Permission::query()
-            ->where('scope', 'tenant')
-            ->whereIn('key', $permissionKeys)
-            ->pluck('id')
-            ->all();
-
-        if ($permissionKeys === ['*']) {
-            $permissionIds = Permission::query()->where('scope', 'tenant')->pluck('id')->all();
-        }
+        $permissionIds = $permissionKeys === ['*']
+            ? Permission::query()->where('scope', 'tenant')->pluck('id')->all()
+            : Permission::query()->where('scope', 'tenant')->whereIn('key', $permissionKeys)->pluck('id')->all();
 
         DB::table('tenant_role_permissions')->where('tenant_role_id', $role->id)->delete();
 

@@ -37,7 +37,6 @@ export default function KioskIndex({
   pagination = defaultPagination,
 }: Props) {
   const { locale, t } = useLocale()
-  const ar = locale === 'ar'
   const localizedRouter = useLocalizedRouter()
   const [kiosks, setKiosks] = useState(initialKiosks)
   const [selectedKiosk, setSelectedKiosk] = useState<Kiosk | null>(null)
@@ -86,35 +85,33 @@ export default function KioskIndex({
   }
 
   return (
-    <DashboardLayout title={ar ? 'إدارة الكشك' : 'Kiosk management'}>
+    <DashboardLayout title={t('kioskPageManagement')}>
       <PageHeader
-        title={ar ? 'إدارة الكشك' : 'Kiosk management'}
+        title={t('kioskPageManagement')}
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: ar ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
-          { label: ar ? 'الكشكات' : 'Kiosks' },
+          { label: t('kioskPageKiosks') },
         ]}
       />
       <PageContent>
         {kiosks.length === 0 ? (
           <EmptyState
-            title={ar ? 'لا توجد كشكات مسجلة' : 'No kiosks registered for this event'}
-            detail={ar
-              ? 'سجّل جهازاً ثم أقرنه لإظهاره هنا.'
-              : 'Register a device and pair it to see it listed here.'}
+            title={t('kioskPageNoKiosks')}
+            detail={t('kioskPageNoKiosksDescription')}
           />
         ) : (
           <>
             <DataTable
-              title={ar ? 'الكشكات' : 'Kiosks'}
+              title={t('kioskPageKiosks')}
               rows={kiosks as unknown as Record<string, unknown>[]}
               getRowKey={(row) => String(row.id)}
               columns={[
                 {
                   key: 'device_name',
-                  header: ar ? 'الجهاز' : 'Device',
+                  header: t('kioskPageDevice'),
                   render: (row) => {
                     const kiosk = row as unknown as Kiosk
                     return (
@@ -129,17 +126,17 @@ export default function KioskIndex({
                 },
                 {
                   key: 'device_code',
-                  header: ar ? 'الرمز' : 'Code',
+                  header: t('kioskPageCode'),
                   render: (row) => <span className="font-mono text-sm">{String(row.device_code)}</span>,
                 },
                 {
                   key: 'status',
-                  header: ar ? 'الحالة' : 'Status',
+                  header: t('status'),
                   render: (row) => <StatusBadge status={String(row.status)} />,
                 },
                 {
                   key: 'printer_status',
-                  header: ar ? 'الطابعة' : 'Printer',
+                  header: t('kioskPagePrinter'),
                   render: (row) => (
                     row.printer_status
                       ? <StatusBadge status={String(row.printer_status)} />
@@ -148,12 +145,12 @@ export default function KioskIndex({
                 },
                 {
                   key: 'last_heartbeat_at',
-                  header: ar ? 'النبض' : 'Heartbeat',
+                  header: t('kioskPageHeartbeat'),
                   render: (row) => <HeartbeatIndicator kiosk={row as unknown as Kiosk} />,
                 },
                 {
                   key: 'actions',
-                  header: ar ? 'إجراءات' : 'Actions',
+                  header: t('kioskPageActions'),
                   render: (row) => {
                     const kiosk = row as unknown as Kiosk
                     return (
@@ -165,7 +162,7 @@ export default function KioskIndex({
                             onClick={() => setSelectedKiosk(kiosk)}
                           >
                             <Link2 className="h-3.5 w-3.5" aria-hidden />
-                            {ar ? 'إقران' : 'Pair'}
+                            {t('kioskPagePair')}
                           </button>
                           {kiosk.status !== 'retired' && (
                             <button
@@ -174,7 +171,7 @@ export default function KioskIndex({
                               onClick={() => setRetireTarget(kiosk)}
                             >
                               <Power className="h-3.5 w-3.5" aria-hidden />
-                              {ar ? 'إيقاف' : 'Retire'}
+                              {t('kioskPageRetire')}
                             </button>
                           )}
                         </div>
@@ -198,10 +195,10 @@ export default function KioskIndex({
         <section className="mt-8 space-y-3">
           <div>
             <h2 className="text-lg font-semibold text-[var(--ink)]">
-              {ar ? 'الصحة المباشرة' : 'Live health'}
+              {t('kioskPageLiveHealth')}
             </h2>
             <p className="text-sm text-[var(--muted)]">
-              {ar ? 'يتم التحديث تلقائياً كل بضع ثوانٍ.' : 'Updates automatically every few seconds.'}
+              {t('acsPageAutoUpdate')}
             </p>
           </div>
           <HealthTable eventId={event.id} tenantId={tenantId} pollIntervalMs={15000} />
@@ -218,22 +215,20 @@ export default function KioskIndex({
 
       <ConfirmModal
         open={retireTarget !== null}
-        title={ar ? 'إيقاف الكشك' : 'Retire kiosk'}
-        message={ar ? 'هل أنت متأكد من إيقاف هذا الكشك؟' : 'Are you sure you want to retire this kiosk?'}
-        confirmLabel={ar ? 'إيقاف' : 'Retire'}
-        cancelLabel={ar ? 'إلغاء' : 'Cancel'}
+        title={t('kioskPageRetireKiosk')}
+        message={t('kioskPageRetireConfirm')}
+        confirmLabel={t('kioskPageRetire')}
+        cancelLabel={t('cancel')}
         onConfirm={() => void handleRetire()}
         onCancel={() => setRetireTarget(null)}
       />
 
       <ConfirmModal
         open={pairingSecret !== null}
-        title={ar ? 'تم الإقران' : 'Kiosk paired'}
-        message={ar
-          ? 'انسخ رمز الجلسة وأدخله على الكشك فوراً. لن يظهر مرة أخرى.'
-          : 'Copy this session secret into the kiosk now. It will not be shown again.'}
-        confirmLabel={ar ? 'تم' : 'Done'}
-        cancelLabel={ar ? 'إغلاق' : 'Close'}
+        title={t('kioskPagePaired')}
+        message={t('kioskPagePairedMessage')}
+        confirmLabel={t('kioskPageDone')}
+        cancelLabel={t('kioskPageClose')}
         onConfirm={() => setPairingSecret(null)}
         onCancel={() => setPairingSecret(null)}
       >

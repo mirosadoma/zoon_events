@@ -17,7 +17,7 @@ export function ZoneLaneEditor({
   showZones = true,
   showLanes = true,
 }: ZoneLaneEditorProps) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const ar = locale === 'ar'
   const zoneNameById = Object.fromEntries(zones.map((zone) => [zone.id, zone.name]))
 
@@ -26,15 +26,15 @@ export function ZoneLaneEditor({
       {showZones && (
         <section className="space-y-3">
           <div>
-            <h2 className="text-lg font-semibold text-[var(--ink)]">{ar ? 'المناطق' : 'Zones'}</h2>
+            <h2 className="text-lg font-semibold text-[var(--ink)]">{t('acsZonesTitle')}</h2>
             <p className="text-sm text-[var(--muted)]">
-              {ar ? 'مناطق التحكم في الدخول لهذه الفعالية.' : 'Access control zones for this event.'}
+              {t('acsZonesDescription')}
             </p>
           </div>
           {zones.length === 0 ? (
             <EmptyState
-              title={ar ? 'لا توجد مناطق بعد' : 'No zones yet'}
-              detail={ar ? 'أنشئ منطقة باستخدام النموذج أدناه.' : 'Create a zone using the form below.'}
+              title={t('acsZonesEmpty')}
+              detail={t('acsZonesEmptyDetail')}
             />
           ) : (
             <DataTable
@@ -43,17 +43,17 @@ export function ZoneLaneEditor({
               columns={[
                 {
                   key: 'name',
-                  header: ar ? 'الاسم' : 'Name',
+                  header: t('acsZoneName'),
                   render: (row) => <span className="font-medium text-[var(--ink)]">{String(row.name)}</span>,
                 },
                 {
                   key: 'external_acs_zone_id',
-                  header: ar ? 'المعرف الخارجي' : 'External ID',
+                  header: t('acsZoneExternalId'),
                   render: (row) => <span className="font-mono text-sm">{String(row.external_acs_zone_id)}</span>,
                 },
                 {
                   key: 'status',
-                  header: ar ? 'الحالة' : 'Status',
+                  header: t('status'),
                   render: (row) => <StatusBadge status={String(row.status)} />,
                 },
               ]}
@@ -65,15 +65,15 @@ export function ZoneLaneEditor({
       {showLanes && (
         <section className="space-y-3">
           <div>
-            <h2 className="text-lg font-semibold text-[var(--ink)]">{ar ? 'المسارات' : 'Lanes'}</h2>
+            <h2 className="text-lg font-semibold text-[var(--ink)]">{t('acsLanesTitle')}</h2>
             <p className="text-sm text-[var(--muted)]">
-              {ar ? 'البوابات والمسارات المرتبطة بالمناطق.' : 'Gates and lanes mapped to zones.'}
+              {t('acsLanesDescription')}
             </p>
           </div>
           {lanes.length === 0 ? (
             <EmptyState
-              title={ar ? 'لا توجد مسارات بعد' : 'No lanes yet'}
-              detail={ar ? 'أنشئ مساراً بعد إضافة منطقة.' : 'Create a lane after adding a zone.'}
+              title={t('acsLanesEmpty')}
+              detail={t('acsLanesEmptyDetail')}
             />
           ) : (
             <DataTable
@@ -82,27 +82,27 @@ export function ZoneLaneEditor({
               columns={[
                 {
                   key: 'name',
-                  header: ar ? 'الاسم' : 'Name',
+                  header: t('acsLaneName'),
                   render: (row) => <span className="font-medium text-[var(--ink)]">{String(row.name)}</span>,
                 },
                 {
                   key: 'zone_id',
-                  header: ar ? 'المنطقة' : 'Zone',
+                  header: t('acsLaneZone'),
                   render: (row) => zoneNameById[String(row.zone_id)] ?? String(row.zone_id),
                 },
                 {
                   key: 'external_acs_lane_id',
-                  header: ar ? 'المعرف الخارجي' : 'External ID',
+                  header: t('acsLaneExternalId'),
                   render: (row) => <span className="font-mono text-sm">{String(row.external_acs_lane_id)}</span>,
                 },
                 {
                   key: 'status',
-                  header: ar ? 'الحالة' : 'Status',
+                  header: t('status'),
                   render: (row) => <StatusBadge status={String(row.status)} />,
                 },
                 {
                   key: 'health_status',
-                  header: ar ? 'الصحة' : 'Health',
+                  header: t('acsLaneHealth'),
                   render: (row) => (row.health_status ? <StatusBadge status={String(row.health_status)} /> : '—'),
                 },
               ]}

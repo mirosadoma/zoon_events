@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import { LocalizedEventContent, type LocalizedText } from '@/components/registration/LocalizedEventContent'
 import { formatVenuePillLabel } from '@/lib/venueLabels'
+import en from '@/locales/en'
+import ar from '@/locales/ar'
 
 export type RegistrationHeroVenue = {
   id: string
@@ -55,7 +57,7 @@ function EventMediaPreview({
       {images.length > 0 ? (
         <div
           className="registration-event-gallery"
-          aria-label={locale === 'ar' ? 'صور الفعالية' : 'Event photos'}
+          aria-label={(locale === 'ar' ? ar : en).registrationEventPhotos}
         >
           {images.map((url) => (
             <img

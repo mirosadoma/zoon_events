@@ -21,10 +21,11 @@ type InAppNotification = {
   created_at: string
 }
 
-function relativeTime(iso: string, locale: string): string {
+function relativeTime(iso: string, locale: 'en' | 'ar'): string {
+  const messages = locale === 'ar' ? ar : en
   const diff = Date.now() - new Date(iso).getTime()
   const minutes = Math.floor(diff / 60_000)
-  if (minutes < 1) return locale === 'ar' ? 'الآن' : 'Just now'
+  if (minutes < 1) return messages.timeJustNow
   if (minutes < 60) return locale === 'ar' ? `منذ ${minutes} دقيقة` : `${minutes}m ago`
   const hours = Math.floor(minutes / 60)
   if (hours < 24) return locale === 'ar' ? `منذ ${hours} ساعة` : `${hours}h ago`
@@ -113,11 +114,11 @@ export default function NotificationDropdown() {
         )}
       </button>
       {open ? (
-        <>
+          <>
           <button
             type="button"
             className="fixed inset-0 z-40 bg-black/20 sm:hidden"
-            aria-label={locale === 'ar' ? 'إغلاق الإشعارات' : 'Close notifications'}
+            aria-label={messages.notificationDropdownCloseLabel}
             onClick={() => setOpen(false)}
           />
           <div className="fixed inset-x-4 top-[3.75rem] z-50 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] shadow-xl sm:absolute sm:inset-x-auto sm:top-full sm:mt-2 sm:w-96 sm:end-0">
@@ -147,9 +148,9 @@ export default function NotificationDropdown() {
 
             <div className="max-h-80 overflow-y-auto">
               {loading && !fetched ? (
-                <div className="flex items-center justify-center gap-2 p-6">
+                  <div className="flex items-center justify-center gap-2 p-6">
                   <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--brand)]" />
-                  <span className="text-xs text-[var(--muted)]">{locale === 'ar' ? 'جاري التحميل...' : 'Loading...'}</span>
+                  <span className="text-xs text-[var(--muted)]">{messages.notificationDropdownLoading}</span>
                 </div>
               ) : fetched && items.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 p-8">

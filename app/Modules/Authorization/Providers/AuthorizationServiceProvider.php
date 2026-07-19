@@ -10,8 +10,8 @@ use App\Modules\Authorization\Policies\Phase1\Phase1Policy;
 use App\Modules\Authorization\Policies\Phase2\Phase2Policy;
 use App\Modules\Authorization\Policies\Phase3\Phase3Policy;
 use App\Modules\Authorization\Policies\Phase4\Phase4Policy;
+use App\Modules\Authorization\Domain\PermissionCatalog;
 use App\Modules\Tenancy\Domain\Context\TenantContextStore;
-use Database\Seeders\PermissionSeeder;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -30,7 +30,7 @@ class AuthorizationServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        foreach (PermissionSeeder::definitions() as $definition) {
+        foreach (PermissionCatalog::all() as $definition) {
             Gate::define($definition['key'], function ($user) use ($definition): bool {
                 $evaluator = app(PermissionEvaluator::class);
 

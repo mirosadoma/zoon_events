@@ -177,7 +177,7 @@ export default function EventSetup({
   const localizedRouter = useLocalizedRouter()
   const { toast } = useToast()
   const validation = useFormValidation({ titleKey: 'couldNotSaveEvent', fieldLabels: EVENT_SETUP_FIELD_LABELS })
-  const title = event.id ? event.name[locale] : (locale === 'ar' ? 'فعالية جديدة' : 'New event')
+  const title = event.id ? event.name[locale] : t('eventSetupNewEvent')
   const isCreate = event.id === null
 
   useEffect(() => {
@@ -286,24 +286,22 @@ export default function EventSetup({
   const wizardFooter = (
     <>
       <p className="text-sm text-slate-500 dark:text-slate-400">
-        {locale === 'ar'
-          ? `الخطوة ${wizardStep + 1} من ${wizardSteps.length}`
-          : `Step ${wizardStep + 1} of ${wizardSteps.length}`}
+        {t('eventSetupWizardStep').replace(':current', String(wizardStep + 1)).replace(':total', String(wizardSteps.length))}
       </p>
       <div className="event-create-wizard-footer-actions">
         {wizardStep > 0 ? (
           <button type="button" className="button-secondary" onClick={goToPreviousWizardStep}>
-            {locale === 'ar' ? 'السابق' : 'Back'}
+            {t('back')}
           </button>
         ) : null}
         {wizardStep < wizardSteps.length - 1 ? (
           <button type="button" className="button-primary" onClick={goToNextWizardStep}>
-            {locale === 'ar' ? 'التالي' : 'Continue'}
+            {t('continue')}
           </button>
         ) : null}
         {eventPermissions.manage && wizardStep === wizardSteps.length - 1 ? (
           <SubmitButtonWithLoader
-            label={locale === 'ar' ? 'إنشاء الفعالية' : 'Create event'}
+            label={t('eventSetupCreateEvent')}
             loading={submitting}
           />
         ) : null}
@@ -479,7 +477,7 @@ export default function EventSetup({
       }
 
       const createdId = String(body.data?.id ?? body.id ?? event.id ?? '')
-      toast(locale === 'ar' ? 'تم حفظ الفعالية.' : 'Event saved.', 'success')
+      toast(t('eventSetupSaved'), 'success')
       if (createdId) {
         localizedRouter.visit(`/tenant/events/${createdId}`)
       } else {
@@ -501,11 +499,9 @@ export default function EventSetup({
     <DashboardLayout title={title}>
       <PageHeader
         title={title}
-        description={isCreate
-          ? (locale === 'ar' ? 'أنشئ فعالية جديدة خطوة بخطوة.' : 'Create a new event step by step.')
-          : (locale === 'ar' ? 'إعداد بيانات الفعالية الأساسية.' : 'Configure core event details.')}
+        description={isCreate ? t('eventSetupCreateDescription') : t('eventSetupEditDescription')}
         breadcrumbs={[
-          { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: title },
         ]}
       />
@@ -517,14 +513,13 @@ export default function EventSetup({
               currentStep={wizardStep}
               stepTitle={currentStepCopy.title}
               stepDescription={currentStepCopy.description}
-              locale={locale}
               footer={wizardFooter}
             >
               {showStep('type') && (
                 <div className="space-y-8">
                   <section className="event-choice-section">
                     <h3 className="event-choice-section-title">
-                      {locale === 'ar' ? 'شكل الفعالية' : 'Event format'}
+                      {t('eventSetupEventFormat')}
                     </h3>
                     <div className="event-choice-grid">
                       {EVENT_TYPES.map((type) => {
@@ -546,7 +541,7 @@ export default function EventSetup({
 
                   <section className="event-choice-section">
                     <h3 className="event-choice-section-title">
-                      {locale === 'ar' ? 'فئة الجمهور' : 'Audience tier'}
+                      {t('eventSetupAudienceTier')}
                     </h3>
                     <div className="event-choice-grid-compact">
                       {EVENT_TIERS.map((tier) => {
@@ -575,7 +570,7 @@ export default function EventSetup({
                   {paidTicketingAllowed ? (
                     <section className="event-choice-section">
                       <h3 className="event-choice-section-title">
-                        {locale === 'ar' ? 'وضع التسجيل' : 'Registration mode'}
+                        {t('eventSetupRegistrationMode')}
                       </h3>
                       <div className="event-choice-grid">
                         {REGISTRATION_MODES.map((mode) => (
@@ -586,18 +581,14 @@ export default function EventSetup({
                             icon={mode.value === 'paid_ticketing' ? Ticket : UserPlus}
                             selected={form.registration_mode === mode.value}
                             onClick={() => setForm((current) => ({ ...current, registration_mode: mode.value }))}
-                            badge={mode.value === 'paid_ticketing'
-                              ? (locale === 'ar' ? 'يتطلب تذاكر' : 'Requires tickets')
-                              : undefined}
+                            badge={mode.value === 'paid_ticketing' ? t('eventSetupRequiresTickets') : undefined}
                           />
                         ))}
                       </div>
                     </section>
                   ) : (
                     <div className="event-review-note">
-                      {locale === 'ar'
-                        ? 'هذه الفئة تستخدم تسجيلاً مجانياً فقط — لا حاجة لإعداد التذاكر.'
-                        : 'This tier uses free registration only — no ticket setup required.'}
+                      {t('eventSetupFreeRegistrationNote')}
                     </div>
                   )}
                 </div>
@@ -612,12 +603,12 @@ export default function EventSetup({
                     onChange={(e) => setForm((current) => ({ ...current, slug: e.target.value }))}
                     required
                     error={fieldError('slug')}
-                    hint={locale === 'ar' ? 'يُستخدم في رابط الفعالية العام.' : 'Used in the public event URL.'}
+                    hint={t('eventSetupSlugHint')}
                     {...formFieldProps('slug')}
                   />
                   {requiresOrganizerSelection ? (
                     <SelectInput
-                      label={locale === 'ar' ? 'منظم الفعالية' : 'Event organizer'}
+                      label={t('eventSetupOrganizer')}
                       name="organizer_user_id"
                       value={form.organizer_user_id}
                       onChange={(e) => setForm((current) => ({ ...current, organizer_user_id: e.target.value }))}
@@ -628,7 +619,7 @@ export default function EventSetup({
                     />
                   ) : null}
                   <TextInput
-                    label={locale === 'ar' ? 'الاسم بالإنجليزية' : 'English name'}
+                    label={t('eventSetupNameEn')}
                     name="name_en"
                     value={form.name_en}
                     onChange={(e) => setForm((current) => ({ ...current, name_en: e.target.value }))}
@@ -637,7 +628,7 @@ export default function EventSetup({
                     {...formFieldProps('name.en')}
                   />
                   <TextInput
-                    label={locale === 'ar' ? 'الاسم بالعربية' : 'Arabic name'}
+                    label={t('eventSetupNameAr')}
                     name="name_ar"
                     value={form.name_ar}
                     onChange={(e) => setForm((current) => ({ ...current, name_ar: e.target.value }))}
@@ -646,7 +637,7 @@ export default function EventSetup({
                     {...formFieldProps('name.ar')}
                   />
                   <TextInput
-                    label={locale === 'ar' ? 'السعة' : 'Capacity'}
+                    label={t('eventSetupCapacity')}
                     name="capacity"
                     type="number"
                     min={1}
@@ -658,7 +649,7 @@ export default function EventSetup({
                   />
                   <div className="md:col-span-2">
                     <TextareaInput
-                      label={locale === 'ar' ? 'الوصف بالإنجليزية' : 'Description (EN)'}
+                      label={t('eventSetupDescriptionEn')}
                       name="description_en"
                       value={form.description_en}
                       onChange={(e) => setForm((current) => ({ ...current, description_en: e.target.value }))}
@@ -668,7 +659,7 @@ export default function EventSetup({
                   </div>
                   <div className="md:col-span-2">
                     <TextareaInput
-                      label={locale === 'ar' ? 'الوصف بالعربية' : 'Description (AR)'}
+                      label={t('eventSetupDescriptionAr')}
                       name="description_ar"
                       value={form.description_ar}
                       onChange={(e) => setForm((current) => ({ ...current, description_ar: e.target.value }))}
@@ -682,11 +673,11 @@ export default function EventSetup({
               {showStep('schedule') && (
                 <div className="space-y-4">
                   <SearchableSelect
-                    label={locale === 'ar' ? 'المنطقة الزمنية' : 'Timezone'}
+                    label={t('eventSetupTimezone')}
                     value={form.timezone}
                     onChange={(timezone) => setForm((current) => ({ ...current, timezone }))}
                     options={timezoneOptions}
-                    placeholder={locale === 'ar' ? 'ابحث عن منطقة زمنية' : 'Search timezone'}
+                    placeholder={t('eventSetupSearchTimezone')}
                     error={fieldError('timezone')}
                     data-form-field="timezone"
                   />
@@ -706,7 +697,7 @@ export default function EventSetup({
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <TextInput
-                      label={locale === 'ar' ? 'مرجع العلامة التجارية' : 'Brand reference'}
+                      label={t('eventSetupBrandReference')}
                       name="brand_reference"
                       value={form.brand_reference}
                       onChange={(e) => setForm((current) => ({ ...current, brand_reference: e.target.value }))}
@@ -714,7 +705,7 @@ export default function EventSetup({
                       {...formFieldProps('brand_reference')}
                     />
                     <TextInput
-                      label={locale === 'ar' ? 'نطاق الفعالية' : 'Domain reference'}
+                      label={t('eventSetupDomainReference')}
                       name="domain_reference"
                       value={form.domain_reference}
                       onChange={(e) => setForm((current) => ({ ...current, domain_reference: e.target.value }))}
@@ -724,7 +715,7 @@ export default function EventSetup({
                   </div>
                   <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_220px]">
                     <FileInput
-                      label={locale === 'ar' ? 'الصورة الرئيسية' : 'Main image'}
+                      label={t('eventSetupMainImage')}
                       name="main_image"
                       accept="image/png,image/jpeg,image/webp"
                       required
@@ -737,17 +728,17 @@ export default function EventSetup({
                         <img src={mainImagePreview} alt="" className="h-full min-h-[220px] w-full object-cover" />
                       ) : (
                         <div className="flex min-h-[220px] items-center justify-center px-4 text-center text-sm text-slate-500">
-                          {locale === 'ar' ? 'معاينة الصورة الرئيسية' : 'Main image preview'}
+                          {t('eventSetupMainImagePreview')}
                         </div>
                       )}
                     </div>
                   </div>
                   <FileInput
-                    label={locale === 'ar' ? 'صور إضافية' : 'Gallery images'}
+                    label={t('eventSetupGalleryImages')}
                     name="images"
                     accept="image/png,image/jpeg,image/webp"
                     multiple
-                    hint={locale === 'ar' ? 'اختياري — PNG أو JPG أو WebP' : 'Optional — PNG, JPG, or WebP'}
+                    hint={t('eventSetupGalleryHint')}
                     onChange={(changeEvent) => handleGalleryChange(changeEvent.target.files)}
                   />
                   {newGalleryPreviews.length > 0 ? (
@@ -780,13 +771,7 @@ export default function EventSetup({
                     ))}
                   </dl>
                   <div className="event-review-note">
-                    {willRequireTicketing
-                      ? (locale === 'ar'
-                        ? 'بعد الإنشاء ستتمكن من إعداد التذاكر ومستويات الأسعار من لوحة الفعالية.'
-                        : 'After creation you can configure tickets and price tiers from the event workspace.')
-                      : (locale === 'ar'
-                        ? 'هذه الفعالية لا تحتاج تذاكر — انتقل مباشرة لنموذج التسجيل بعد الإنشاء.'
-                        : 'This event does not need tickets — go straight to the registration form after creation.')}
+                    {willRequireTicketing ? t('eventSetupReviewTicketingNote') : t('eventSetupReviewNoTicketsNote')}
                   </div>
                 </div>
               )}
@@ -802,7 +787,7 @@ export default function EventSetup({
             <section id="event-setup-type" className="space-y-4 scroll-mt-24">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <SelectInput
-                  label={locale === 'ar' ? 'نوع الفعالية' : 'Event type'}
+                  label={t('eventSetupEventType')}
                   name="event_type"
                   value={form.event_type}
                   onChange={(e) => setForm((current) => ({ ...current, event_type: e.target.value }))}
@@ -812,7 +797,7 @@ export default function EventSetup({
                   {...formFieldProps('event_type')}
                 />
                 <SelectInput
-                  label={locale === 'ar' ? 'فئة الفعالية' : 'Event tier'}
+                  label={t('eventSetupEventTier')}
                   name="tier"
                   value={form.tier}
                   onChange={(e) => {
@@ -830,7 +815,7 @@ export default function EventSetup({
                 />
                 {paidTicketingAllowed ? (
                   <SelectInput
-                    label={locale === 'ar' ? 'وضع التسجيل' : 'Registration mode'}
+                    label={t('eventSetupRegistrationMode')}
                     name="registration_mode"
                     value={form.registration_mode}
                     onChange={(e) => setForm((current) => ({ ...current, registration_mode: e.target.value }))}
@@ -841,9 +826,9 @@ export default function EventSetup({
                   />
                 ) : (
                   <TextInput
-                    label={locale === 'ar' ? 'وضع التسجيل' : 'Registration mode'}
+                    label={t('eventSetupRegistrationMode')}
                     name="registration_mode_display"
-                    value={locale === 'ar' ? 'تسجيل مجاني' : 'Free registration'}
+                    value={t('eventSetupFreeRegistration')}
                     readOnly
                   />
                 )}
@@ -863,17 +848,17 @@ export default function EventSetup({
                 {...formFieldProps('slug')}
               />
               <SearchableSelect
-                label={locale === 'ar' ? 'المنطقة الزمنية' : 'Timezone'}
+                label={t('eventSetupTimezone')}
                 value={form.timezone}
                 onChange={(timezone) => setForm((current) => ({ ...current, timezone }))}
                 options={timezoneOptions}
-                placeholder={locale === 'ar' ? 'ابحث عن منطقة زمنية' : 'Search timezone'}
+                placeholder={t('eventSetupSearchTimezone')}
                 error={fieldError('timezone')}
                 data-form-field="timezone"
               />
               {requiresOrganizerSelection ? (
                 <SelectInput
-                  label={locale === 'ar' ? 'منظم الفعالية' : 'Event organizer'}
+                  label={t('eventSetupOrganizer')}
                   name="organizer_user_id"
                   value={form.organizer_user_id}
                   onChange={(e) => setForm((current) => ({ ...current, organizer_user_id: e.target.value }))}
@@ -884,14 +869,14 @@ export default function EventSetup({
                 />
               ) : event.organizer ? (
                 <TextInput
-                  label={locale === 'ar' ? 'منظم الفعالية' : 'Event organizer'}
+                  label={t('eventSetupOrganizer')}
                   name="organizer_display"
                   value={`${event.organizer.name} (${event.organizer.email})`}
                   readOnly
                 />
               ) : null}
               <TextInput
-                label={locale === 'ar' ? 'الاسم بالإنجليزية' : 'English name'}
+                label={t('eventSetupNameEn')}
                 name="name_en"
                 value={form.name_en}
                 onChange={(e) => setForm((current) => ({ ...current, name_en: e.target.value }))}
@@ -900,7 +885,7 @@ export default function EventSetup({
                 {...formFieldProps('name.en')}
               />
               <TextInput
-                label={locale === 'ar' ? 'الاسم بالعربية' : 'Arabic name'}
+                label={t('eventSetupNameAr')}
                 name="name_ar"
                 value={form.name_ar}
                 onChange={(e) => setForm((current) => ({ ...current, name_ar: e.target.value }))}
@@ -909,7 +894,7 @@ export default function EventSetup({
                 {...formFieldProps('name.ar')}
               />
               <TextInput
-                label={locale === 'ar' ? 'السعة' : 'Capacity'}
+                label={t('eventSetupCapacity')}
                 name="capacity"
                 type="number"
                 min={1}
@@ -920,7 +905,7 @@ export default function EventSetup({
                 {...formFieldProps('capacity')}
               />
               <TextareaInput
-                label={locale === 'ar' ? 'الوصف بالإنجليزية' : 'Description (EN)'}
+                label={t('eventSetupDescriptionEn')}
                 name="description_en"
                 value={form.description_en}
                 onChange={(e) => setForm((current) => ({ ...current, description_en: e.target.value }))}
@@ -928,7 +913,7 @@ export default function EventSetup({
                 {...formFieldProps('description.en')}
               />
               <TextareaInput
-                label={locale === 'ar' ? 'الوصف بالعربية' : 'Description (AR)'}
+                label={t('eventSetupDescriptionAr')}
                 name="description_ar"
                 value={form.description_ar}
                 onChange={(e) => setForm((current) => ({ ...current, description_ar: e.target.value }))}
@@ -951,17 +936,17 @@ export default function EventSetup({
 
           {showStep('branding') && (
             <section id="event-setup-branding" className="space-y-4 scroll-mt-24">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <TextInput
-                  label={locale === 'ar' ? 'مرجع العلامة التجارية' : 'Brand reference'}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <TextInput
+                label={t('eventSetupBrandReference')}
                   name="brand_reference"
                   value={form.brand_reference}
                   onChange={(e) => setForm((current) => ({ ...current, brand_reference: e.target.value }))}
                   error={fieldError('brand_reference')}
                   {...formFieldProps('brand_reference')}
-                />
-                <TextInput
-                  label={locale === 'ar' ? 'نطاق الفعالية' : 'Domain reference'}
+              />
+              <TextInput
+                label={t('eventSetupDomainReference')}
                   name="domain_reference"
                   value={form.domain_reference}
                   onChange={(e) => setForm((current) => ({ ...current, domain_reference: e.target.value }))}
@@ -972,7 +957,7 @@ export default function EventSetup({
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-3">
                   <FileInput
-                    label={locale === 'ar' ? 'الصورة الرئيسية' : 'Main image'}
+                    label={t('eventSetupMainImage')}
                     name="main_image"
                     accept="image/png,image/jpeg,image/webp"
                     required={!event.main_image?.url}
@@ -990,11 +975,11 @@ export default function EventSetup({
                 </div>
                 <div className="space-y-3">
                   <FileInput
-                    label={locale === 'ar' ? 'صور إضافية' : 'Gallery images'}
+                    label={t('eventSetupGalleryImages')}
                     name="images"
                     accept="image/png,image/jpeg,image/webp"
                     multiple
-                    hint={locale === 'ar' ? 'اختياري — PNG أو JPG أو WebP' : 'Optional — PNG, JPG, or WebP'}
+                    hint={t('eventSetupLogoHint')}
                     onChange={(changeEvent) => handleGalleryChange(changeEvent.target.files)}
                   />
                   {(existingGallery.length > 0 || newGalleryPreviews.length > 0) ? (
@@ -1035,19 +1020,19 @@ export default function EventSetup({
               className="mt-2"
               items={event.readiness}
               eventId={event.id ?? undefined}
-              title={locale === 'ar' ? 'جاهزية النشر' : 'Publication readiness'}
+              title={t('eventSetupPublicationReadiness')}
             />
           )}
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             {eventPermissions.manage && (
               <SubmitButtonWithLoader
-                label={locale === 'ar' ? 'حفظ التغييرات' : 'Save changes'}
+                label={t('saveChanges')}
                 loading={submitting}
               />
             )}
             <PermissionGate permission="event.publish">
               <SubmitButtonWithLoader
-                label={locale === 'ar' ? 'نشر' : 'Publish'}
+                label={t('publish')}
                 type="button"
                 disabled={(event.readiness ?? []).length > 0}
               />

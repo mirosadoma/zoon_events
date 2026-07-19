@@ -1,5 +1,7 @@
 import type { Locale } from '@/hooks/useLocale'
 import { lookupValidationCatalog } from '@/lib/validationMessageCatalog'
+import en from '@/locales/en'
+import ar from '@/locales/ar'
 
 function stripLaravelFieldPrefix(message: string): string {
   return message
@@ -18,159 +20,161 @@ type RulePattern = {
 const RULE_PATTERNS: RulePattern[] = [
   {
     match: /^is required\.?$/i,
-    translate: (_g, locale) => (locale === 'ar' ? 'مطلوب.' : 'is required.'),
+    translate: (_g, locale) => (locale === 'ar' ? ar : en).validationIsRequired,
   },
   {
     match: /^must be a string\.?$/i,
-    translate: (_g, locale) => (locale === 'ar' ? 'يجب أن يكون نصاً.' : 'must be a string.'),
+    translate: (_g, locale) => (locale === 'ar' ? ar : en).validationMustBeString,
   },
   {
     match: /^must be an integer\.?$/i,
-    translate: (_g, locale) => (locale === 'ar' ? 'يجب أن يكون رقماً صحيحاً.' : 'must be an integer.'),
+    translate: (_g, locale) => (locale === 'ar' ? ar : en).validationMustBeInteger,
   },
   {
     match: /^must be a number\.?$/i,
-    translate: (_g, locale) => (locale === 'ar' ? 'يجب أن يكون رقماً.' : 'must be a number.'),
+    translate: (_g, locale) => (locale === 'ar' ? ar : en).validationMustBeNumber,
   },
   {
     match: /^must be a valid email address\.?$/i,
-    translate: (_g, locale) => (locale === 'ar' ? 'يجب أن يكون بريداً إلكترونياً صالحاً.' : 'must be a valid email address.'),
+    translate: (_g, locale) => (locale === 'ar' ? ar : en).validationMustBeValidEmailAddress,
   },
   {
     match: /^must be a valid URL\.?$/i,
-    translate: (_g, locale) => (locale === 'ar' ? 'يجب أن يكون رابطاً صالحاً.' : 'must be a valid URL.'),
+    translate: (_g, locale) => (locale === 'ar' ? ar : en).validationMustBeValidUrl,
   },
   {
     match: /^must be a valid date\.?$/i,
-    translate: (_g, locale) => (locale === 'ar' ? 'يجب أن يكون تاريخاً صالحاً.' : 'must be a valid date.'),
+    translate: (_g, locale) => (locale === 'ar' ? ar : en).validationMustBeValidDate,
   },
   {
     match: /^must be a date after (.+)\.?$/i,
-    translate: (g, locale) => (locale === 'ar' ? `يجب أن يكون تاريخاً بعد ${g[1]}.` : `must be a date after ${g[1]}.`),
+    translate: (g, locale) => (locale === 'ar' ? ar : en).validationMustBeDateAfter.replace(':value', g[1]),
   },
   {
     match: /^must be a date before (.+)\.?$/i,
-    translate: (g, locale) => (locale === 'ar' ? `يجب أن يكون تاريخاً قبل ${g[1]}.` : `must be a date before ${g[1]}.`),
+    translate: (g, locale) => (locale === 'ar' ? ar : en).validationMustBeDateBefore.replace(':value', g[1]),
   },
   {
     match: /^must be a date after or equal to (.+)\.?$/i,
-    translate: (g, locale) => (locale === 'ar' ? `يجب أن يكون تاريخاً في ${g[1]} أو بعده.` : `must be a date after or equal to ${g[1]}.`),
+    translate: (g, locale) => (locale === 'ar' ? ar : en).validationMustBeDateAfterOrEqual.replace(':value', g[1]),
   },
   {
     match: /^must be a date before or equal to (.+)\.?$/i,
-    translate: (g, locale) => (locale === 'ar' ? `يجب أن يكون تاريخاً في ${g[1]} أو قبله.` : `must be a date before or equal to ${g[1]}.`),
+    translate: (g, locale) => (locale === 'ar' ? ar : en).validationMustBeDateBeforeOrEqual.replace(':value', g[1]),
   },
   {
     match: /^must be after (.+)\.?$/i,
-    translate: (g, locale) => (locale === 'ar' ? `يجب أن يكون بعد ${g[1]}.` : `must be after ${g[1]}.`),
+    translate: (g, locale) => (locale === 'ar' ? ar : en).validationMustBeAfter.replace(':value', g[1]),
   },
   {
     match: /^must be before (.+)\.?$/i,
-    translate: (g, locale) => (locale === 'ar' ? `يجب أن يكون قبل ${g[1]}.` : `must be before ${g[1]}.`),
+    translate: (g, locale) => (locale === 'ar' ? ar : en).validationMustBeBefore.replace(':value', g[1]),
   },
   {
     match: /^must be between ([\d.-]+) and ([\d.-]+)\.?$/i,
-    translate: (g, locale) => (locale === 'ar' ? `يجب أن يكون بين ${g[1]} و ${g[2]}.` : `must be between ${g[1]} and ${g[2]}.`),
+    translate: (g, locale) => (locale === 'ar' ? ar : en).validationMustBeBetween
+      .replace(':min', g[1])
+      .replace(':max', g[2]),
   },
   {
     match: /^must be at least ([\d.-]+)\.?$/i,
-    translate: (g, locale) => (locale === 'ar' ? `يجب أن لا يقل عن ${g[1]}.` : `must be at least ${g[1]}.`),
+    translate: (g, locale) => (locale === 'ar' ? ar : en).validationMustBeAtLeast.replace(':value', g[1]),
   },
   {
     match: /^must not be greater than ([\d.-]+)\.?$/i,
-    translate: (g, locale) => (locale === 'ar' ? `يجب أن لا يزيد عن ${g[1]}.` : `must not be greater than ${g[1]}.`),
+    translate: (g, locale) => (locale === 'ar' ? ar : en).validationMustNotBeGreaterThan.replace(':value', g[1]),
   },
   {
     match: /^must be greater than ([\d.-]+)\.?$/i,
-    translate: (g, locale) => (locale === 'ar' ? `يجب أن يكون أكبر من ${g[1]}.` : `must be greater than ${g[1]}.`),
+    translate: (g, locale) => (locale === 'ar' ? ar : en).validationMustBeGreaterThan.replace(':value', g[1]),
   },
   {
     match: /^must be less than ([\d.-]+)\.?$/i,
-    translate: (g, locale) => (locale === 'ar' ? `يجب أن يكون أقل من ${g[1]}.` : `must be less than ${g[1]}.`),
+    translate: (g, locale) => (locale === 'ar' ? ar : en).validationMustBeLessThan.replace(':value', g[1]),
   },
   {
     match: /^must have at least (\d+) characters\.?$/i,
-    translate: (g, locale) => (locale === 'ar' ? `يجب أن يحتوي على ${g[1]} أحرف على الأقل.` : `must have at least ${g[1]} characters.`),
+    translate: (g, locale) => (locale === 'ar' ? ar : en).validationMustHaveAtLeastCharacters.replace(':count', g[1]),
   },
   {
     match: /^must not be greater than (\d+) characters\.?$/i,
-    translate: (g, locale) => (locale === 'ar' ? `يجب ألا يزيد عن ${g[1]} حرفاً.` : `must not be greater than ${g[1]} characters.`),
+    translate: (g, locale) => (locale === 'ar' ? ar : en).validationMustNotBeGreaterThanCharacters.replace(':count', g[1]),
   },
   {
     match: /^has already been taken\.?$/i,
-    translate: (_g, locale) => (locale === 'ar' ? 'مُستخدم بالفعل.' : 'has already been taken.'),
+    translate: (_g, locale) => (locale === 'ar' ? ar : en).validationHasAlreadyBeenTaken,
   },
   {
     match: /^The selected value is invalid\.?$/i,
-    translate: (_g, locale) => (locale === 'ar' ? 'القيمة المختارة غير صالحة.' : 'The selected value is invalid.'),
+    translate: (_g, locale) => (locale === 'ar' ? ar : en).validationSelectedValueIsInvalid,
   },
   {
     match: /^must match the format (.+)\.?$/i,
-    translate: (g, locale) => (locale === 'ar' ? `يجب أن يطابق الصيغة ${g[1]}.` : `must match the format ${g[1]}.`),
+    translate: (g, locale) => (locale === 'ar' ? ar : en).validationMustMatchFormat.replace(':format', g[1]),
   },
   {
     match: /^must be accepted\.?$/i,
-    translate: (_g, locale) => (locale === 'ar' ? 'يجب الموافقة.' : 'must be accepted.'),
+    translate: (_g, locale) => (locale === 'ar' ? ar : en).validationMustBeAccepted,
   },
   {
     match: /^must be true or false\.?$/i,
-    translate: (_g, locale) => (locale === 'ar' ? 'يجب أن تكون القيمة صحيحة أو خاطئة.' : 'must be true or false.'),
+    translate: (_g, locale) => (locale === 'ar' ? ar : en).validationMustBeTrueOrFalse,
   },
   {
     match: /^must be an array\.?$/i,
-    translate: (_g, locale) => (locale === 'ar' ? 'يجب أن يكون قائمة.' : 'must be an array.'),
+    translate: (_g, locale) => (locale === 'ar' ? ar : en).validationMustBeArray,
   },
   {
     match: /^must be a file\.?$/i,
-    translate: (_g, locale) => (locale === 'ar' ? 'يجب أن يكون ملفاً.' : 'must be a file.'),
+    translate: (_g, locale) => (locale === 'ar' ? ar : en).validationMustBeFile,
   },
   {
     match: /^must be an image\.?$/i,
-    translate: (_g, locale) => (locale === 'ar' ? 'يجب أن تكون صورة.' : 'must be an image.'),
+    translate: (_g, locale) => (locale === 'ar' ? ar : en).validationMustBeImage,
   },
   {
     match: /^must be a file of type: (.+)\.?$/i,
-    translate: (g, locale) => (locale === 'ar' ? `يجب أن يكون ملفاً من النوع: ${g[1]}.` : `must be a file of type: ${g[1]}.`),
+    translate: (g, locale) => (locale === 'ar' ? ar : en).validationMustBeFileOfType.replace(':type', g[1]),
   },
   {
     match: /^must not be greater than (\d+) kilobytes\.?$/i,
-    translate: (g, locale) => (locale === 'ar' ? `يجب ألا يزيد حجمه عن ${g[1]} كيلوبايت.` : `must not be greater than ${g[1]} kilobytes.`),
+    translate: (g, locale) => (locale === 'ar' ? ar : en).validationMustNotBeGreaterThanKilobytes.replace(':count', g[1]),
   },
   {
     match: /^must be a valid phone number\.?$/i,
-    translate: (_g, locale) => (locale === 'ar' ? 'يجب أن يكون رقم جوال صالحاً.' : 'must be a valid phone number.'),
+    translate: (_g, locale) => (locale === 'ar' ? ar : en).validationMustBeValidPhoneNumber,
   },
   {
     match: /^is invalid\.?$/i,
-    translate: (_g, locale) => (locale === 'ar' ? 'غير صالح.' : 'is invalid.'),
+    translate: (_g, locale) => (locale === 'ar' ? ar : en).validationIsInvalid,
   },
   {
     match: /^exceeds its maximum length\.?$/i,
-    translate: (_g, locale) => (locale === 'ar' ? 'يتجاوز الحد الأقصى للطول.' : 'exceeds its maximum length.'),
+    translate: (_g, locale) => (locale === 'ar' ? ar : en).validationExceedsMaximumLength,
   },
   {
     match: /^is outside its allowed range\.?$/i,
-    translate: (_g, locale) => (locale === 'ar' ? 'خارج النطاق المسموح.' : 'is outside its allowed range.'),
+    translate: (_g, locale) => (locale === 'ar' ? ar : en).validationIsOutsideAllowedRange,
   },
   {
     match: /^This field is not accepted\.?$/i,
-    translate: (_g, locale) => (locale === 'ar' ? 'هذا الحقل غير مقبول.' : 'This field is not accepted.'),
+    translate: (_g, locale) => (locale === 'ar' ? ar : en).validationFieldIsNotAccepted,
   },
   {
     match: /^You must accept the terms and privacy notice\.?$/i,
-    translate: (_g, locale) => (locale === 'ar' ? 'يجب الموافقة على الشروط وسياسة الخصوصية.' : 'You must accept the terms and privacy notice.'),
+    translate: (_g, locale) => (locale === 'ar' ? ar : en).validationMustAcceptTermsAndPrivacyNotice,
   },
   {
     match: /^End time must be after start time\.?$/i,
-    translate: (_g, locale) => (locale === 'ar' ? 'يجب أن يكون وقت الانتهاء بعد وقت البداية.' : 'End time must be after start time.'),
+    translate: (_g, locale) => (locale === 'ar' ? ar : en).validationEndTimeMustBeAfterStartTime,
   },
   {
     match: /^The password field confirmation does not match\.?$/i,
-    translate: (_g, locale) => (locale === 'ar' ? 'تأكيد كلمة المرور غير متطابق.' : 'The password field confirmation does not match.'),
+    translate: (_g, locale) => (locale === 'ar' ? ar : en).validationPasswordConfirmationDoesNotMatch,
   },
   {
     match: /^The password must be at least (\d+) characters\.?$/i,
-    translate: (g, locale) => (locale === 'ar' ? `يجب أن تحتوي كلمة المرور على ${g[1]} أحرف على الأقل.` : `The password must be at least ${g[1]} characters.`),
+    translate: (g, locale) => (locale === 'ar' ? ar : en).validationPasswordMustBeAtLeastCharacters.replace(':count', g[1]),
   },
 ]
 

@@ -1,265 +1,758 @@
-import { useState } from 'react'
-import type { BadgeTemplate } from '@/types/phase3'
-import { BADGE_TEMPLATE_ALLOWED_FIELDS, type BadgeTemplateField } from '@/types/phase3'
-import TextInput from '@/components/forms/TextInput'
-import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
-import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
-import { useLocale } from '@/hooks/useLocale'
+import { useState, useRef, useCallback, useEffect, type PointerEvent as ReactPointerEvent } from 'react'
+import { QRCodeSVG } from 'qrcode.react'
+import {
+  Type, Building2, Briefcase, QrCode, Ticket, Layers, MapPin,
+  Image, Palette, PenLine, Plus, Trash2, Save, GripVertical,
+} from 'lucide-react'
 
-interface DesignerProps {
-  eventId: string
-  tenantId: string
-  template?: BadgeTemplate
-  onSaved?: (template: BadgeTemplate) => void
-}
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
 
-interface LayoutEntry {
-  field: BadgeTemplateField
+interface BadgeFieldLayout {
+  id: string
+  field: string
   x: number
   y: number
   width: number
   height: number
+  fontSize?: number
+  fontFamily?: string
+  fontWeight?: string
+  color?: string
+  textAlign?: 'left' | 'center' | 'right'
+  backgroundColor?: string
+  borderRadius?: number
+  rotation?: number
 }
 
-function layoutToEntries(layout: BadgeTemplate['layout'] | undefined): LayoutEntry[] {
-  if (!layout) return []
-
-  return Object.entries(layout as Record<string, Partial<{ x: number; y: number; width: number; height: number }>>).map(
-    ([field, pos]) => ({
-      field: field as BadgeTemplateField,
-      x: pos?.x ?? 0,
-      y: pos?.y ?? 0,
-      width: pos?.width ?? 100,
-      height: pos?.height ?? 30,
-    }),
-  )
+interface BadgeTemplateData {
+  name: string
+  paper_size: string
+  printer_type: string
+  orientation: string
+  background_color: string | null
+  canvas_width: number
+  canvas_height: number
+  layout: BadgeFieldLayout[]
 }
 
-function statusLabel(status: BadgeTemplate['status'], locale: 'en' | 'ar'): string {
-  if (locale === 'ar') {
-    return status === 'active' ? 'نشط' : status === 'draft' ? 'مسودة' : 'غير نشط'
+interface BadgeTemplateDesignerProps {
+  template?: {
+    id: string
+    name: string
+    layout: BadgeFieldLayout[] | Record<string, unknown>
+    paper_size: string
+    printer_type: string
+    status: string
+    background_color?: string
+    background_image_path?: string
+    orientation?: string
+    canvas_width?: number
+    canvas_height?: number
   }
-
-  return status
+  eventId: string
+  tenantId?: string
+  onSave?: (data: BadgeTemplateData) => void
+  onSaved?: (template: any) => void
+  saving?: boolean
 }
 
-export default function BadgeTemplateDesigner({ eventId, tenantId, template, onSaved }: DesignerProps) {
-  const { locale } = useLocale()
-  const [name, setName] = useState(template?.name ?? '')
-  const [paperSize, setPaperSize] = useState(template?.paper_size ?? 'A6')
-  const [printerType, setPrinterType] = useState(template?.printer_type ?? 'thermal')
-  const [entries, setEntries] = useState<LayoutEntry[]>(layoutToEntries(template?.layout))
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
+/* ------------------------------------------------------------------ */
+/*  Constants                                                          */
+/* ------------------------------------------------------------------ */
 
-  function addField(field: BadgeTemplateField) {
-    if (entries.some((entry) => entry.field === field)) return
-    setEntries((prev) => [...prev, { field, x: 0, y: 0, width: 100, height: 30 }])
+const SNAP = 4
+
+const AVAILABLE_FIELDS = [
+  'attendee_name', 'company', 'job_title', 'qr', 'ticket_type',
+  'tier', 'zone', 'sponsor_logo_ref', 'organizer_logo_ref',
+  'color_code', 'custom_text',
+] as const
+
+const FIELD_ICONS: Record<string, typeof Type> = {
+  attendee_name: Type,
+  company: Building2,
+  job_title: Briefcase,
+  qr: QrCode,
+  ticket_type: Ticket,
+  tier: Layers,
+  zone: MapPin,
+  sponsor_logo_ref: Image,
+  organizer_logo_ref: Image,
+  color_code: Palette,
+  custom_text: PenLine,
+}
+
+const FIELD_LABELS: Record<string, string> = {
+  attendee_name: 'Attendee Name',
+  company: 'Company',
+  job_title: 'Job Title',
+  qr: 'QR Code',
+  ticket_type: 'Ticket Type',
+  tier: 'Tier',
+  zone: 'Zone',
+  sponsor_logo_ref: 'Sponsor Logo',
+  organizer_logo_ref: 'Organizer Logo',
+  color_code: 'Color Code',
+  custom_text: 'Custom Text',
+}
+
+const PAPER_PRESETS: Record<string, { w: number; h: number }> = {
+  CR80: { w: 242, h: 153 },
+  A6: { w: 298, h: 420 },
+  '4x3': { w: 288, h: 216 },
+  '4x6': { w: 288, h: 432 },
+}
+
+const FONT_OPTIONS = ['Inter', 'Arial', 'Cairo', 'Tajawal', 'monospace']
+
+const DEFAULT_FIELD_SIZE: Record<string, { w: number; h: number }> = {
+  qr: { w: 80, h: 80 },
+  sponsor_logo_ref: { w: 80, h: 40 },
+  organizer_logo_ref: { w: 80, h: 40 },
+  color_code: { w: 40, h: 12 },
+}
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
+const snap = (v: number) => Math.round(v / SNAP) * SNAP
+let idCounter = 0
+const nextId = () => `field_${Date.now()}_${++idCounter}`
+
+function defaultLayout(field: string, cx: number, cy: number): BadgeFieldLayout {
+  const size = DEFAULT_FIELD_SIZE[field] ?? { w: 120, h: 28 }
+  return {
+    id: nextId(),
+    field,
+    x: snap(cx - size.w / 2),
+    y: snap(cy - size.h / 2),
+    width: size.w,
+    height: size.h,
+    fontSize: field === 'attendee_name' ? 16 : 12,
+    fontFamily: 'Inter',
+    fontWeight: field === 'attendee_name' ? 'bold' : 'normal',
+    color: '#000000',
+    textAlign: 'center',
+    borderRadius: 0,
+    rotation: 0,
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Sub-components                                                     */
+/* ------------------------------------------------------------------ */
+
+function FieldPreview({ item }: { item: BadgeFieldLayout }) {
+  if (item.field === 'qr') {
+    return <QRCodeSVG value="SAMPLE-BADGE-QR" width="100%" height="100%" />
   }
 
-  function removeField(field: BadgeTemplateField) {
-    setEntries((prev) => prev.filter((entry) => entry.field !== field))
-  }
-
-  function updateEntry(field: BadgeTemplateField, key: keyof Omit<LayoutEntry, 'field'>, value: number) {
-    setEntries((prev) => prev.map((entry) => (entry.field === field ? { ...entry, [key]: value } : entry)))
-  }
-
-  function buildLayout() {
-    const layout = Object.fromEntries(
-      entries.map(({ field, x, y, width, height }) => [field, { x, y, width, height }]),
+  if (item.field === 'color_code') {
+    return (
+      <div
+        className="h-full w-full rounded"
+        style={{ backgroundColor: item.backgroundColor || '#3b82f6' }}
+      />
     )
-
-    if (Object.keys(layout).length === 0) {
-      return { attendee_name: { x: 20, y: 20, width: 220, height: 40 } }
-    }
-
-    return layout
   }
 
-  async function handleSave() {
-    setSaving(true)
-    setError(null)
-    setSuccess(false)
-
-    const url = template
-      ? `/api/v1/tenant/events/${eventId}/badge-templates/${template.id}`
-      : `/api/v1/tenant/events/${eventId}/badge-templates`
-
-    const method = template ? 'PATCH' : 'POST'
-
-    try {
-      const data = await apiFetch<BadgeTemplate>(url, {
-        method,
-        tenantId,
-        idempotency: true,
-        body: { name, layout: buildLayout(), paper_size: paperSize, printer_type: printerType },
-      })
-
-      setSuccess(true)
-      onSaved?.(data)
-    } catch (saveError) {
-      setError(
-        saveError instanceof ApiFetchError
-          ? saveError.message
-          : locale === 'ar'
-            ? 'خطأ في الشبكة. حاول مرة أخرى.'
-            : 'Network error. Please try again.',
-      )
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function handleActivationToggle(action: 'activate' | 'deactivate') {
-    if (!template) return
-    setSaving(true)
-    setError(null)
-
-    try {
-      const data = await apiFetch<BadgeTemplate>(
-        `/api/v1/tenant/events/${eventId}/badge-templates/${template.id}/${action}`,
-        {
-          method: 'POST',
-          tenantId,
-          idempotency: true,
-        },
-      )
-
-      onSaved?.(data)
-    } catch (toggleError) {
-      setError(
-        toggleError instanceof ApiFetchError
-          ? toggleError.message
-          : locale === 'ar'
-            ? 'خطأ في الشبكة. حاول مرة أخرى.'
-            : 'Network error. Please try again.',
-      )
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const labels = {
-    title: template
-      ? locale === 'ar' ? 'تعديل قالب الشارة' : 'Edit badge template'
-      : locale === 'ar' ? 'قالب شارة جديد' : 'New badge template',
-    status: locale === 'ar' ? 'الحالة' : 'Status',
-    availableFields: locale === 'ar' ? 'الحقول المتاحة' : 'Available fields',
-    layout: locale === 'ar' ? 'التخطيط' : 'Layout',
-    field: locale === 'ar' ? 'الحقل' : 'Field',
-    width: locale === 'ar' ? 'العرض' : 'Width',
-    height: locale === 'ar' ? 'الارتفاع' : 'Height',
-    remove: locale === 'ar' ? 'إزالة' : 'Remove',
-    emptyLayout: locale === 'ar' ? 'لم تُضف حقول بعد. اختر حقلاً من القائمة أعلاه.' : 'No fields added yet. Pick a field from the list above.',
-    saved: locale === 'ar' ? 'تم حفظ القالب بنجاح.' : 'Template saved successfully.',
-    save: locale === 'ar' ? 'حفظ القالب' : 'Save template',
-    activate: locale === 'ar' ? 'تفعيل' : 'Activate',
-    deactivate: locale === 'ar' ? 'إلغاء التفعيل' : 'Deactivate',
+  if (item.field === 'sponsor_logo_ref' || item.field === 'organizer_logo_ref') {
+    return (
+      <div className="flex h-full w-full items-center justify-center border border-dashed border-gray-400 bg-gray-50 text-[10px] text-gray-400">
+        {FIELD_LABELS[item.field]}
+      </div>
+    )
   }
 
   return (
-    <div className="ta-card space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--border)] pb-4">
-        <div>
-          <h2 className="text-lg font-semibold text-[var(--ink)]">{labels.title}</h2>
-          {template && (
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              {labels.status}: <span className="font-medium text-[var(--ink)]">{statusLabel(template.status, locale)}</span>
-            </p>
-          )}
-        </div>
-      </div>
+    <span
+      className="block h-full w-full overflow-hidden leading-tight"
+      style={{
+        fontSize: item.fontSize ?? 12,
+        fontFamily: item.fontFamily ?? 'Inter',
+        fontWeight: item.fontWeight ?? 'normal',
+        color: item.color ?? '#000',
+        textAlign: item.textAlign ?? 'left',
+      }}
+    >
+      {FIELD_LABELS[item.field] ?? item.field}
+    </span>
+  )
+}
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <TextInput label={locale === 'ar' ? 'اسم القالب' : 'Template name'} name="name" value={name} onChange={(event) => setName(event.target.value)} required />
-        <TextInput label={locale === 'ar' ? 'حجم الورق' : 'Paper size'} name="paper_size" value={paperSize} onChange={(event) => setPaperSize(event.target.value)} required />
-        <TextInput label={locale === 'ar' ? 'نوع الطابعة' : 'Printer type'} name="printer_type" value={printerType} onChange={(event) => setPrinterType(event.target.value)} required />
-      </div>
+/* ------------------------------------------------------------------ */
+/*  Main Component                                                     */
+/* ------------------------------------------------------------------ */
 
-      <section className="space-y-3">
-        <h3 className="text-sm font-semibold text-[var(--ink)]">{labels.availableFields}</h3>
-        <div className="flex flex-wrap gap-2">
-          {BADGE_TEMPLATE_ALLOWED_FIELDS.filter((field) => !entries.some((entry) => entry.field === field)).map((field) => (
-            <button key={field} type="button" className="button-secondary" onClick={() => addField(field)}>
-              + {field}
-            </button>
+export default function BadgeTemplateDesigner({
+  template,
+  eventId: _eventId,
+  tenantId: _tenantId,
+  onSave,
+  onSaved: _onSaved,
+  saving = false,
+}: BadgeTemplateDesignerProps) {
+  const [name, setName] = useState(template?.name ?? '')
+  const [paperSize, setPaperSize] = useState(template?.paper_size ?? 'A6')
+  const [printerType] = useState(template?.printer_type ?? 'thermal')
+  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>(
+    (template?.orientation as 'portrait' | 'landscape') ?? 'portrait',
+  )
+  const [bgColor, setBgColor] = useState(template?.background_color ?? '#ffffff')
+  const [status] = useState(template?.status ?? 'draft')
+
+  const [fields, setFields] = useState<BadgeFieldLayout[]>(
+    Array.isArray(template?.layout) ? template.layout as BadgeFieldLayout[] : [],
+  )
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const canvasRef = useRef<HTMLDivElement>(null)
+  const interactionRef = useRef<{
+    type: 'move' | 'resize'
+    corner?: string
+    startX: number
+    startY: number
+    origX: number
+    origY: number
+    origW: number
+    origH: number
+    fieldId: string
+  } | null>(null)
+
+  /* Canvas dimensions */
+  const basePreset = PAPER_PRESETS[paperSize]
+  const baseW = template?.canvas_width ?? basePreset?.w ?? 298
+  const baseH = template?.canvas_height ?? basePreset?.h ?? 420
+  const canvasW = orientation === 'landscape' ? Math.max(baseW, baseH) : Math.min(baseW, baseH)
+  const canvasH = orientation === 'landscape' ? Math.min(baseW, baseH) : Math.max(baseW, baseH)
+
+  /* Scale canvas to fit the viewport area */
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(1)
+
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect
+      const pad = 40
+      const s = Math.min((width - pad) / canvasW, (height - pad) / canvasH, 1.5)
+      setScale(Math.max(0.3, s))
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [canvasW, canvasH])
+
+  const selected = fields.find((f) => f.id === selectedId) ?? null
+
+  /* ---- pointer helpers ---- */
+
+  const toCanvas = useCallback(
+    (clientX: number, clientY: number) => {
+      const rect = canvasRef.current?.getBoundingClientRect()
+      if (!rect) return { x: 0, y: 0 }
+      return { x: (clientX - rect.left) / scale, y: (clientY - rect.top) / scale }
+    },
+    [scale],
+  )
+
+  const onFieldPointerDown = useCallback(
+    (e: ReactPointerEvent, fieldId: string, corner?: string) => {
+      e.stopPropagation()
+      e.preventDefault()
+      ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+      const item = fields.find((f) => f.id === fieldId)
+      if (!item) return
+      setSelectedId(fieldId)
+      interactionRef.current = {
+        type: corner ? 'resize' : 'move',
+        corner,
+        startX: e.clientX,
+        startY: e.clientY,
+        origX: item.x,
+        origY: item.y,
+        origW: item.width,
+        origH: item.height,
+        fieldId,
+      }
+    },
+    [fields],
+  )
+
+  const onPointerMove = useCallback(
+    (e: ReactPointerEvent) => {
+      const ref = interactionRef.current
+      if (!ref) return
+      const dx = (e.clientX - ref.startX) / scale
+      const dy = (e.clientY - ref.startY) / scale
+
+      setFields((prev) =>
+        prev.map((f) => {
+          if (f.id !== ref.fieldId) return f
+          if (ref.type === 'move') {
+            return {
+              ...f,
+              x: snap(Math.max(0, Math.min(canvasW - f.width, ref.origX + dx))),
+              y: snap(Math.max(0, Math.min(canvasH - f.height, ref.origY + dy))),
+            }
+          }
+          /* resize */
+          let newX = f.x, newY = f.y, newW = f.width, newH = f.height
+          const minSize = 20
+          if (ref.corner?.includes('r')) newW = snap(Math.max(minSize, ref.origW + dx))
+          if (ref.corner?.includes('b')) newH = snap(Math.max(minSize, ref.origH + dy))
+          if (ref.corner?.includes('l')) {
+            newW = snap(Math.max(minSize, ref.origW - dx))
+            newX = snap(ref.origX + (ref.origW - newW))
+          }
+          if (ref.corner?.includes('t')) {
+            newH = snap(Math.max(minSize, ref.origH - dy))
+            newY = snap(ref.origY + (ref.origH - newH))
+          }
+          return { ...f, x: newX, y: newY, width: newW, height: newH }
+        }),
+      )
+    },
+    [scale, canvasW, canvasH],
+  )
+
+  const onPointerUp = useCallback(() => {
+    interactionRef.current = null
+  }, [])
+
+  /* ---- field mutations ---- */
+
+  const addField = (field: string) => {
+    if (fields.some((f) => f.field === field)) return
+    setFields((prev) => [...prev, defaultLayout(field, canvasW / 2, canvasH / 2)])
+  }
+
+  const deleteField = (id: string) => {
+    setFields((prev) => prev.filter((f) => f.id !== id))
+    if (selectedId === id) setSelectedId(null)
+  }
+
+  const updateField = (id: string, patch: Partial<BadgeFieldLayout>) => {
+    setFields((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)))
+  }
+
+  /* ---- save ---- */
+
+  const handleSave = () => {
+    onSave?.({
+      name,
+      paper_size: paperSize,
+      printer_type: printerType,
+      orientation,
+      background_color: bgColor || null,
+      canvas_width: canvasW,
+      canvas_height: canvasH,
+      layout: fields,
+    })
+  }
+
+  const handlePaperChange = (val: string) => {
+    setPaperSize(val)
+  }
+
+  /* ---------------------------------------------------------------- */
+  /*  Render                                                           */
+  /* ---------------------------------------------------------------- */
+
+  const corners = ['tl', 'tr', 'bl', 'br']
+  const cornerCursors: Record<string, string> = {
+    tl: 'nwse-resize', tr: 'nesw-resize', bl: 'nesw-resize', br: 'nwse-resize',
+  }
+  const cornerPositions: Record<string, React.CSSProperties> = {
+    tl: { top: -4, left: -4 },
+    tr: { top: -4, right: -4 },
+    bl: { bottom: -4, left: -4 },
+    br: { bottom: -4, right: -4 },
+  }
+
+  return (
+    <div className="flex h-full flex-col overflow-hidden bg-gray-100">
+      {/* ===== Top toolbar ===== */}
+      <div className="flex items-center gap-3 border-b border-slate-700 bg-slate-800 px-4 py-2 text-sm text-white">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Template name…"
+          className="w-48 rounded bg-slate-700 px-2 py-1 text-white placeholder-slate-400 outline-none focus:ring-1 focus:ring-blue-500"
+        />
+
+        <select
+          value={paperSize}
+          onChange={(e) => handlePaperChange(e.target.value)}
+          className="rounded bg-slate-700 px-2 py-1 text-white outline-none"
+        >
+          {Object.keys(PAPER_PRESETS).map((k) => (
+            <option key={k} value={k}>{k} ({PAPER_PRESETS[k].w}×{PAPER_PRESETS[k].h})</option>
           ))}
-        </div>
-      </section>
+          <option value="custom">Custom</option>
+        </select>
 
-      <section className="space-y-3">
-        <h3 className="text-sm font-semibold text-[var(--ink)]">{labels.layout}</h3>
-        {entries.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-[var(--border)] px-4 py-8 text-center text-sm text-[var(--muted)]">
-            {labels.emptyLayout}
-          </p>
-        ) : (
-          <div className="ta-table-wrap rounded-[var(--radius-card)] border border-[var(--border)]">
-            <table className="ta-table">
-              <thead>
-                <tr>
-                  <th scope="col">{labels.field}</th>
-                  <th scope="col">X</th>
-                  <th scope="col">Y</th>
-                  <th scope="col">{labels.width}</th>
-                  <th scope="col">{labels.height}</th>
-                  <th scope="col" className="text-end">{labels.remove}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {entries.map((entry) => (
-                  <tr key={entry.field}>
-                    <td className="font-medium text-[var(--ink)]">{entry.field}</td>
-                    {(['x', 'y', 'width', 'height'] as const).map((key) => (
-                      <td key={key}>
-                        <input
-                          type="number"
-                          value={entry[key]}
-                          onChange={(event) => updateEntry(entry.field, key, Number(event.target.value))}
-                          className="control w-24"
-                          aria-label={`${entry.field} ${key}`}
-                        />
-                      </td>
-                    ))}
-                    <td className="ta-table-actions">
-                      <button type="button" className="ta-table-action" onClick={() => removeField(entry.field)}>
-                        {labels.remove}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <button
+          type="button"
+          onClick={() => setOrientation((o) => (o === 'portrait' ? 'landscape' : 'portrait'))}
+          className="rounded bg-slate-700 px-2 py-1 transition hover:bg-slate-600"
+        >
+          {orientation === 'portrait' ? '▯ Portrait' : '▭ Landscape'}
+        </button>
+
+        <label className="flex items-center gap-1.5">
+          <span className="text-slate-300">BG</span>
+          <input
+            type="color"
+            value={bgColor}
+            onChange={(e) => setBgColor(e.target.value)}
+            className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent"
+          />
+        </label>
+
+        <div className="flex-1" />
+
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+            status === 'active'
+              ? 'bg-emerald-500/20 text-emerald-300'
+              : 'bg-amber-500/20 text-amber-300'
+          }`}
+        >
+          {status}
+        </span>
+
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="flex items-center gap-1.5 rounded bg-blue-600 px-3 py-1 font-medium transition hover:bg-blue-500 disabled:opacity-50"
+        >
+          <Save size={14} />
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+
+      {/* ===== Main 3-panel layout ===== */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* --- Left: Field Palette --- */}
+        <aside className="flex w-56 flex-col border-r border-slate-700 bg-slate-800 text-sm text-white">
+          <div className="border-b border-slate-700 px-3 py-2 font-semibold text-slate-300">
+            Fields
           </div>
-        )}
-      </section>
+          <div className="flex-1 overflow-y-auto p-2">
+            {AVAILABLE_FIELDS.map((field) => {
+              const Icon = FIELD_ICONS[field] ?? Type
+              const used = fields.some((f) => f.field === field)
+              return (
+                <div
+                  key={field}
+                  className={`mb-1 flex items-center rounded px-2 py-1.5 ${
+                    used ? 'opacity-40' : 'hover:bg-slate-700'
+                  }`}
+                >
+                  <Icon size={14} className="mr-2 shrink-0 text-slate-400" />
+                  <span className="flex-1 truncate">{FIELD_LABELS[field]}</span>
+                  <button
+                    type="button"
+                    disabled={used}
+                    onClick={() => addField(field)}
+                    className="ml-1 rounded p-0.5 text-slate-400 transition hover:bg-slate-600 hover:text-white disabled:cursor-not-allowed disabled:text-slate-600"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+          <div className="border-t border-slate-700 px-3 py-2 text-xs text-slate-500">
+            {fields.length} field{fields.length !== 1 && 's'} placed
+          </div>
+        </aside>
 
-      {error && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300" role="alert">
-          {error}
-        </p>
-      )}
-      {success && (
-        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300" role="status">
-          {labels.saved}
-        </p>
-      )}
+        {/* --- Center: Canvas --- */}
+        <div
+          ref={wrapRef}
+          className="relative flex flex-1 items-center justify-center overflow-auto bg-gray-200 p-6"
+          onClick={() => setSelectedId(null)}
+        >
+          <div
+            ref={canvasRef}
+            className="relative shadow-lg"
+            style={{
+              width: canvasW,
+              height: canvasH,
+              backgroundColor: bgColor,
+              transform: `scale(${scale})`,
+              transformOrigin: 'center center',
+            }}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerLeave={onPointerUp}
+            onClick={(e) => {
+              e.stopPropagation()
+              setSelectedId(null)
+            }}
+          >
+            {fields.map((item) => {
+              const isSelected = item.id === selectedId
+              return (
+                <div
+                  key={item.id}
+                  className="absolute"
+                  style={{
+                    left: item.x,
+                    top: item.y,
+                    width: item.width,
+                    height: item.height,
+                    backgroundColor: item.backgroundColor ?? 'transparent',
+                    borderRadius: item.borderRadius ?? 0,
+                    transform: item.rotation ? `rotate(${item.rotation}deg)` : undefined,
+                    outline: isSelected ? '2px solid #3b82f6' : '1px dashed #cbd5e1',
+                    outlineOffset: isSelected ? 1 : 0,
+                    cursor: 'move',
+                    userSelect: 'none',
+                    touchAction: 'none',
+                    zIndex: isSelected ? 50 : 1,
+                    overflow: 'hidden',
+                  }}
+                  onPointerDown={(e) => onFieldPointerDown(e, item.id)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setSelectedId(item.id)
+                  }}
+                >
+                  <FieldPreview item={item} />
 
-      <div className="flex flex-wrap gap-3 border-t border-[var(--border)] pt-4">
-        <SubmitButtonWithLoader loading={saving} label={labels.save} type="button" onClick={() => void handleSave()} />
-        {template && template.status !== 'active' && (
-          <button type="button" className="button-secondary" onClick={() => void handleActivationToggle('activate')} disabled={saving}>
-            {labels.activate}
-          </button>
-        )}
-        {template && template.status === 'active' && (
-          <button type="button" className="button-secondary" onClick={() => void handleActivationToggle('deactivate')} disabled={saving}>
-            {labels.deactivate}
-          </button>
-        )}
+                  {isSelected &&
+                    corners.map((c) => (
+                      <div
+                        key={c}
+                        className="absolute z-50 h-2.5 w-2.5 rounded-sm border border-white bg-blue-500"
+                        style={{
+                          ...cornerPositions[c],
+                          cursor: cornerCursors[c],
+                        }}
+                        onPointerDown={(e) => {
+                          const corner =
+                            c === 'tl' ? 'tl' : c === 'tr' ? 'tr' : c === 'bl' ? 'bl' : 'br'
+                          onFieldPointerDown(e, item.id, corner)
+                        }}
+                      />
+                    ))}
+                </div>
+              )
+            })}
+
+            {/* Grid dots overlay */}
+            <svg
+              className="pointer-events-none absolute inset-0"
+              width={canvasW}
+              height={canvasH}
+              style={{ opacity: 0.08 }}
+            >
+              <defs>
+                <pattern id="grid" width={SNAP * 4} height={SNAP * 4} patternUnits="userSpaceOnUse">
+                  <circle cx={1} cy={1} r={0.5} fill="#000" />
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#grid)" />
+            </svg>
+          </div>
+
+          {/* Canvas size label */}
+          <div className="absolute bottom-2 right-2 rounded bg-black/40 px-2 py-0.5 text-xs text-white">
+            {canvasW} × {canvasH}px &nbsp;·&nbsp; {Math.round(scale * 100)}%
+          </div>
+        </div>
+
+        {/* --- Right: Property Inspector --- */}
+        <aside className="flex w-64 flex-col border-l border-slate-700 bg-slate-800 text-sm text-white">
+          <div className="border-b border-slate-700 px-3 py-2 font-semibold text-slate-300">
+            Properties
+          </div>
+
+          {selected ? (
+            <div className="flex-1 space-y-3 overflow-y-auto p-3">
+              <div className="rounded bg-slate-700/60 px-2 py-1 text-xs font-medium text-blue-300">
+                <GripVertical size={12} className="mr-1 inline" />
+                {FIELD_LABELS[selected.field] ?? selected.field}
+              </div>
+
+              {/* Position */}
+              <fieldset className="space-y-1.5">
+                <legend className="text-xs font-semibold text-slate-400">Position</legend>
+                <div className="grid grid-cols-2 gap-2">
+                  <PropNumber label="X" value={selected.x} onChange={(v) => updateField(selected.id, { x: snap(v) })} />
+                  <PropNumber label="Y" value={selected.y} onChange={(v) => updateField(selected.id, { y: snap(v) })} />
+                  <PropNumber label="W" value={selected.width} onChange={(v) => updateField(selected.id, { width: snap(Math.max(20, v)) })} />
+                  <PropNumber label="H" value={selected.height} onChange={(v) => updateField(selected.id, { height: snap(Math.max(20, v)) })} />
+                </div>
+              </fieldset>
+
+              {/* Typography (hide for non-text fields) */}
+              {!['qr', 'sponsor_logo_ref', 'organizer_logo_ref', 'color_code'].includes(selected.field) && (
+                <fieldset className="space-y-1.5">
+                  <legend className="text-xs font-semibold text-slate-400">Typography</legend>
+                  <PropNumber label="Size" value={selected.fontSize ?? 12} min={8} max={72} onChange={(v) => updateField(selected.id, { fontSize: v })} />
+                  <PropSelect
+                    label="Font"
+                    value={selected.fontFamily ?? 'Inter'}
+                    options={FONT_OPTIONS}
+                    onChange={(v) => updateField(selected.id, { fontFamily: v })}
+                  />
+                  <PropSelect
+                    label="Weight"
+                    value={selected.fontWeight ?? 'normal'}
+                    options={['normal', 'bold']}
+                    onChange={(v) => updateField(selected.id, { fontWeight: v })}
+                  />
+                  <PropColor label="Color" value={selected.color ?? '#000000'} onChange={(v) => updateField(selected.id, { color: v })} />
+
+                  <div>
+                    <span className="mb-1 block text-xs text-slate-400">Align</span>
+                    <div className="flex gap-1">
+                      {(['left', 'center', 'right'] as const).map((a) => (
+                        <button
+                          key={a}
+                          type="button"
+                          onClick={() => updateField(selected.id, { textAlign: a })}
+                          className={`flex-1 rounded px-2 py-1 text-xs transition ${
+                            selected.textAlign === a
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                          }`}
+                        >
+                          {a[0].toUpperCase() + a.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </fieldset>
+              )}
+
+              {/* Appearance */}
+              <fieldset className="space-y-1.5">
+                <legend className="text-xs font-semibold text-slate-400">Appearance</legend>
+                <PropColor label="Background" value={selected.backgroundColor ?? ''} onChange={(v) => updateField(selected.id, { backgroundColor: v || undefined })} />
+                <PropNumber label="Radius" value={selected.borderRadius ?? 0} min={0} max={100} onChange={(v) => updateField(selected.id, { borderRadius: v })} />
+                <PropSelect
+                  label="Rotation"
+                  value={String(selected.rotation ?? 0)}
+                  options={['0', '90', '180', '270']}
+                  onChange={(v) => updateField(selected.id, { rotation: Number(v) })}
+                />
+              </fieldset>
+
+              <button
+                type="button"
+                onClick={() => deleteField(selected.id)}
+                className="mt-4 flex w-full items-center justify-center gap-1.5 rounded bg-red-600/80 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-red-600"
+              >
+                <Trash2 size={13} />
+                Delete field
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-1 items-center justify-center p-4 text-center text-xs text-slate-500">
+              Select a field on the canvas to edit its properties
+            </div>
+          )}
+        </aside>
       </div>
     </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Property input primitives                                          */
+/* ------------------------------------------------------------------ */
+
+function PropNumber({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  label: string
+  value: number
+  min?: number
+  max?: number
+  onChange: (v: number) => void
+}) {
+  return (
+    <label className="block">
+      <span className="mb-0.5 block text-xs text-slate-400">{label}</span>
+      <input
+        type="number"
+        value={value}
+        min={min}
+        max={max}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full rounded bg-slate-700 px-2 py-1 text-white outline-none focus:ring-1 focus:ring-blue-500"
+      />
+    </label>
+  )
+}
+
+function PropSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string
+  value: string
+  options: string[]
+  onChange: (v: string) => void
+}) {
+  return (
+    <label className="block">
+      <span className="mb-0.5 block text-xs text-slate-400">{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded bg-slate-700 px-2 py-1 text-white outline-none focus:ring-1 focus:ring-blue-500"
+      >
+        {options.map((o) => (
+          <option key={o} value={o}>{o}</option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
+function PropColor({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <label className="block">
+      <span className="mb-0.5 block text-xs text-slate-400">{label}</span>
+      <div className="flex gap-1.5">
+        <input
+          type="color"
+          value={value || '#ffffff'}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-7 w-7 shrink-0 cursor-pointer rounded border-0 bg-transparent"
+        />
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="#000000"
+          className="w-full rounded bg-slate-700 px-2 py-1 text-white outline-none focus:ring-1 focus:ring-blue-500"
+        />
+      </div>
+    </label>
   )
 }

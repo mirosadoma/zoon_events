@@ -12,17 +12,17 @@ export default function CopyRegistrationLinkButton({
   className = 'ta-table-action',
   compact = false,
 }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
 
   return (
     <button
       type="button"
       className={className}
       onClick={onClick}
-      title={locale === 'ar' ? 'نسخ رابط التسجيل' : 'Copy registration link'}
+      title={t('copyRegistrationLinkTitle')}
     >
       <CopyIcon className={compact ? 'h-4 w-4' : 'mx-2 h-4 w-4'} />
-      {compact ? null : (locale === 'ar' ? 'نسخ رابط التسجيل' : 'Copy registration link')}
+      {compact ? null : t('copyRegistrationLinkButton')}
     </button>
   )
 }

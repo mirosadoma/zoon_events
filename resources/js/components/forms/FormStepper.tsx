@@ -1,5 +1,6 @@
 import { clsx } from 'clsx'
 import { Check } from 'lucide-react'
+import { useLocale } from '@/hooks/useLocale'
 
 export type FormStep = {
   key: string
@@ -11,7 +12,6 @@ type Props = {
   currentStep: number
   className?: string
   variant?: 'horizontal' | 'vertical'
-  locale?: 'en' | 'ar'
 }
 
 export default function FormStepper({
@@ -19,13 +19,9 @@ export default function FormStepper({
   currentStep,
   className = '',
   variant = 'horizontal',
-  locale = 'en',
 }: Props) {
-  const statusCopy = {
-    done: locale === 'ar' ? 'مكتملة' : 'Done',
-    current: locale === 'ar' ? 'قيد التنفيذ' : 'In progress',
-    pending: locale === 'ar' ? 'قادمة' : 'Pending',
-  }
+  const { t } = useLocale()
+
   return (
     <nav
       aria-label="Progress"
@@ -56,7 +52,7 @@ export default function FormStepper({
                 <span className="event-setup-stepper-label">{step.label}</span>
                 {variant === 'vertical' ? (
                   <span className="event-setup-stepper-subtle">
-                    {isComplete ? statusCopy.done : isCurrent ? statusCopy.current : statusCopy.pending}
+                    {isComplete ? t('formStepperDone') : isCurrent ? t('formStepperInProgress') : t('formStepperPending')}
                   </span>
                 ) : null}
               </span>

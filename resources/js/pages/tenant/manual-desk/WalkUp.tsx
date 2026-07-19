@@ -29,45 +29,44 @@ export default function WalkUpRegistration({ event, tenantId, ticketTypes }: Pro
   const { locale, t } = useLocale()
   const [ticketTypeId, setTicketTypeId] = useState(ticketTypes[0]?.id ?? '')
   const [registeredId, setRegisteredId] = useState<string | null>(null)
-  const ar = locale === 'ar'
 
   return (
-    <DashboardLayout title={ar ? 'تسجيل مباشر' : 'Walk-up registration'}>
+    <DashboardLayout title={t('manualDeskPageWalkUp')}>
       <PageHeader
-        title={ar ? 'تسجيل مباشر' : 'Walk-up registration'}
+        title={t('manualDeskPageWalkUp')}
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: ar ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
-          { label: ar ? 'مكتب الاستقبال' : 'Manual desk', href: `/tenant/events/${event.id}/manual-desk` },
-          { label: ar ? 'تسجيل مباشر' : 'Walk-up' },
+          { label: t('manualDeskPageTitle'), href: `/tenant/events/${event.id}/manual-desk` },
+          { label: t('manualDeskPageWalkUp') },
         ]}
         actions={(
           <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/manual-desk`}>
-            {ar ? 'العودة للمكتب' : 'Back to desk'}
+            {t('manualDeskPageBackToDesk')}
           </LocalizedLink>
         )}
       />
       <PageContent>
         {ticketTypes.length === 0 ? (
           <EmptyState
-            title={ar ? 'لا توجد أنواع تذاكر نشطة' : 'No active ticket types available'}
-            detail={ar ? 'فعّل نوع تذكرة أولاً قبل التسجيل المباشر.' : 'Activate a ticket type before walk-up registration.'}
+            title={t('manualDeskPageNoTicketTypes')}
+            detail={t('manualDeskPageNoTicketTypesDescription')}
           />
         ) : registeredId ? (
           <div className="ta-card space-y-4">
             <div className="flex flex-wrap items-center gap-3">
-              <StatusBadge status="active" label={ar ? 'تم التسجيل' : 'Registered'} />
-              <p className="text-sm text-[var(--muted)]">{ar ? 'معرّف الحاضر' : 'Attendee ID'}</p>
+              <StatusBadge status="active" label={t('manualDeskPageRegistered')} />
+              <p className="text-sm text-[var(--muted)]">{t('manualDeskPageAttendeeId')}</p>
             </div>
             <p className="font-mono text-sm text-[var(--ink)]">{registeredId}</p>
             <div className="flex flex-wrap gap-3 border-t border-[var(--border)] pt-4">
               <button type="button" className="button-primary" onClick={() => setRegisteredId(null)}>
-                {ar ? 'تسجيل آخر' : 'Register another'}
+                {t('manualDeskPageRegisterAnother')}
               </button>
               <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/attendees/${registeredId}`}>
-                {ar ? 'عرض الحاضر' : 'View attendee'}
+                {t('manualDeskPageViewAttendee')}
               </LocalizedLink>
             </div>
           </div>
@@ -75,7 +74,7 @@ export default function WalkUpRegistration({ event, tenantId, ticketTypes }: Pro
           <div className="space-y-4">
             <div className="ta-card">
               <SelectInput
-                label={ar ? 'نوع التذكرة' : 'Ticket type'}
+                label={t('manualDeskPageTicketType')}
                 name="ticket_type_id"
                 value={ticketTypeId}
                 onChange={(changeEvent) => setTicketTypeId(changeEvent.target.value)}

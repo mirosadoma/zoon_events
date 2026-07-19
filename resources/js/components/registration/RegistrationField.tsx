@@ -1,5 +1,7 @@
 import { ValidationError } from '@/components/forms/TextInput'
 import { FORM_FIELD_INVALID_CLASS } from '@/lib/formFieldStyles'
+import en from '@/locales/en'
+import ar from '@/locales/ar'
 
 export type FieldOption = {
   value: string
@@ -41,6 +43,7 @@ export function RegistrationField({
   'data-form-field'?: string
 }) {
   const label = locale === 'ar' ? field.label_ar : field.label_en
+  const messages = locale === 'ar' ? ar : en
   const options = field.options ?? []
   const required = Boolean(field.required && !disabled)
   const fieldError = error ? <ValidationError message={error} /> : null
@@ -97,7 +100,7 @@ export function RegistrationField({
           data-form-field={dataFormField}
           aria-invalid={error ? 'true' : undefined}
         >
-          <option value="">{locale === 'ar' ? 'اختر…' : 'Select…'}</option>
+          <option value="">{messages.selectPlaceholder}</option>
           {options.map((option) => (
             <option key={option.value} value={option.value}>
               {optionLabel(option, locale)}

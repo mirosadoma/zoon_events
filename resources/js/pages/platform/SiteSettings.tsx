@@ -40,8 +40,7 @@ type Props = {
 }
 
 export default function SiteSettings({ settings, canManage }: Props) {
-  const { locale } = useLocale()
-  const messages = locale === 'ar' ? ar : en
+  const { locale, t } = useLocale()
   const { toast } = useToast()
   const localizedRouter = useLocalizedRouter()
   const [logoFile, setLogoFile] = useState<File | null>(null)
@@ -61,16 +60,16 @@ export default function SiteSettings({ settings, canManage }: Props) {
   const validation = useInertiaFormValidation(form.errors, {
     titleKey: 'errorState',
     fieldLabels: {
-      app_name_en: { en: messages.appNameEn, ar: messages.appNameEn },
-      app_name_ar: { en: messages.appNameAr, ar: messages.appNameAr },
-      support_email: { en: messages.profileEmail, ar: messages.profileEmail },
-      support_phone: { en: messages.profilePhone, ar: messages.profilePhone },
-      about_en: { en: messages.aboutEn, ar: messages.aboutEn },
-      about_ar: { en: messages.aboutAr, ar: messages.aboutAr },
-      maintenance_message_en: { en: messages.maintenanceMessageEn, ar: messages.maintenanceMessageEn },
-      maintenance_message_ar: { en: messages.maintenanceMessageAr, ar: messages.maintenanceMessageAr },
-      logo: { en: messages.siteSettingsLogo, ar: messages.siteSettingsLogo },
-      favicon: { en: messages.siteSettingsFavicon, ar: messages.siteSettingsFavicon },
+      app_name_en: { en: t('appNameEn'), ar: t('appNameEn') },
+      app_name_ar: { en: t('appNameAr'), ar: t('appNameAr') },
+      support_email: { en: t('profileEmail'), ar: t('profileEmail') },
+      support_phone: { en: t('profilePhone'), ar: t('profilePhone') },
+      about_en: { en: t('aboutEn'), ar: t('aboutEn') },
+      about_ar: { en: t('aboutAr'), ar: t('aboutAr') },
+      maintenance_message_en: { en: t('maintenanceMessageEn'), ar: t('maintenanceMessageEn') },
+      maintenance_message_ar: { en: t('maintenanceMessageAr'), ar: t('maintenanceMessageAr') },
+      logo: { en: t('siteSettingsLogo'), ar: t('siteSettingsLogo') },
+      favicon: { en: t('siteSettingsFavicon'), ar: t('siteSettingsFavicon') },
     },
   })
 
@@ -105,22 +104,22 @@ export default function SiteSettings({ settings, canManage }: Props) {
       onSuccess: () => {
         setLogoFile(null)
         setFaviconFile(null)
-        toast(messages.siteSettingsSaved, 'success')
+        toast(t('siteSettingsSaved'), 'success')
       },
-      onError: () => toast(messages.actionFailed, 'error'),
+      onError: () => toast(t('actionFailed'), 'error'),
       onFinish: () => setSubmitting(false),
     })
   }
 
   return (
-    <DashboardLayout title={messages.siteSettingsTitle}>
-      <PageHeader title={messages.siteSettingsTitle} description={messages.siteSettingsDescription} />
+    <DashboardLayout title={t('siteSettingsTitle')}>
+      <PageHeader title={t('siteSettingsTitle')} description={t('siteSettingsDescription')} />
       <PageContent>
         <form className="relative space-y-8" onSubmit={submit}>
-          <FormSection title={messages.siteSettingsBranding}>
+          <FormSection title={t('siteSettingsBranding')}>
             <div className="grid gap-4 md:grid-cols-2">
               <TextInput
-                label={messages.appNameEn}
+                label={t('appNameEn')}
                 name="app_name_en"
                 value={form.data.app_name_en}
                 disabled={!canManage}
@@ -129,7 +128,7 @@ export default function SiteSettings({ settings, canManage }: Props) {
                 onChange={(event: React.ChangeEvent<HTMLInputElement>) => form.setData('app_name_en', event.target.value)}
               />
               <TextInput
-                label={messages.appNameAr}
+                label={t('appNameAr')}
                 name="app_name_ar"
                 value={form.data.app_name_ar}
                 disabled={!canManage}
@@ -138,38 +137,38 @@ export default function SiteSettings({ settings, canManage }: Props) {
                 onChange={(event: React.ChangeEvent<HTMLInputElement>) => form.setData('app_name_ar', event.target.value)}
               />
               <FileInput
-                label={messages.siteSettingsLogo}
+                label={t('siteSettingsLogo')}
                 name="logo"
                 accept="image/png,image/jpeg,image/webp,image/svg+xml"
                 disabled={!canManage}
-                hint={settings.logo_url ? messages.siteSettingsCurrentLogo : undefined}
+                hint={settings.logo_url ? t('siteSettingsCurrentLogo') : undefined}
                 onChange={(event) => setLogoFile(event.target.files?.[0] ?? null)}
               />
               <FileInput
-                label={messages.siteSettingsFavicon}
+                label={t('siteSettingsFavicon')}
                 name="favicon"
                 accept="image/png,image/x-icon,image/vnd.microsoft.icon,image/svg+xml,.ico"
                 disabled={!canManage}
-                hint={settings.favicon_url ? messages.siteSettingsCurrentFavicon : undefined}
+                hint={settings.favicon_url ? t('siteSettingsCurrentFavicon') : undefined}
                 onChange={(event) => setFaviconFile(event.target.files?.[0] ?? null)}
               />
             </div>
             {(settings.logo_url || settings.favicon_url) && (
               <div className="mt-4 flex flex-wrap items-center gap-6">
                 {settings.logo_url ? (
-                  <img src={settings.logo_url} alt={messages.siteSettingsLogo} className="h-12 w-auto rounded border border-[var(--border)] bg-white p-2" />
+                  <img src={settings.logo_url} alt={t('siteSettingsLogo')} className="h-12 w-auto rounded border border-[var(--border)] bg-white p-2" />
                 ) : null}
                 {settings.favicon_url ? (
-                  <img src={settings.favicon_url} alt={messages.siteSettingsFavicon} className="h-10 w-10 rounded border border-[var(--border)] bg-white p-1" />
+                  <img src={settings.favicon_url} alt={t('siteSettingsFavicon')} className="h-10 w-10 rounded border border-[var(--border)] bg-white p-1" />
                 ) : null}
               </div>
             )}
           </FormSection>
 
-          <FormSection title={messages.siteSettingsContact}>
+          <FormSection title={t('siteSettingsContact')}>
             <div className="grid gap-4 md:grid-cols-2">
               <TextInput
-                label={messages.profileEmail}
+                label={t('profileEmail')}
                 name="support_email"
                 type="email"
                 value={form.data.support_email}
@@ -178,7 +177,7 @@ export default function SiteSettings({ settings, canManage }: Props) {
                 onChange={(event: React.ChangeEvent<HTMLInputElement>) => form.setData('support_email', event.target.value)}
               />
               <TextInput
-                label={messages.profilePhone}
+                label={t('profilePhone')}
                 name="support_phone"
                 value={form.data.support_phone}
                 disabled={!canManage}
@@ -188,10 +187,10 @@ export default function SiteSettings({ settings, canManage }: Props) {
             </div>
           </FormSection>
 
-          <FormSection title={messages.siteSettingsAbout}>
+          <FormSection title={t('siteSettingsAbout')}>
             <div className="grid gap-4 md:grid-cols-2">
               <TextareaInput
-                label={messages.aboutEn}
+                label={t('aboutEn')}
                 name="about_en"
                 value={form.data.about_en}
                 disabled={!canManage}
@@ -199,7 +198,7 @@ export default function SiteSettings({ settings, canManage }: Props) {
                 onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => form.setData('about_en', event.target.value)}
               />
               <TextareaInput
-                label={messages.aboutAr}
+                label={t('aboutAr')}
                 name="about_ar"
                 value={form.data.about_ar}
                 disabled={!canManage}
@@ -209,9 +208,9 @@ export default function SiteSettings({ settings, canManage }: Props) {
             </div>
           </FormSection>
           <hr className="my-8 border-t border-[var(--border)]" style={{ borderColor: '#0069ff' }} />
-          <FormSection title={messages.siteSettingsMaintenance} style={{ borderColor: '#0069ff' }}>
+          <FormSection title={t('siteSettingsMaintenance')} style={{ borderColor: '#0069ff' }}>
             <CheckboxInput
-              label={messages.maintenanceEnabled}
+              label={t('maintenanceEnabled')}
               name="maintenance_enabled"
               checked={form.data.maintenance_enabled}
               disabled={!canManage}
@@ -219,7 +218,7 @@ export default function SiteSettings({ settings, canManage }: Props) {
             />
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <TextareaInput
-                label={messages.maintenanceMessageEn}
+                label={t('maintenanceMessageEn')}
                 name="maintenance_message_en"
                 value={form.data.maintenance_message_en}
                 disabled={!canManage}
@@ -227,7 +226,7 @@ export default function SiteSettings({ settings, canManage }: Props) {
                 onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => form.setData('maintenance_message_en', event.target.value)}
               />
               <TextareaInput
-                label={messages.maintenanceMessageAr}
+                label={t('maintenanceMessageAr')}
                 name="maintenance_message_ar"
                 value={form.data.maintenance_message_ar}
                 disabled={!canManage}
@@ -239,7 +238,7 @@ export default function SiteSettings({ settings, canManage }: Props) {
 
           {canManage && (
             <FormActions>
-              <SubmitButtonWithLoader label={messages.saveChanges} loading={submitting || form.processing} />
+              <SubmitButtonWithLoader label={t('saveChanges')} loading={submitting || form.processing} />
             </FormActions>
           )}
         </form>

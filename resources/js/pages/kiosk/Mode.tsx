@@ -31,7 +31,6 @@ const SESSION_KEY = 'kiosk_session_secret'
 
 export default function KioskMode({ deviceCode, kiosk, event }: Props) {
   const { locale, t } = useLocale()
-  const ar = locale === 'ar'
   const [sessionSecret, setSessionSecret] = useState('')
   const [hasSession, setHasSession] = useState(() => {
     if (typeof window === 'undefined') {
@@ -138,11 +137,11 @@ export default function KioskMode({ deviceCode, kiosk, event }: Props) {
 
       const matches = data.matches ?? []
       if (matches.length === 0) {
-        setError(ar ? 'لا توجد نتائج' : 'No matches found')
+        setError(t('kioskModeNoMatches'))
         return
       }
       if (matches.length > 1) {
-        setError(ar ? 'نتائج كثيرة — ضيّق البحث' : 'Too many matches — refine your search')
+        setError(t('kioskModeTooManyMatches'))
         return
       }
       if (matches[0].credential_id) {
@@ -197,7 +196,7 @@ export default function KioskMode({ deviceCode, kiosk, event }: Props) {
       <header className="kiosk-hero">
         <div className="kiosk-hero__meta">
           <span className="kiosk-hero__code">{deviceCode}</span>
-          <StatusBadge status={hasSession ? 'online' : 'offline'} label={hasSession ? (ar ? 'مرتبط' : 'Paired') : (ar ? 'غير مرتبط' : 'Unpaired')} />
+          <StatusBadge status={hasSession ? 'online' : 'offline'} label={hasSession ? t('kioskModePaired') : t('kioskModeUnpaired')} />
         </div>
         <h1 className="kiosk-hero__title">{event.name[locale] || event.name.en}</h1>
         <p className="kiosk-hero__device">{kiosk.device_name}</p>
@@ -209,9 +208,9 @@ export default function KioskMode({ deviceCode, kiosk, event }: Props) {
             <ErrorState
               title={error}
               detail={error === 'kiosk_session_invalid'
-                ? (ar ? 'أدخل رمز جلسة الإقران مرة أخرى.' : 'Enter the pairing session secret again.')
+                ? t('kioskModeSessionInvalid')
                 : error === 'csrf_token_mismatch'
-                  ? (ar ? 'حدّث الصفحة ثم أعد المحاولة.' : 'Refresh the page and try again.')
+                  ? t('kioskModeCsrfError')
                   : undefined}
             />
           </div>
@@ -224,24 +223,22 @@ export default function KioskMode({ deviceCode, kiosk, event }: Props) {
                 <KeyRound className="h-6 w-6" aria-hidden />
               </div>
               <div>
-                <h2 className="kiosk-panel__title">{ar ? 'تفعيل الجهاز' : 'Unlock this kiosk'}</h2>
+                <h2 className="kiosk-panel__title">{t('kioskModeUnlock')}</h2>
                 <p className="kiosk-panel__copy">
-                  {ar
-                    ? 'الصق رمز الجلسة الذي يظهر بعد الإقران من لوحة التحكم.'
-                    : 'Paste the session secret shown after pairing from the admin console.'}
+                  {t('kioskModeUnlockDescription')}
                 </p>
               </div>
             </div>
             <form className="space-y-4" onSubmit={unlockSession}>
               <TextInput
-                label={ar ? 'رمز الجلسة' : 'Session secret'}
+                label={t('kioskModeSessionSecret')}
                 name="session_secret"
                 value={sessionSecret}
                 onChange={(changeEvent) => setSessionSecret(changeEvent.target.value)}
                 required
                 autoComplete="off"
               />
-              <SubmitButtonWithLoader loading={false} label={ar ? 'تفعيل' : 'Unlock'} />
+              <SubmitButtonWithLoader loading={false} label={t('kioskModeUnlockButton')} />
             </form>
           </section>
         ) : !scanResult ? (
@@ -252,14 +249,14 @@ export default function KioskMode({ deviceCode, kiosk, event }: Props) {
                   <QrCode className="h-6 w-6" aria-hidden />
                 </div>
                 <div>
-                  <h2 className="kiosk-panel__title">{ar ? 'مسح رمز QR' : 'Scan QR code'}</h2>
+                  <h2 className="kiosk-panel__title">{t('kioskModeScanQr')}</h2>
                   <p className="kiosk-panel__copy">
-                    {ar ? 'وجّه الماسح أو الصق الحمولة ثم سجّل الحضور.' : 'Point the scanner or paste the payload, then check in.'}
+                    {t('kioskModeScanQrDescription')}
                   </p>
                 </div>
               </div>
               <TextInput
-                label={ar ? 'مسح رمز QR' : 'Scan QR code'}
+                label={t('kioskModeScanQr')}
                 name="qr_payload"
                 value={qrPayload}
                 onChange={(changeEvent) => setQrPayload(changeEvent.target.value)}
@@ -277,14 +274,14 @@ export default function KioskMode({ deviceCode, kiosk, event }: Props) {
                   <Search className="h-6 w-6" aria-hidden />
                 </div>
                 <div>
-                  <h2 className="kiosk-panel__title">{ar ? 'بحث بديل' : 'Lookup fallback'}</h2>
+                  <h2 className="kiosk-panel__title">{t('kioskModeLookupFallback')}</h2>
                   <p className="kiosk-panel__copy">
-                    {ar ? 'ابحث بالاسم أو البريد أو الهاتف إذا تعذّر المسح.' : 'Search by name, email, or phone if scanning fails.'}
+                    {t('kioskModeLookupFallbackDescription')}
                   </p>
                 </div>
               </div>
               <TextInput
-                label={ar ? 'بحث بديل' : 'Lookup fallback'}
+                label={t('kioskModeLookupFallback')}
                 name="lookup_query"
                 value={lookupQuery}
                 onChange={(changeEvent) => setLookupQuery(changeEvent.target.value)}
@@ -297,23 +294,23 @@ export default function KioskMode({ deviceCode, kiosk, event }: Props) {
           <section className="kiosk-panel kiosk-panel--result mx-auto max-w-lg space-y-4">
             <div className="flex items-center gap-2 text-sm font-medium text-[var(--muted)]">
               <ShieldCheck className="h-4 w-4 text-[var(--brand)]" aria-hidden />
-              {ar ? 'نتيجة الحضور' : 'Check-in result'}
+              {t('kioskModeCheckInResult')}
             </div>
             <ScanResultCard result={scanResult} />
             {scanResult.result === 'accepted' && !printStatus && (
               <button type="button" className="button-primary inline-flex w-full items-center justify-center gap-2" onClick={() => void requestPrint()}>
                 <Printer className="h-4 w-4" aria-hidden />
-                {ar ? 'طباعة الشارة' : 'Print badge'}
+                {t('manualDeskPagePrintBadge')}
               </button>
             )}
             {printStatus && (
               <div className="flex justify-center">
-                <StatusBadge status={printStatus} label={`${ar ? 'الشارة' : 'Badge'} ${printStatus}`} size="md" />
+                <StatusBadge status={printStatus} label={`${t('manualDeskPageBadge')} ${printStatus}`} size="md" />
               </div>
             )}
             <button type="button" className="button-secondary inline-flex w-full items-center justify-center gap-2" onClick={resetFlow}>
               <RotateCcw className="h-4 w-4" aria-hidden />
-              {ar ? 'بدء من جديد' : 'Start over'}
+              {t('kioskModeStartOver')}
             </button>
           </section>
         )}
@@ -322,7 +319,7 @@ export default function KioskMode({ deviceCode, kiosk, event }: Props) {
       {hasSession && (
         <footer className="kiosk-footer">
           <button type="button" className="kiosk-footer__action" onClick={clearSession}>
-            {ar ? 'إلغاء ربط الجلسة' : 'Clear session'}
+            {t('kioskModeClearSession')}
           </button>
         </footer>
       )}

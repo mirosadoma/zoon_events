@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react'
 
 export default function PageContent({ children }: PropsWithChildren) {
-  return <div className="space-y-6">{children}</div>
+  return <div className="ta-page-content">{children}</div>
 }

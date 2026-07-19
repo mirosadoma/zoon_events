@@ -7,6 +7,7 @@ use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
 use App\Modules\Events\Application\Support\PublicRegistrationEventPresenter;
 use App\Modules\Events\Application\Support\ShareablePublicEventResolver;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventBranding;
 use App\Modules\Notifications\Application\Jobs\DeliverNotificationJob;
 use App\Modules\Notifications\Infrastructure\Persistence\Models\Notification;
 use App\Modules\Orders\Application\Actions\CompleteFreeRegistration;
@@ -79,6 +80,11 @@ final class PublicEventRegistrationController extends Controller
 
         $resolvedLocale = $locale === 'ar' ? 'ar' : 'en';
 
+        $branding = EventBranding::query()
+            ->where('tenant_id', $event->tenant_id)
+            ->where('event_id', $event->id)
+            ->first();
+
         return Inertia::render('public/registration/Event', [
             'locale' => $resolvedLocale,
             'event' => $this->eventPages->heroEvent($event, true),
@@ -92,6 +98,7 @@ final class PublicEventRegistrationController extends Controller
             'requiresTicketSelection' => EventRegistrationProfile::requiresTicketConfiguration($event),
             'isPreview' => false,
             'submitUrl' => "/{$resolvedLocale}/events/{$event->slug}/register",
+            'theme' => $branding?->theme_config,
         ]);
     }
 

@@ -24,13 +24,13 @@ export default function PublishReadinessList({
   variant = 'default',
   context,
 }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
 
   if (items.length === 0) {
     return null
   }
 
-  const heading = title ?? (locale === 'ar' ? 'متطلبات النشر الناقصة' : 'Missing publication requirements')
+  const heading = title ?? t('publishReadinessListTitle')
   const linkClassName = clsx(
     'underline-offset-2 hover:underline',
     variant === 'alert' && 'text-[var(--warning)]',
@@ -54,12 +54,8 @@ export default function PublishReadinessList({
       <h2 id="publish-readiness-heading" className="text-lg font-semibold">{heading}</h2>
       <p className="publish-readiness-copy">
         {variant === 'info'
-          ? (locale === 'ar'
-            ? 'هذه الرسالة توضّح سبب عدم إتاحة النشر — وليست عنصراً ناقصاً في الإعداد.'
-            : 'This explains why publishing is unavailable — it is not a missing setup item.')
-          : (locale === 'ar'
-            ? 'اضغط على كل عنصر للانتقال مباشرة إلى مكان تعديله.'
-            : 'Click each item to jump straight to where you can fix it.')}
+          ? t('publishReadinessInfoCopy')
+          : t('publishReadinessDefaultCopy')}
       </p>
       <ul className="publish-readiness-list">
         {items.map((item) => {

@@ -28,7 +28,7 @@ type Props = {
 }
 
 export default function Geography({ countries }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const localizedRouter = useLocalizedRouter()
   const [countryForm, setCountryForm] = useState({
     code: '',
@@ -60,26 +60,26 @@ export default function Geography({ countries }: Props) {
   }
 
   return (
-    <DashboardLayout title={locale === 'ar' ? 'الدول والمدن' : 'Countries & cities'}>
+    <DashboardLayout title={t('geographyTitle')}>
       <PageHeader
-        title={locale === 'ar' ? 'الدول والمدن' : 'Countries & cities'}
-        description={locale === 'ar' ? 'إدارة بيانات الجغرافيا المستخدمة في أماكن الفعاليات.' : 'Manage geography data used by event venues.'}
+        title={t('geographyTitle')}
+        description={t('geographyDescription')}
       />
       <PageContent>
         <div className="grid gap-6 xl:grid-cols-2">
           <form className="state-panel grid gap-3" onSubmit={submitCountry}>
-            <h2 className="text-lg font-semibold">{locale === 'ar' ? 'إضافة دولة' : 'Add country'}</h2>
+            <h2 className="text-lg font-semibold">{t('geographyAddCountry')}</h2>
             <TextInput label="Code" name="code" value={countryForm.code} onChange={(e) => setCountryForm({ ...countryForm, code: e.target.value.toUpperCase() })} required />
-            <TextInput label={locale === 'ar' ? 'الاسم (EN)' : 'Name (EN)'} name="name_en" value={countryForm.name_en} onChange={(e) => setCountryForm({ ...countryForm, name_en: e.target.value })} required />
-            <TextInput label={locale === 'ar' ? 'الاسم (AR)' : 'Name (AR)'} name="name_ar" value={countryForm.name_ar} onChange={(e) => setCountryForm({ ...countryForm, name_ar: e.target.value })} required />
-            <CheckboxInput label={locale === 'ar' ? 'نشط' : 'Active'} checked={countryForm.is_active} onChange={(e) => setCountryForm({ ...countryForm, is_active: e.target.checked })} />
-            <SubmitButtonWithLoader label={locale === 'ar' ? 'حفظ الدولة' : 'Save country'} />
+            <TextInput label={t('geographyNameEn')} name="name_en" value={countryForm.name_en} onChange={(e) => setCountryForm({ ...countryForm, name_en: e.target.value })} required />
+            <TextInput label={t('geographyNameAr')} name="name_ar" value={countryForm.name_ar} onChange={(e) => setCountryForm({ ...countryForm, name_ar: e.target.value })} required />
+            <CheckboxInput label={t('geographyActive')} checked={countryForm.is_active} onChange={(e) => setCountryForm({ ...countryForm, is_active: e.target.checked })} />
+            <SubmitButtonWithLoader label={t('geographySaveCountry')} />
           </form>
 
           <form className="state-panel grid gap-3" onSubmit={submitCity}>
-            <h2 className="text-lg font-semibold">{locale === 'ar' ? 'إضافة مدينة' : 'Add city'}</h2>
+            <h2 className="text-lg font-semibold">{t('geographyAddCity')}</h2>
             <label className="grid gap-2 text-sm">
-              <span>{locale === 'ar' ? 'الدولة' : 'Country'}</span>
+              <span>{t('geographyCountry')}</span>
               <select className="control" value={cityForm.country_id} onChange={(e) => setCityForm({ ...cityForm, country_id: e.target.value })} required>
                 {countries.map((country) => (
                   <option key={country.id} value={country.id}>
@@ -88,10 +88,10 @@ export default function Geography({ countries }: Props) {
                 ))}
               </select>
             </label>
-            <TextInput label={locale === 'ar' ? 'الاسم (EN)' : 'Name (EN)'} name="name_en" value={cityForm.name_en} onChange={(e) => setCityForm({ ...cityForm, name_en: e.target.value })} required />
-            <TextInput label={locale === 'ar' ? 'الاسم (AR)' : 'Name (AR)'} name="name_ar" value={cityForm.name_ar} onChange={(e) => setCityForm({ ...cityForm, name_ar: e.target.value })} required />
-            <CheckboxInput label={locale === 'ar' ? 'نشط' : 'Active'} checked={cityForm.is_active} onChange={(e) => setCityForm({ ...cityForm, is_active: e.target.checked })} />
-            <SubmitButtonWithLoader label={locale === 'ar' ? 'حفظ المدينة' : 'Save city'} />
+            <TextInput label={t('geographyNameEn')} name="name_en" value={cityForm.name_en} onChange={(e) => setCityForm({ ...cityForm, name_en: e.target.value })} required />
+            <TextInput label={t('geographyNameAr')} name="name_ar" value={cityForm.name_ar} onChange={(e) => setCityForm({ ...cityForm, name_ar: e.target.value })} required />
+            <CheckboxInput label={t('geographyActive')} checked={cityForm.is_active} onChange={(e) => setCityForm({ ...cityForm, is_active: e.target.checked })} />
+            <SubmitButtonWithLoader label={t('geographySaveCity')} />
           </form>
         </div>
 
@@ -99,10 +99,10 @@ export default function Geography({ countries }: Props) {
           <table className="ta-table">
             <thead>
               <tr>
-                <th>{locale === 'ar' ? 'الدولة' : 'Country'}</th>
-                <th>{locale === 'ar' ? 'الرمز' : 'Code'}</th>
-                <th>{locale === 'ar' ? 'المدن' : 'Cities'}</th>
-                <th>{locale === 'ar' ? 'الحالة' : 'Status'}</th>
+                <th>{t('geographyCountry')}</th>
+                <th>{t('geographyCode')}</th>
+                <th>{t('geographyCities')}</th>
+                <th>{t('geographyStatus')}</th>
                 <th />
               </tr>
             </thead>
@@ -121,20 +121,20 @@ export default function Geography({ countries }: Props) {
                             className="text-xs text-red-600"
                             onClick={() => localizedRouter.delete(`/platform/geography/cities/${city.id}`, { preserveScroll: true })}
                           >
-                            {locale === 'ar' ? 'حذف' : 'Delete'}
+                            {t('delete')}
                           </button>
                         </li>
                       ))}
                     </ul>
                   </td>
-                  <td>{country.is_active ? (locale === 'ar' ? 'نشط' : 'Active') : (locale === 'ar' ? 'غير نشط' : 'Inactive')}</td>
+                  <td>{country.is_active ? t('geographyActiveStatus') : t('geographyInactiveStatus')}</td>
                   <td className="ta-table-actions">
                     <button
                       type="button"
                       className="ta-table-action"
                       onClick={() => localizedRouter.delete(`/platform/geography/countries/${country.id}`, { preserveScroll: true })}
                     >
-                      {locale === 'ar' ? 'حذف' : 'Delete'}
+                      {t('delete')}
                     </button>
                   </td>
                 </tr>

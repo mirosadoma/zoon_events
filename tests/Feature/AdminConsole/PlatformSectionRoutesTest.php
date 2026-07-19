@@ -5,7 +5,7 @@ namespace Tests\Feature\AdminConsole;
 use App\Models\User;
 use App\Modules\Authorization\Infrastructure\Persistence\Models\PlatformRole;
 use App\Modules\Authorization\Infrastructure\Persistence\Models\PlatformRoleAssignment;
-use Database\Seeders\PermissionCatalogSeeder;
+use Database\Seeders\PermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -35,7 +35,7 @@ final class PlatformSectionRoutesTest extends TestCase
 
     private function superAdministrator(): User
     {
-        $this->seed(PermissionCatalogSeeder::class);
+        $this->seed(PermissionSeeder::class);
 
         $user = User::factory()->create([
             'email' => 'super.admin@admin.com',

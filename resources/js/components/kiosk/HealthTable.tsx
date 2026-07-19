@@ -11,7 +11,7 @@ interface HealthTableProps {
 }
 
 export function HealthTable({ eventId, tenantId, pollIntervalMs = 15000 }: HealthTableProps) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const [kiosks, setKiosks] = useState<Kiosk[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -52,15 +52,15 @@ export function HealthTable({ eventId, tenantId, pollIntervalMs = 15000 }: Healt
   }, [eventId, tenantId, pollIntervalMs])
 
   if (loading) {
-    return <p className="text-sm text-[var(--muted)]">{locale === 'ar' ? 'جارٍ تحميل صحة الكشكات…' : 'Loading kiosk health…'}</p>
+    return <p className="text-sm text-[var(--muted)]">{t('kioskHealthLoading')}</p>
   }
 
   if (error) {
-    return <p role="alert" className="text-sm text-rose-600">{locale === 'ar' ? 'تعذر تحميل صحة الكشكات' : error}</p>
+    return <p role="alert" className="text-sm text-rose-600">{t('kioskHealthError')}</p>
   }
 
   if (kiosks.length === 0) {
-    return <p className="text-sm text-[var(--muted)]">{locale === 'ar' ? 'لا توجد كشكات مسجلة.' : 'No kiosks registered for this event.'}</p>
+    return <p className="text-sm text-[var(--muted)]">{t('kioskHealthNoKiosks')}</p>
   }
 
   return (
@@ -68,26 +68,26 @@ export function HealthTable({ eventId, tenantId, pollIntervalMs = 15000 }: Healt
       rows={kiosks as unknown as Record<string, unknown>[]}
       getRowKey={(row) => String(row.id)}
       columns={[
-        { key: 'device_name', header: locale === 'ar' ? 'الجهاز' : 'Device' },
+        { key: 'device_name', header: t('kioskHealthDevice') },
         {
           key: 'status',
-          header: locale === 'ar' ? 'الحالة' : 'Status',
+          header: t('status'),
           render: (row) => <StatusBadge status={String(row.status)} />,
         },
         {
           key: 'printer_status',
-          header: locale === 'ar' ? 'الطابعة' : 'Printer',
+          header: t('kioskHealthPrinter'),
           render: (row) => (row.printer_status ? <StatusBadge status={String(row.printer_status)} /> : '—'),
         },
         {
           key: 'last_heartbeat_at',
-          header: locale === 'ar' ? 'آخر نبضة' : 'Last heartbeat',
+          header: t('kioskHealthLastHeartbeat'),
           render: (row) => {
             const value = row.last_heartbeat_at
             return value ? new Date(String(value)).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-US') : '—'
           },
         },
-        { key: 'device_code', header: locale === 'ar' ? 'رمز الجهاز' : 'Device code' },
+        { key: 'device_code', header: t('kioskHealthDeviceCode') },
       ]}
     />
   )

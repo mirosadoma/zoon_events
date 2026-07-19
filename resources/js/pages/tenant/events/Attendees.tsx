@@ -115,7 +115,7 @@ export default function Attendees({
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: t('attendees') },
         ]}
@@ -191,7 +191,7 @@ export default function Attendees({
                 },
                 {
                   key: 'credential_status',
-                  header: locale === 'ar' ? 'الاعتماد' : 'Credential',
+                  header: t('attendeesCredential'),
                   render: (row) => {
                     const status = row.credential_status as string | null | undefined
 

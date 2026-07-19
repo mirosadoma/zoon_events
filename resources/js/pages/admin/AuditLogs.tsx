@@ -41,7 +41,7 @@ type Props = {
 }
 
 export default function AdminAuditLogs({ auditLogs, filters }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const localizedRouter = useLocalizedRouter()
   const messages = locale === 'ar' ? ar : en
   const [draft, setDraft] = useState({
@@ -122,12 +122,12 @@ export default function AdminAuditLogs({ auditLogs, filters }: Props) {
               },
               {
                 key: 'reason_code',
-                header: locale === 'ar' ? 'سبب المشكلة' : 'Failure reason',
+                header: t('auditLogsFailureReason'),
                 render: (row) => {
                   const outcome = String(row.outcome ?? '')
                   const reason = row.reason_code ? String(row.reason_code) : null
                   if (outcome !== 'failed' && !reason) return '—'
-                  return reason ?? (locale === 'ar' ? 'فشل بدون تفاصيل' : 'Failed without details')
+                  return reason ?? t('auditLogsFailedNoDetails')
                 },
               },
               { key: 'actor_id', header: messages.adminFilterActor },

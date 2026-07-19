@@ -97,17 +97,17 @@ export default function CheckInScanner({ event, tenantId }: Props) {
   }
 
   return (
-    <DashboardLayout title={locale === 'ar' ? 'ماسح تسجيل الحضور' : 'Check-in scanner'}>
+    <DashboardLayout title={t('scannerPageTitle')}>
       <PageHeader
-        title={locale === 'ar' ? 'ماسح تسجيل الحضور' : 'Check-in scanner'}
+        title={t('scannerPageTitle')}
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
-          { label: locale === 'ar' ? 'الماسح' : 'Scanner' },
+          { label: t('scannerPageScanner') },
         ]}
-        actions={<LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/check-in-dashboard`}>{locale === 'ar' ? 'لوحة تسجيل الحضور' : 'Check-in dashboard'}</LocalizedLink>}
+        actions={<LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/check-in-dashboard`}>{t('checkInDashboard')}</LocalizedLink>}
       />
       <PageContent>
         <div className="state-panel scanner-workspace space-y-4">

@@ -12,7 +12,7 @@ use App\Modules\Tenancy\Domain\Context\TenantContextStore;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\TenantMembership;
 use App\Modules\Tenancy\Infrastructure\Persistence\Scopes\TenantScope;
 use Carbon\CarbonImmutable;
-use Database\Seeders\PermissionSeeder;
+use App\Modules\Authorization\Domain\PermissionCatalog;
 use Illuminate\Http\Request;
 
 final class SessionContextBuilder
@@ -99,7 +99,7 @@ final class SessionContextBuilder
     {
         $can = [];
 
-        foreach (PermissionSeeder::definitions() as $definition) {
+        foreach (PermissionCatalog::all() as $definition) {
             $key = $definition['key'];
 
             if ($definition['scope'] === 'platform') {

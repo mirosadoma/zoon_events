@@ -34,10 +34,11 @@ type Props = {
   filter: string
 }
 
-function relativeTime(iso: string, locale: string): string {
+function relativeTime(iso: string, locale: 'en' | 'ar'): string {
+  const messages = locale === 'ar' ? ar : en
   const diff = Date.now() - new Date(iso).getTime()
   const minutes = Math.floor(diff / 60_000)
-  if (minutes < 1) return locale === 'ar' ? 'الآن' : 'Just now'
+  if (minutes < 1) return messages.timeJustNow
   if (minutes < 60) return locale === 'ar' ? `منذ ${minutes} دقيقة` : `${minutes}m ago`
   const hours = Math.floor(minutes / 60)
   if (hours < 24) return locale === 'ar' ? `منذ ${hours} ساعة` : `${hours}h ago`
@@ -46,7 +47,7 @@ function relativeTime(iso: string, locale: string): string {
 }
 
 export default function Notifications({ notifications, filter }: Props) {
-  const { locale, localizedPath } = useLocale()
+  const { locale, localizedPath, t } = useLocale()
   const localizedRouter = useLocalizedRouter()
   const messages = locale === 'ar' ? ar : en
 
@@ -140,13 +141,11 @@ export default function Notifications({ notifications, filter }: Props) {
             </div>
             <h2 className="text-lg font-semibold">
               {filter === 'unread'
-                ? (locale === 'ar' ? 'لا توجد إشعارات غير مقروءة' : 'No unread notifications')
+                ? t('notificationsPageNoUnread')
                 : messages.notificationsEmpty}
             </h2>
             <p className="mx-auto mt-2 max-w-xl text-slate-600 dark:text-slate-300">
-              {locale === 'ar'
-                ? 'ستظهر هنا الإشعارات عند حدوث إجراءات جديدة في النظام.'
-                : 'Notifications will appear here when new actions occur in the system.'}
+              {t('notificationsPageNotificationsAppear')}
             </p>
           </section>
         ) : (
@@ -195,7 +194,7 @@ export default function Notifications({ notifications, filter }: Props) {
                         <button
                           type="button"
                           className="rounded-lg p-1.5 text-[var(--muted)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--foreground)]"
-                          title={locale === 'ar' ? 'فتح' : 'Open'}
+                          title={t('notificationsPageOpen')}
                           onClick={() => handleClick(item)}
                         >
                           <ExternalLink className="h-4 w-4" />
@@ -232,7 +231,7 @@ export default function Notifications({ notifications, filter }: Props) {
               disabled={!notifications.prev_page_url}
               onClick={() => localizedRouter.get('/notifications', { filter, page: notifications.current_page - 1 }, { preserveState: true })}
             >
-              {locale === 'ar' ? 'السابق' : 'Previous'}
+              {t('notificationsPagePrevious')}
             </button>
             <span className="rounded-lg bg-[var(--surface)] px-3 py-1.5 text-sm font-medium text-[var(--muted)] ring-1 ring-[var(--border)]">
               {notifications.current_page} / {notifications.last_page}
@@ -243,7 +242,7 @@ export default function Notifications({ notifications, filter }: Props) {
               disabled={!notifications.next_page_url}
               onClick={() => localizedRouter.get('/notifications', { filter, page: notifications.current_page + 1 }, { preserveState: true })}
             >
-              {locale === 'ar' ? 'التالي' : 'Next'}
+              {t('notificationsPageNext')}
             </button>
           </div>
         )}

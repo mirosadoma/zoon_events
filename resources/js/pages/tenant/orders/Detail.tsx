@@ -50,34 +50,34 @@ export default function OrderDetailPage({ event, order }: Props) {
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
-          { label: locale === 'ar' ? 'الطلبات' : 'Orders', href: `/tenant/events/${event.id}/orders` },
+          { label: t('orders'), href: `/tenant/events/${event.id}/orders` },
           { label: order.buyer_name ?? order.reference },
         ]}
       />
       <PageContent>
         <DetailsCard
-          title={locale === 'ar' ? 'ملخص الطلب' : 'Order summary'}
+          title={t('orderSummary')}
           items={[
-            { label: locale === 'ar' ? 'صاحب الطلب' : 'Order owner', value: order.buyer_name ?? '—' },
-            { label: locale === 'ar' ? 'المرجع' : 'Reference', value: order.reference },
-            { label: locale === 'ar' ? 'الحالة' : 'Status', value: <StatusBadge status={order.status} /> },
-            { label: locale === 'ar' ? 'الإجمالي' : 'Total', value: order.total },
-            { label: locale === 'ar' ? 'العملة' : 'Currency', value: order.currency },
-            { label: locale === 'ar' ? 'تاريخ الدفع' : 'Paid at', value: order.paid_at ?? '—' },
+            { label: t('orderDetailOrderOwner'), value: order.buyer_name ?? '—' },
+            { label: t('orderDetailReference'), value: order.reference },
+            { label: t('orderDetailStatus'), value: <StatusBadge status={order.status} /> },
+            { label: t('orderDetailTotal'), value: order.total },
+            { label: t('orderDetailCurrency'), value: order.currency },
+            { label: t('orderDetailPaidAt'), value: order.paid_at ?? '—' },
             {
-              label: locale === 'ar' ? 'التسليم' : 'Delivery',
+              label: t('orderDetailDelivery'),
               value: order.notification_status
                 ? <NotificationStatus status={order.notification_status} locale={locale} />
                 : '—',
             },
-            { label: locale === 'ar' ? 'تاريخ الإنشاء' : 'Created', value: order.created_at ?? '—' },
+            { label: t('orderDetailCreated'), value: order.created_at ?? '—' },
           ]}
         />
 
         <section className="state-panel mt-6">
-          <h2 className="text-lg font-semibold">{locale === 'ar' ? 'البنود' : 'Items'}</h2>
+          <h2 className="text-lg font-semibold">{t('orderDetailItems')}</h2>
           <ul className="mt-4 space-y-2">
             {order.items.map((item) => (
               <li key={item.id} className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
@@ -88,10 +88,10 @@ export default function OrderDetailPage({ event, order }: Props) {
         </section>
 
         <section className="state-panel mt-6">
-          <h2 className="text-lg font-semibold">{locale === 'ar' ? 'الحضور المرتبطون' : 'Linked attendees'}</h2>
+          <h2 className="text-lg font-semibold">{t('orderDetailLinkedAttendees')}</h2>
           <ul className="mt-4 space-y-2">
             {order.attendees.length === 0 ? (
-              <li>{locale === 'ar' ? 'لا يوجد حضور مرتبط.' : 'No linked attendees.'}</li>
+              <li>{t('orderDetailNoLinkedAttendees')}</li>
             ) : order.attendees.map((attendee) => (
               <li key={attendee.id}>
                 <LocalizedLink href={`/tenant/events/${event.id}/attendees/${attendee.id}`} className="text-sky-700 hover:underline">

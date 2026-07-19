@@ -89,32 +89,32 @@ export default function ScanEvents({
   }
 
   const resultOptions = [
-    { value: '', label: locale === 'ar' ? 'كل النتائج' : 'All results' },
+    { value: '', label: t('scanEventsAllResults') },
     ...SCAN_RESULTS.map((result) => ({ value: result, label: result })),
   ]
 
   const scannerOptions = [
-    { value: '', label: locale === 'ar' ? 'كل الماسحات' : 'All scanners' },
+    { value: '', label: t('scanEventsAllScanners') },
     ...SCANNER_TYPES.map((type) => ({ value: type, label: type })),
   ]
 
   return (
-    <DashboardLayout title={locale === 'ar' ? 'أحداث المسح' : 'Scan events'}>
+    <DashboardLayout title={t('scanEventsTitle')}>
       <PageHeader
-        title={locale === 'ar' ? 'أحداث المسح' : 'Scan events'}
+        title={t('scanEventsTitle')}
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
-          { label: locale === 'ar' ? 'أحداث المسح' : 'Scan events' },
+          { label: t('scanEventsTitle') },
         ]}
-        actions={<LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/check-in-dashboard`}>{locale === 'ar' ? 'لوحة تسجيل الحضور' : 'Check-in dashboard'}</LocalizedLink>}
+        actions={<LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/check-in-dashboard`}>{t('checkInDashboard')}</LocalizedLink>}
       />
       <PageContent>
         <FiltersBar>
           <SelectInput
-            label={locale === 'ar' ? 'النتيجة' : 'Result'}
+            label={t('scanEventsResult')}
             name="result"
             value={resultFilter}
             onChange={(changeEvent) => {
@@ -125,7 +125,7 @@ export default function ScanEvents({
             options={resultOptions}
           />
           <SelectInput
-            label={locale === 'ar' ? 'نوع الماسح' : 'Scanner type'}
+            label={t('scanEventsScannerType')}
             name="scanner_type"
             value={scannerFilter}
             onChange={(changeEvent) => {
@@ -136,7 +136,7 @@ export default function ScanEvents({
             options={scannerOptions}
           />
           <CheckboxInput
-            label={locale === 'ar' ? 'غير متصل فقط' : 'Offline only'}
+            label={t('offlineOnly')}
             name="offline"
             checked={offlineOnly}
             onChange={(changeEvent) => {
@@ -149,8 +149,8 @@ export default function ScanEvents({
 
         {scanEvents.length === 0 ? (
           <EmptyState
-            title={locale === 'ar' ? 'لا توجد أحداث مسح' : 'No scan events yet'}
-            detail={locale === 'ar' ? 'ستظهر الأحداث بعد المسح.' : 'Events will appear after scans are submitted.'}
+            title={t('scanEventsNoEvents')}
+            detail={t('scanEventsNoEventsDetail')}
           />
         ) : (
           <>
@@ -160,13 +160,13 @@ export default function ScanEvents({
               columns={[
                 {
                   key: 'result',
-                  header: locale === 'ar' ? 'النتيجة' : 'Result',
+                  header: t('scanEventsResult'),
                   render: (row) => <StatusBadge status={String(row.result)} />,
                 },
-                { key: 'scanner_type', header: locale === 'ar' ? 'الماسح' : 'Scanner' },
+                { key: 'scanner_type', header: t('scanner') },
                 {
                   key: 'gate_id',
-                  header: locale === 'ar' ? 'البوابة' : 'Gate',
+                  header: t('scanEventsGate'),
                   render: (row) => {
                     const scan = row as unknown as ScanEventRow
                     return scan.gate_name ?? scan.gate_id ?? '—'
@@ -174,7 +174,7 @@ export default function ScanEvents({
                 },
                 {
                   key: 'zone_id',
-                  header: locale === 'ar' ? 'المنطقة' : 'Zone',
+                  header: t('scanEventsZone'),
                   render: (row) => {
                     const scan = row as unknown as ScanEventRow
                     return scan.zone_name ?? scan.zone_id ?? '—'
@@ -182,15 +182,15 @@ export default function ScanEvents({
                 },
                 {
                   key: 'offline',
-                  header: locale === 'ar' ? 'غير متصل' : 'Offline',
-                  render: (row) => (row.offline ? (locale === 'ar' ? 'نعم' : 'Yes') : '—'),
+                  header: t('scanEventsOffline'),
+                  render: (row) => (row.offline ? t('yes') : '—'),
                 },
                 {
                   key: 'reason',
-                  header: locale === 'ar' ? 'السبب' : 'Reason',
+                  header: t('scanEventsReason'),
                   render: (row) => scanReasonLabel(String(row.reason ?? ''), locale),
                 },
-                { key: 'scanned_at', header: locale === 'ar' ? 'وقت المسح' : 'Scanned at' },
+                { key: 'scanned_at', header: t('scanEventsScannedAt') },
               ]}
             />
             <Pagination

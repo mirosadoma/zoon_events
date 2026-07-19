@@ -102,22 +102,22 @@ export default function BadgePrintJobs({
   }
 
   return (
-    <DashboardLayout title={locale === 'ar' ? 'مهام طباعة الشارات' : 'Badge print jobs'}>
+    <DashboardLayout title={t('badgePrintJobs')}>
       <PageHeader
-        title={locale === 'ar' ? 'مهام طباعة الشارات' : 'Badge print jobs'}
+        title={t('badgePrintJobs')}
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
-          { label: locale === 'ar' ? 'مهام الطباعة' : 'Print jobs' },
+          { label: t('badgePrintJobs') },
         ]}
-        actions={<LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/badge-templates`}>{locale === 'ar' ? 'قوالب الشارات' : 'Badge templates'}</LocalizedLink>}
+        actions={<LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/badge-templates`}>{t('badgeTemplates')}</LocalizedLink>}
       />
       <PageContent>
         <FiltersBar>
           <SelectInput
-            label={locale === 'ar' ? 'الحالة' : 'Status'}
+            label={t('status')}
             name="status"
             value={statusFilter}
             onChange={(changeEvent) => {
@@ -130,7 +130,7 @@ export default function BadgePrintJobs({
         </FiltersBar>
 
         {printJobs.length === 0 ? (
-          <EmptyState title={locale === 'ar' ? 'لا توجد مهام طباعة' : 'No print jobs yet'} />
+          <EmptyState title={t('badgePrintNoJobs')} />
         ) : (
           <>
             <DataTable
@@ -139,26 +139,26 @@ export default function BadgePrintJobs({
               columns={[
                 {
                   key: 'status',
-                  header: locale === 'ar' ? 'الحالة' : 'Status',
+                  header: t('status'),
                   render: (row) => <StatusBadge status={String(row.status)} />,
                 },
                 {
                   key: 'is_reprint',
-                  header: locale === 'ar' ? 'إعادة طباعة' : 'Reprint',
-                  render: (row) => (row.is_reprint ? (locale === 'ar' ? 'نعم' : 'Yes') : (locale === 'ar' ? 'لا' : 'No')),
+                  header: t('badgePrintReprint'),
+                  render: (row) => (row.is_reprint ? t('yes') : t('no')),
                 },
                 {
                   key: 'printed_at',
-                  header: locale === 'ar' ? 'وقت الطباعة' : 'Printed at',
+                  header: t('badgePrintPrintedAt'),
                   render: (row) => (row.printed_at ? new Date(String(row.printed_at)).toLocaleString() : '—'),
                 },
                 {
                   key: 'actions',
-                  header: locale === 'ar' ? 'إجراءات' : 'Actions',
+                  header: t('actions'),
                   render: (row) => (
                     <PermissionGate permission="badge.reprint">
                       <button type="button" className="button-secondary" onClick={() => setReprintTarget(printJobs.find((job) => job.id === row.id) ?? null)}>
-                        {locale === 'ar' ? 'إعادة طباعة' : 'Reprint'}
+                        {t('badgePrintReprintAction')}
                       </button>
                     </PermissionGate>
                   ),
@@ -179,11 +179,11 @@ export default function BadgePrintJobs({
 
       <ReasonModal
         open={reprintTarget !== null}
-        title={locale === 'ar' ? 'إعادة طباعة الشارة' : 'Reprint badge'}
-        message={locale === 'ar' ? 'يرجى تقديم سبب لإعادة الطباعة.' : 'Please provide a reason for this reprint.'}
-        reasonLabel={locale === 'ar' ? 'السبب' : 'Reason'}
-        confirmLabel={locale === 'ar' ? 'إعادة طباعة' : 'Reprint'}
-        cancelLabel={locale === 'ar' ? 'إلغاء' : 'Cancel'}
+        title={t('badgePrintReprintTitle')}
+        message={t('badgePrintReprintMessage')}
+        reasonLabel={t('badgePrintReason')}
+        confirmLabel={t('badgePrintReprintAction')}
+        cancelLabel={t('cancel')}
         loading={reprinting}
         onConfirm={handleReprint}
         onCancel={() => setReprintTarget(null)}
