@@ -10,6 +10,7 @@ final class Phase3Problem
     public const STATUS = [
         'kiosk_session_invalid' => 401,
         'kiosk_session_unconfirmed' => 401,
+        'kiosk_confirmation_invalid' => 422,
         'kiosk_retired' => 401,
         'lookup_too_many_matches' => 422,
         'lookup_confirmation_required' => 422,
@@ -21,6 +22,7 @@ final class Phase3Problem
         'badge_reprint_not_permitted' => 403,
         'badge_no_prior_print_job' => 409,
         'badge_print_not_permitted' => 403,
+        'badge_print_checkin_required' => 422,
         'printer_unavailable' => 503,
         'printer_error' => 409,
         'payload_rejected' => 422,

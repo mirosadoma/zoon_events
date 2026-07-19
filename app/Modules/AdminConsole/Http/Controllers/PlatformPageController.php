@@ -7,9 +7,11 @@ use App\Models\User;
 use App\Modules\Audit\Application\Queries\SearchAuditLogs;
 use App\Modules\Audit\Infrastructure\Persistence\Models\AuditLog;
 use App\Modules\Authorization\Infrastructure\Persistence\Models\PlatformRole;
+use App\Modules\Events\Application\Support\EventWallClockDateTime;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\FeatureFlags\Infrastructure\Persistence\Models\FeatureFlag;
 use App\Modules\Operations\Application\Health\HealthService;
+use App\Modules\Shared\Domain\LifecycleStatus;
 use App\Modules\Tenancy\Http\Controllers\ConfigurationController;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\Tenant;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\TenantMembership;
@@ -145,7 +147,8 @@ final class PlatformPageController extends Controller
                     'tenant_slug' => $tenant?->slug,
                     'status' => $event->status,
                     'event_type' => $event->event_type,
-                    'start_at' => $event->start_at?->toIso8601String(),
+                    'timezone' => $event->timezone,
+                    'start_at' => EventWallClockDateTime::toIso8601($event->start_at, (string) $event->timezone),
                     'created_at' => $event->created_at?->toIso8601String(),
                 ];
             })->all();
@@ -171,7 +174,7 @@ final class PlatformPageController extends Controller
                     'id' => (string) $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
-                    'status' => $user->status instanceof \App\Modules\Shared\Domain\LifecycleStatus ? $user->status->value : $user->status,
+                    'status' => $user->status instanceof LifecycleStatus ? $user->status->value : $user->status,
                     'created_at' => $user->created_at?->toIso8601String(),
                     'roles' => $roles->map(fn (PlatformRole $role): array => [
                         'id' => (string) $role->id,

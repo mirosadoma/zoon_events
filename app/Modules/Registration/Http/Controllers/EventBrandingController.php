@@ -43,8 +43,10 @@ final class EventBrandingController extends Controller
             'theme_config.primary_color' => ['nullable', 'string', 'max:7'],
             'theme_config.accent_color' => ['nullable', 'string', 'max:7'],
             'theme_config.background_color' => ['nullable', 'string', 'max:7'],
+            'theme_config.text_color' => ['nullable', 'string', 'max:7'],
             'theme_config.font_family' => ['nullable', 'string', 'max:50'],
             'theme_config.logo_path' => ['nullable', 'string', 'max:500'],
+            'theme_config.sponsor_logo_path' => ['nullable', 'string', 'max:500'],
             'theme_config.header_image_path' => ['nullable', 'string', 'max:500'],
         ]);
 

@@ -10,6 +10,9 @@ vi.mock('@/layouts/DashboardLayout', () => ({
 
 vi.mock('@inertiajs/react', () => ({
   Link: ({ href, children, className }: { href: string; children: React.ReactNode; className?: string }) => <a className={className} href={href}>{children}</a>,
+  router: {
+    visit: vi.fn(),
+  },
   usePage: () => ({
     props: {
       locale: 'en',
@@ -21,6 +24,20 @@ vi.mock('@inertiajs/react', () => ({
       },
     },
   }),
+}))
+
+vi.mock('@/hooks/useLocalizedRouter', () => ({
+  useLocalizedRouter: () => ({
+    visit: vi.fn(),
+    get: vi.fn(),
+    post: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+  }),
+}))
+
+vi.mock('@/components/checkin/QrCameraScanner', () => ({
+  default: () => <div data-testid="qr-camera-scanner">camera</div>,
 }))
 
 vi.mock('@/hooks/useLocale', () => ({
@@ -47,15 +64,25 @@ describe('phase 6 responsive surfaces', () => {
       setItem: vi.fn(),
       removeItem: vi.fn(),
     })
+    vi.stubGlobal('sessionStorage', {
+      getItem: () => null,
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+    })
 
     const { container } = render(
       <div style={{ width: 390 }}>
-        <KioskMode deviceCode="KIOSK-1" kiosk={{ id: 'kiosk_1', device_name: 'Lobby kiosk', confirmation_required: false }} event={event} />
+        <KioskMode
+          deviceCode="KIOSK-1"
+          kiosk={{ id: 'kiosk_1', device_name: 'Lobby kiosk', confirmation_required: false }}
+          event={event}
+          step="scan"
+        />
       </div>,
     )
 
-    expect(screen.getByLabelText(/^Scan QR code/).closest('form')).toHaveClass('max-w-lg')
-    expect(screen.getByLabelText(/^Lookup fallback/).closest('form')).toHaveClass('max-w-lg')
+    expect(screen.getByTestId('qr-camera-scanner')).toBeInTheDocument()
+    expect(screen.getByLabelText(/^kioskModeManualEntry/).closest('form')).toBeTruthy()
     expect(container.querySelector('.kiosk-shell')).toBeTruthy()
     expect(container.querySelector('.kiosk-main')).toBeTruthy()
   })

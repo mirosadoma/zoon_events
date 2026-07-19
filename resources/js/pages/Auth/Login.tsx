@@ -106,12 +106,17 @@ export default function Login() {
               : <Eye className="h-[1.125rem] w-[1.125rem]" strokeWidth={1.75} />}
           </button>
         </div>
-        <CheckboxInput
-          label={messages.loginRemember}
-          name="remember"
-          checked={form.data.remember}
-          onChange={(event) => form.setData('remember', event.target.checked)}
-        />
+        <div className="flex items-center justify-between gap-3">
+          <CheckboxInput
+            label={messages.loginRemember}
+            name="remember"
+            checked={form.data.remember}
+            onChange={(event) => form.setData('remember', event.target.checked)}
+          />
+          <LocalizedLink href={localizedPath('/forgot-password')} className="text-sm text-[var(--brand)] underline">
+            {messages.forgotPasswordLink}
+          </LocalizedLink>
+        </div>
         <FormActions>
           <SubmitButtonWithLoader label={messages.loginSubmit} loading={form.processing} />
           <LocalizedLink href={localizedPath('/register')} className="button-secondary">

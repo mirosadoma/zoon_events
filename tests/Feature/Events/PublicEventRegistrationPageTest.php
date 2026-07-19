@@ -25,7 +25,7 @@ final class PublicEventRegistrationPageTest extends Phase1MySqlTestCase
                 ->where('isPreview', false)
                 ->where('submitUrl', "/ar/events/{$fixture['event']->slug}/register")
                 ->has('form.fields')
-                ->has('ticketTypes'));
+                ->has('categories'));
     }
 
     public function test_draft_event_registration_page_is_not_found(): void

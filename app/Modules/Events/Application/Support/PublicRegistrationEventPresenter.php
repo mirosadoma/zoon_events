@@ -20,8 +20,9 @@ final readonly class PublicRegistrationEventPresenter
             'slug' => $event->slug,
             'name' => ['en' => $event->name_en, 'ar' => $event->name_ar],
             'description' => ['en' => $event->description_en ?? '', 'ar' => $event->description_ar ?? ''],
-            'start_at' => $event->start_at?->toIso8601String(),
-            'end_at' => $event->end_at?->toIso8601String(),
+            'timezone' => $event->timezone,
+            'start_at' => EventWallClockDateTime::toIso8601($event->start_at, $event->timezone),
+            'end_at' => EventWallClockDateTime::toIso8601($event->end_at, $event->timezone),
             'branding' => [
                 'brand_reference' => $event->branding()->value('brand_reference'),
                 'domain_reference' => $event->branding()->value('domain_reference'),

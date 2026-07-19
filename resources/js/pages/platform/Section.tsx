@@ -10,6 +10,7 @@ import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
+import { formatDateOnly } from '@/lib/formatters'
 import en from '@/locales/en'
 import ar from '@/locales/ar'
 
@@ -72,6 +73,7 @@ type EventRow = {
   tenant_slug: string | null
   status: string
   event_type: string
+  timezone?: string | null
   start_at: string | null
   created_at: string | null
 }
@@ -521,7 +523,7 @@ export default function PlatformSection({ section, rows, canManage, health, plat
                   <td><StatusBadge status={event.status} /></td>
                   <td className="text-sm text-[var(--muted)]">{event.event_type?.replace(/_/g, ' ') ?? '—'}</td>
                   <td className="text-sm text-[var(--muted)]">
-                    {event.start_at ? new Date(event.start_at).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB') : '—'}
+                    {event.start_at ? formatDateOnly(event.start_at, locale, event.timezone || undefined) : '—'}
                   </td>
                   <td>
                     <a

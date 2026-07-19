@@ -1,4 +1,6 @@
+import { CheckCircle2 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
+import RegistrationPageControls from '@/components/registration/RegistrationPageControls'
 import AddToWalletButtons from '@/components/wallet/AddToWalletButtons'
 import { useLocale } from '@/hooks/useLocale'
 
@@ -9,6 +11,8 @@ export default function Confirmation({
   attendeeName = 'Participant',
   qrPayload,
   accessToken,
+  applePassUrl: applePassUrlProp,
+  googleSaveUrl: googleSaveUrlProp,
   credentialStatus = 'active',
 }: {
   locale: 'en' | 'ar'
@@ -17,53 +21,75 @@ export default function Confirmation({
   attendeeName?: string
   qrPayload?: string | null
   accessToken?: string
+  applePassUrl?: string | null
+  googleSaveUrl?: string | null
   credentialStatus?: string
 }) {
   const { t, direction } = useLocale()
-  const applePassUrl = accessToken ? `/api/v1/public/orders/${reference}/wallet-passes/apple` : '#'
-  const googleSaveUrl = accessToken ? `/api/v1/public/orders/${reference}/wallet-passes/google` : '#'
+  const applePassUrl = applePassUrlProp
+    ?? (accessToken
+      ? `/api/v1/public/orders/${reference}/wallet-passes/apple?access_token=${encodeURIComponent(accessToken)}`
+      : null)
+  const googleSaveUrl = googleSaveUrlProp
+    ?? (accessToken
+      ? `/api/v1/public/orders/${reference}/wallet-passes/google?access_token=${encodeURIComponent(accessToken)}`
+      : null)
+  const showWallet = Boolean(applePassUrl && googleSaveUrl)
 
   return (
-    <main className="registration-confirmation-page min-h-screen bg-[var(--surface)] px-4 py-10" lang={locale} dir={direction}>
-      <div className="registration-invite-card mx-auto max-w-2xl">
-        <h1 className="text-3xl font-semibold text-[var(--ink)]">
-          {t('publicRegistrationWelcomeName').replace(':name', attendeeName)}
-        </h1>
-        <p className="mt-4 text-[var(--muted)]">{t('publicRegistrationConfirmationDear')}</p>
-        <p className="mt-4 leading-7 text-[var(--ink)]">
-          {t('publicRegistrationThankYouRegistering')}{' '}
-          <strong>{eventName ?? t('publicRegistrationTheEvent')}</strong>.
-        </p>
-        <p className="mt-4 leading-7 text-[var(--ink)]">
-          {t('publicRegistrationConfirmationReceived')}
-        </p>
-        <p className="mt-4 leading-7 text-[var(--ink)]">
-          {t('publicRegistrationKeepQr')}
-        </p>
+    <>
+      <RegistrationPageControls locale={locale} />
+      <main className="registration-invite registration-invite-success" lang={locale} dir={direction}>
+        <div className="registration-invite-card registration-confirmation-card">
+          <div className="registration-confirmation-badge" aria-hidden="true">
+            <CheckCircle2 className="h-8 w-8" />
+          </div>
 
-        {qrPayload ? (
-          <div className="mt-8 flex justify-center">
-            <div className="registration-qr-code rounded-xl border border-[var(--border)] bg-white p-4 shadow-sm">
-              <QRCodeSVG value={qrPayload} size={280} level="M" includeMargin />
+          <p className="registration-invite-kicker">{t('publicRegistrationSuccessKicker')}</p>
+          <h1>{t('publicRegistrationWelcomeName').replace(':name', attendeeName)}</h1>
+
+          {eventName ? (
+            <p className="registration-invite-lead">
+              {t('publicRegistrationThankYouRegistering')}{' '}
+              <strong>{eventName}</strong>.
+            </p>
+          ) : (
+            <p className="registration-invite-lead">{t('publicRegistrationConfirmationReceived')}</p>
+          )}
+
+          {qrPayload ? (
+            <div className="registration-qr-panel">
+              <p>{t('publicRegistrationScanQr')}</p>
+              <div className="registration-qr-code">
+                <QRCodeSVG value={qrPayload} size={240} level="M" includeMargin />
+              </div>
+              <p className="registration-confirmation-qr-hint">{t('publicRegistrationKeepQr')}</p>
+            </div>
+          ) : null}
+
+          <div className="registration-success-meta">
+            <div>
+              <span className="registration-success-label">{t('publicRegistrationOrderReference')}</span>
+              <strong className="font-mono">{reference}</strong>
             </div>
           </div>
-        ) : null}
 
-        <p className="mt-8 text-sm text-[var(--muted)]">
-          {t('publicRegistrationOrderReference')}: <span className="font-mono text-[var(--ink)]">{reference}</span>
-        </p>
+          {showWallet ? (
+            <div className="registration-confirmation-wallet">
+              <AddToWalletButtons
+                locale={locale}
+                applePassUrl={applePassUrl!}
+                googleSaveUrl={googleSaveUrl!}
+                credentialStatus={credentialStatus}
+              />
+            </div>
+          ) : null}
 
-        {accessToken ? (
-          <div className="mt-6">
-            <AddToWalletButtons
-              locale={locale}
-              applePassUrl={applePassUrl}
-              googleSaveUrl={googleSaveUrl}
-              credentialStatus={credentialStatus}
-            />
-          </div>
-        ) : null}
-      </div>
-    </main>
+          <p className="registration-invite-footnote">
+            {t('publicRegistrationEmailFootnote')}
+          </p>
+        </div>
+      </main>
+    </>
   )
 }

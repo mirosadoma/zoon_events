@@ -136,7 +136,7 @@ final readonly class ListEventAttendeesQuery
         return Attendee::query()
             ->where('tenant_id', $tenantId)
             ->where('event_id', $eventId)
-            ->when($status !== null, fn (Builder $query) => $query->where('checkin_status', $status));
+            ->when($status !== null, fn (Builder $query) => $query->where('invite_status', $status));
     }
 
     /** @param  Builder<Attendee>  $query */
@@ -184,10 +184,21 @@ final readonly class ListEventAttendeesQuery
     {
         $normalized = trim((string) $status);
 
-        if ($normalized === '' || ! in_array($normalized, ['not_checked_in', 'checked_in'], true)) {
+        if ($normalized === '' || ! in_array($normalized, [
+            'not_registered',
+            'registered',
+            'attended',
+            'not_attended',
+            'not_checked_in',
+            'checked_in',
+        ], true)) {
             return null;
         }
 
-        return $normalized;
+        return match ($normalized) {
+            'not_checked_in' => 'registered',
+            'checked_in' => 'attended',
+            default => $normalized,
+        };
     }
 }

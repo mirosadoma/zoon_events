@@ -42,9 +42,17 @@ final class PermissionCatalog
             ['key' => 'event.reopen', 'module' => 'events', 'description' => 'Reopen event registration.', 'scope' => 'tenant', 'risk_level' => 'privileged'],
             ['key' => 'event.archive', 'module' => 'events', 'description' => 'Archive completed or cancelled events.', 'scope' => 'tenant', 'risk_level' => 'privileged'],
 
+            // ── Event invites ────────────────────────────────
+            ['key' => 'event.invite.view', 'module' => 'events', 'description' => 'View private event registration invites.', 'scope' => 'tenant', 'risk_level' => 'standard'],
+            ['key' => 'event.invite.manage', 'module' => 'events', 'description' => 'Send private event registration invite links.', 'scope' => 'tenant', 'risk_level' => 'sensitive'],
+
+            // ── Privileges ───────────────────────────────────
+            ['key' => 'privilege.view', 'module' => 'events', 'description' => 'View the tenant privilege catalog.', 'scope' => 'tenant', 'risk_level' => 'standard'],
+            ['key' => 'privilege.manage', 'module' => 'events', 'description' => 'Create, update, and delete tenant privileges.', 'scope' => 'tenant', 'risk_level' => 'sensitive'],
+
             // ── Categories ───────────────────────────────────
-            ['key' => 'category.view', 'module' => 'events', 'description' => 'View event tier categories.', 'scope' => 'tenant', 'risk_level' => 'standard'],
-            ['key' => 'category.manage', 'module' => 'events', 'description' => 'Manage event tier categories and privileges.', 'scope' => 'tenant', 'risk_level' => 'sensitive'],
+            ['key' => 'category.view', 'module' => 'events', 'description' => 'View reusable attendee categories.', 'scope' => 'tenant', 'risk_level' => 'standard'],
+            ['key' => 'category.manage', 'module' => 'events', 'description' => 'Create, update, and delete attendee categories and their privilege assignments.', 'scope' => 'tenant', 'risk_level' => 'sensitive'],
 
             // ── Registration ─────────────────────────────────
             ['key' => 'registration.manage', 'module' => 'registration', 'description' => 'Manage event registration forms.', 'scope' => 'tenant', 'risk_level' => 'sensitive'],

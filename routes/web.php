@@ -1,6 +1,8 @@
 <?php
 
+use App\Modules\AdminConsole\Http\Controllers\Auth\ForgotPasswordController;
 use App\Modules\AdminConsole\Http\Controllers\Auth\SessionController;
+use App\Modules\AdminConsole\Http\Controllers\Visitor\VisitorPortalController;
 use App\Modules\AdminConsole\Http\Controllers\DashboardController;
 use App\Modules\AdminConsole\Http\Controllers\GeographyAdminController;
 use App\Modules\AdminConsole\Http\Controllers\Kiosk\KioskModeController;
@@ -19,6 +21,7 @@ use App\Modules\AdminConsole\Http\Controllers\SiteSettingsController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Acs\AcsPageController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Admin\AdminPageController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Badges\BadgePageController;
+use App\Modules\AdminConsole\Http\Controllers\Tenant\CategoryPageController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\CheckIn\DashboardController as CheckInDashboardController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\CheckIn\ScanEventsController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\CheckIn\ScannerController;
@@ -27,6 +30,7 @@ use App\Modules\AdminConsole\Http\Controllers\Tenant\Events\EventDashboardContro
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Events\EventOperationsController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Kiosk\EventKioskController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\ManualDesk\ManualDeskController;
+use App\Modules\AdminConsole\Http\Controllers\Tenant\PrivilegePageController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Reports\EventReportController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\TenantMarketplacePageController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\TenantStatementPageController;
@@ -36,6 +40,7 @@ use App\Modules\Notifications\Http\Controllers\InAppNotificationController;
 use App\Modules\Notifications\Http\Controllers\Public\UnsubscribePageController;
 use App\Modules\Operations\Http\Controllers\ApiDocsController;
 use App\Modules\Orders\Http\Controllers\Public\PublicOrderPageController;
+use App\Modules\Orders\Http\Controllers\Public\PublicOrderSignedWalletController;
 use App\Modules\Shared\Support\LocaleDetector;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -48,6 +53,9 @@ Route::get('/identity/{event_slug}/{order_token}', [IdentityVerifyPageController
 
 Route::middleware('kiosk.session.clear')->group(function (): void {
     Route::get('/kiosk/{device_code}', [KioskModeController::class, 'show'])->name('kiosk.mode');
+    Route::get('/kiosk/{device_code}/{step}', [KioskModeController::class, 'show'])
+        ->where('step', 'unlock|confirm|scan|lookup|result')
+        ->name('kiosk.mode.step');
 });
 
 Route::prefix('{locale}')
@@ -62,9 +70,18 @@ Route::prefix('{locale}')
         Route::get('/maintenance', MaintenancePageController::class)->name('maintenance');
         Route::middleware('kiosk.session.clear')->group(function (): void {
             Route::get('/kiosk/{device_code}', [KioskModeController::class, 'show'])->name('kiosk.mode.localized');
+            Route::get('/kiosk/{device_code}/{step}', [KioskModeController::class, 'show'])
+                ->where('step', 'unlock|confirm|scan|lookup|result')
+                ->name('kiosk.mode.step.localized');
         });
         Route::get('/public/orders/{public_reference}', [PublicOrderPageController::class, 'show'])
             ->name('public.order.show');
+        Route::get('/public/orders/{public_reference}/wallet-passes/apple', [PublicOrderSignedWalletController::class, 'apple'])
+            ->middleware('signed')
+            ->name('public.order.wallet.apple');
+        Route::get('/public/orders/{public_reference}/wallet-passes/google', [PublicOrderSignedWalletController::class, 'google'])
+            ->middleware('signed')
+            ->name('public.order.wallet.google');
         Route::get('/events/{event_slug}/agenda', [PublicEventAgendaController::class, 'show'])
             ->where('event_slug', '[a-z0-9-]+')
             ->middleware('throttle:public-event')
@@ -77,6 +94,32 @@ Route::prefix('{locale}')
             ->where('event_slug', '[a-z0-9-]+')
             ->middleware('throttle:public-event')
             ->name('public.events.register.store');
+        Route::get('/events/{event_slug}/register/otp/{token}', [PublicEventRegistrationController::class, 'showOtp'])
+            ->where('event_slug', '[a-z0-9-]+')
+            ->where('token', '[A-Za-z0-9]+')
+            ->middleware('throttle:public-event')
+            ->name('public.events.register.otp');
+        Route::post('/events/{event_slug}/register/otp/{token}', [PublicEventRegistrationController::class, 'verifyOtp'])
+            ->where('event_slug', '[a-z0-9-]+')
+            ->where('token', '[A-Za-z0-9]+')
+            ->middleware('throttle:public-event')
+            ->name('public.events.register.otp.verify');
+        Route::get('/events/{event_slug}/register/payment/{public_reference}', [PublicEventRegistrationController::class, 'showPayment'])
+            ->where('event_slug', '[a-z0-9-]+')
+            ->middleware('throttle:public-event')
+            ->name('public.events.register.payment');
+        Route::post('/events/{event_slug}/register/payment/{public_reference}', [PublicEventRegistrationController::class, 'processPayment'])
+            ->where('event_slug', '[a-z0-9-]+')
+            ->middleware('throttle:public-event')
+            ->name('public.events.register.payment.store');
+        Route::get('/events/{event_slug}/register/payment-failed', [PublicEventRegistrationController::class, 'showPaymentFailed'])
+            ->where('event_slug', '[a-z0-9-]+')
+            ->middleware('throttle:public-event')
+            ->name('public.events.register.payment-failed');
+        Route::get('/events/{event_slug}/register/confirmation/{public_reference}', [PublicEventRegistrationController::class, 'showConfirmation'])
+            ->where('event_slug', '[a-z0-9-]+')
+            ->middleware('throttle:public-event')
+            ->name('public.events.register.confirmation');
         Route::get('/notifications/unsubscribe', [UnsubscribePageController::class, 'show'])
             ->name('public.notifications.unsubscribe');
         Route::post('/notifications/unsubscribe', [UnsubscribePageController::class, 'store'])
@@ -87,10 +130,27 @@ Route::prefix('{locale}')
         Route::middleware('guest')->group(function (): void {
             Route::get('/login', [SessionController::class, 'create'])->name('login');
             Route::post('/login', [SessionController::class, 'store'])->middleware('throttle:auth');
+            Route::get('/forgot-password', [ForgotPasswordController::class, 'create'])->name('password.request');
+            Route::post('/forgot-password', [ForgotPasswordController::class, 'store'])->middleware('throttle:auth')->name('password.email');
+            Route::get('/forgot-password/otp/{token}', [ForgotPasswordController::class, 'showOtp'])->name('password.otp');
+            Route::post('/forgot-password/otp/{token}', [ForgotPasswordController::class, 'verifyOtp'])->middleware('throttle:auth')->name('password.otp.verify');
+            Route::get('/forgot-password/reset/{resetToken}', [ForgotPasswordController::class, 'showReset'])->name('password.reset');
+            Route::post('/forgot-password/reset/{resetToken}', [ForgotPasswordController::class, 'reset'])->middleware('throttle:auth')->name('password.update');
         });
 
         Route::middleware('auth')->group(function (): void {
             Route::post('/logout', [SessionController::class, 'destroy'])->name('logout');
+
+            Route::middleware('visitor')->prefix('visitor')->group(function (): void {
+                Route::get('/', [VisitorPortalController::class, 'index'])->name('visitor.events');
+                Route::get('/events/{eventId}', [VisitorPortalController::class, 'showEvent'])->where('eventId', '[0-9]+')->name('visitor.events.show');
+                Route::get('/profile', [VisitorPortalController::class, 'profile'])->name('visitor.profile');
+                Route::patch('/profile', [VisitorPortalController::class, 'updateProfile'])->name('visitor.profile.update');
+                Route::get('/password', [VisitorPortalController::class, 'passwordForm'])->name('visitor.password');
+                Route::put('/password', [VisitorPortalController::class, 'updatePassword'])->name('visitor.password.update');
+            });
+
+            Route::middleware('not.visitor')->group(function (): void {
             Route::get('/dashboard', DashboardController::class)->name('dashboard');
             Route::get('/dashboard/search', SearchController::class)->name('dashboard.search');
             Route::get('/profile', [DashboardController::class, 'profile'])->name('profile');
@@ -141,16 +201,27 @@ Route::prefix('{locale}')
                 Route::get('/audit-logs', [AdminPageController::class, 'auditLogs'])->name('admin.audit-logs');
             });
 
+            Route::prefix('tenant/privileges')->group(function (): void {
+                Route::get('/', [PrivilegePageController::class, 'index'])->name('tenant.privileges.index');
+                Route::get('/create', [PrivilegePageController::class, 'create'])->name('tenant.privileges.create');
+                Route::get('/{privilege_id}/edit', [PrivilegePageController::class, 'edit'])->where('privilege_id', '[0-9]+')->name('tenant.privileges.edit');
+            });
+
+            Route::prefix('tenant/categories')->group(function (): void {
+                Route::get('/', [CategoryPageController::class, 'index'])->name('tenant.categories.index');
+                Route::get('/create', [CategoryPageController::class, 'create'])->name('tenant.categories.create');
+                Route::get('/{category_id}/edit', [CategoryPageController::class, 'edit'])->where('category_id', '[0-9]+')->name('tenant.categories.edit');
+            });
+
             Route::prefix('tenant/events')->group(function (): void {
                 Route::get('/', [EventDashboardController::class, 'index'])->name('tenant.events.index');
                 Route::get('/create', [EventDashboardController::class, 'create'])->name('tenant.events.create');
                 Route::get('/{event_id}', [EventDashboardController::class, 'show'])->where('event_id', '[0-9]+')->name('tenant.events.show');
+
                 Route::get('/{event_id}/edit', [EventDashboardController::class, 'edit'])->where('event_id', '[0-9]+')->name('tenant.events.edit');
                 Route::get('/{event_id}/registration-form', [EventDashboardController::class, 'registrationForm'])->name('tenant.registration.builder');
                 Route::get('/{event_id}/agenda', [EventDashboardController::class, 'agenda'])->where('event_id', '[0-9]+')->name('tenant.events.agenda');
                 Route::get('/{event_id}/categories', [EventDashboardController::class, 'categories'])->where('event_id', '[0-9]+')->name('tenant.events.categories');
-                Route::get('/{event_id}/categories/create', [EventDashboardController::class, 'createCategory'])->where('event_id', '[0-9]+')->name('tenant.events.categories.create');
-                Route::get('/{event_id}/categories/{category_id}/edit', [EventDashboardController::class, 'editCategory'])->where(['event_id' => '[0-9]+', 'category_id' => '[0-9]+'])->name('tenant.events.categories.edit');
                 Route::get('/{event_id}/identity', [EventDashboardController::class, 'identityRequirements'])->name('tenant.identity.requirements');
                 Route::get('/{event_id}/identity/review', [EventDashboardController::class, 'identityReview'])->name('tenant.identity.review');
                 Route::get('/{event_id}/identity/verifications/{verification_id}', [EventDashboardController::class, 'identityVerificationDetail'])->name('tenant.identity.verification');
@@ -183,6 +254,7 @@ Route::prefix('{locale}')
                 Route::get('/{event_id}/acs/access-logs', [AcsPageController::class, 'accessLogs'])->name('tenant.acs.access-logs');
                 Route::get('/{event_id}/acs/gate-health', [AcsPageController::class, 'gateHealth'])->name('tenant.acs.gate-health');
                 Route::get('/{event_id}/reports', [EventReportController::class, 'show'])->name('tenant.reports.show');
+            });
             });
         });
     });

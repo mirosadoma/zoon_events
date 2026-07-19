@@ -17,7 +17,7 @@ final class KioskScanRequest extends FormRequest
     {
         return [
             'qr_payload' => ['sometimes', 'string', 'max:512'],
-            'credential_id' => ['sometimes', 'string', 'uuid'],
+            'credential_id' => ['sometimes', 'string', 'max:64'],
         ];
     }
 

@@ -2,10 +2,10 @@
 
 namespace App\Modules\Events\Http\Requests;
 
-use App\Modules\Events\Domain\EventRegistrationProfile;
+use App\Modules\Events\Application\Support\EventWallClockDateTime;
+use App\Modules\Events\Domain\EventTier;
 use App\Modules\Events\Domain\EventType;
 use App\Modules\Events\Domain\RegistrationMode;
-use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -20,18 +20,24 @@ final class EventWriteRequest extends FormRequest
             'name.ar' => ['required', 'string', 'max:160'],
             'description.en' => ['nullable', 'string', 'max:5000'],
             'description.ar' => ['nullable', 'string', 'max:5000'],
-            'tier' => ['nullable', Rule::in(['corporate', 'public', 'vip', 'vvip'])],
+            'tier' => ['nullable', Rule::in(EventTier::values())],
             'event_type' => ['nullable', Rule::in(EventType::values())],
-            'registration_mode' => ['nullable', Rule::in(RegistrationMode::values())],
             'organizer_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'timezone' => ['required', 'string', 'max:64', Rule::exists('timezones', 'identifier')],
-            'capacity' => ['required', 'integer', 'min:1'],
+            'capacity' => ['nullable', 'integer', 'min:1'],
             'location_name.en' => ['nullable', 'string', 'max:200'],
             'location_name.ar' => ['nullable', 'string', 'max:200'],
             'location_address.en' => ['nullable', 'string', 'max:500'],
             'location_address.ar' => ['nullable', 'string', 'max:500'],
             'brand_reference' => ['nullable', 'string', 'max:120'],
             'domain_reference' => ['nullable', 'string', 'max:253'],
+            'theme_config' => ['nullable', 'array'],
+            'theme_config.primary_color' => ['nullable', 'string', 'max:7'],
+            'theme_config.accent_color' => ['nullable', 'string', 'max:7'],
+            'theme_config.background_color' => ['nullable', 'string', 'max:7'],
+            'theme_config.text_color' => ['nullable', 'string', 'max:7'],
+            'brand_logo' => ['nullable', 'file', 'mimes:png,jpg,jpeg,webp,svg', 'max:2048'],
+            'sponsor_logo' => ['nullable', 'file', 'mimes:png,jpg,jpeg,webp,svg', 'max:2048'],
             'venues' => ['required', 'array', 'min:1'],
             'venues.*.id' => ['nullable', 'integer'],
             'venues.*.country_id' => ['nullable', 'integer', 'exists:countries,id'],
@@ -44,8 +50,8 @@ final class EventWriteRequest extends FormRequest
             'venues.*.start_at' => ['required', 'date'],
             'venues.*.end_at' => ['required', 'date', 'after:venues.*.start_at'],
             'venues.*.registration_opens_at' => ['required', 'date'],
-            'venues.*.registration_closes_at' => ['required', 'date', 'after:venues.*.registration_opens_at', 'before_or_equal:venues.*.end_at'],
-            'main_image' => array_merge([$this->mainImageRule()], ['file', 'mimes:png,jpg,jpeg,webp', 'max:5120']),
+            'venues.*.registration_closes_at' => ['required', 'date', 'before_or_equal:venues.*.end_at'],
+            'main_image' => ['nullable', 'file', 'mimes:png,jpg,jpeg,webp', 'max:5120'],
             'images' => ['nullable', 'array', 'max:10'],
             'images.*' => ['file', 'mimes:png,jpg,jpeg,webp', 'max:5120'],
             'remove_image_ids' => ['nullable', 'array'],
@@ -53,35 +59,88 @@ final class EventWriteRequest extends FormRequest
         ];
     }
 
-    private function mainImageRule(): string
+    public function withValidator($validator): void
     {
-        if ($this->isMethod('POST')) {
-            return 'required';
-        }
+        $validator->after(function ($validator): void {
+            $venues = $this->input('venues', []);
+            if (! is_array($venues)) {
+                return;
+            }
 
-        $eventId = $this->route('event_id');
-        if (! is_string($eventId) || $eventId === '') {
-            return 'nullable';
-        }
+            foreach ($venues as $index => $venue) {
+                if (! is_array($venue)) {
+                    continue;
+                }
 
-        $hasMainImage = Event::query()
-            ->whereKey($eventId)
-            ->whereNotNull('main_image_path')
-            ->exists();
+                $opensRaw = $venue['registration_opens_at'] ?? null;
+                $closesRaw = $venue['registration_closes_at'] ?? null;
+                if (! is_string($opensRaw) || ! is_string($closesRaw) || $opensRaw === '' || $closesRaw === '') {
+                    continue;
+                }
 
-        return $hasMainImage ? 'nullable' : 'required';
+                try {
+                    $timezone = (string) $this->input('timezone', config('app.timezone', 'UTC'));
+                    $opens = CarbonImmutable::parse($opensRaw, $timezone)->startOfDay();
+                    $closes = CarbonImmutable::parse($closesRaw, $timezone)->startOfDay();
+                } catch (\Throwable) {
+                    continue;
+                }
+
+                // Same calendar day is allowed (single-day registration window).
+                if ($closes->lt($opens)) {
+                    $validator->errors()->add(
+                        "venues.{$index}.registration_closes_at",
+                        __('validation.after_or_equal', [
+                            'attribute' => "venues.{$index}.registration_closes_at",
+                            'date' => "venues.{$index}.registration_opens_at",
+                        ]),
+                    );
+                }
+            }
+        });
     }
 
     /** @return array<string,mixed> */
     public function attributesForAction(): array
     {
         $data = $this->validated();
-        $schedule = self::scheduleFromVenues($data['venues']);
-        $tier = $data['tier'] ?? 'public';
-        $registrationMode = EventRegistrationProfile::normalizeRegistrationMode(
-            $tier,
-            $data['registration_mode'] ?? RegistrationMode::FreeRegistration->value,
-        );
+        $timezone = (string) $data['timezone'];
+        $venues = collect($data['venues'] ?? [])->map(function (array $venue) use ($timezone): array {
+            $opens = EventWallClockDateTime::parseToAppStorage(
+                isset($venue['registration_opens_at']) ? (string) $venue['registration_opens_at'] : null,
+                $timezone,
+            );
+            $closes = EventWallClockDateTime::parseToAppStorage(
+                isset($venue['registration_closes_at']) ? (string) $venue['registration_closes_at'] : null,
+                $timezone,
+            );
+            $start = EventWallClockDateTime::parseToAppStorage(
+                isset($venue['start_at']) ? (string) $venue['start_at'] : null,
+                $timezone,
+            );
+            $end = EventWallClockDateTime::parseToAppStorage(
+                isset($venue['end_at']) ? (string) $venue['end_at'] : null,
+                $timezone,
+            );
+
+            return [
+                'id' => $venue['id'] ?? null,
+                'country_id' => $venue['country_id'] ?? null,
+                'city_id' => $venue['city_id'] ?? null,
+                'name_en' => $venue['name']['en'],
+                'name_ar' => $venue['name']['ar'],
+                'location_address' => $venue['location_address'] ?? null,
+                'latitude' => $venue['latitude'] ?? null,
+                'longitude' => $venue['longitude'] ?? null,
+                'start_at' => $start?->toDateTimeString(),
+                'end_at' => $end?->toDateTimeString(),
+                'registration_opens_at' => $opens?->toDateTimeString(),
+                'registration_closes_at' => $closes?->toDateTimeString(),
+            ];
+        })->all();
+
+        $schedule = self::scheduleFromVenues($venues);
+        $tier = $data['tier'] ?? EventTier::Public->value;
 
         return [
             'slug' => $data['slug'],
@@ -91,50 +150,23 @@ final class EventWriteRequest extends FormRequest
             'description_ar' => $data['description']['ar'] ?? null,
             'tier' => $tier,
             'event_type' => $data['event_type'] ?? EventType::Seminar->value,
-            'registration_mode' => $registrationMode,
+            'registration_mode' => RegistrationMode::FreeRegistration->value,
             'organizer_user_id' => isset($data['organizer_user_id']) ? (int) $data['organizer_user_id'] : null,
-            'timezone' => $data['timezone'],
+            'timezone' => $timezone,
             'start_at' => $schedule['start_at'],
             'end_at' => $schedule['end_at'],
             'registration_opens_at' => $schedule['registration_opens_at'],
             'registration_closes_at' => $schedule['registration_closes_at'],
-            'capacity' => $data['capacity'],
+            'capacity' => isset($data['capacity']) ? (int) $data['capacity'] : null,
             'location_name_en' => $data['location_name']['en'] ?? null,
             'location_name_ar' => $data['location_name']['ar'] ?? null,
             'location_address_en' => $data['location_address']['en'] ?? null,
             'location_address_ar' => $data['location_address']['ar'] ?? null,
             'brand_reference' => $data['brand_reference'] ?? null,
             'domain_reference' => $data['domain_reference'] ?? null,
-            'venues' => collect($data['venues'] ?? [])->map(fn (array $venue): array => [
-                'id' => $venue['id'] ?? null,
-                'country_id' => $venue['country_id'] ?? null,
-                'city_id' => $venue['city_id'] ?? null,
-                'name_en' => $venue['name']['en'],
-                'name_ar' => $venue['name']['ar'],
-                'location_address' => $venue['location_address'] ?? null,
-                'latitude' => $venue['latitude'] ?? null,
-                'longitude' => $venue['longitude'] ?? null,
-                'start_at' => $venue['start_at'] ?? null,
-                'end_at' => $venue['end_at'] ?? null,
-                'registration_opens_at' => $venue['registration_opens_at'] ?? null,
-                'registration_closes_at' => $venue['registration_closes_at'] ?? null,
-            ])->all(),
+            'theme_config' => $data['theme_config'] ?? null,
+            'venues' => $venues,
         ];
-    }
-
-    public function withValidator(\Illuminate\Validation\Validator $validator): void
-    {
-        $validator->after(function (\Illuminate\Validation\Validator $validator): void {
-            $tier = (string) ($this->input('tier') ?? 'public');
-            $mode = (string) ($this->input('registration_mode') ?? RegistrationMode::FreeRegistration->value);
-
-            if ($mode === RegistrationMode::PaidTicketing->value && ! EventRegistrationProfile::allowsPaidTicketing($tier)) {
-                $validator->errors()->add(
-                    'registration_mode',
-                    'Paid ticketing is only available for public events.',
-                );
-            }
-        });
     }
 
     /**
@@ -147,10 +179,10 @@ final class EventWriteRequest extends FormRequest
      */
     private static function scheduleFromVenues(array $venues): array
     {
-        $starts = array_map(fn (array $venue): CarbonImmutable => CarbonImmutable::parse((string) $venue['start_at']), $venues);
-        $ends = array_map(fn (array $venue): CarbonImmutable => CarbonImmutable::parse((string) $venue['end_at']), $venues);
-        $opens = array_map(fn (array $venue): CarbonImmutable => CarbonImmutable::parse((string) $venue['registration_opens_at']), $venues);
-        $closes = array_map(fn (array $venue): CarbonImmutable => CarbonImmutable::parse((string) $venue['registration_closes_at']), $venues);
+        $starts = array_map(fn (array $venue): CarbonImmutable => CarbonImmutable::parse((string) $venue['start_at'], 'UTC'), $venues);
+        $ends = array_map(fn (array $venue): CarbonImmutable => CarbonImmutable::parse((string) $venue['end_at'], 'UTC'), $venues);
+        $opens = array_map(fn (array $venue): CarbonImmutable => CarbonImmutable::parse((string) $venue['registration_opens_at'], 'UTC'), $venues);
+        $closes = array_map(fn (array $venue): CarbonImmutable => CarbonImmutable::parse((string) $venue['registration_closes_at'], 'UTC'), $venues);
 
         return [
             'start_at' => min($starts)->toDateTimeString(),

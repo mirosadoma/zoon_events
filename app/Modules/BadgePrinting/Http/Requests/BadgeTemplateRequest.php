@@ -21,6 +21,10 @@ final class BadgeTemplateRequest extends FormRequest
             'layout' => ['required', 'array'],
             'paper_size' => ['required', 'string', 'max:40'],
             'printer_type' => ['required', 'string', 'max:40'],
+            'orientation' => ['nullable', 'string', 'in:portrait,landscape'],
+            'background_color' => ['nullable', 'string', 'max:7'],
+            'canvas_width' => ['nullable', 'integer', 'min:1', 'max:5000'],
+            'canvas_height' => ['nullable', 'integer', 'min:1', 'max:5000'],
         ];
     }
 }

@@ -11,6 +11,7 @@ final readonly class CreateOrUpdateBadgeTemplateAction
 {
     public function __construct(
         private BadgeLayoutValidator $layoutValidator,
+        private ActivateBadgeTemplateAction $activator,
     ) {}
 
     /**
@@ -24,34 +25,64 @@ final readonly class CreateOrUpdateBadgeTemplateAction
         array $layout,
         string $paperSize,
         string $printerType,
+        ?string $orientation = null,
+        ?string $backgroundColor = null,
+        ?int $canvasWidth = null,
+        ?int $canvasHeight = null,
     ): BadgeTemplate {
         $this->layoutValidator->validate($layout);
+
+        $attributes = [
+            'name' => $name,
+            'layout' => $layout,
+            'paper_size' => $paperSize,
+            'printer_type' => $printerType,
+            'orientation' => $orientation ?? 'portrait',
+            'background_color' => $backgroundColor,
+            'canvas_width' => $canvasWidth,
+            'canvas_height' => $canvasHeight,
+        ];
 
         if ($existing === null) {
             $template = BadgeTemplate::create([
                 'tenant_id' => $tenantId,
                 'event_id' => $eventId,
-                'name' => $name,
-                'layout' => $layout,
-                'paper_size' => $paperSize,
-                'printer_type' => $printerType,
                 'status' => 'draft',
+                ...$attributes,
             ]);
 
             event(new BadgeTemplateCreated($tenantId, $eventId, $template->id));
 
-            return $template;
+            $hasActive = BadgeTemplate::query()
+                ->where('tenant_id', $tenantId)
+                ->where('event_id', $eventId)
+                ->where('status', 'active')
+                ->where('id', '!=', $template->id)
+                ->exists();
+
+            if (! $hasActive) {
+                $this->activator->execute($template);
+            }
+
+            return $template->fresh() ?? $template;
         }
 
-        $existing->forceFill([
-            'name' => $name,
-            'layout' => $layout,
-            'paper_size' => $paperSize,
-            'printer_type' => $printerType,
-        ])->save();
+        $existing->forceFill($attributes)->save();
 
         event(new BadgeTemplateUpdated($tenantId, $eventId, $existing->id));
 
-        return $existing;
+        if ($existing->status !== 'active') {
+            $hasActive = BadgeTemplate::query()
+                ->where('tenant_id', $tenantId)
+                ->where('event_id', $eventId)
+                ->where('status', 'active')
+                ->exists();
+
+            if (! $hasActive) {
+                $this->activator->execute($existing);
+            }
+        }
+
+        return $existing->fresh() ?? $existing;
     }
 }

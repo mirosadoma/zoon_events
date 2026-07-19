@@ -5,6 +5,7 @@ namespace App\Modules\Shared\Http\Middleware;
 use App\Exceptions\FoundationException;
 use App\Models\User;
 use App\Modules\AccessControl\Domain\Context\AcsIntegrationContextStore;
+use App\Modules\Kiosk\Domain\Context\KioskSessionContextStore;
 use App\Modules\Shared\Application\Idempotency\IdempotencyService;
 use App\Modules\Tenancy\Domain\Context\TenantContextStore;
 use Closure;
@@ -19,6 +20,7 @@ final class RequireIdempotencyKey
         private readonly IdempotencyService $service,
         private readonly TenantContextStore $tenants,
         private readonly AcsIntegrationContextStore $acsIntegrations,
+        private readonly KioskSessionContextStore $kioskSessions,
     ) {}
 
     public function handle(Request $request, Closure $next): Response
@@ -35,14 +37,21 @@ final class RequireIdempotencyKey
             $tenantId = $tenant?->tenant->id;
             $actorId = $actor->id;
         } else {
-            $acs = $this->acsIntegrations->currentOrNull();
-            if ($acs === null) {
-                throw FoundationException::unauthenticated();
-            }
+            $kiosk = $this->kioskSessions->currentOrNull();
+            if ($kiosk !== null) {
+                $scope = 'tenant';
+                $tenantId = $kiosk->tenantId;
+                $actorId = 'kiosk:'.$kiosk->kioskId;
+            } else {
+                $acs = $this->acsIntegrations->currentOrNull();
+                if ($acs === null) {
+                    throw FoundationException::unauthenticated();
+                }
 
-            $scope = 'tenant';
-            $tenantId = $acs->tenantId;
-            $actorId = $acs->eventId;
+                $scope = 'tenant';
+                $tenantId = $acs->tenantId;
+                $actorId = $acs->eventId;
+            }
         }
 
         $operation = $request->route()?->getName() ?: $request->method().' '.$request->route()?->uri();

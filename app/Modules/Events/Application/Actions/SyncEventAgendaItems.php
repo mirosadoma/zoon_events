@@ -2,6 +2,7 @@
 
 namespace App\Modules\Events\Application\Actions;
 
+use App\Modules\Events\Application\Support\EventWallClockDateTime;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventAgendaItem;
 
@@ -28,10 +29,20 @@ final class SyncEventAgendaItems
                 'event_id' => $event->id,
                 'title_en' => trim((string) $item['title_en']),
                 'title_ar' => trim((string) $item['title_ar']),
-                'start_at' => $item['start_at'],
-                'end_at' => $item['end_at'] ?? null,
+                'start_at' => EventWallClockDateTime::parseToAppStorage(
+                    isset($item['start_at']) ? (string) $item['start_at'] : null,
+                    (string) $event->timezone,
+                )?->toDateTimeString(),
+                'end_at' => EventWallClockDateTime::parseToAppStorage(
+                    isset($item['end_at']) ? (string) $item['end_at'] : null,
+                    (string) $event->timezone,
+                )?->toDateTimeString(),
                 'sort_order' => $index,
             ];
+
+            if ($payload['start_at'] === null) {
+                continue;
+            }
 
             if (! empty($item['id'])) {
                 $model = EventAgendaItem::query()

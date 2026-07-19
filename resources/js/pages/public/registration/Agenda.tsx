@@ -3,6 +3,7 @@ import { LocalizedEventContent, type LocalizedText } from '@/components/registra
 import RegistrationEventHero, { type RegistrationHeroEvent } from '@/components/registration/RegistrationEventHero'
 import RegistrationPageControls from '@/components/registration/RegistrationPageControls'
 import { useLocale } from '@/hooks/useLocale'
+import { formatTime } from '@/lib/formatters'
 
 type AgendaItem = {
   id: string
@@ -19,25 +20,20 @@ type Props = {
   isPreview?: boolean
 }
 
-function formatAgendaClock(iso: string, locale: 'en' | 'ar'): string {
-  return new Date(iso)
-    .toLocaleTimeString(locale === 'ar' ? 'ar-EG' : 'en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    })
+function formatAgendaClock(iso: string, locale: 'en' | 'ar', timeZone?: string | null): string {
+  return formatTime(iso, locale, timeZone || undefined)
     .replace(/\s/g, '')
     .toUpperCase()
 }
 
-function formatAgendaRange(item: AgendaItem, locale: 'en' | 'ar'): string {
-  const start = formatAgendaClock(item.start_at, locale)
+function formatAgendaRange(item: AgendaItem, locale: 'en' | 'ar', timeZone?: string | null): string {
+  const start = formatAgendaClock(item.start_at, locale, timeZone)
 
   if (!item.end_at) {
     return `${start} — …`
   }
 
-  return `${start} – ${formatAgendaClock(item.end_at, locale)}`
+  return `${start} – ${formatAgendaClock(item.end_at, locale, timeZone)}`
 }
 
 export default function PublicEventAgenda({ locale, event, items, registerUrl, isPreview = false }: Props) {
@@ -66,7 +62,7 @@ export default function PublicEventAgenda({ locale, event, items, registerUrl, i
                   <li key={item.id} className="registration-agenda-item">
                     <span className="registration-agenda-marker" aria-hidden />
                     <div className="registration-agenda-item-body">
-                      <span className="registration-agenda-time">{formatAgendaRange(item, locale)}</span>
+                      <span className="registration-agenda-time">{formatAgendaRange(item, locale, event.timezone)}</span>
                       <span className="registration-agenda-label">
                         <LocalizedEventContent value={item.title} locale={locale} />
                       </span>

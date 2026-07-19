@@ -39,6 +39,9 @@ export const VALIDATION_MESSAGE_CATALOG: Record<string, string> = {
   'Published forms require consent document versions.': 'تتطلب النماذج المنشورة إصدارات مستندات الموافقة.',
   'One or more fields are invalid.': 'حقل واحد أو أكثر غير صالح.',
   'Authentication is required to access this resource.': 'يلزم تسجيل الدخول للوصول إلى هذا المورد.',
+  'This invite is locked to a specific email address.': 'هذه الدعوة الخاصة مربوطة ببريد محدد. لا يمكن تغييره.',
+  'You are already registered for this event.': 'أنت مسجّل بالفعل في هذه الفعالية.',
+  'This category is full.': 'هذا القسم مكتمل العدد.',
 }
 
 export function lookupValidationCatalog(message: string): string | null {

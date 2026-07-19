@@ -5,6 +5,9 @@ export type EventSetupProgress = {
   ticket_types: boolean
   price_tiers: boolean
   agenda: boolean
+  categories: boolean
+  badge_templates: boolean
+  kiosks: boolean
   identity: boolean
   published: boolean
 }
@@ -29,6 +32,12 @@ export function isNextStepComplete(
       return progress.ticket_types
     case 'price-tiers':
       return progress.price_tiers
+    case 'categories':
+      return progress.categories
+    case 'badge-templates':
+      return progress.badge_templates
+    case 'kiosks':
+      return progress.kiosks
     case 'publish':
       return progress.published
     default:
@@ -46,6 +55,9 @@ export function getApplicableSetupKeys(capabilities?: EventCapabilities): Array<
   if (capabilities?.requires_price_tiers) {
     keys.push('price_tiers')
   }
+
+  // Kiosks are optional and intentionally excluded from publish completion %.
+  keys.push('categories', 'badge_templates')
 
   return keys
 }

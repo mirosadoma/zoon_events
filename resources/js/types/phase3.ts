@@ -11,9 +11,13 @@ export interface Kiosk {
 export interface BadgeTemplate {
   id: string
   name: string
-  layout: Record<string, unknown>
+  layout: Record<string, unknown> | unknown[]
   paper_size: string
   printer_type: string
+  orientation?: string
+  background_color?: string | null
+  canvas_width?: number | null
+  canvas_height?: number | null
   status: 'draft' | 'active' | 'inactive'
 }
 
@@ -38,6 +42,7 @@ export const BADGE_TEMPLATE_ALLOWED_FIELDS = [
   'sponsor_logo_ref',
   'organizer_logo_ref',
   'color_code',
+  'custom_text',
 ] as const
 
 export type BadgeTemplateField = (typeof BADGE_TEMPLATE_ALLOWED_FIELDS)[number]

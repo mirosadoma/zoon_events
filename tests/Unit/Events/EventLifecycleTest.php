@@ -47,26 +47,30 @@ final class EventLifecycleTest extends TestCase
             'registration_closes_at' => '2027-01-10T11:00:00Z',
             'agenda_items' => 1,
             'active_form_version_id' => '01TESTFORMVERSION0000000000',
-            'active_ticket_types' => 1,
+            'active_ticket_types' => 0,
             'branding_active' => true,
-            'main_image_path' => 'events/demo/main.jpg',
+            'active_badge_template' => true,
             'tier' => 'public',
-            'registration_mode' => 'paid_ticketing',
+            'registration_mode' => 'free_registration',
+            'configured_categories' => 1,
         ];
 
         self::assertTrue($readiness->isReady($valid));
         self::assertEqualsCanonicalizing(
-            ['published_agenda', 'active_form_version_id', 'active_ticket_type', 'active_branding'],
-            $readiness->missing([...$valid, 'agenda_items' => 0, 'active_form_version_id' => '', 'active_ticket_types' => 0, 'branding_active' => false]),
+            ['published_agenda', 'active_form_version_id', 'active_branding', 'active_badge_template'],
+            $readiness->missing([...$valid, 'agenda_items' => 0, 'active_form_version_id' => '', 'branding_active' => false, 'active_badge_template' => false]),
         );
+        self::assertContains('event_categories', $readiness->missing([...$valid, 'configured_categories' => 0]));
+        self::assertNotContains('event_categories', $readiness->missing([...$valid, 'configured_categories' => 1]));
+        self::assertNotContains('main_image', $readiness->missing($valid));
     }
 
-    public function test_publication_readiness_does_not_require_tickets_for_free_corporate_events(): void
+    public function test_publication_readiness_does_not_require_tickets_for_free_private_events(): void
     {
         $readiness = new PublicationReadiness;
         $valid = [
-            'name_en' => 'Corporate Seminar',
-            'name_ar' => 'ندوة مؤسسية',
+            'name_en' => 'Private Seminar',
+            'name_ar' => 'ندوة خاصة',
             'timezone' => 'Africa/Cairo',
             'start_at' => '2027-01-10T12:00:00Z',
             'end_at' => '2027-01-10T18:00:00Z',
@@ -76,13 +80,15 @@ final class EventLifecycleTest extends TestCase
             'active_form_version_id' => '01TESTFORMVERSION0000000000',
             'active_ticket_types' => 0,
             'branding_active' => true,
-            'main_image_path' => 'events/demo/main.jpg',
-            'tier' => 'corporate',
+            'active_badge_template' => true,
+            'tier' => 'private',
             'registration_mode' => 'free_registration',
+            'configured_categories' => 1,
         ];
 
         self::assertTrue($readiness->isReady($valid));
         self::assertNotContains('active_ticket_type', $readiness->missing($valid));
+        self::assertContains('active_badge_template', $readiness->missing([...$valid, 'active_badge_template' => false]));
     }
 
     public function test_event_not_publishable_problem_includes_missing_requirements(): void

@@ -1,14 +1,12 @@
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
-import CopyRegistrationLinkButton from '@/components/events/CopyRegistrationLinkButton'
 import PublishReadinessBadge from '@/components/events/PublishReadinessBadge'
 import { PageContent, PageHeader } from '@/components/layout'
 import StatusBadge from '@/components/status/StatusBadge'
 import { DataTable } from '@/components/tables'
 import { useLocale } from '@/hooks/useLocale'
-import { useToast } from '@/hooks/useToast'
-import { requiresTicketing } from '@/lib/eventOptions'
+import { labelForEventTier, requiresTicketing } from '@/lib/eventOptions'
 import type { PublishReadinessContext } from '@/lib/publishReadinessCatalog'
 
 type EventRow = {
@@ -20,7 +18,6 @@ type EventRow = {
   registration_mode?: string
   timezone: string
   start_at?: string | null
-  capacity?: number | null
   registration_url?: string | null
   readiness?: string[]
 }
@@ -38,16 +35,6 @@ function readinessContextFor(event: EventRow): PublishReadinessContext {
 
 export default function EventList({ events }: Props) {
   const { locale, t } = useLocale()
-  const { toast } = useToast()
-
-  async function copyRegistrationLink(url: string) {
-    try {
-      await navigator.clipboard.writeText(url)
-      toast(t('copied'), 'success')
-    } catch {
-      toast(t('eventDetailCouldNotCopyLink'), 'error')
-    }
-  }
 
   return (
     <DashboardLayout title={t('events')}>
@@ -78,7 +65,11 @@ export default function EventList({ events }: Props) {
                   return <LocalizedLink href={`/tenant/events/${event.id}`} className="font-medium text-sky-700 hover:underline">{event.name[locale]}</LocalizedLink>
                 },
               },
-              { key: 'tier', header: t('eventListTier') },
+              {
+                key: 'tier',
+                header: t('eventListTier'),
+                render: (row) => labelForEventTier(String((row as unknown as EventRow).tier), locale),
+              },
               { key: 'event_type', header: t('eventListType') },
               { key: 'registration_mode', header: t('eventListRegistration') },
               {
@@ -101,7 +92,6 @@ export default function EventList({ events }: Props) {
                 },
               },
               { key: 'timezone', header: t('eventListTimezone') },
-              { key: 'capacity', header: t('eventListCapacity') },
               {
                 key: 'actions',
                 header: t('actions'),
@@ -110,12 +100,6 @@ export default function EventList({ events }: Props) {
 
                   return (
                     <div className="ta-table-actions">
-                      {event.registration_url ? (
-                        <CopyRegistrationLinkButton
-                          compact
-                          onClick={() => void copyRegistrationLink(event.registration_url!)}
-                        />
-                      ) : null}
                       <LocalizedLink href={`/tenant/events/${event.id}`} className="ta-table-action">
                         {t('view')}
                       </LocalizedLink>

@@ -9,6 +9,7 @@ use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Orders\Infrastructure\Persistence\Models\Order;
 use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
 use Inertia\Response;
 use Throwable;
@@ -45,7 +46,25 @@ final class PublicOrderPageController extends Controller
             ->first();
 
         $attendeeName = $this->resolveAttendeeName($attendee);
-        $qrPayload = $this->resolveQrPayload($order, $attendee);
+        $credential = $this->resolveActiveCredential($order, $attendee);
+        $qrPayload = $credential !== null ? $order->public_reference : null;
+
+        $walletExpiresAt = now()->addDays(90);
+        $applePassUrl = null;
+        $googleSaveUrl = null;
+
+        if ($credential !== null) {
+            $applePassUrl = URL::temporarySignedRoute(
+                'public.order.wallet.apple',
+                $walletExpiresAt,
+                ['locale' => $locale, 'public_reference' => $order->public_reference],
+            );
+            $googleSaveUrl = URL::temporarySignedRoute(
+                'public.order.wallet.google',
+                $walletExpiresAt,
+                ['locale' => $locale, 'public_reference' => $order->public_reference],
+            );
+        }
 
         return Inertia::render('public/registration/Confirmation', [
             'locale' => $locale,
@@ -53,7 +72,9 @@ final class PublicOrderPageController extends Controller
             'eventName' => $locale === 'ar' ? $event->name_ar : $event->name_en,
             'attendeeName' => $attendeeName,
             'qrPayload' => $qrPayload,
-            'credentialStatus' => 'active',
+            'applePassUrl' => $applePassUrl,
+            'googleSaveUrl' => $googleSaveUrl,
+            'credentialStatus' => $credential !== null ? (string) $credential->status : 'inactive',
         ]);
     }
 
@@ -76,24 +97,18 @@ final class PublicOrderPageController extends Controller
         }
     }
 
-    private function resolveQrPayload(Order $order, ?Attendee $attendee): ?string
+    private function resolveActiveCredential(Order $order, ?Attendee $attendee): ?Credential
     {
         if ($attendee === null) {
             return null;
         }
 
-        $credential = Credential::query()
+        return Credential::query()
             ->where('tenant_id', $order->tenant_id)
             ->where('event_id', $order->event_id)
             ->where('attendee_id', $attendee->id)
             ->where('status', 'active')
             ->latest('issued_at')
             ->first();
-
-        if ($credential === null) {
-            return null;
-        }
-
-        return $order->public_reference;
     }
 }

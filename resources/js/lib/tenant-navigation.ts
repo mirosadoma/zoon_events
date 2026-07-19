@@ -11,7 +11,7 @@ export function eventNavigationGroups(eventId: string, capabilities?: EventCapab
   const setupItems: NavigationItem[] = [
     { key: 'event-detail', label: 'eventDetail', href: base, permission: 'event.view' },
     { key: 'agenda', label: 'agenda', href: `${base}/agenda`, permission: 'event.manage' },
-    { key: 'categories', label: 'categories', href: `${base}/categories`, permission: 'category.view' },
+    { key: 'categories', label: 'eventCategories', href: `${base}/categories`, permission: 'category.view' },
     { key: 'registration-form', label: 'registrationForm', href: `${base}/registration-form`, permission: 'registration.manage' },
   ]
 
@@ -26,6 +26,11 @@ export function eventNavigationGroups(eventId: string, capabilities?: EventCapab
       { key: 'price-tiers', label: 'priceTiers', href: `${base}/price-tiers`, permission: 'ticketing.manage' },
     )
   }
+
+  setupItems.push(
+    { key: 'badge-templates', label: 'badgeTemplates', href: `${base}/badge-templates`, permission: 'badge.template.manage' },
+    { key: 'kiosks', label: 'kiosks', href: `${base}/kiosks`, permission: 'kiosk.manage' },
+  )
 
   return [
     {
@@ -64,8 +69,6 @@ export function eventNavigationGroups(eventId: string, capabilities?: EventCapab
       key: 'onsite',
       label: 'navGroupOnSite',
       items: [
-        { key: 'kiosks', label: 'kiosks', href: `${base}/kiosks`, permission: 'kiosk.manage' },
-        { key: 'badge-templates', label: 'badgeTemplates', href: `${base}/badge-templates`, permission: 'badge.template.manage' },
         { key: 'badge-print-jobs', label: 'badgePrintJobs', href: `${base}/badge-print-jobs`, permission: 'badge.print' },
         { key: 'manual-desk', label: 'manualDesk', href: `${base}/manual-desk`, permission: 'checkin.desk.perform' },
         { key: 'walk-up', label: 'walkUpRegistration', href: `${base}/manual-desk/walk-up`, permission: 'attendee.walkup.register' },

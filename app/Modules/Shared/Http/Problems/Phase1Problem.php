@@ -9,6 +9,7 @@ final class Phase1Problem
     /** @var array<string,int> */
     public const STATUS = [
         'event_not_publishable' => 409,
+        'event_not_unpublishable' => 409,
         'registration_closed' => 409,
         'ticket_unavailable' => 409,
         'inventory_conflict' => 409,

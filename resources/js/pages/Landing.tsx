@@ -221,30 +221,33 @@ export default function Landing({
       active="home"
     >
       <section id="top" className="landing-hero" aria-label={appName}>
-        <div className="landing-hero__media" aria-hidden>
-          <img src={screenshots[0]} alt="" className="landing-hero__image" />
-          <div className="landing-hero__veil" />
-          <div className="landing-hero__grain" />
-        </div>
-        <div className="landing-hero__content">
-          <p className="landing-brand landing-anim-brand">{appName}</p>
-          <h1 className="landing-hero__headline landing-anim-headline">{t('landingHeroTitle')}</h1>
-          <p className="landing-hero__support landing-anim-support">{t('landingHeroSubtitle')}</p>
-          <div className="landing-hero__actions landing-anim-actions">
-            {isAuthenticated ? (
-              <LocalizedLink href={localizedPath(locale, '/dashboard')} className="button-primary inline-flex items-center gap-2">
-                {t('landingCtaDashboard')}
-                <ArrowRight className="h-4 w-4 rtl:rotate-180" />
-              </LocalizedLink>
-            ) : (
-              <>
-                <a href="#pricing" className="button-primary inline-flex items-center gap-2">
-                  {t('landingCtaRegister')}
+        <div className="landing-hero__glow" aria-hidden />
+        <div className="landing-hero__inner">
+          <div className="landing-hero__copy">
+            <p className="landing-brand landing-anim-brand">{appName}</p>
+            <h1 className="landing-hero__headline landing-anim-headline">{t('landingHeroTitle')}</h1>
+            <p className="landing-hero__support landing-anim-support">{t('landingHeroSubtitle')}</p>
+            <div className="landing-hero__actions landing-anim-actions">
+              {isAuthenticated ? (
+                <LocalizedLink href={localizedPath(locale, '/dashboard')} className="button-primary inline-flex items-center gap-2">
+                  {t('landingCtaDashboard')}
                   <ArrowRight className="h-4 w-4 rtl:rotate-180" />
-                </a>
-                <LocalizedLink href={localizedPath(locale, '/solutions')} className="button-secondary">{t('landingCtaExplore')}</LocalizedLink>
-              </>
-            )}
+                </LocalizedLink>
+              ) : (
+                <>
+                  <a href="#pricing" className="button-primary inline-flex items-center gap-2">
+                    {t('landingCtaRegister')}
+                    <ArrowRight className="h-4 w-4 rtl:rotate-180" />
+                  </a>
+                  <LocalizedLink href={localizedPath(locale, '/solutions')} className="button-secondary">{t('landingCtaExplore')}</LocalizedLink>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="landing-hero__visual landing-anim-visual">
+            <div className="landing-hero__frame">
+              <img src={screenshots[0]} alt="" className="landing-hero__image" />
+            </div>
           </div>
         </div>
       </section>

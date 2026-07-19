@@ -19,6 +19,14 @@ export function isNavItemActive(currentPath: string, itemHref: string): boolean 
     return path === '/tenant/events/create'
   }
 
+  if (itemPath === '/tenant/privileges') {
+    return path === '/tenant/privileges/create' || path.startsWith('/tenant/privileges/')
+  }
+
+  if (itemPath === '/tenant/categories') {
+    return path === '/tenant/categories/create' || path.startsWith('/tenant/categories/')
+  }
+
   const isEventDetailRoot = /\/tenant\/events\/[^/]+$/.test(itemPath)
 
   if (isEventDetailRoot) {
@@ -70,6 +78,8 @@ export const platformNavigationGroups: NavigationGroup[] = [
     key: 'platform',
     label: 'navGroupPlatform',
     items: [
+      { key: 'privileges', label: 'privileges', href: '/tenant/privileges', icon: 'privileges', permission: 'privilege.view' },
+      { key: 'categories', label: 'categories', href: '/tenant/categories', icon: 'categories', permission: 'category.view' },
       { key: 'events', label: 'events', href: '/tenant/events', icon: 'events', permission: 'event.view' },
       { key: 'all-events', label: 'allEvents', href: '/platform/all-events', icon: 'events', permission: 'platform.event.view' },
       { key: 'tenants', label: 'tenants', href: '/platform/tenants', icon: 'tenants', permission: 'platform.tenant.view' },

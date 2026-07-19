@@ -67,6 +67,10 @@ final readonly class CompleteFreeRegistration
                 'currency' => $allocation->currency,
                 'inventory_hold_id' => $allocation->holdId,
                 'submission_id' => $submission->id,
+                'event_category_id' => $input->eventCategoryId,
+                'event_venue_id' => $input->eventVenueId !== null && $input->eventVenueId !== ''
+                    ? (int) $input->eventVenueId
+                    : null,
                 'credential_expires_at' => $input->credentialExpiresAt,
                 'locale' => $input->locale,
                 'paid_at' => now(),
@@ -81,6 +85,7 @@ final readonly class CompleteFreeRegistration
             $attendee = $this->attendees->create(
                 $input->tenantId, $input->eventId, $order->id, $item->id,
                 $allocation->ticketTypeId, $submission->id, $input->attendee, $input->locale,
+                $input->eventVenueId,
             );
             $item->forceFill(['attendee_id' => $attendee->id])->save();
             $issuer = $input->bypassIdentityGateForCredential ? $this->directCredentials : $this->credentials;
@@ -102,7 +107,10 @@ final readonly class CompleteFreeRegistration
             $this->audit->write(
                 'tenant', $input->tenantId, 'registration.free_completed', 'succeeded',
                 targetType: 'order', targetId: $order->id,
-                metadata: ['event_id' => $input->eventId],
+                metadata: [
+                    'event_id' => $input->eventId,
+                    'attendee_id' => $attendee->id,
+                ],
             );
             if ($credential !== null) {
                 event(new FreeRegistrationCompleted(

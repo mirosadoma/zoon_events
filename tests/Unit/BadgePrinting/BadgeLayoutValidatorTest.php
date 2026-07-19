@@ -53,6 +53,7 @@ final class BadgeLayoutValidatorTest extends TestCase
             'sponsor_logo_ref' => [],
             'organizer_logo_ref' => [],
             'color_code' => [],
+            'custom_text' => [],
         ]);
 
         $this->addToAssertionCount(1);

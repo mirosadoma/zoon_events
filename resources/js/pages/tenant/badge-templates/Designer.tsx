@@ -19,7 +19,21 @@ type Props = {
 
 export default function BadgeTemplatesPage({ event, tenantId, templates }: Props) {
   const { locale, t } = useLocale()
+  const [items, setItems] = useState<BadgeTemplate[]>(templates)
   const [activeTemplate, setActiveTemplate] = useState<BadgeTemplate | undefined>(templates[0])
+
+  const handleSaved = (template: BadgeTemplate) => {
+    setActiveTemplate(template)
+    setItems((prev) => {
+      const index = prev.findIndex((item) => String(item.id) === String(template.id))
+      if (index >= 0) {
+        const next = [...prev]
+        next[index] = template
+        return next
+      }
+      return [...prev, template]
+    })
+  }
 
   return (
     <DashboardLayout title={t('badgeTemplates')}>
@@ -36,9 +50,9 @@ export default function BadgeTemplatesPage({ event, tenantId, templates }: Props
       />
       <PageContent>
         <div className="space-y-4">
-        {templates.length > 0 && (
+        {items.length > 0 && (
           <div className="ta-card flex flex-wrap gap-2 p-3">
-            {templates.map((template) => (
+            {items.map((template) => (
               <button
                 key={template.id}
                 type="button"
@@ -46,6 +60,9 @@ export default function BadgeTemplatesPage({ event, tenantId, templates }: Props
                 onClick={() => setActiveTemplate(template)}
               >
                 {template.name}
+                <span className="ms-2 text-xs opacity-80">
+                  ({template.status === 'active' ? t('badgeTemplateStatusActive') : t('badgeTemplateStatusDraft')})
+                </span>
               </button>
             ))}
           </div>
@@ -55,7 +72,7 @@ export default function BadgeTemplatesPage({ event, tenantId, templates }: Props
           eventId={event.id}
           tenantId={tenantId}
           template={activeTemplate}
-          onSaved={setActiveTemplate}
+          onSaved={handleSaved}
         />
         </div>
       </PageContent>

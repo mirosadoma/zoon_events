@@ -9,6 +9,7 @@ use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
 use App\Modules\Events\Infrastructure\Persistence\Models\CategoryTemplate;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventCategory;
+use App\Modules\Events\Infrastructure\Persistence\Models\Privilege;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\Tenant;
 use Illuminate\Database\Seeder;
 
@@ -19,33 +20,65 @@ final class EventDemoSeeder extends Seeder
         $tenant = Tenant::query()->where('slug', DemoAccounts::TENANT_SLUG)->first();
 
         if ($tenant) {
+            $this->seedPrivileges($tenant);
             $this->seedCategoryTemplates($tenant);
             $this->seedEvents($tenant);
         }
     }
 
+    private function seedPrivileges(Tenant $tenant): void
+    {
+        $privileges = [
+            ['key' => 'general_entry', 'label' => 'General Entry', 'label_ar' => 'دخول عام', 'effect' => 'allow', 'target_type' => 'gate', 'target_id' => null],
+            ['key' => 'priority_entry', 'label' => 'Priority Entry', 'label_ar' => 'دخول أولوية', 'effect' => 'allow', 'target_type' => 'gate', 'target_id' => null],
+            ['key' => 'free_parking', 'label' => 'Free Parking', 'label_ar' => 'مواقف مجانية', 'effect' => 'allow', 'target_type' => 'parking', 'target_id' => null],
+            ['key' => 'vip_lounge', 'label' => 'VIP Lounge Access', 'label_ar' => 'دخول صالة VIP', 'effect' => 'allow', 'target_type' => 'zone', 'target_id' => null],
+            ['key' => 'backstage_access', 'label' => 'Backstage Access', 'label_ar' => 'دخول الكواليس', 'effect' => 'allow', 'target_type' => 'zone', 'target_id' => null],
+            ['key' => 'priority_parking', 'label' => 'Priority Parking', 'label_ar' => 'مواقف أولوية', 'effect' => 'allow', 'target_type' => 'parking', 'target_id' => null],
+        ];
+
+        foreach ($privileges as $index => $privilege) {
+            Privilege::query()->withoutGlobalScopes()->updateOrCreate(
+                ['tenant_id' => $tenant->id, 'key' => $privilege['key']],
+                [
+                    'label' => $privilege['label'],
+                    'label_ar' => $privilege['label_ar'],
+                    'effect' => $privilege['effect'],
+                    'target_type' => $privilege['target_type'],
+                    'target_id' => $privilege['target_id'],
+                    'sort_order' => $index,
+                ],
+            );
+        }
+    }
+
     private function seedCategoryTemplates(Tenant $tenant): void
     {
+        $privilegeIds = Privilege::query()
+            ->withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->pluck('id', 'key');
+
         $templates = [
             ['name' => 'Normal', 'name_ar' => 'عادي', 'slug' => 'normal', 'color' => '#6B7280', 'privileges' => [
-                ['key' => 'general_entry', 'label' => 'General Entry', 'label_ar' => 'دخول عام', 'effect' => 'allow', 'target_type' => 'gate', 'target_id' => null],
+                'general_entry',
             ]],
             ['name' => 'VIP', 'name_ar' => 'كبار الشخصيات', 'slug' => 'vip', 'color' => '#F59E0B', 'privileges' => [
-                ['key' => 'priority_entry', 'label' => 'Priority Entry', 'label_ar' => 'دخول أولوية', 'effect' => 'allow', 'target_type' => 'gate', 'target_id' => null],
-                ['key' => 'free_parking', 'label' => 'Free Parking', 'label_ar' => 'مواقف مجانية', 'effect' => 'allow', 'target_type' => 'parking', 'target_id' => null],
-                ['key' => 'vip_lounge', 'label' => 'VIP Lounge Access', 'label_ar' => 'دخول صالة VIP', 'effect' => 'allow', 'target_type' => 'zone', 'target_id' => null],
+                'priority_entry',
+                'free_parking',
+                'vip_lounge',
             ]],
             ['name' => 'VVIP', 'name_ar' => 'كبار كبار الشخصيات', 'slug' => 'vvip', 'color' => '#8B5CF6', 'privileges' => [
-                ['key' => 'priority_entry', 'label' => 'Priority Entry', 'label_ar' => 'دخول أولوية', 'effect' => 'allow', 'target_type' => 'gate', 'target_id' => null],
-                ['key' => 'free_parking', 'label' => 'Free Parking', 'label_ar' => 'مواقف مجانية', 'effect' => 'allow', 'target_type' => 'parking', 'target_id' => null],
-                ['key' => 'vip_lounge', 'label' => 'VIP Lounge Access', 'label_ar' => 'دخول صالة VIP', 'effect' => 'allow', 'target_type' => 'zone', 'target_id' => null],
-                ['key' => 'backstage_access', 'label' => 'Backstage Access', 'label_ar' => 'دخول الكواليس', 'effect' => 'allow', 'target_type' => 'zone', 'target_id' => null],
-                ['key' => 'priority_parking', 'label' => 'Priority Parking', 'label_ar' => 'مواقف أولوية', 'effect' => 'allow', 'target_type' => 'parking', 'target_id' => null],
+                'priority_entry',
+                'free_parking',
+                'vip_lounge',
+                'backstage_access',
+                'priority_parking',
             ]],
             ['name' => 'Speaker', 'name_ar' => 'متحدث', 'slug' => 'speaker', 'color' => '#10B981', 'privileges' => [
-                ['key' => 'priority_entry', 'label' => 'Priority Entry', 'label_ar' => 'دخول أولوية', 'effect' => 'allow', 'target_type' => 'gate', 'target_id' => null],
-                ['key' => 'backstage_access', 'label' => 'Backstage Access', 'label_ar' => 'دخول الكواليس', 'effect' => 'allow', 'target_type' => 'zone', 'target_id' => null],
-                ['key' => 'free_parking', 'label' => 'Free Parking', 'label_ar' => 'مواقف مجانية', 'effect' => 'allow', 'target_type' => 'parking', 'target_id' => null],
+                'priority_entry',
+                'backstage_access',
+                'free_parking',
             ]],
         ];
 
@@ -56,8 +89,16 @@ final class EventDemoSeeder extends Seeder
             );
 
             $template->privileges()->delete();
-            foreach ($tpl['privileges'] as $priv) {
-                $template->privileges()->create($priv);
+            foreach ($tpl['privileges'] as $key) {
+                $privilegeId = $privilegeIds->get($key);
+                if ($privilegeId === null) {
+                    continue;
+                }
+
+                $template->privileges()->create([
+                    'privilege_id' => $privilegeId,
+                    'effect' => 'allow',
+                ]);
             }
         }
     }
@@ -77,8 +118,9 @@ final class EventDemoSeeder extends Seeder
                 'description_ar' => 'مؤتمر تقني لمدة يومين يغطي الذكاء الاصطناعي والسحابة والتحول الرقمي مع كلمات رئيسية وورش عمل وفرص للتواصل.',
                 'slug' => 'tech-conf-2026',
                 'event_type' => 'conference',
-                'registration_mode' => 'paid_ticketing',
+                'registration_mode' => 'free_registration',
                 'tier' => 'public',
+                'code' => '10000001',
                 'categories' => [
                     ['name' => 'Normal', 'slug' => 'normal', 'capacity' => 500],
                     ['name' => 'VIP', 'slug' => 'vip', 'capacity' => 50],
@@ -120,7 +162,8 @@ final class EventDemoSeeder extends Seeder
                 'slug' => 'leadership-workshop',
                 'event_type' => 'workshop',
                 'registration_mode' => 'free_registration',
-                'tier' => 'corporate',
+                'tier' => 'private',
+                'code' => '20000002',
                 'categories' => [
                     ['name' => 'Normal', 'slug' => 'normal', 'capacity' => 100],
                     ['name' => 'VIP', 'slug' => 'vip', 'capacity' => 20],
@@ -147,8 +190,9 @@ final class EventDemoSeeder extends Seeder
                 'description_ar' => 'انضم إلينا في ندوة الإطلاق الرسمية للمنتج مع عروض حية وعروض الشركاء وعروض حصرية للوصول المبكر.',
                 'slug' => 'product-launch',
                 'event_type' => 'seminar',
-                'registration_mode' => 'paid_ticketing',
+                'registration_mode' => 'free_registration',
                 'tier' => 'public',
+                'code' => '30000003',
                 'categories' => [
                     ['name' => 'Normal', 'slug' => 'normal', 'capacity' => 200],
                     ['name' => 'VIP', 'slug' => 'vip', 'capacity' => 30],
@@ -202,9 +246,11 @@ final class EventDemoSeeder extends Seeder
                     'tier' => $eventData['tier'],
                     'status' => 'draft',
                     'timezone' => $tenant->timezone,
-                    'created_by_user_id' => User::query()->first()?->id,
+                    'created_by_user_id' => User::query()->where('email', DemoAccounts::TENANT_EMAIL)->value('id')
+                        ?? User::query()->first()?->id,
                 ],
             );
+            $event->forceFill(['code' => $eventData['code']])->save();
 
             $keepVenueIds = [];
 
@@ -243,6 +289,9 @@ final class EventDemoSeeder extends Seeder
                 ->whereNotIn('id', $keepVenueIds)
                 ->delete();
 
+            $venueStart = $venueSchedules->min('start_at');
+            $venueEnd = $venueSchedules->max('end_at');
+
             foreach ($eventData['categories'] as $i => $cat) {
                 $template = CategoryTemplate::query()->withoutGlobalScopes()
                     ->where('tenant_id', $tenant->id)
@@ -256,21 +305,50 @@ final class EventDemoSeeder extends Seeder
                         'name' => $cat['name'],
                         'name_ar' => $template?->name_ar ?? $cat['name'],
                         'color' => $template?->color,
-                        'capacity' => $cat['capacity'],
+                        'capacity' => null,
+                        'is_paid' => ($eventData['tier'] ?? '') !== 'private'
+                            && in_array($cat['slug'], ['normal', 'vip', 'vvip'], true),
                         'sort_order' => $i,
                     ],
                 );
 
                 if ($template) {
+                    $template->load([
+                        'privileges.privilege' => fn ($query) => $query->withoutGlobalScopes(),
+                    ]);
                     $eventCategory->privileges()->delete();
-                    foreach ($template->privileges as $priv) {
+                    foreach ($template->privileges as $link) {
+                        $privilege = $link->privilege;
+                        if ($privilege === null) {
+                            continue;
+                        }
+
                         $eventCategory->privileges()->create([
-                            'key' => $priv->key,
-                            'label' => $priv->label,
-                            'label_ar' => $priv->label_ar,
-                            'effect' => $priv->effect,
-                            'target_type' => $priv->target_type,
-                            'target_id' => $priv->target_id,
+                            'key' => $privilege->key,
+                            'label' => $privilege->label,
+                            'label_ar' => $privilege->label_ar,
+                            'effect' => $link->effect ?: $privilege->effect,
+                            'target_type' => $privilege->target_type,
+                            'target_id' => $privilege->target_id,
+                        ]);
+                    }
+                }
+
+                $eventCategory->venues()->delete();
+                $primaryVenueId = $keepVenueIds[0] ?? null;
+                if ($primaryVenueId !== null && $venueStart !== null && $venueEnd !== null) {
+                    $categoryVenue = $eventCategory->venues()->create([
+                        'event_venue_id' => $primaryVenueId,
+                        'sort_order' => 0,
+                    ]);
+
+                    $dayStart = $venueStart->timezone($event->timezone)->startOfDay();
+                    $dayEnd = $venueEnd->timezone($event->timezone)->startOfDay();
+
+                    for ($cursor = $dayStart; $cursor->lessThanOrEqualTo($dayEnd); $cursor = $cursor->addDay()) {
+                        $categoryVenue->days()->create([
+                            'date' => $cursor->toDateString(),
+                            'capacity' => (int) $cat['capacity'],
                         ]);
                     }
                 }

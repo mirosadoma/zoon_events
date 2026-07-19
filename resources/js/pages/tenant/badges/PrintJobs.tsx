@@ -1,10 +1,10 @@
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useState } from 'react'
+import BadgePrintPreviewModal, { type BadgeFieldOverrides } from '@/components/badges/BadgePrintPreviewModal'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
 import PermissionGate from '@/components/layout/PermissionGate'
-import ReasonModal from '@/components/modals/ReasonModal'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import FiltersBar from '@/components/tables/FiltersBar'
@@ -12,6 +12,9 @@ import Pagination from '@/components/tables/Pagination'
 import SelectInput from '@/components/forms/SelectInput'
 import { useLocale } from '@/hooks/useLocale'
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
+import { useToast } from '@/hooks/useToast'
+import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
+import { openBlankPrintWindow, writeBadgePrintDocument } from '@/lib/openBadgePrintWindow'
 import { defaultPagination, type PaginationMeta, withPage } from '@/lib/pagination'
 
 type EventRow = {
@@ -22,6 +25,8 @@ type EventRow = {
 type PrintJobRow = {
   id: string
   attendee_id: string | null
+  credential_id: string | null
+  attendee_name: string | null
   status: string
   failure_reason: string | null
   is_reprint: boolean
@@ -53,6 +58,7 @@ export default function BadgePrintJobs({
 }: Props) {
   const { locale, t } = useLocale()
   const localizedRouter = useLocalizedRouter()
+  const { toast } = useToast()
   const [statusFilter, setStatusFilter] = useState(filters.status)
   const [reprintTarget, setReprintTarget] = useState<PrintJobRow | null>(null)
   const [reprinting, setReprinting] = useState(false)
@@ -79,26 +85,49 @@ export default function BadgePrintJobs({
     ...PRINT_JOB_STATUSES.map((status) => ({ value: status, label: status })),
   ]
 
-  async function handleReprint(reason: string) {
-    if (!reprintTarget) return
+  async function handleReprint(result: { overrides: BadgeFieldOverrides; reason?: string }) {
+    if (!reprintTarget || !result.reason) return
 
     setReprinting(true)
+    const printWindow = openBlankPrintWindow()
     try {
-      await fetch(`/api/v1/tenant/events/${event.id}/badge-print-jobs/${reprintTarget.id}/reprint`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'X-Tenant-ID': tenantId,
-          'Idempotency-Key': crypto.randomUUID(),
+      const job = await apiFetch<{ print_html?: string | null }>(
+        `/api/v1/tenant/events/${event.id}/badge-print-jobs/${reprintTarget.id}/reprint`,
+        {
+          method: 'POST',
+          tenantId,
+          idempotency: true,
+          body: {
+            reprint_reason: result.reason,
+            field_overrides: result.overrides,
+          },
         },
-        body: JSON.stringify({ reprint_reason: reason }),
-      })
+      )
+
+      const opened = writeBadgePrintDocument(printWindow, job.print_html)
+      toast(
+        opened ? t('attendeeDetailBadgePrintOpened') : t('attendeeDetailBadgeJobCreated'),
+        opened ? 'success' : 'info',
+      )
+      setReprintTarget(null)
+      applyFilters()
+    } catch (error) {
+      printWindow?.close()
+      const message = error instanceof ApiFetchError
+        ? error.message
+        : t('attendeeDetailBadgeFailed')
+      toast(message, 'error')
     } finally {
       setReprinting(false)
-      setReprintTarget(null)
     }
+  }
+
+  function openReprint(job: PrintJobRow) {
+    if (!job.attendee_id || !job.credential_id) {
+      toast(t('badgePrintReprintMissingLinks'), 'error')
+      return
+    }
+    setReprintTarget(job)
   }
 
   return (
@@ -138,6 +167,22 @@ export default function BadgePrintJobs({
               getRowKey={(row) => String(row.id)}
               columns={[
                 {
+                  key: 'attendee_name',
+                  header: t('badgePrintAttendee'),
+                  render: (row) => {
+                    const name = row.attendee_name ? String(row.attendee_name) : null
+                    const attendeeId = row.attendee_id ? String(row.attendee_id) : null
+                    if (attendeeId && name) {
+                      return (
+                        <LocalizedLink className="font-medium text-blue-700 underline-offset-2 hover:underline" href={`/tenant/events/${event.id}/attendees/${attendeeId}`}>
+                          {name}
+                        </LocalizedLink>
+                      )
+                    }
+                    return name || attendeeId || '—'
+                  },
+                },
+                {
                   key: 'status',
                   header: t('status'),
                   render: (row) => <StatusBadge status={String(row.status)} />,
@@ -146,6 +191,11 @@ export default function BadgePrintJobs({
                   key: 'is_reprint',
                   header: t('badgePrintReprint'),
                   render: (row) => (row.is_reprint ? t('yes') : t('no')),
+                },
+                {
+                  key: 'reprint_reason',
+                  header: t('badgePrintReason'),
+                  render: (row) => (row.reprint_reason ? String(row.reprint_reason) : '—'),
                 },
                 {
                   key: 'printed_at',
@@ -157,7 +207,11 @@ export default function BadgePrintJobs({
                   header: t('actions'),
                   render: (row) => (
                     <PermissionGate permission="badge.reprint">
-                      <button type="button" className="button-secondary" onClick={() => setReprintTarget(printJobs.find((job) => job.id === row.id) ?? null)}>
+                      <button
+                        type="button"
+                        className="button-secondary"
+                        onClick={() => openReprint(printJobs.find((job) => job.id === row.id) ?? (row as unknown as PrintJobRow))}
+                      >
                         {t('badgePrintReprintAction')}
                       </button>
                     </PermissionGate>
@@ -177,17 +231,20 @@ export default function BadgePrintJobs({
         )}
       </PageContent>
 
-      <ReasonModal
-        open={reprintTarget !== null}
-        title={t('badgePrintReprintTitle')}
-        message={t('badgePrintReprintMessage')}
-        reasonLabel={t('badgePrintReason')}
-        confirmLabel={t('badgePrintReprintAction')}
-        cancelLabel={t('cancel')}
-        loading={reprinting}
-        onConfirm={handleReprint}
-        onCancel={() => setReprintTarget(null)}
-      />
+      {reprintTarget?.attendee_id && reprintTarget.credential_id ? (
+        <BadgePrintPreviewModal
+          open
+          mode="reprint"
+          eventId={event.id}
+          tenantId={tenantId}
+          attendeeId={reprintTarget.attendee_id}
+          credentialId={reprintTarget.credential_id}
+          attendeeName={reprintTarget.attendee_name}
+          loading={reprinting}
+          onCancel={() => setReprintTarget(null)}
+          onConfirm={(result) => void handleReprint(result)}
+        />
+      ) : null}
     </DashboardLayout>
   )
 }

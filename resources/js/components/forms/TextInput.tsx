@@ -9,7 +9,7 @@ type TextInputProps = InputHTMLAttributes<HTMLInputElement> & {
   wrapperClassName?: string
 }
 
-export default function TextInput({ label, error, hint, id, required, wrapperClassName = '', ...props }: TextInputProps) {
+export default function TextInput({ label, error, hint, id, required, className, wrapperClassName = '', ...props }: TextInputProps) {
   const generatedId = useId()
   const inputId = id ?? props.name ?? generatedId
   const errorId = `${inputId}-error`
@@ -23,7 +23,10 @@ export default function TextInput({ label, error, hint, id, required, wrapperCla
       </span>
       <input
         id={inputId}
-        className={controlClassName(error, 'control focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]/20')}
+        className={clsx(
+          controlClassName(error, 'control focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]/20'),
+          className,
+        )}
         aria-invalid={error ? 'true' : undefined}
         aria-describedby={[hint ? hintId : null, error ? errorId : null].filter(Boolean).join(' ') || undefined}
         required={required}

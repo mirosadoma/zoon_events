@@ -2,8 +2,10 @@
 
 use App\Modules\Events\Http\Controllers\CategoryTemplateController;
 use App\Modules\Events\Http\Controllers\EventCategoryController;
+use App\Modules\Events\Http\Controllers\EventInviteController;
 use App\Modules\Events\Http\Controllers\OrganizerAgendaController;
 use App\Modules\Events\Http\Controllers\OrganizerEventController;
+use App\Modules\Events\Http\Controllers\PrivilegeController;
 use App\Modules\Events\Http\Controllers\Public\PublicEventController;
 use Illuminate\Support\Facades\Route;
 
@@ -15,17 +17,31 @@ Route::prefix('tenant/events')
         Route::get('/{event_id}', [OrganizerEventController::class, 'show'])->middleware('permission:event.view,tenant');
         Route::patch('/{event_id}', [OrganizerEventController::class, 'update'])->middleware(['permission:event.manage,tenant', 'idempotency']);
         Route::post('/{event_id}/publish', [OrganizerEventController::class, 'publish'])->middleware(['permission:event.publish,tenant', 'idempotency']);
+        Route::post('/{event_id}/unpublish', [OrganizerEventController::class, 'unpublish'])->middleware(['permission:event.publish,tenant', 'idempotency']);
         Route::post('/{event_id}/cancel', [OrganizerEventController::class, 'cancel'])->middleware(['permission:event.cancel,tenant', 'idempotency']);
         Route::post('/{event_id}/reopen', [OrganizerEventController::class, 'reopen'])->middleware(['permission:event.reopen,tenant', 'idempotency']);
         Route::post('/{event_id}/archive', [OrganizerEventController::class, 'archive'])->middleware(['permission:event.archive,tenant', 'idempotency']);
         Route::put('/{event_id}/agenda', [OrganizerAgendaController::class, 'sync'])->middleware(['permission:event.manage,tenant', 'idempotency']);
 
-        // Event Categories (per event)
+        Route::get('/{event_id}/invites/template', [EventInviteController::class, 'template'])->middleware('permission:event.invite.manage,tenant');
+        Route::post('/{event_id}/invites', [EventInviteController::class, 'send'])->middleware(['permission:event.invite.manage,tenant', 'idempotency']);
+        Route::post('/{event_id}/invites/bulk', [EventInviteController::class, 'sendBulk'])->middleware(['permission:event.invite.manage,tenant', 'idempotency']);
+
+        // Event category assignments
         Route::get('/{event_id}/categories', [EventCategoryController::class, 'index'])->middleware('permission:category.view,tenant');
-        Route::post('/{event_id}/categories', [EventCategoryController::class, 'store'])->middleware(['permission:category.manage,tenant', 'idempotency']);
-        Route::post('/{event_id}/categories/apply-templates', [EventCategoryController::class, 'applyTemplates'])->middleware(['permission:category.manage,tenant', 'idempotency']);
-        Route::patch('/{event_id}/categories/{category_id}', [EventCategoryController::class, 'update'])->middleware(['permission:category.manage,tenant', 'idempotency']);
+        Route::put('/{event_id}/categories/assignments', [EventCategoryController::class, 'sync'])->middleware(['permission:category.manage,tenant', 'idempotency']);
         Route::delete('/{event_id}/categories/{category_id}', [EventCategoryController::class, 'destroy'])->middleware(['permission:category.manage,tenant', 'idempotency']);
+    });
+
+// Privileges catalog (tenant-level)
+Route::prefix('tenant/privileges')
+    ->middleware(['auth:sanctum', 'throttle:phase1-organizer', 'tenant.context.clear', 'tenant.context'])
+    ->group(function (): void {
+        Route::get('/', [PrivilegeController::class, 'index'])->middleware('permission:privilege.view,tenant');
+        Route::post('/', [PrivilegeController::class, 'store'])->middleware(['permission:privilege.manage,tenant', 'idempotency']);
+        Route::get('/{privilege_id}', [PrivilegeController::class, 'show'])->middleware('permission:privilege.view,tenant');
+        Route::patch('/{privilege_id}', [PrivilegeController::class, 'update'])->middleware(['permission:privilege.manage,tenant', 'idempotency']);
+        Route::delete('/{privilege_id}', [PrivilegeController::class, 'destroy'])->middleware(['permission:privilege.manage,tenant', 'idempotency']);
     });
 
 // Category Templates (tenant-level)

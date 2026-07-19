@@ -8,6 +8,7 @@ import {
   ClipboardList,
   Flag,
   Globe,
+  Layers,
   LayoutDashboard,
   Map,
   ScanLine,
@@ -31,6 +32,8 @@ import { localizedPath, type AppLocale } from '@/lib/localePath'
 const NAV_ICONS: Record<string, LucideIcon> = {
   overview: LayoutDashboard,
   events: CalendarDays,
+  privileges: Shield,
+  categories: Layers,
   profile: UserCircle,
   'admin-users': Users,
   'admin-roles': Shield,

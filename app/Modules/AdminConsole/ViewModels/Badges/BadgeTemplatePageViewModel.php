@@ -23,6 +23,10 @@ final readonly class BadgeTemplatePageViewModel
                 'layout' => $template->layout,
                 'paper_size' => $template->paper_size,
                 'printer_type' => $template->printer_type,
+                'orientation' => $template->orientation ?? 'portrait',
+                'background_color' => $template->background_color,
+                'canvas_width' => $template->canvas_width,
+                'canvas_height' => $template->canvas_height,
                 'status' => $template->status,
             ])->values()->all(),
         ];

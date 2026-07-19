@@ -8,6 +8,7 @@ import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
 import TextInput from '@/components/forms/TextInput'
 import SelectInput from '@/components/forms/SelectInput'
 import DateTimeInput from '@/components/forms/DateTimeInput'
+import { toDateTimeLocalValue } from '@/lib/dateTimeLocal'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
@@ -62,11 +63,7 @@ type TierFormState = {
 type FormErrors = Record<string, string>
 
 function toLocalDateTime(value: string | null | undefined): string {
-  if (!value) return ''
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return ''
-  const pad = (n: number) => n.toString().padStart(2, '0')
-  return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`
+  return toDateTimeLocalValue(value)
 }
 
 function emptyForm(ticketTypes: TicketTypeRow[]): TierFormState {

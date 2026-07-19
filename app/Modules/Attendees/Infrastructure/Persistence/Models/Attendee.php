@@ -9,10 +9,11 @@ final class Attendee extends Model
 {
     protected $fillable = [
         'tenant_id', 'event_id', 'order_id', 'order_item_id', 'ticket_type_id',
-        'submission_id', 'first_name_ciphertext', 'last_name_ciphertext',
+        'submission_id', 'user_id', 'event_venue_id', 'first_name_ciphertext', 'last_name_ciphertext',
         'email_ciphertext', 'phone_ciphertext', 'email_index', 'phone_index',
         'encryption_key_id', 'preferred_locale', 'registered_at',
         'checkin_status', 'first_checked_in_at', 'last_scan_event_id', 'origin',
+        'invite_status',
     ];
 
     protected function casts(): array
@@ -29,5 +30,10 @@ final class Attendee extends Model
     public function lastScanEvent(): BelongsTo
     {
         return $this->belongsTo('App\\Modules\\Scanning\\Infrastructure\\Persistence\\Models\\ScanEvent', 'last_scan_event_id');
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class);
     }
 }

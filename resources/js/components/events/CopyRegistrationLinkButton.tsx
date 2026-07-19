@@ -19,10 +19,10 @@ export default function CopyRegistrationLinkButton({
       type="button"
       className={className}
       onClick={onClick}
-      title={t('copyRegistrationLinkTitle')}
+      title={t('copyPublicLinkTitle')}
     >
       <CopyIcon className={compact ? 'h-4 w-4' : 'mx-2 h-4 w-4'} />
-      {compact ? null : t('copyRegistrationLinkButton')}
+      {compact ? null : t('copyPublicLinkTitle')}
     </button>
   )
 }

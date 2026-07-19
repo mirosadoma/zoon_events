@@ -6,7 +6,7 @@ import PermissionGate from '@/components/layout/PermissionGate'
 import StatusBadge from '@/components/status/StatusBadge'
 import { useLocale } from '@/hooks/useLocale'
 import type { EventCapabilities } from '@/lib/eventOptions'
-import { EVENT_TIERS, EVENT_TYPES, REGISTRATION_MODES } from '@/lib/eventOptions'
+import { EVENT_TYPES, REGISTRATION_MODES, labelForEventTier } from '@/lib/eventOptions'
 import {
   isNextStepComplete,
   setupCompletionPercent,
@@ -14,8 +14,11 @@ import {
 } from '@/lib/eventSetupProgress'
 import { publishBlockedMessage, type PublishReadinessContext } from '@/lib/publishReadinessCatalog'
 import {
+  BadgeCheck,
   CalendarDays,
   ClipboardList,
+  Layers,
+  Monitor,
   Rocket,
   Tags,
   Ticket,
@@ -45,6 +48,7 @@ type NextStep = {
   description: string
   href: string
   icon: LucideIcon
+  optional?: boolean
 }
 
 function labelFor(
@@ -85,7 +89,7 @@ export default function EventNextSteps({
   const blockedMessage = publishBlockedMessage(readiness, locale, context)
   const setupPercent = setupCompletionPercent(setupProgress, capabilities)
   const published = setupProgress.published
-  const tierLabel = labelFor(EVENT_TIERS, tier, locale)
+  const tierLabel = labelForEventTier(tier, locale)
   const typeLabel = labelFor(EVENT_TYPES, eventType, locale)
   const modeLabel = labelFor(REGISTRATION_MODES, registrationMode, locale)
 
@@ -125,6 +129,31 @@ export default function EventNextSteps({
       icon: Tags,
     })
   }
+
+  steps.push({
+    key: 'categories',
+    title: t('eventNextCategories'),
+    description: t('eventNextCategoriesDescription'),
+    href: `${base}/categories`,
+    icon: Layers,
+  })
+
+  steps.push({
+    key: 'badge-templates',
+    title: t('eventNextBadgeTemplates'),
+    description: t('eventNextBadgeTemplatesDescription'),
+    href: `${base}/badge-templates`,
+    icon: BadgeCheck,
+  })
+
+  steps.push({
+    key: 'kiosks',
+    title: t('eventNextKiosks'),
+    description: t('eventNextKiosksDescription'),
+    href: `${base}/kiosks`,
+    icon: Monitor,
+    optional: true,
+  })
 
   return (
     <section className="event-next-steps state-panel mt-6">
@@ -208,9 +237,14 @@ export default function EventNextSteps({
                       <p className="event-next-step-description">{step.description}</p>
                     </div>
                   </div>
-                  <LocalizedLink href={step.href} className="button-secondary event-next-step-action shrink-0">
-                    {t('eventNextOpen')}
-                  </LocalizedLink>
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                    {step.optional ? (
+                      <span className="event-next-step-optional">{t('eventNextOptional')}</span>
+                    ) : null}
+                    <LocalizedLink href={step.href} className="button-secondary event-next-step-action">
+                      {t('eventNextOpen')}
+                    </LocalizedLink>
+                  </div>
                 </div>
               </div>
             </li>

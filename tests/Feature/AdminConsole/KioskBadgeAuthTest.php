@@ -7,7 +7,7 @@ use App\Modules\Authorization\Infrastructure\Persistence\Models\TenantRole;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Kiosk\Infrastructure\Persistence\Models\Kiosk;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\Tenant;
-use Database\Seeders\PermissionCatalogSeeder;
+use Database\Seeders\PermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -44,12 +44,24 @@ class KioskBadgeAuthTest extends TestCase
         ]);
 
         $this->get("/kiosk/{$kiosk->device_code}")
+            ->assertRedirect("/kiosk/{$kiosk->device_code}/unlock");
+
+        $this->get("/kiosk/{$kiosk->device_code}/unlock")
             ->assertOk()
-            ->assertInertia(fn (AssertableInertia $page) => $page->component('kiosk/Mode')->where('deviceCode', 'PUBLICK1'));
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->component('kiosk/Mode')
+                ->where('deviceCode', 'PUBLICK1')
+                ->where('step', 'unlock'));
 
         $this->get("/en/kiosk/{$kiosk->device_code}")
+            ->assertRedirect("/en/kiosk/{$kiosk->device_code}/unlock");
+
+        $this->get("/en/kiosk/{$kiosk->device_code}/scan")
             ->assertOk()
-            ->assertInertia(fn (AssertableInertia $page) => $page->component('kiosk/Mode')->where('deviceCode', 'PUBLICK1'));
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->component('kiosk/Mode')
+                ->where('deviceCode', 'PUBLICK1')
+                ->where('step', 'scan'));
     }
 
     public function test_tenant_administrator_can_view_kiosk_badge_and_desk_pages(): void
@@ -96,7 +108,7 @@ class KioskBadgeAuthTest extends TestCase
 
     public function test_member_without_role_is_forbidden(): void
     {
-        $this->seed(PermissionCatalogSeeder::class);
+        $this->seed(PermissionSeeder::class);
         $fixture = $this->createTenantMember();
         $password = 'Synthetic-Password-123!';
         $fixture['user']->forceFill(['password' => Hash::make($password)])->save();
@@ -127,7 +139,7 @@ class KioskBadgeAuthTest extends TestCase
      */
     private function kioskFixture(): array
     {
-        $this->seed(PermissionCatalogSeeder::class);
+        $this->seed(PermissionSeeder::class);
         $fixture = $this->createTenantMember();
         $password = 'Synthetic-Password-123!';
         $fixture['user']->forceFill(['password' => Hash::make($password)])->save();

@@ -9,13 +9,10 @@ import EventCreateWizardLayout from '@/components/events/EventCreateWizardLayout
 import TextInput from '@/components/forms/TextInput'
 import {
   Building2,
-  Crown,
   Globe,
   Hammer,
+  Lock,
   Presentation,
-  Sparkles,
-  Ticket,
-  UserPlus,
   Users,
 } from 'lucide-react'
 import TextareaInput from '@/components/forms/TextareaInput'
@@ -32,7 +29,14 @@ import { useToast } from '@/hooks/useToast'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
 import { appendToFormData } from '@/lib/appendToFormData'
 import { EVENT_SETUP_FIELD_LABELS, formFieldProps } from '@/lib/formatValidationErrors'
-import { EVENT_TIERS, EVENT_TYPES, REGISTRATION_MODES, allowsPaidTicketing, requiresTicketing } from '@/lib/eventOptions'
+import {
+  EVENT_TIER_BOTH_LABEL,
+  EVENT_TIERS,
+  EVENT_TYPES,
+  decodeEventTiers,
+  encodeEventTiers,
+  type EventTierOption,
+} from '@/lib/eventOptions'
 import {
   eventSetupWizardSteps,
   eventSetupWizardStepCopy,
@@ -111,6 +115,13 @@ type EventSetupProps = {
     location_address?: { en: string; ar: string }
     brand_reference: string | null
     domain_reference: string | null
+    theme?: {
+      primary_color?: string
+      text_color?: string
+      background_color?: string
+      logo_url?: string | null
+      sponsor_logo_url?: string | null
+    } | null
     organizer_user_id?: string | null
     organizer?: OrganizerCandidate | null
     main_image?: { id: null; url: string; path: string } | null
@@ -136,13 +147,12 @@ type EventFormState = {
   name_ar: string
   description_en: string
   description_ar: string
-  tier: string
+  tiers: EventTierOption[]
   event_type: string
-  registration_mode: string
   timezone: string
-  capacity: string
-  brand_reference: string
   domain_reference: string
+  text_color: string
+  background_color: string
   organizer_user_id: string
 }
 
@@ -204,6 +214,10 @@ export default function EventSetup({
   )
   const [mainImageFile, setMainImageFile] = useState<File | null>(null)
   const [mainImagePreview, setMainImagePreview] = useState<string | null>(event.main_image?.url ?? null)
+  const [brandLogoFile, setBrandLogoFile] = useState<File | null>(null)
+  const [brandLogoPreview, setBrandLogoPreview] = useState<string | null>(event.theme?.logo_url ?? null)
+  const [sponsorLogoFile, setSponsorLogoFile] = useState<File | null>(null)
+  const [sponsorLogoPreview, setSponsorLogoPreview] = useState<string | null>(event.theme?.sponsor_logo_url ?? null)
   const [existingGallery, setExistingGallery] = useState<EventImageRow[]>(event.images ?? [])
   const [newGalleryFiles, setNewGalleryFiles] = useState<File[]>([])
   const [newGalleryPreviews, setNewGalleryPreviews] = useState<string[]>([])
@@ -214,23 +228,14 @@ export default function EventSetup({
     name_ar: event.name.ar,
     description_en: event.description.en,
     description_ar: event.description.ar,
-    tier: event.tier,
+    tiers: decodeEventTiers(event.tier),
     event_type: event.event_type ?? 'seminar',
-    registration_mode: event.registration_mode ?? 'free_registration',
     timezone: event.timezone,
-    capacity: event.capacity === null ? '' : String(event.capacity),
-    brand_reference: event.brand_reference ?? '',
     domain_reference: event.domain_reference ?? '',
+    text_color: event.theme?.text_color ?? event.theme?.primary_color ?? '#0f172a',
+    background_color: event.theme?.background_color ?? '#ffffff',
     organizer_user_id: event.organizer_user_id ?? organizerCandidates[0]?.id ?? '',
   })
-
-  const tierOptions = useMemo(
-    () => EVENT_TIERS.map((tier) => ({
-      value: tier.value,
-      label: locale === 'ar' ? tier.label_ar : tier.label_en,
-    })),
-    [locale],
-  )
 
   const eventTypeOptions = useMemo(
     () => EVENT_TYPES.map((type) => ({
@@ -240,24 +245,15 @@ export default function EventSetup({
     [locale],
   )
 
-  const registrationModeOptions = useMemo(
-    () => REGISTRATION_MODES.map((mode) => ({
-      value: mode.value,
-      label: locale === 'ar' ? mode.label_ar : mode.label_en,
-    })),
-    [locale],
-  )
-
-  const paidTicketingAllowed = allowsPaidTicketing(form.tier)
-  const willRequireTicketing = requiresTicketing(form.tier, paidTicketingAllowed ? form.registration_mode : 'free_registration')
-  const hasMainImage = Boolean(mainImageFile || event.main_image?.url)
   const validVenueCount = buildVenuePayload(venues).length
   const showStep = (step: EventSetupWizardStep) => !isCreate || currentWizardKey === step
 
   const wizardLabels = useMemo(() => ({
     eventTypes: Object.fromEntries(EVENT_TYPES.map((type) => [type.value, locale === 'ar' ? type.label_ar : type.label_en])),
-    tiers: Object.fromEntries(EVENT_TIERS.map((tier) => [tier.value, locale === 'ar' ? tier.label_ar : tier.label_en])),
-    registrationModes: Object.fromEntries(REGISTRATION_MODES.map((mode) => [mode.value, locale === 'ar' ? mode.label_ar : mode.label_en])),
+    tiers: {
+      ...Object.fromEntries(EVENT_TIERS.map((tier) => [tier.value, locale === 'ar' ? tier.label_ar : tier.label_en])),
+      both: locale === 'ar' ? EVENT_TIER_BOTH_LABEL.label_ar : EVENT_TIER_BOTH_LABEL.label_en,
+    },
   }), [locale])
 
   const wizardSummary = useMemo(
@@ -277,11 +273,19 @@ export default function EventSetup({
   } as const
 
   const tierIcons = {
-    corporate: Building2,
     public: Globe,
-    vip: Sparkles,
-    vvip: Crown,
+    private: Lock,
   } as const
+
+  function toggleTier(tier: EventTierOption) {
+    setForm((current) => {
+      const selected = current.tiers.includes(tier)
+        ? current.tiers.filter((value) => value !== tier)
+        : [...current.tiers, tier]
+
+      return { ...current, tiers: selected }
+    })
+  }
 
   const wizardFooter = (
     <>
@@ -313,7 +317,6 @@ export default function EventSetup({
     const errors = validateEventSetupWizardStep(step, form, {
       locale,
       requiresOrganizerSelection,
-      hasMainImage,
       venueCount: validVenueCount,
     })
 
@@ -378,6 +381,18 @@ export default function EventSetup({
     setMainImagePreview(file ? URL.createObjectURL(file) : (event.main_image?.url ?? null))
   }
 
+  function handleBrandLogoChange(fileList: FileList | null) {
+    const file = fileList?.[0] ?? null
+    setBrandLogoFile(file)
+    setBrandLogoPreview(file ? URL.createObjectURL(file) : (event.theme?.logo_url ?? null))
+  }
+
+  function handleSponsorLogoChange(fileList: FileList | null) {
+    const file = fileList?.[0] ?? null
+    setSponsorLogoFile(file)
+    setSponsorLogoPreview(file ? URL.createObjectURL(file) : (event.theme?.sponsor_logo_url ?? null))
+  }
+
   function handleGalleryChange(fileList: FileList | null) {
     const files = fileList ? Array.from(fileList) : []
     setNewGalleryFiles((current) => [...current, ...files])
@@ -402,16 +417,6 @@ export default function EventSetup({
     validation.clearValidation()
 
     const isCreateSubmit = event.id === null
-    const hasMainImageForSubmit = Boolean(mainImageFile || event.main_image?.url)
-
-    if (!hasMainImageForSubmit) {
-      validation.applyErrors({ main_image: t('eventMainImageRequired') })
-      if (isCreateSubmit) {
-        setWizardStep(wizardSteps.findIndex((step) => step.key === 'branding'))
-      }
-      setSubmitting(false)
-      return
-    }
 
     if (isCreateSubmit && currentWizardKey && !validateWizardStep(currentWizardKey)) {
       setSubmitting(false)
@@ -422,19 +427,27 @@ export default function EventSetup({
       slug: form.slug,
       name: { en: form.name_en, ar: form.name_ar },
       description: { en: form.description_en || null, ar: form.description_ar || null },
-      tier: form.tier,
+      tier: encodeEventTiers(form.tiers),
       event_type: form.event_type,
-      registration_mode: paidTicketingAllowed ? form.registration_mode : 'free_registration',
       timezone: form.timezone,
-      capacity: form.capacity === '' ? null : Number(form.capacity),
-      brand_reference: form.brand_reference || null,
       domain_reference: form.domain_reference || null,
+      theme_config: {
+        text_color: form.text_color,
+        primary_color: form.text_color,
+        background_color: form.background_color,
+      },
       venues: buildVenuePayload(venues),
       ...(requiresOrganizerSelection ? { organizer_user_id: Number(form.organizer_user_id) } : {}),
     }
     const url = isCreateSubmit ? '/api/v1/tenant/events' : `/api/v1/tenant/events/${event.id}`
     const method = isCreateSubmit ? 'POST' : 'PATCH'
-    const hasMediaChanges = Boolean(mainImageFile || newGalleryFiles.length > 0 || removedImageIds.length > 0)
+    const hasMediaChanges = Boolean(
+      mainImageFile
+      || brandLogoFile
+      || sponsorLogoFile
+      || newGalleryFiles.length > 0
+      || removedImageIds.length > 0,
+    )
 
     try {
       let body: { id?: string; data?: { id?: string } }
@@ -446,17 +459,21 @@ export default function EventSetup({
         appendToFormData(formData, 'description', payload.description)
         appendToFormData(formData, 'tier', payload.tier)
         appendToFormData(formData, 'event_type', payload.event_type)
-        appendToFormData(formData, 'registration_mode', payload.registration_mode)
         appendToFormData(formData, 'timezone', payload.timezone)
-        appendToFormData(formData, 'capacity', payload.capacity)
-        appendToFormData(formData, 'brand_reference', payload.brand_reference)
         appendToFormData(formData, 'domain_reference', payload.domain_reference)
+        appendToFormData(formData, 'theme_config', payload.theme_config)
         appendToFormData(formData, 'venues', payload.venues)
         if ('organizer_user_id' in payload) {
           appendToFormData(formData, 'organizer_user_id', payload.organizer_user_id)
         }
         if (mainImageFile) {
           formData.append('main_image', mainImageFile)
+        }
+        if (brandLogoFile) {
+          formData.append('brand_logo', brandLogoFile)
+        }
+        if (sponsorLogoFile) {
+          formData.append('sponsor_logo', sponsorLogoFile)
         }
         newGalleryFiles.forEach((file) => formData.append('images[]', file))
         removedImageIds.forEach((imageId) => formData.append('remove_image_ids[]', imageId))
@@ -543,7 +560,7 @@ export default function EventSetup({
                     <h3 className="event-choice-section-title">
                       {t('eventSetupAudienceTier')}
                     </h3>
-                    <div className="event-choice-grid-compact">
+                    <div className="event-choice-grid">
                       {EVENT_TIERS.map((tier) => {
                         const Icon = tierIcons[tier.value]
 
@@ -553,120 +570,112 @@ export default function EventSetup({
                             title={locale === 'ar' ? tier.label_ar : tier.label_en}
                             description={locale === 'ar' ? tier.description_ar : tier.description_en}
                             icon={Icon}
-                            selected={form.tier === tier.value}
-                            onClick={() => setForm((current) => ({
-                              ...current,
-                              tier: tier.value,
-                              registration_mode: allowsPaidTicketing(tier.value)
-                                ? current.registration_mode
-                                : 'free_registration',
-                            }))}
+                            selected={form.tiers.includes(tier.value)}
+                            onClick={() => toggleTier(tier.value)}
                           />
                         )
                       })}
                     </div>
+                    {fieldError('tier') ? (
+                      <p className="text-sm text-red-600">{fieldError('tier')}</p>
+                    ) : null}
                   </section>
-
-                  {paidTicketingAllowed ? (
-                    <section className="event-choice-section">
-                      <h3 className="event-choice-section-title">
-                        {t('eventSetupRegistrationMode')}
-                      </h3>
-                      <div className="event-choice-grid">
-                        {REGISTRATION_MODES.map((mode) => (
-                          <EventChoiceCard
-                            key={mode.value}
-                            title={locale === 'ar' ? mode.label_ar : mode.label_en}
-                            description={locale === 'ar' ? mode.description_ar : mode.description_en}
-                            icon={mode.value === 'paid_ticketing' ? Ticket : UserPlus}
-                            selected={form.registration_mode === mode.value}
-                            onClick={() => setForm((current) => ({ ...current, registration_mode: mode.value }))}
-                            badge={mode.value === 'paid_ticketing' ? t('eventSetupRequiresTickets') : undefined}
-                          />
-                        ))}
-                      </div>
-                    </section>
-                  ) : (
-                    <div className="event-review-note">
-                      {t('eventSetupFreeRegistrationNote')}
-                    </div>
-                  )}
                 </div>
               )}
 
               {showStep('details') && (
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <TextInput
-                    label="Slug"
-                    name="slug"
-                    value={form.slug}
-                    onChange={(e) => setForm((current) => ({ ...current, slug: e.target.value }))}
-                    required
-                    error={fieldError('slug')}
-                    hint={t('eventSetupSlugHint')}
-                    {...formFieldProps('slug')}
-                  />
-                  {requiresOrganizerSelection ? (
-                    <SelectInput
-                      label={t('eventSetupOrganizer')}
-                      name="organizer_user_id"
-                      value={form.organizer_user_id}
-                      onChange={(e) => setForm((current) => ({ ...current, organizer_user_id: e.target.value }))}
-                      options={organizerOptions}
-                      required
-                      error={fieldError('organizer_user_id')}
-                      {...formFieldProps('organizer_user_id')}
-                    />
-                  ) : null}
-                  <TextInput
-                    label={t('eventSetupNameEn')}
-                    name="name_en"
-                    value={form.name_en}
-                    onChange={(e) => setForm((current) => ({ ...current, name_en: e.target.value }))}
-                    required
-                    error={fieldError('name.en')}
-                    {...formFieldProps('name.en')}
-                  />
-                  <TextInput
-                    label={t('eventSetupNameAr')}
-                    name="name_ar"
-                    value={form.name_ar}
-                    onChange={(e) => setForm((current) => ({ ...current, name_ar: e.target.value }))}
-                    required
-                    error={fieldError('name.ar')}
-                    {...formFieldProps('name.ar')}
-                  />
-                  <TextInput
-                    label={t('eventSetupCapacity')}
-                    name="capacity"
-                    type="number"
-                    min={1}
-                    value={form.capacity}
-                    onChange={(e) => setForm((current) => ({ ...current, capacity: e.target.value }))}
-                    required
-                    error={fieldError('capacity')}
-                    {...formFieldProps('capacity')}
-                  />
-                  <div className="md:col-span-2">
-                    <TextareaInput
-                      label={t('eventSetupDescriptionEn')}
-                      name="description_en"
-                      value={form.description_en}
-                      onChange={(e) => setForm((current) => ({ ...current, description_en: e.target.value }))}
-                      error={fieldError('description.en')}
-                      {...formFieldProps('description.en')}
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <TextareaInput
-                      label={t('eventSetupDescriptionAr')}
-                      name="description_ar"
-                      value={form.description_ar}
-                      onChange={(e) => setForm((current) => ({ ...current, description_ar: e.target.value }))}
-                      error={fieldError('description.ar')}
-                      {...formFieldProps('description.ar')}
-                    />
-                  </div>
+                <div className="event-setup-details">
+                  <section className="event-setup-details-section">
+                    <header className="event-setup-details-header">
+                      <h3 className="event-choice-section-title">{t('eventSetupDetailsNamesTitle')}</h3>
+                      <p className="event-setup-details-hint">{t('eventSetupDetailsNamesHint')}</p>
+                    </header>
+                    <div className="event-setup-details-grid">
+                      <TextInput
+                        label={t('eventSetupNameEn')}
+                        name="name_en"
+                        value={form.name_en}
+                        onChange={(e) => setForm((current) => ({ ...current, name_en: e.target.value }))}
+                        required
+                        error={fieldError('name.en')}
+                        {...formFieldProps('name.en')}
+                      />
+                      <TextInput
+                        label={t('eventSetupNameAr')}
+                        name="name_ar"
+                        value={form.name_ar}
+                        onChange={(e) => setForm((current) => ({ ...current, name_ar: e.target.value }))}
+                        required
+                        error={fieldError('name.ar')}
+                        {...formFieldProps('name.ar')}
+                      />
+                    </div>
+                  </section>
+
+                  <section className="event-setup-details-section">
+                    <header className="event-setup-details-header">
+                      <h3 className="event-choice-section-title">{t('eventSetupDetailsDescriptionTitle')}</h3>
+                      <p className="event-setup-details-hint">{t('eventSetupDetailsDescriptionHint')}</p>
+                    </header>
+                    <div className="event-setup-details-grid">
+                      <TextareaInput
+                        label={t('eventSetupDescriptionEn')}
+                        name="description_en"
+                        value={form.description_en}
+                        onChange={(e) => setForm((current) => ({ ...current, description_en: e.target.value }))}
+                        error={fieldError('description.en')}
+                        rows={5}
+                        {...formFieldProps('description.en')}
+                      />
+                      <TextareaInput
+                        label={t('eventSetupDescriptionAr')}
+                        name="description_ar"
+                        value={form.description_ar}
+                        onChange={(e) => setForm((current) => ({ ...current, description_ar: e.target.value }))}
+                        error={fieldError('description.ar')}
+                        rows={5}
+                        {...formFieldProps('description.ar')}
+                      />
+                    </div>
+                  </section>
+
+                  <section className="event-setup-details-section">
+                    <header className="event-setup-details-header">
+                      <h3 className="event-choice-section-title">{t('eventSetupDetailsUrlTitle')}</h3>
+                      <p className="event-setup-details-hint">{t('eventSetupDetailsUrlHint')}</p>
+                    </header>
+                    <div className="event-setup-details-grid">
+                      <TextInput
+                        label={t('eventSetupSlug')}
+                        name="slug"
+                        value={form.slug}
+                        onChange={(e) => setForm((current) => ({ ...current, slug: e.target.value }))}
+                        required
+                        error={fieldError('slug')}
+                        hint={t('eventSetupSlugHint')}
+                        {...formFieldProps('slug')}
+                      />
+                      {requiresOrganizerSelection ? (
+                        <SelectInput
+                          label={t('eventSetupOrganizer')}
+                          name="organizer_user_id"
+                          value={form.organizer_user_id}
+                          onChange={(e) => setForm((current) => ({ ...current, organizer_user_id: e.target.value }))}
+                          options={organizerOptions}
+                          required
+                          error={fieldError('organizer_user_id')}
+                          {...formFieldProps('organizer_user_id')}
+                        />
+                      ) : (
+                        <div className="event-setup-details-slug-preview" aria-hidden={form.slug.trim() === ''}>
+                          <span className="event-setup-details-slug-label">{t('eventSetupDetailsUrlTitle')}</span>
+                          <code className="event-setup-details-slug-value">
+                            /events/{form.slug.trim() || 'your-event-slug'}
+                          </code>
+                        </div>
+                      )}
+                    </div>
+                  </section>
                 </div>
               )}
 
@@ -695,30 +704,96 @@ export default function EventSetup({
 
               {showStep('branding') && (
                 <div className="space-y-6">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <TextInput
-                      label={t('eventSetupBrandReference')}
-                      name="brand_reference"
-                      value={form.brand_reference}
-                      onChange={(e) => setForm((current) => ({ ...current, brand_reference: e.target.value }))}
-                      error={fieldError('brand_reference')}
-                      {...formFieldProps('brand_reference')}
-                    />
-                    <TextInput
-                      label={t('eventSetupDomainReference')}
-                      name="domain_reference"
-                      value={form.domain_reference}
-                      onChange={(e) => setForm((current) => ({ ...current, domain_reference: e.target.value }))}
-                      error={fieldError('domain_reference')}
-                      {...formFieldProps('domain_reference')}
-                    />
-                  </div>
+                  <section className="space-y-4">
+                    <h3 className="event-choice-section-title">{t('eventSetupBrandReference')}</h3>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div className="space-y-3">
+                        <FileInput
+                          label={t('eventSetupBrandLogo')}
+                          name="brand_logo"
+                          accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                          hint={t('eventSetupBrandLogoHint')}
+                          onChange={(changeEvent) => handleBrandLogoChange(changeEvent.target.files)}
+                        />
+                        {brandLogoPreview ? (
+                          <img src={brandLogoPreview} alt="" className="h-16 w-auto rounded-lg border border-[var(--border)] bg-white object-contain p-2" />
+                        ) : null}
+                      </div>
+                      <div className="space-y-3">
+                        <FileInput
+                          label={t('eventSetupSponsorLogo')}
+                          name="sponsor_logo"
+                          accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                          hint={t('eventSetupSponsorLogoHint')}
+                          onChange={(changeEvent) => handleSponsorLogoChange(changeEvent.target.files)}
+                        />
+                        {sponsorLogoPreview ? (
+                          <img src={sponsorLogoPreview} alt="" className="h-16 w-auto rounded-lg border border-[var(--border)] bg-white object-contain p-2" />
+                        ) : null}
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-sm font-medium text-[var(--ink)]">
+                          {t('eventSetupTextColor')}
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            name="text_color"
+                            value={form.text_color}
+                            onChange={(e) => setForm((current) => ({ ...current, text_color: e.target.value }))}
+                            className="h-10 w-10 cursor-pointer rounded-lg border border-[var(--border)] p-0.5"
+                          />
+                          <TextInput
+                            name="text_color_hex"
+                            value={form.text_color}
+                            onChange={(e) => setForm((current) => ({ ...current, text_color: e.target.value }))}
+                            error={fieldError('theme_config.text_color')}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-sm font-medium text-[var(--ink)]">
+                          {t('eventSetupBackgroundColor')}
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            name="background_color"
+                            value={form.background_color}
+                            onChange={(e) => setForm((current) => ({ ...current, background_color: e.target.value }))}
+                            className="h-10 w-10 cursor-pointer rounded-lg border border-[var(--border)] p-0.5"
+                          />
+                          <TextInput
+                            name="background_color_hex"
+                            value={form.background_color}
+                            onChange={(e) => setForm((current) => ({ ...current, background_color: e.target.value }))}
+                            error={fieldError('theme_config.background_color')}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      className="rounded-2xl border border-[var(--border)] p-4"
+                      style={{ backgroundColor: form.background_color, color: form.text_color }}
+                    >
+                      <p className="text-sm font-medium">{t('eventSetupBrandPreview')}</p>
+                      <p className="mt-1 text-xs opacity-80">{form.name_en || form.name_ar || t('eventSetupNewEvent')}</p>
+                    </div>
+                  </section>
+
+                  <TextInput
+                    label={t('eventSetupDomainReference')}
+                    name="domain_reference"
+                    value={form.domain_reference}
+                    onChange={(e) => setForm((current) => ({ ...current, domain_reference: e.target.value }))}
+                    error={fieldError('domain_reference')}
+                    {...formFieldProps('domain_reference')}
+                  />
                   <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_220px]">
                     <FileInput
                       label={t('eventSetupMainImage')}
                       name="main_image"
                       accept="image/png,image/jpeg,image/webp"
-                      required
                       error={fieldError('main_image')}
                       {...formFieldProps('main_image')}
                       onChange={(changeEvent) => handleMainImageChange(changeEvent.target.files)}
@@ -771,7 +846,7 @@ export default function EventSetup({
                     ))}
                   </dl>
                   <div className="event-review-note">
-                    {willRequireTicketing ? t('eventSetupReviewTicketingNote') : t('eventSetupReviewNoTicketsNote')}
+                    {t('eventSetupReviewNoTicketsNote')}
                   </div>
                 </div>
               )}
@@ -785,53 +860,39 @@ export default function EventSetup({
 
           {showStep('type') && (
             <section id="event-setup-type" className="space-y-4 scroll-mt-24">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <SelectInput
-                  label={t('eventSetupEventType')}
-                  name="event_type"
-                  value={form.event_type}
-                  onChange={(e) => setForm((current) => ({ ...current, event_type: e.target.value }))}
-                  options={eventTypeOptions}
-                  required
-                  error={fieldError('event_type')}
-                  {...formFieldProps('event_type')}
-                />
-                <SelectInput
-                  label={t('eventSetupEventTier')}
-                  name="tier"
-                  value={form.tier}
-                  onChange={(e) => {
-                    const tier = e.target.value
-                    setForm((current) => ({
-                      ...current,
-                      tier,
-                      registration_mode: allowsPaidTicketing(tier) ? current.registration_mode : 'free_registration',
-                    }))
-                  }}
-                  options={tierOptions}
-                  required
-                  error={fieldError('tier')}
-                  {...formFieldProps('tier')}
-                />
-                {paidTicketingAllowed ? (
-                  <SelectInput
-                    label={t('eventSetupRegistrationMode')}
-                    name="registration_mode"
-                    value={form.registration_mode}
-                    onChange={(e) => setForm((current) => ({ ...current, registration_mode: e.target.value }))}
-                    options={registrationModeOptions}
-                    required
-                    error={fieldError('registration_mode')}
-                    {...formFieldProps('registration_mode')}
-                  />
-                ) : (
-                  <TextInput
-                    label={t('eventSetupRegistrationMode')}
-                    name="registration_mode_display"
-                    value={t('eventSetupFreeRegistration')}
-                    readOnly
-                  />
-                )}
+              <SelectInput
+                label={t('eventSetupEventType')}
+                name="event_type"
+                value={form.event_type}
+                onChange={(e) => setForm((current) => ({ ...current, event_type: e.target.value }))}
+                options={eventTypeOptions}
+                required
+                error={fieldError('event_type')}
+                {...formFieldProps('event_type')}
+              />
+              <div>
+                <h3 className="event-choice-section-title mb-3">
+                  {t('eventSetupEventTier')}
+                </h3>
+                <div className="event-choice-grid">
+                  {EVENT_TIERS.map((tier) => {
+                    const Icon = tierIcons[tier.value]
+
+                    return (
+                      <EventChoiceCard
+                        key={tier.value}
+                        title={locale === 'ar' ? tier.label_ar : tier.label_en}
+                        description={locale === 'ar' ? tier.description_ar : tier.description_en}
+                        icon={Icon}
+                        selected={form.tiers.includes(tier.value)}
+                        onClick={() => toggleTier(tier.value)}
+                      />
+                    )
+                  })}
+                </div>
+                {fieldError('tier') ? (
+                  <p className="mt-2 text-sm text-red-600">{fieldError('tier')}</p>
+                ) : null}
               </div>
             </section>
           )}
@@ -893,17 +954,6 @@ export default function EventSetup({
                 error={fieldError('name.ar')}
                 {...formFieldProps('name.ar')}
               />
-              <TextInput
-                label={t('eventSetupCapacity')}
-                name="capacity"
-                type="number"
-                min={1}
-                value={form.capacity}
-                onChange={(e) => setForm((current) => ({ ...current, capacity: e.target.value }))}
-                required
-                error={fieldError('capacity')}
-                {...formFieldProps('capacity')}
-              />
               <TextareaInput
                 label={t('eventSetupDescriptionEn')}
                 name="description_en"
@@ -935,83 +985,135 @@ export default function EventSetup({
           )}
 
           {showStep('branding') && (
-            <section id="event-setup-branding" className="space-y-4 scroll-mt-24">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <TextInput
-                label={t('eventSetupBrandReference')}
-                  name="brand_reference"
-                  value={form.brand_reference}
-                  onChange={(e) => setForm((current) => ({ ...current, brand_reference: e.target.value }))}
-                  error={fieldError('brand_reference')}
-                  {...formFieldProps('brand_reference')}
-              />
+            <section id="event-setup-branding" className="space-y-6 scroll-mt-24">
+              <div>
+                <h3 className="event-choice-section-title mb-3">{t('eventSetupBrandReference')}</h3>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="space-y-3">
+                    <FileInput
+                      label={t('eventSetupBrandLogo')}
+                      name="brand_logo"
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      hint={t('eventSetupBrandLogoHint')}
+                      onChange={(changeEvent) => handleBrandLogoChange(changeEvent.target.files)}
+                    />
+                    {brandLogoPreview ? (
+                      <img src={brandLogoPreview} alt="" className="h-16 w-auto rounded-lg border border-[var(--border)] bg-white object-contain p-2" />
+                    ) : null}
+                  </div>
+                  <div className="space-y-3">
+                    <FileInput
+                      label={t('eventSetupSponsorLogo')}
+                      name="sponsor_logo"
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      hint={t('eventSetupSponsorLogoHint')}
+                      onChange={(changeEvent) => handleSponsorLogoChange(changeEvent.target.files)}
+                    />
+                    {sponsorLogoPreview ? (
+                      <img src={sponsorLogoPreview} alt="" className="h-16 w-auto rounded-lg border border-[var(--border)] bg-white object-contain p-2" />
+                    ) : null}
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-[var(--ink)]">
+                      {t('eventSetupTextColor')}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={form.text_color}
+                        onChange={(e) => setForm((current) => ({ ...current, text_color: e.target.value }))}
+                        className="h-10 w-10 cursor-pointer rounded-lg border border-[var(--border)] p-0.5"
+                      />
+                      <TextInput
+                        name="text_color_hex"
+                        value={form.text_color}
+                        onChange={(e) => setForm((current) => ({ ...current, text_color: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-[var(--ink)]">
+                      {t('eventSetupBackgroundColor')}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={form.background_color}
+                        onChange={(e) => setForm((current) => ({ ...current, background_color: e.target.value }))}
+                        className="h-10 w-10 cursor-pointer rounded-lg border border-[var(--border)] p-0.5"
+                      />
+                      <TextInput
+                        name="background_color_hex"
+                        value={form.background_color}
+                        onChange={(e) => setForm((current) => ({ ...current, background_color: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
               <TextInput
                 label={t('eventSetupDomainReference')}
-                  name="domain_reference"
-                  value={form.domain_reference}
-                  onChange={(e) => setForm((current) => ({ ...current, domain_reference: e.target.value }))}
-                  error={fieldError('domain_reference')}
-                  {...formFieldProps('domain_reference')}
+                name="domain_reference"
+                value={form.domain_reference}
+                onChange={(e) => setForm((current) => ({ ...current, domain_reference: e.target.value }))}
+                error={fieldError('domain_reference')}
+                {...formFieldProps('domain_reference')}
+              />
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_220px]">
+                <FileInput
+                  label={t('eventSetupMainImage')}
+                  name="main_image"
+                  accept="image/png,image/jpeg,image/webp"
+                  error={fieldError('main_image')}
+                  {...formFieldProps('main_image')}
+                  onChange={(changeEvent) => handleMainImageChange(changeEvent.target.files)}
                 />
-              </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-3">
-                  <FileInput
-                    label={t('eventSetupMainImage')}
-                    name="main_image"
-                    accept="image/png,image/jpeg,image/webp"
-                    required={!event.main_image?.url}
-                    error={fieldError('main_image')}
-                    {...formFieldProps('main_image')}
-                    onChange={(changeEvent) => handleMainImageChange(changeEvent.target.files)}
-                  />
+                <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
                   {mainImagePreview ? (
-                    <img
-                      src={mainImagePreview}
-                      alt=""
-                      className="h-40 w-full rounded-xl border border-[var(--border)] object-cover"
-                    />
-                  ) : null}
-                </div>
-                <div className="space-y-3">
-                  <FileInput
-                    label={t('eventSetupGalleryImages')}
-                    name="images"
-                    accept="image/png,image/jpeg,image/webp"
-                    multiple
-                    hint={t('eventSetupLogoHint')}
-                    onChange={(changeEvent) => handleGalleryChange(changeEvent.target.files)}
-                  />
-                  {(existingGallery.length > 0 || newGalleryPreviews.length > 0) ? (
-                    <div className="flex flex-wrap gap-2">
-                      {existingGallery.map((image) => (
-                        <div key={image.id} className="relative">
-                          <img src={image.url} alt="" className="h-20 w-20 rounded-lg border border-[var(--border)] object-cover" />
-                          <button
-                            type="button"
-                            className="absolute -end-2 -top-2 rounded-full bg-red-600 px-2 py-0.5 text-xs text-white"
-                            onClick={() => removeExistingGalleryImage(image.id)}
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                      {newGalleryPreviews.map((preview, index) => (
-                        <div key={preview} className="relative">
-                          <img src={preview} alt="" className="h-20 w-20 rounded-lg border border-[var(--border)] object-cover" />
-                          <button
-                            type="button"
-                            className="absolute -end-2 -top-2 rounded-full bg-red-600 px-2 py-0.5 text-xs text-white"
-                            onClick={() => removeNewGalleryImage(index)}
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
+                    <img src={mainImagePreview} alt="" className="h-full min-h-[220px] w-full object-cover" />
+                  ) : (
+                    <div className="flex min-h-[220px] items-center justify-center px-4 text-center text-sm text-slate-500">
+                      {t('eventSetupMainImagePreview')}
                     </div>
-                  ) : null}
+                  )}
                 </div>
               </div>
+              <FileInput
+                label={t('eventSetupGalleryImages')}
+                name="images"
+                accept="image/png,image/jpeg,image/webp"
+                multiple
+                hint={t('eventSetupGalleryHint')}
+                onChange={(changeEvent) => handleGalleryChange(changeEvent.target.files)}
+              />
+              {(existingGallery.length > 0 || newGalleryPreviews.length > 0) ? (
+                <div className="flex flex-wrap gap-2">
+                  {existingGallery.map((image) => (
+                    <div key={image.id} className="relative">
+                      <img src={image.url} alt="" className="h-20 w-20 rounded-lg border border-[var(--border)] object-cover" />
+                      <button
+                        type="button"
+                        className="absolute -end-2 -top-2 rounded-full bg-red-600 px-2 py-0.5 text-xs text-white"
+                        onClick={() => removeExistingGalleryImage(image.id)}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  {newGalleryPreviews.map((preview, index) => (
+                    <div key={preview} className="relative">
+                      <img src={preview} alt="" className="h-20 w-20 rounded-lg border border-[var(--border)] object-cover" />
+                      <button
+                        type="button"
+                        className="absolute -end-2 -top-2 rounded-full bg-red-600 px-2 py-0.5 text-xs text-white"
+                        onClick={() => removeNewGalleryImage(index)}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </section>
           )}
 

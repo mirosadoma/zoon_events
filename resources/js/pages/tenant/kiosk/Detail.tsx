@@ -82,7 +82,7 @@ export default function KioskDetailPage({ event, kiosk }: Props) {
             <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/kiosks`}>
               {t('kioskPageBackToList')}
             </LocalizedLink>
-            <LocalizedLink className="button-primary" href={`/kiosk/${kiosk.device_code}`}>
+            <LocalizedLink className="button-primary" href={`/kiosk/${kiosk.device_code}/unlock`}>
               {t('kioskPageMode')}
             </LocalizedLink>
           </div>

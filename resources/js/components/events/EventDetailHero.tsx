@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react'
 import StatusBadge from '@/components/status/StatusBadge'
 import { useLocale } from '@/hooks/useLocale'
 import type { EventCapabilities } from '@/lib/eventOptions'
-import { EVENT_TIERS, EVENT_TYPES, REGISTRATION_MODES } from '@/lib/eventOptions'
+import { EVENT_TYPES, REGISTRATION_MODES, labelForEventTier } from '@/lib/eventOptions'
 import { setupCompletionPercent, type EventSetupProgress } from '@/lib/eventSetupProgress'
 import { Ticket } from 'lucide-react'
 
@@ -45,7 +45,7 @@ export default function EventDetailHero({
 }: Props) {
   const { locale, t } = useLocale()
   const setupPercent = setupCompletionPercent(setupProgress, capabilities)
-  const tierLabel = labelFor(EVENT_TIERS, tier, locale)
+  const tierLabel = labelForEventTier(tier, locale)
   const typeLabel = labelFor(EVENT_TYPES, eventType, locale)
   const modeLabel = labelFor(REGISTRATION_MODES, registrationMode, locale)
 

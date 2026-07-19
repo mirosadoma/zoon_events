@@ -2,9 +2,11 @@
 
 namespace App\Modules\Events\Application\Publication;
 
+use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgeTemplate;
 use App\Modules\Events\Domain\EventRegistrationProfile;
 use App\Modules\Events\Domain\EventStatus;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventCategory;
 use Carbon\CarbonImmutable;
 use DateTimeZone;
 
@@ -15,7 +17,7 @@ final class PublicationReadiness
      *   name_en?:string,name_ar?:string,timezone?:string,start_at?:string,
      *   end_at?:string,registration_opens_at?:string,registration_closes_at?:string,
      *   agenda_items?:int,active_form_version_id?:string,active_ticket_types?:int,branding_active?:bool,
-     *   main_image_path?:string,tier?:string,registration_mode?:string
+     *   active_badge_template?:bool,tier?:string,registration_mode?:string,configured_categories?:int
      * } $event
      * @return list<string>
      */
@@ -37,18 +39,24 @@ final class PublicationReadiness
         }
 
         if (EventRegistrationProfile::requiresTicketConfiguration(
-            (string) ($event['tier'] ?? 'corporate'),
+            (string) ($event['tier'] ?? 'private'),
             (string) ($event['registration_mode'] ?? 'free_registration'),
         ) && ($event['active_ticket_types'] ?? 0) < 1) {
             $missing[] = 'active_ticket_type';
         }
 
+        if (($event['configured_categories'] ?? 0) < 1) {
+            $missing[] = 'event_categories';
+        }
+
         if (($event['branding_active'] ?? false) !== true) {
             $missing[] = 'active_branding';
         }
-        if (trim((string) ($event['main_image_path'] ?? '')) === '') {
-            $missing[] = 'main_image';
+
+        if (($event['active_badge_template'] ?? false) !== true) {
+            $missing[] = 'active_badge_template';
         }
+
         if (isset($event['timezone']) && ! in_array($event['timezone'], DateTimeZone::listIdentifiers(), true)) {
             $missing[] = 'valid_timezone';
         }
@@ -58,7 +66,7 @@ final class PublicationReadiness
             $end = CarbonImmutable::parse((string) ($event['end_at'] ?? ''));
             $opens = CarbonImmutable::parse((string) ($event['registration_opens_at'] ?? ''));
             $closes = CarbonImmutable::parse((string) ($event['registration_closes_at'] ?? ''));
-            if (! ($opens->isBefore($closes) && $closes->lessThanOrEqualTo($end) && $start->isBefore($end))) {
+            if (! ($opens->lessThanOrEqualTo($closes) && $closes->lessThanOrEqualTo($end) && $start->isBefore($end))) {
                 $missing[] = 'valid_schedule';
             }
         } catch (\Throwable) {
@@ -77,11 +85,20 @@ final class PublicationReadiness
             ...$event->only([
                 'name_en', 'name_ar', 'timezone', 'start_at', 'end_at',
                 'registration_opens_at', 'registration_closes_at', 'active_form_version_id',
-                'main_image_path', 'tier', 'registration_mode',
+                'tier', 'registration_mode',
             ]),
             'agenda_items' => $event->agendaItems()->count(),
             'active_ticket_types' => $activeTicketTypes,
             'branding_active' => $event->branding()->where('status', 'active')->exists(),
+            'active_badge_template' => BadgeTemplate::query()
+                ->where('tenant_id', $event->tenant_id)
+                ->where('event_id', $event->id)
+                ->where('status', 'active')
+                ->exists(),
+            'configured_categories' => EventCategory::query()
+                ->where('event_id', $event->id)
+                ->whereHas('venues.days')
+                ->count(),
         ]);
 
         $status = EventStatus::tryFrom((string) $event->status);

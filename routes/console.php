@@ -14,6 +14,7 @@ Schedule::command('zonetec:payments:reconcile')->everyMinute()->withoutOverlappi
 Schedule::command('zonetec:notifications:deliver-due')->everyMinute()->withoutOverlapping();
 Schedule::command('zonetec:identity:purge-expired')->daily()->withoutOverlapping();
 Schedule::command('zonetec:identity:expire-stale')->daily()->withoutOverlapping();
+Schedule::command('zonetec:attendees:mark-not-attended')->hourly()->withoutOverlapping();
 Schedule::command('marketplace:activate-rentals')->everyMinute()->withoutOverlapping();
 Schedule::command('marketplace:expire-rentals')->everyMinute()->withoutOverlapping();
 Schedule::command('marketplace:finalize-statements')->everyFiveMinutes()->withoutOverlapping();

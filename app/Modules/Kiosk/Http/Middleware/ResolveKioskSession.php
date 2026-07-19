@@ -13,7 +13,11 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class ResolveKioskSession
 {
-    private const CONFIRMATION_ROUTE_NAME = 'api.v1.kiosk.session.confirm';
+    /** @var list<string> */
+    private const UNCONFIRMED_ALLOWED_ROUTES = [
+        'api.v1.kiosk.session.confirm',
+        'api.v1.kiosk.heartbeat',
+    ];
 
     public function __construct(
         private readonly KioskSessionContextStore $store,
@@ -59,9 +63,9 @@ final class ResolveKioskSession
             throw Phase3Problem::make('kiosk_retired');
         }
 
-        $isConfirmationRoute = $request->routeIs(self::CONFIRMATION_ROUTE_NAME);
+        $allowsUnconfirmed = $request->routeIs(...self::UNCONFIRMED_ALLOWED_ROUTES);
 
-        if ($kiosk->confirmation_required && $session->confirmed_at === null && ! $isConfirmationRoute) {
+        if ($kiosk->confirmation_required && $session->confirmed_at === null && ! $allowsUnconfirmed) {
             throw Phase3Problem::make('kiosk_session_unconfirmed');
         }
 

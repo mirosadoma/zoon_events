@@ -2,12 +2,16 @@
 
 namespace App\Modules\AdminConsole\ViewModels\Badges;
 
+use App\Modules\AdminConsole\Application\PersonalDataReader;
+use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgePrintJob;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use Illuminate\Support\Collection;
 
 final readonly class BadgePrintJobsViewModel
 {
+    public function __construct(private PersonalDataReader $personalData) {}
+
     /**
      * @param  Collection<int, BadgePrintJob>  $jobs
      * @param  array{status?: string}  $filters
@@ -27,19 +31,45 @@ final readonly class BadgePrintJobsViewModel
         array $filters = [],
         array $pagination = ['page' => 1, 'per_page' => 15, 'total' => 0, 'last_page' => 1],
     ): array {
+        $attendeeIds = $jobs
+            ->pluck('attendee_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $attendees = $attendeeIds === []
+            ? collect()
+            : Attendee::query()
+                ->where('tenant_id', $tenantId)
+                ->where('event_id', $event->id)
+                ->whereIn('id', $attendeeIds)
+                ->get()
+                ->keyBy(fn (Attendee $attendee): string => (string) $attendee->id);
+
         return [
             'event' => $this->eventRow($event),
             'tenantId' => $tenantId,
-            'printJobs' => $jobs->map(fn (BadgePrintJob $job): array => [
-                'id' => $job->id,
-                'attendee_id' => $job->attendee_id,
-                'status' => $job->status,
-                'failure_reason' => $job->failure_reason,
-                'is_reprint' => $job->is_reprint,
-                'reprint_reason' => $job->reprint_reason,
-                'original_print_job_id' => $job->original_print_job_id,
-                'printed_at' => $job->printed_at?->toIso8601String(),
-            ])->values()->all(),
+            'printJobs' => $jobs->map(function (BadgePrintJob $job) use ($attendees): array {
+                $attendeeId = $job->attendee_id !== null ? (string) $job->attendee_id : null;
+                $attendee = $attendeeId !== null ? $attendees->get($attendeeId) : null;
+                $displayName = $attendee instanceof Attendee
+                    ? $this->personalData->attendeeDisplayName($attendee)
+                    : null;
+
+                return [
+                    'id' => $job->id,
+                    'attendee_id' => $attendeeId,
+                    'credential_id' => $job->credential_id !== null ? (string) $job->credential_id : null,
+                    'attendee_name' => $displayName,
+                    'status' => $job->status,
+                    'failure_reason' => $job->failure_reason,
+                    'is_reprint' => $job->is_reprint,
+                    'reprint_reason' => $job->reprint_reason,
+                    'original_print_job_id' => $job->original_print_job_id,
+                    'printed_at' => $job->printed_at?->toIso8601String(),
+                ];
+            })->values()->all(),
             'filters' => [
                 'status' => (string) ($filters['status'] ?? ''),
             ],

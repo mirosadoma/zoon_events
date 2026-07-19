@@ -17,6 +17,8 @@ final class BadgePrintJobResource extends JsonResource
 
         return [
             'id' => $job->id,
+            'attendee_id' => $job->attendee_id,
+            'credential_id' => $job->credential_id,
             'status' => $job->status,
             'failure_reason' => $job->failure_reason,
             'is_reprint' => $job->is_reprint,

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useMemo, type Dispatch, type SetStateAction } from 'react'
 import DateTimeInput from '@/components/forms/DateTimeInput'
+import { toDateTimeLocalValue } from '@/lib/dateTimeLocal'
 import SearchableSelect, { type SearchableOption } from '@/components/forms/SearchableSelect'
 import TextInput from '@/components/forms/TextInput'
 import TextareaInput from '@/components/forms/TextareaInput'
@@ -40,12 +41,7 @@ type VenueRepeaterProps = {
 }
 
 function toLocalDateTime(value: string | null | undefined): string {
-  if (!value) return ''
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return ''
-  const pad = (n: number) => n.toString().padStart(2, '0')
-
-  return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`
+  return toDateTimeLocalValue(value)
 }
 
 export function emptyVenueRow(): VenueFormRow {

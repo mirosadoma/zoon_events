@@ -1,6 +1,7 @@
 import { router } from '@inertiajs/react'
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useState } from 'react'
+import BadgePrintPreviewModal from '@/components/badges/BadgePrintPreviewModal'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { DetailsCard } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
@@ -11,6 +12,7 @@ import { useLocale } from '@/hooks/useLocale'
 import { useTenantId } from '@/hooks/useTenantId'
 import { useToast } from '@/hooks/useToast'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
+import { openBlankPrintWindow, writeBadgePrintDocument } from '@/lib/openBadgePrintWindow'
 
 type EventRow = {
   id: string
@@ -61,6 +63,7 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
   const { toast } = useToast()
   const tenantId = useTenantId(pageTenantId)
   const [busyAction, setBusyAction] = useState<'revoke' | 'reissue' | 'print' | 'checkin' | null>(null)
+  const [printPreviewOpen, setPrintPreviewOpen] = useState(false)
 
   function extractError(error: unknown, fallback: string): string {
     if (error instanceof ApiFetchError) {
@@ -122,18 +125,43 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
     }
   }
 
-  async function handlePrintBadge() {
+  function openPrintPreview() {
+    if (!attendee.credential || !ensureTenantId()) return
+    setPrintPreviewOpen(true)
+  }
+
+  async function handlePrintBadge(overrides: {
+    job_title?: string
+    custom_text?: string
+    company?: string
+  }) {
     if (!attendee.credential || !ensureTenantId()) return
     setBusyAction('print')
+    const printWindow = openBlankPrintWindow()
     try {
-      await apiFetch(`/api/v1/tenant/events/${event.id}/badge-print-jobs`, {
+      const job = await apiFetch<{
+        id: string
+        status: string
+        print_html?: string | null
+      }>(`/api/v1/tenant/events/${event.id}/badge-print-jobs`, {
         method: 'POST',
         tenantId,
         idempotency: true,
-        body: { attendee_id: attendee.id, credential_id: attendee.credential.id },
+        body: {
+          attendee_id: attendee.id,
+          credential_id: attendee.credential.id,
+          field_overrides: overrides,
+        },
       })
-      toast(t('attendeeDetailBadgeJobCreated'), 'success')
+
+      const opened = writeBadgePrintDocument(printWindow, job.print_html)
+      toast(
+        opened ? t('attendeeDetailBadgePrintOpened') : t('attendeeDetailBadgeJobCreated'),
+        opened ? 'success' : 'info',
+      )
+      setPrintPreviewOpen(false)
     } catch (error) {
+      printWindow?.close()
       toast(extractError(error, t('attendeeDetailBadgeFailed')), 'error')
     } finally {
       setBusyAction(null)
@@ -212,20 +240,20 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
             { label: t('attendeeDetailOrigin'), value: attendee.origin ?? '—' },
             { label: t('attendeeDetailRegistered'), value: attendee.registered_at ?? '—' },
             { label: t('attendeeDetailFirstCheckIn'), value: attendee.first_checked_in_at ?? '—' },
-            {
-              label: t('attendeeDetailOrder'),
-              value: attendee.order_id
-                ? (
-                  <LocalizedLink href={`/tenant/events/${event.id}/orders/${String(attendee.order_id)}`} className="text-sky-700 hover:underline">
-                    {String(attendee.order_id).slice(-8)}
-                  </LocalizedLink>
-                )
-                : '—',
-            },
+            // {
+            //   label: t('attendeeDetailOrder'),
+            //   value: attendee.order_id
+            //     ? (
+            //       <LocalizedLink href={`/tenant/events/${event.id}/orders/${String(attendee.order_id)}`} className="text-sky-700 hover:underline">
+            //         {String(attendee.order_id).slice(-8)}
+            //       </LocalizedLink>
+            //     )
+            //     : '—',
+            // },
           ]}
         />
 
-        {attendee.credential && (
+        {/* {attendee.credential && (
           <section className="state-panel mt-6">
             <h2 className="text-lg font-semibold">{t('attendeeDetailCredential')}</h2>
             <dl className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -243,14 +271,14 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
               </div>
             </dl>
           </section>
-        )}
+        )} */}
 
         {attendee.credential && (
           <section className="state-panel mt-6">
             <h2 className="text-lg font-semibold">{t('attendeeActions')}</h2>
             <div className="mt-4 flex flex-wrap gap-2">
               <PermissionGate permission="badge.print">
-                <button type="button" className="button-secondary" onClick={() => void handlePrintBadge()} disabled={busyAction !== null}>
+                <button type="button" className="button-secondary" onClick={openPrintPreview} disabled={busyAction !== null}>
                   {t('printBadge')}
                 </button>
               </PermissionGate>
@@ -285,6 +313,20 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
             onReissued={handleReissue}
           />
         )}
+
+        {attendee.credential && tenantId ? (
+          <BadgePrintPreviewModal
+            open={printPreviewOpen}
+            eventId={event.id}
+            tenantId={tenantId}
+            attendeeId={attendee.id}
+            credentialId={attendee.credential.id}
+            attendeeName={attendee.display_name ?? attendee.label}
+            loading={busyAction === 'print'}
+            onCancel={() => setPrintPreviewOpen(false)}
+            onConfirm={(result) => void handlePrintBadge(result.overrides)}
+          />
+        ) : null}
       </PageContent>
     </DashboardLayout>
   )

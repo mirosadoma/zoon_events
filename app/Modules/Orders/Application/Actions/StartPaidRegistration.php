@@ -46,6 +46,8 @@ final readonly class StartPaidRegistration
                 $input->locale,
             );
             $allocation = $this->tickets->reserve($input->tenantId, $input->eventId, $input->ticketTypeId);
+            $priceMinor = $input->priceMinorOverride ?? $allocation->priceMinor;
+            $currency = $input->currencyOverride ?? $allocation->currency;
             $accessToken = sodium_bin2base64(random_bytes(32), SODIUM_BASE64_VARIANT_URLSAFE_NO_PADDING);
             $orderScope = "{$input->tenantId}:{$input->eventId}:order";
             $fulfillmentScope = "{$input->tenantId}:{$input->eventId}:paid-fulfillment";
@@ -66,13 +68,17 @@ final readonly class StartPaidRegistration
                 'buyer_email_index' => $this->indexes->email($input->buyer['email']),
                 'buyer_phone_index' => isset($input->buyer['phone']) ? $this->indexes->phone($input->buyer['phone']) : null,
                 'encryption_key_id' => $submission->encryptionKeyId,
-                'subtotal_minor' => $allocation->priceMinor,
+                'subtotal_minor' => $priceMinor,
                 'tax_minor' => 0,
                 'fees_minor' => 0,
-                'total_minor' => $allocation->priceMinor,
-                'currency' => $allocation->currency,
+                'total_minor' => $priceMinor,
+                'currency' => $currency,
                 'inventory_hold_id' => $allocation->holdId,
                 'submission_id' => $submission->id,
+                'event_category_id' => $input->eventCategoryId,
+                'event_venue_id' => $input->eventVenueId !== null && $input->eventVenueId !== ''
+                    ? (int) $input->eventVenueId
+                    : null,
                 'fulfillment_payload_ciphertext' => $fulfillment['ciphertext'],
                 'fulfillment_encryption_key_id' => $fulfillment['key_id'],
                 'credential_expires_at' => $input->credentialExpiresAt,
@@ -84,12 +90,12 @@ final readonly class StartPaidRegistration
                 'order_id' => $order->id,
                 'ticket_type_id' => $allocation->ticketTypeId,
                 'quantity' => 1,
-                'unit_price_minor' => $allocation->priceMinor,
+                'unit_price_minor' => $priceMinor,
                 'tax_minor' => 0,
                 'fees_minor' => 0,
-                'total_minor' => $allocation->priceMinor,
-                'currency' => $allocation->currency,
-                'price_tier_id' => $allocation->priceTierId,
+                'total_minor' => $priceMinor,
+                'currency' => $currency,
+                'price_tier_id' => $input->priceMinorOverride !== null ? null : $allocation->priceTierId,
                 'ticket_name_snapshot' => $allocation->ticketName,
             ]);
             $this->audit->write(

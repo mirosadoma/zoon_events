@@ -10,43 +10,32 @@ final class EventRegistrationProfile
 
     public static function requiresTicketConfiguration(Event|string $tier, ?string $registrationMode = null): bool
     {
-        if ($tier instanceof Event) {
-            return self::requiresTicketConfiguration($tier->tier, $tier->registration_mode);
-        }
-
-        return $tier === EventTier::Public->value
-            && $registrationMode === RegistrationMode::PaidTicketing->value;
+        return false;
     }
 
     public static function requiresPriceTiers(Event|string $tier, ?string $registrationMode = null): bool
     {
-        return self::requiresTicketConfiguration($tier, $registrationMode);
+        return false;
     }
 
     public static function allowsPaidTicketing(string $tier): bool
     {
-        return $tier === EventTier::Public->value;
+        return false;
     }
 
     public static function normalizeRegistrationMode(string $tier, string $registrationMode): string
     {
-        if (! self::allowsPaidTicketing($tier)) {
-            return RegistrationMode::FreeRegistration->value;
-        }
-
-        return $registrationMode;
+        return RegistrationMode::FreeRegistration->value;
     }
 
     /** @return array{requires_ticketing:bool,requires_price_tiers:bool,allows_paid_ticketing:bool,uses_system_registration_slot:bool} */
     public static function capabilities(Event $event): array
     {
-        $requiresTicketing = self::requiresTicketConfiguration($event);
-
         return [
-            'requires_ticketing' => $requiresTicketing,
-            'requires_price_tiers' => $requiresTicketing,
-            'allows_paid_ticketing' => self::allowsPaidTicketing($event->tier),
-            'uses_system_registration_slot' => ! $requiresTicketing,
+            'requires_ticketing' => false,
+            'requires_price_tiers' => false,
+            'allows_paid_ticketing' => false,
+            'uses_system_registration_slot' => true,
         ];
     }
 }

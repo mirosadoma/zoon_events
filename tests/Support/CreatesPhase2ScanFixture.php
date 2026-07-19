@@ -8,7 +8,7 @@ use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
 use App\Modules\Tenancy\Domain\Context\TenantContext;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\Tenant;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\TenantMembership;
-use Database\Seeders\PermissionCatalogSeeder;
+use Database\Seeders\PermissionSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -19,7 +19,7 @@ trait CreatesPhase2ScanFixture
     /** @return array{fixture:array<string,mixed>,token:string,credential:Credential,membership:TenantMembership,scanner:User,accessToken:string} */
     protected function createIssuedCredentialScanFixture(array $permissions = ['checkin.scan.submit']): array
     {
-        $this->seed(PermissionCatalogSeeder::class);
+        $this->seed(PermissionSeeder::class);
         $fixture = $this->createRegistrationFixture();
         $response = $this->withHeader('Idempotency-Key', 'scan-fixture-'.Str::lower((string) Str::ulid()))
             ->postJson(

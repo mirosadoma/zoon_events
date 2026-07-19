@@ -27,6 +27,9 @@ class DatabaseSeeder extends Seeder
 
             // 6. Builder demos: badge templates + registration forms + branding
             BuilderDemoSeeder::class,
+
+            // 7. Operational examples: attendees, credentials, kiosk, ACS, scans, badges
+            DemoContentSeeder::class,
         ]);
     }
 }

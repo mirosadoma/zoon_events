@@ -31,6 +31,13 @@ final class KioskHeartbeatController extends Controller
             $request->input('app_version'),
         );
 
-        return $this->success(['status' => 'ok']);
+        return $this->success([
+            'status' => 'ok',
+            'kiosk_id' => (string) $kiosk->id,
+            'device_code' => (string) $kiosk->device_code,
+            'device_name' => (string) $kiosk->device_name,
+            'confirmation_required' => (bool) $kiosk->confirmation_required,
+            'confirmed' => $context->confirmed,
+        ]);
     }
 }

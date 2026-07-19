@@ -18,6 +18,7 @@ return [
     'confirmation_footer_here' => 'هنا',
     'view_credential' => '(عرض بطاقة الدخول)',
     'event_not_publishable' => 'الفعالية غير جاهزة للنشر.',
+    'event_not_unpublishable' => 'لا يمكن إلغاء نشر هذه الفعالية. قد يكون لديها تسجيلات أو قد حان موعد بدايتها.',
     'registration_closed' => 'التسجيل مغلق.',
     'ticket_unavailable' => 'التذكرة المحددة غير متاحة.',
     'inventory_conflict' => 'تغير مخزون التذاكر. يرجى المحاولة مرة أخرى.',

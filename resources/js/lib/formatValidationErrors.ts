@@ -200,7 +200,7 @@ export function buildAgendaPayload<T extends {
 export const EVENT_SETUP_FIELD_LABELS: FieldLabelMap = {
   slug: { en: 'Slug', ar: 'المعرّف' },
   timezone: { en: 'Timezone', ar: 'المنطقة الزمنية' },
-  tier: { en: 'Tier', ar: 'المستوى' },
+  tier: { en: 'Type', ar: 'النوع' },
   organizer_user_id: { en: 'Organizer', ar: 'المنظم' },
   'name.en': { en: 'Name (EN)', ar: 'الاسم (EN)' },
   'name.ar': { en: 'Name (AR)', ar: 'الاسم (AR)' },

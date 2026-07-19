@@ -4,6 +4,10 @@ import {
   Type, Building2, Briefcase, QrCode, Ticket, Layers, MapPin,
   Image, Palette, PenLine, Plus, Trash2, Save, GripVertical,
 } from 'lucide-react'
+import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
+import { useToast } from '@/hooks/useToast'
+import { useLocale } from '@/hooks/useLocale'
+import type { BadgeTemplate } from '@/types/phase3'
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -24,6 +28,8 @@ interface BadgeFieldLayout {
   backgroundColor?: string
   borderRadius?: number
   rotation?: number
+  /** Static copy for custom_text fields (shown on printed/email badges). */
+  text?: string
 }
 
 interface BadgeTemplateData {
@@ -54,7 +60,7 @@ interface BadgeTemplateDesignerProps {
   eventId: string
   tenantId?: string
   onSave?: (data: BadgeTemplateData) => void
-  onSaved?: (template: any) => void
+  onSaved?: (template: BadgeTemplate) => void
   saving?: boolean
 }
 
@@ -105,6 +111,41 @@ const PAPER_PRESETS: Record<string, { w: number; h: number }> = {
   '4x6': { w: 288, h: 432 },
 }
 
+function normalizePaperSize(value?: string | null): string {
+  if (!value) return 'A6'
+  if (value === 'custom') return 'custom'
+  const match = Object.keys(PAPER_PRESETS).find((key) => key.toLowerCase() === value.toLowerCase())
+  return match ?? 'A6'
+}
+
+function resolveCanvasSize(
+  paperSize: string,
+  orientation: 'portrait' | 'landscape',
+  custom?: { w: number; h: number } | null,
+): { w: number; h: number } {
+  const preset = paperSize === 'custom' && custom
+    ? custom
+    : (PAPER_PRESETS[paperSize] ?? PAPER_PRESETS.A6)
+
+  return orientation === 'landscape'
+    ? { w: Math.max(preset.w, preset.h), h: Math.min(preset.w, preset.h) }
+    : { w: Math.min(preset.w, preset.h), h: Math.max(preset.w, preset.h) }
+}
+
+function clampFieldsToCanvas(fields: BadgeFieldLayout[], canvasW: number, canvasH: number): BadgeFieldLayout[] {
+  return fields.map((field) => {
+    const width = Math.min(field.width, canvasW)
+    const height = Math.min(field.height, canvasH)
+    return {
+      ...field,
+      width,
+      height,
+      x: snap(Math.max(0, Math.min(canvasW - width, field.x))),
+      y: snap(Math.max(0, Math.min(canvasH - height, field.y))),
+    }
+  })
+}
+
 const FONT_OPTIONS = ['Inter', 'Arial', 'Cairo', 'Tajawal', 'monospace']
 
 const DEFAULT_FIELD_SIZE: Record<string, { w: number; h: number }> = {
@@ -138,6 +179,7 @@ function defaultLayout(field: string, cx: number, cy: number): BadgeFieldLayout 
     textAlign: 'center',
     borderRadius: 0,
     rotation: 0,
+    ...(field === 'custom_text' ? { text: 'Custom text' } : {}),
   }
 }
 
@@ -178,7 +220,9 @@ function FieldPreview({ item }: { item: BadgeFieldLayout }) {
         textAlign: item.textAlign ?? 'left',
       }}
     >
-      {FIELD_LABELS[item.field] ?? item.field}
+      {item.field === 'custom_text'
+        ? (item.text?.trim() || FIELD_LABELS.custom_text)
+        : (FIELD_LABELS[item.field] ?? item.field)}
     </span>
   )
 }
@@ -189,20 +233,32 @@ function FieldPreview({ item }: { item: BadgeFieldLayout }) {
 
 export default function BadgeTemplateDesigner({
   template,
-  eventId: _eventId,
-  tenantId: _tenantId,
+  eventId,
+  tenantId,
   onSave,
-  onSaved: _onSaved,
+  onSaved,
   saving = false,
 }: BadgeTemplateDesignerProps) {
+  const { t } = useLocale()
+  const { toast } = useToast()
   const [name, setName] = useState(template?.name ?? '')
-  const [paperSize, setPaperSize] = useState(template?.paper_size ?? 'A6')
+  const [paperSize, setPaperSize] = useState(() => normalizePaperSize(template?.paper_size))
   const [printerType] = useState(template?.printer_type ?? 'thermal')
-  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>(
-    (template?.orientation as 'portrait' | 'landscape') ?? 'portrait',
+  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>(() =>
+    template?.orientation === 'landscape' ? 'landscape' : 'portrait',
   )
   const [bgColor, setBgColor] = useState(template?.background_color ?? '#ffffff')
-  const [status] = useState(template?.status ?? 'draft')
+  const [status, setStatus] = useState(template?.status ?? 'draft')
+  const [templateId, setTemplateId] = useState(template?.id)
+  const [savingInternal, setSavingInternal] = useState(false)
+  const [activating, setActivating] = useState(false)
+  const [customSize, setCustomSize] = useState<{ w: number; h: number } | null>(() => {
+    if (normalizePaperSize(template?.paper_size) !== 'custom') return null
+    if (template?.canvas_width && template?.canvas_height) {
+      return { w: template.canvas_width, h: template.canvas_height }
+    }
+    return { w: 298, h: 420 }
+  })
 
   const [fields, setFields] = useState<BadgeFieldLayout[]>(
     Array.isArray(template?.layout) ? template.layout as BadgeFieldLayout[] : [],
@@ -222,12 +278,8 @@ export default function BadgeTemplateDesigner({
     fieldId: string
   } | null>(null)
 
-  /* Canvas dimensions */
-  const basePreset = PAPER_PRESETS[paperSize]
-  const baseW = template?.canvas_width ?? basePreset?.w ?? 298
-  const baseH = template?.canvas_height ?? basePreset?.h ?? 420
-  const canvasW = orientation === 'landscape' ? Math.max(baseW, baseH) : Math.min(baseW, baseH)
-  const canvasH = orientation === 'landscape' ? Math.min(baseW, baseH) : Math.max(baseW, baseH)
+  /* Canvas dimensions follow the selected paper size + orientation (not a frozen saved canvas). */
+  const { w: canvasW, h: canvasH } = resolveCanvasSize(paperSize, orientation, customSize)
 
   /* Scale canvas to fit the viewport area */
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -341,9 +393,20 @@ export default function BadgeTemplateDesigner({
 
   /* ---- save ---- */
 
-  const handleSave = () => {
-    onSave?.({
-      name,
+  const handleSave = async () => {
+    const trimmedName = name.trim()
+    if (!trimmedName) {
+      toast('Template name is required.', 'error')
+      return
+    }
+
+    if (!tenantId) {
+      toast(t('requestFailed'), 'error')
+      return
+    }
+
+    const data: BadgeTemplateData = {
+      name: trimmedName,
       paper_size: paperSize,
       printer_type: printerType,
       orientation,
@@ -351,12 +414,84 @@ export default function BadgeTemplateDesigner({
       canvas_width: canvasW,
       canvas_height: canvasH,
       layout: fields,
-    })
+    }
+
+    onSave?.(data)
+
+    setSavingInternal(true)
+    try {
+      const isUpdate = Boolean(templateId)
+      const saved = await apiFetch<BadgeTemplate>(
+        isUpdate
+          ? `/api/v1/tenant/events/${eventId}/badge-templates/${templateId}`
+          : `/api/v1/tenant/events/${eventId}/badge-templates`,
+        {
+          method: isUpdate ? 'PATCH' : 'POST',
+          tenantId,
+          idempotency: true,
+          body: data,
+        },
+      )
+      setTemplateId(String(saved.id))
+      setStatus(saved.status)
+      onSaved?.(saved)
+      toast(t('saved'), 'success')
+    } catch (caught) {
+      toast(caught instanceof ApiFetchError ? caught.message : t('requestFailed'), 'error')
+    } finally {
+      setSavingInternal(false)
+    }
+  }
+
+  const handleActivate = async () => {
+    if (!tenantId || !templateId) {
+      toast(t('badgeTemplateSaveBeforeActivate'), 'error')
+      return
+    }
+
+    setActivating(true)
+    try {
+      const activated = await apiFetch<BadgeTemplate>(
+        `/api/v1/tenant/events/${eventId}/badge-templates/${templateId}/activate`,
+        {
+          method: 'POST',
+          tenantId,
+          idempotency: true,
+          body: {},
+        },
+      )
+      setStatus(activated.status)
+      onSaved?.(activated)
+      toast(t('badgeTemplateActivated'), 'success')
+    } catch (caught) {
+      toast(caught instanceof ApiFetchError ? caught.message : t('requestFailed'), 'error')
+    } finally {
+      setActivating(false)
+    }
   }
 
   const handlePaperChange = (val: string) => {
-    setPaperSize(val)
+    const next = normalizePaperSize(val === 'custom' ? 'custom' : val)
+    setPaperSize(next)
+    if (next === 'custom') {
+      setCustomSize((prev) => prev ?? { w: canvasW, h: canvasH })
+    } else {
+      setCustomSize(null)
+      const nextSize = resolveCanvasSize(next, orientation, null)
+      setFields((prev) => clampFieldsToCanvas(prev, nextSize.w, nextSize.h))
+    }
   }
+
+  const handleOrientationToggle = () => {
+    setOrientation((current) => {
+      const next = current === 'portrait' ? 'landscape' : 'portrait'
+      const nextSize = resolveCanvasSize(paperSize, next, customSize)
+      setFields((prev) => clampFieldsToCanvas(prev, nextSize.w, nextSize.h))
+      return next
+    })
+  }
+
+  const isSaving = saving || savingInternal
 
   /* ---------------------------------------------------------------- */
   /*  Render                                                           */
@@ -397,7 +532,7 @@ export default function BadgeTemplateDesigner({
 
         <button
           type="button"
-          onClick={() => setOrientation((o) => (o === 'portrait' ? 'landscape' : 'portrait'))}
+          onClick={handleOrientationToggle}
           className="rounded bg-slate-700 px-2 py-1 transition hover:bg-slate-600"
         >
           {orientation === 'portrait' ? '▯ Portrait' : '▭ Landscape'}
@@ -422,17 +557,28 @@ export default function BadgeTemplateDesigner({
               : 'bg-amber-500/20 text-amber-300'
           }`}
         >
-          {status}
+          {status === 'active' ? t('badgeTemplateStatusActive') : t('badgeTemplateStatusDraft')}
         </span>
+
+        {status !== 'active' && templateId ? (
+          <button
+            type="button"
+            onClick={() => void handleActivate()}
+            disabled={activating || isSaving}
+            className="rounded bg-emerald-600 px-3 py-1 font-medium transition hover:bg-emerald-500 disabled:opacity-50"
+          >
+            {activating ? t('badgeTemplateActivating') : t('badgeTemplateActivate')}
+          </button>
+        ) : null}
 
         <button
           type="button"
-          onClick={handleSave}
-          disabled={saving}
+          onClick={() => void handleSave()}
+          disabled={isSaving}
           className="flex items-center gap-1.5 rounded bg-blue-600 px-3 py-1 font-medium transition hover:bg-blue-500 disabled:opacity-50"
         >
           <Save size={14} />
-          {saving ? 'Saving…' : 'Save'}
+          {isSaving ? 'Saving…' : 'Save'}
         </button>
       </div>
 
@@ -480,92 +626,97 @@ export default function BadgeTemplateDesigner({
           onClick={() => setSelectedId(null)}
         >
           <div
-            ref={canvasRef}
-            className="relative shadow-lg"
-            style={{
-              width: canvasW,
-              height: canvasH,
-              backgroundColor: bgColor,
-              transform: `scale(${scale})`,
-              transformOrigin: 'center center',
-            }}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerLeave={onPointerUp}
-            onClick={(e) => {
-              e.stopPropagation()
-              setSelectedId(null)
-            }}
+            className="relative shrink-0"
+            style={{ width: canvasW * scale, height: canvasH * scale }}
           >
-            {fields.map((item) => {
-              const isSelected = item.id === selectedId
-              return (
-                <div
-                  key={item.id}
-                  className="absolute"
-                  style={{
-                    left: item.x,
-                    top: item.y,
-                    width: item.width,
-                    height: item.height,
-                    backgroundColor: item.backgroundColor ?? 'transparent',
-                    borderRadius: item.borderRadius ?? 0,
-                    transform: item.rotation ? `rotate(${item.rotation}deg)` : undefined,
-                    outline: isSelected ? '2px solid #3b82f6' : '1px dashed #cbd5e1',
-                    outlineOffset: isSelected ? 1 : 0,
-                    cursor: 'move',
-                    userSelect: 'none',
-                    touchAction: 'none',
-                    zIndex: isSelected ? 50 : 1,
-                    overflow: 'hidden',
-                  }}
-                  onPointerDown={(e) => onFieldPointerDown(e, item.id)}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setSelectedId(item.id)
-                  }}
-                >
-                  <FieldPreview item={item} />
-
-                  {isSelected &&
-                    corners.map((c) => (
-                      <div
-                        key={c}
-                        className="absolute z-50 h-2.5 w-2.5 rounded-sm border border-white bg-blue-500"
-                        style={{
-                          ...cornerPositions[c],
-                          cursor: cornerCursors[c],
-                        }}
-                        onPointerDown={(e) => {
-                          const corner =
-                            c === 'tl' ? 'tl' : c === 'tr' ? 'tr' : c === 'bl' ? 'bl' : 'br'
-                          onFieldPointerDown(e, item.id, corner)
-                        }}
-                      />
-                    ))}
-                </div>
-              )
-            })}
-
-            {/* Grid dots overlay */}
-            <svg
-              className="pointer-events-none absolute inset-0"
-              width={canvasW}
-              height={canvasH}
-              style={{ opacity: 0.08 }}
+            <div
+              ref={canvasRef}
+              className="relative shadow-lg"
+              style={{
+                width: canvasW,
+                height: canvasH,
+                backgroundColor: bgColor,
+                transform: `scale(${scale})`,
+                transformOrigin: 'top left',
+              }}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerLeave={onPointerUp}
+              onClick={(e) => {
+                e.stopPropagation()
+                setSelectedId(null)
+              }}
             >
-              <defs>
-                <pattern id="grid" width={SNAP * 4} height={SNAP * 4} patternUnits="userSpaceOnUse">
-                  <circle cx={1} cy={1} r={0.5} fill="#000" />
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#grid)" />
-            </svg>
+              {fields.map((item) => {
+                const isSelected = item.id === selectedId
+                return (
+                  <div
+                    key={item.id}
+                    className="absolute"
+                    style={{
+                      left: item.x,
+                      top: item.y,
+                      width: item.width,
+                      height: item.height,
+                      backgroundColor: item.backgroundColor ?? 'transparent',
+                      borderRadius: item.borderRadius ?? 0,
+                      transform: item.rotation ? `rotate(${item.rotation}deg)` : undefined,
+                      outline: isSelected ? '2px solid #3b82f6' : '1px dashed #cbd5e1',
+                      outlineOffset: isSelected ? 1 : 0,
+                      cursor: 'move',
+                      userSelect: 'none',
+                      touchAction: 'none',
+                      zIndex: isSelected ? 50 : 1,
+                      overflow: 'hidden',
+                    }}
+                    onPointerDown={(e) => onFieldPointerDown(e, item.id)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSelectedId(item.id)
+                    }}
+                  >
+                    <FieldPreview item={item} />
+
+                    {isSelected &&
+                      corners.map((c) => (
+                        <div
+                          key={c}
+                          className="absolute z-50 h-2.5 w-2.5 rounded-sm border border-white bg-blue-500"
+                          style={{
+                            ...cornerPositions[c],
+                            cursor: cornerCursors[c],
+                          }}
+                          onPointerDown={(e) => {
+                            const corner =
+                              c === 'tl' ? 'tl' : c === 'tr' ? 'tr' : c === 'bl' ? 'bl' : 'br'
+                            onFieldPointerDown(e, item.id, corner)
+                          }}
+                        />
+                      ))}
+                  </div>
+                )
+              })}
+
+              {/* Grid dots overlay */}
+              <svg
+                className="pointer-events-none absolute inset-0"
+                width={canvasW}
+                height={canvasH}
+                style={{ opacity: 0.08 }}
+              >
+                <defs>
+                  <pattern id="grid" width={SNAP * 4} height={SNAP * 4} patternUnits="userSpaceOnUse">
+                    <circle cx={1} cy={1} r={0.5} fill="#000" />
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#grid)" />
+              </svg>
+            </div>
           </div>
 
           {/* Canvas size label */}
           <div className="absolute bottom-2 right-2 rounded bg-black/40 px-2 py-0.5 text-xs text-white">
-            {canvasW} × {canvasH}px &nbsp;·&nbsp; {Math.round(scale * 100)}%
+            {canvasW} × {canvasH}px &nbsp;·&nbsp; {Math.round(scale * 100)}% · {orientation}
           </div>
         </div>
 
@@ -592,6 +743,22 @@ export default function BadgeTemplateDesigner({
                   <PropNumber label="H" value={selected.height} onChange={(v) => updateField(selected.id, { height: snap(Math.max(20, v)) })} />
                 </div>
               </fieldset>
+
+              {selected.field === 'custom_text' && (
+                <fieldset className="space-y-1.5">
+                  <legend className="text-xs font-semibold text-slate-400">Content</legend>
+                  <label className="block">
+                    <span className="mb-0.5 block text-xs text-slate-400">Text</span>
+                    <input
+                      type="text"
+                      value={selected.text ?? ''}
+                      onChange={(e) => updateField(selected.id, { text: e.target.value })}
+                      placeholder="Custom text…"
+                      className="w-full rounded bg-slate-700 px-2 py-1 text-white outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </label>
+                </fieldset>
+              )}
 
               {/* Typography (hide for non-text fields) */}
               {!['qr', 'sponsor_logo_ref', 'organizer_logo_ref', 'color_code'].includes(selected.field) && (

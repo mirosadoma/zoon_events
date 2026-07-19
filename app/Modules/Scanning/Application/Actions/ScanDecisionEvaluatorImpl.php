@@ -5,6 +5,7 @@ namespace App\Modules\Scanning\Application\Actions;
 use App\Exceptions\FoundationException;
 use App\Modules\Credentials\Application\Validation\CredentialValidator;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
+use App\Modules\Orders\Infrastructure\Persistence\Models\Order;
 use App\Modules\Scanning\Contracts\ScanDecisionEvaluator;
 use App\Modules\Scanning\Domain\Results\ScanDecision;
 use App\Modules\Scanning\Domain\SingleEntryEvaluator;
@@ -19,10 +20,16 @@ final readonly class ScanDecisionEvaluatorImpl implements ScanDecisionEvaluator
 
     public function evaluate(ScanContext $context): ScanDecision
     {
+        $qrPayload = trim($context->qrPayload);
+
+        if (str_starts_with($qrPayload, 'ord_') && ($context->credentialId === null || $context->credentialId === '')) {
+            return $this->rejectUnresolvedOrderReference($qrPayload, $context);
+        }
+
         try {
-            if ($context->qrPayload !== '') {
+            if ($qrPayload !== '') {
                 $validated = $this->credentials->validate(
-                    $context->qrPayload,
+                    $qrPayload,
                     $context->tenantId,
                     $context->eventId,
                 );
@@ -68,5 +75,19 @@ final readonly class ScanDecisionEvaluatorImpl implements ScanDecisionEvaluator
         }
 
         return new ScanDecision('accepted', 'entry_granted', $credential->id, $credential->attendee_id);
+    }
+
+    private function rejectUnresolvedOrderReference(string $orderReference, ScanContext $context): ScanDecision
+    {
+        $order = Order::query()
+            ->where('tenant_id', $context->tenantId)
+            ->where('public_reference', $orderReference)
+            ->first();
+
+        if ($order !== null && (string) $order->event_id !== (string) $context->eventId) {
+            return new ScanDecision('rejected', 'order_reference_wrong_event');
+        }
+
+        return new ScanDecision('rejected', 'order_reference_not_found');
     }
 }

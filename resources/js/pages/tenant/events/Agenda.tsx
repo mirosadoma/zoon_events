@@ -11,6 +11,7 @@ import { useFormValidation } from '@/hooks/useFormValidation'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
 import { ApiFetchError, apiFetch } from '@/lib/apiFetch'
+import { combineDateAndTime, toTimeLocalValue } from '@/lib/dateTimeLocal'
 import {
   agendaFieldSelector,
   buildAgendaPayload,
@@ -23,6 +24,7 @@ type EventRow = {
   id: string
   name: { en: string; ar: string }
   start_at?: string | null
+  timezone?: string | null
 }
 
 type AgendaRow = {
@@ -48,35 +50,12 @@ type Props = {
   }>
 }
 
-function pad(n: number): string {
-  return n.toString().padStart(2, '0')
-}
-
 function toLocalTime(value: string | null | undefined): string {
-  if (!value) return ''
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return ''
-
-  return `${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`
+  return toTimeLocalValue(value)
 }
 
 function fromLocalTime(value: string, dateSource: string | null | undefined): string | null {
-  if (!value.trim()) return null
-
-  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim())
-  if (!match) return null
-
-  const hours = Number(match[1])
-  const minutes = Number(match[2])
-  if (hours > 23 || minutes > 59) return null
-
-  const base = dateSource ? new Date(dateSource) : new Date()
-  if (Number.isNaN(base.getTime())) return null
-
-  const combined = new Date(base)
-  combined.setHours(hours, minutes, 0, 0)
-
-  return combined.toISOString()
+  return combineDateAndTime(dateSource, value)
 }
 
 function mapInitialItems(items: Props['items']): AgendaRow[] {

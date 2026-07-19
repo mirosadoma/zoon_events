@@ -2,11 +2,11 @@ import { router } from '@inertiajs/react'
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useMemo, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
-// import EventDetailHero from '@/components/events/EventDetailHero'
 import EventSectionGrid from '@/components/events/EventSectionGrid'
 import PublishReadinessList from '@/components/events/PublishReadinessList'
 import EventNextSteps from '@/components/events/EventNextSteps'
 import CopyRegistrationLinkButton from '@/components/events/CopyRegistrationLinkButton'
+import SendPrivateInviteModal from '@/components/events/SendPrivateInviteModal'
 import type { EventCapabilities } from '@/lib/eventOptions'
 import type { EventSectionTab, EventSetupProgress } from '@/lib/eventSetupProgress'
 import { PageContent, PageHeader } from '@/components/layout'
@@ -16,6 +16,7 @@ import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
 import { splitPublishReadiness, type PublishReadinessContext } from '@/lib/publishReadinessCatalog'
+import { Mail } from 'lucide-react'
 
 type EventRow = {
   id: string
@@ -32,6 +33,7 @@ type EventRow = {
   capabilities?: EventCapabilities,
   registration_url?: string | null
   setup_progress?: EventSetupProgress
+  can_unpublish?: boolean
 }
 
 type Props = {
@@ -46,9 +48,12 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
   const { locale, t } = useLocale()
   const { toast } = useToast()
   const [publishOpen, setPublishOpen] = useState(false)
+  const [unpublishOpen, setUnpublishOpen] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
-  const [submitting, setSubmitting] = useState<'publish' | 'cancel' | null>(null)
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [submitting, setSubmitting] = useState<'publish' | 'unpublish' | 'cancel' | null>(null)
   const [apiPublishMissing, setApiPublishMissing] = useState<string[] | null>(null)
+  const canSendPrivateInvites = event.tier === 'private' || event.tier === 'both'
 
   async function copyRegistrationLink(url: string) {
     try {
@@ -65,6 +70,7 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
     requiresTicketing: capabilities?.requires_ticketing,
   }), [event.status, capabilities?.requires_ticketing])
   const canPublish = event.status === 'draft' || event.status === 'configured'
+  const canUnpublish = Boolean(event.can_unpublish)
   const isPrePublishStatus = canPublish
   const effectiveReadiness = useMemo(
     () => apiPublishMissing ?? (event.readiness ?? []),
@@ -80,11 +86,14 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
     ticket_types: !effectiveReadiness.includes('active_ticket_type'),
     price_tiers: false,
     agenda: !effectiveReadiness.includes('published_agenda'),
+    categories: !effectiveReadiness.includes('event_categories'),
+    badge_templates: !effectiveReadiness.includes('active_badge_template'),
+    kiosks: false,
     identity: false,
     published: !canPublish,
   }
 
-  async function runStatusAction(action: 'publish' | 'cancel') {
+  async function runStatusAction(action: 'publish' | 'unpublish' | 'cancel') {
     setSubmitting(action)
 
     try {
@@ -93,8 +102,16 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
         tenantId,
         idempotency: true,
       })
-      toast(action === 'publish' ? t('eventDetailPublished') : t('eventDetailCancelled'), 'success')
+      toast(
+        action === 'publish'
+          ? t('eventDetailPublished')
+          : action === 'unpublish'
+            ? t('eventDetailUnpublished')
+            : t('eventDetailCancelled'),
+        'success',
+      )
       setPublishOpen(false)
+      setUnpublishOpen(false)
       setCancelOpen(false)
       setApiPublishMissing(null)
       router.reload({ only: ['event'] })
@@ -112,7 +129,9 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
           ? error.message
           : action === 'publish'
             ? t('eventDetailFailedToPublish')
-            : t('eventDetailFailedToCancel')
+            : action === 'unpublish'
+              ? t('eventDetailFailedToUnpublish')
+              : t('eventDetailFailedToCancel')
 
       toast(publishErrorMessage, 'error')
     } finally {
@@ -145,6 +164,18 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
                 onClick={() => void copyRegistrationLink(event.registration_url!)}
               />
             ) : null}
+            {canSendPrivateInvites ? (
+              <PermissionGate permission="event.invite.manage">
+                <button
+                  type="button"
+                  className="button-secondary inline-flex items-center gap-2"
+                  onClick={() => setInviteOpen(true)}
+                >
+                  <Mail className="h-4 w-4" aria-hidden="true" />
+                  {t('inviteSendTitle')}
+                </button>
+              </PermissionGate>
+            ) : null}
             <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/agenda-preview`} target="_blank" rel="noreferrer">
               {t('preview')}
             </LocalizedLink>
@@ -153,6 +184,16 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
               {canPublishNow ? (
                 <button type="button" className="button-primary" onClick={openPublishModal} disabled={submitting === 'publish'}>
                   {publishButtonLabel}
+                </button>
+              ) : null}
+              {canUnpublish ? (
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={() => setUnpublishOpen(true)}
+                  disabled={submitting === 'unpublish'}
+                >
+                  {t('unpublish')}
                 </button>
               ) : null}
             </PermissionGate>
@@ -264,6 +305,16 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
         ) : null}
       </ConfirmModal>
       <ConfirmModal
+        open={unpublishOpen}
+        title={t('eventDetailUnpublishEvent')}
+        message={t('eventDetailUnpublishMessage')}
+        confirmLabel={t('unpublish')}
+        cancelLabel={t('close')}
+        loading={submitting !== null}
+        onConfirm={() => void runStatusAction('unpublish')}
+        onCancel={() => setUnpublishOpen(false)}
+      />
+      <ConfirmModal
         open={cancelOpen}
         title={t('eventDetailCancelEvent')}
         message={t('eventDetailCancelMessage')}
@@ -271,6 +322,12 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
         loading={submitting !== null}
         onConfirm={() => void runStatusAction('cancel')}
         onCancel={() => setCancelOpen(false)}
+      />
+      <SendPrivateInviteModal
+        open={inviteOpen}
+        eventId={event.id}
+        tenantId={tenantId}
+        onClose={() => setInviteOpen(false)}
       />
     </DashboardLayout>
   )

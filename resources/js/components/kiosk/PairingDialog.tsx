@@ -3,18 +3,23 @@ import { useLocale } from '@/hooks/useLocale'
 import type { Kiosk } from '@/types/phase3'
 
 interface PairingDialogProps {
-  kiosk: Kiosk
+  open?: boolean
+  kiosk: Kiosk | null
   onConfirm: (kioskId: string) => void
   onCancel: () => void
 }
 
-export function PairingDialog({ kiosk, onConfirm, onCancel }: PairingDialogProps) {
+export function PairingDialog({ open = true, kiosk, onConfirm, onCancel }: PairingDialogProps) {
   const { locale, t } = useLocale()
   const ar = locale === 'ar'
 
+  if (!kiosk) {
+    return null
+  }
+
   return (
     <ConfirmModal
-      open
+      open={open}
       title={ar ? `إقران الكشك: ${kiosk.device_name}` : `Pair kiosk: ${kiosk.device_name}`}
       message={t('pairingDialogMessage')}
       confirmLabel={t('pairingDialogConfirm')}

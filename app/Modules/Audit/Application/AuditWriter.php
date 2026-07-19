@@ -76,6 +76,7 @@ class AuditWriter implements AuditWriterContract
                 actorName: $actor?->name,
                 targetType: $targetType,
                 targetId: $targetId,
+                metadata: $metadata,
             );
         } catch (\Throwable) {
             // Notification dispatch must never break the audit write path

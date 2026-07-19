@@ -10,6 +10,8 @@ import { PageContent, PageHeader } from '@/components/layout'
 import PermissionGate from '@/components/layout/PermissionGate'
 import ReasonModal from '@/components/modals/ReasonModal'
 import { useLocale } from '@/hooks/useLocale'
+import { apiFetch } from '@/lib/apiFetch'
+import { openBlankPrintWindow, writeBadgePrintDocument } from '@/lib/openBadgePrintWindow'
 
 type EventRow = {
   id: string
@@ -106,23 +108,45 @@ export default function ManualDesk({ event, tenantId }: Props) {
   }
 
   async function handlePrint(attendeeId: string, credentialId: string) {
-    await fetch(`/api/v1/tenant/events/${event.id}/badge-print-jobs`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { ...apiHeaders, 'Idempotency-Key': crypto.randomUUID() },
-      body: JSON.stringify({ attendee_id: attendeeId, credential_id: credentialId }),
-    })
+    const printWindow = openBlankPrintWindow()
+    try {
+      const job = await apiFetch<{ print_html?: string | null }>(
+        `/api/v1/tenant/events/${event.id}/badge-print-jobs`,
+        {
+          method: 'POST',
+          tenantId,
+          idempotency: true,
+          body: { attendee_id: attendeeId, credential_id: credentialId },
+        },
+      )
+      if (!writeBadgePrintDocument(printWindow, job.print_html)) {
+        printWindow?.close()
+      }
+    } catch {
+      printWindow?.close()
+    }
   }
 
   async function handleReprint(reason: string) {
     if (!reprintJobId) return
 
-    await fetch(`/api/v1/tenant/events/${event.id}/badge-print-jobs/${reprintJobId}/reprint`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { ...apiHeaders, 'Idempotency-Key': crypto.randomUUID() },
-      body: JSON.stringify({ reprint_reason: reason }),
-    })
+    const printWindow = openBlankPrintWindow()
+    try {
+      const job = await apiFetch<{ print_html?: string | null }>(
+        `/api/v1/tenant/events/${event.id}/badge-print-jobs/${reprintJobId}/reprint`,
+        {
+          method: 'POST',
+          tenantId,
+          idempotency: true,
+          body: { reprint_reason: reason },
+        },
+      )
+      if (!writeBadgePrintDocument(printWindow, job.print_html)) {
+        printWindow?.close()
+      }
+    } catch {
+      printWindow?.close()
+    }
     setReprintJobId(null)
   }
 

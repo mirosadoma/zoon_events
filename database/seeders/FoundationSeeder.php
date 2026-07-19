@@ -21,19 +21,49 @@ final class FoundationSeeder extends Seeder
     {
         $this->call(PermissionSeeder::class);
 
-        if (app()->environment('production')) {
-            return;
-        }
-
         DB::transaction(function (): void {
             $admin = $this->seedPlatformAdmin();
             $this->seedPlatformRoles($admin);
             $this->assignPlatformRole($admin, 'Super Administrator', $admin);
 
             $tenant = $this->seedTenant($admin);
-            $organizer = $this->seedOrganizer($admin);
             $this->seedTenantRoles($tenant, $admin);
-            $this->seedTenantMembership($tenant, $organizer, $admin);
+
+            $organizer = $this->seedStaffUser(
+                DemoAccounts::TENANT_EMAIL,
+                DemoAccounts::TENANT_PASSWORD,
+                'Organizer Admin',
+                'ar',
+                $admin,
+            );
+            $ticketing = $this->seedStaffUser(
+                DemoAccounts::TICKETING_EMAIL,
+                DemoAccounts::TICKETING_PASSWORD,
+                'Ticketing Manager',
+                'en',
+                $admin,
+            );
+            $onsite = $this->seedStaffUser(
+                DemoAccounts::ONSITE_EMAIL,
+                DemoAccounts::ONSITE_PASSWORD,
+                'On-Site Staff',
+                'en',
+                $admin,
+            );
+            $acs = $this->seedStaffUser(
+                DemoAccounts::ACS_EMAIL,
+                DemoAccounts::ACS_PASSWORD,
+                'ACS Operator',
+                'en',
+                $admin,
+            );
+
+            // Super Admin also gets tenant admin membership so /tenant/* works in demos.
+            $this->seedTenantMembership($tenant, $admin, 'Tenant Administrator', $admin);
+            $this->seedTenantMembership($tenant, $organizer, 'Tenant Administrator', $admin);
+            $this->seedTenantMembership($tenant, $ticketing, 'Ticketing Manager', $admin);
+            $this->seedTenantMembership($tenant, $onsite, 'On-Site Staff', $admin);
+            $this->seedTenantMembership($tenant, $acs, 'ACS Operator', $admin);
         });
     }
 
@@ -47,8 +77,24 @@ final class FoundationSeeder extends Seeder
             [
                 'name' => 'Super Administrator',
                 'password' => Hash::make($password),
+                'type' => 'staff',
                 'status' => LifecycleStatus::Active->value,
                 'preferred_locale' => 'en',
+            ],
+        );
+    }
+
+    private function seedStaffUser(string $email, string $password, string $name, string $locale, User $grantor): User
+    {
+        return User::query()->updateOrCreate(
+            ['email' => mb_strtolower($email)],
+            [
+                'name' => $name,
+                'password' => Hash::make($password),
+                'type' => 'staff',
+                'status' => LifecycleStatus::Active->value,
+                'preferred_locale' => $locale,
+                'created_by_user_id' => $grantor->id,
             ],
         );
     }
@@ -57,6 +103,15 @@ final class FoundationSeeder extends Seeder
     {
         $roles = [
             'Super Administrator' => ['*'],
+            'Security Auditor' => [
+                'platform.audit.view',
+                'platform.audit.export',
+                'platform.audit.verify',
+            ],
+            'Operations Viewer' => [
+                'operations.health.view',
+                'platform.configuration.view',
+            ],
         ];
 
         foreach ($roles as $name => $permissionKeys) {
@@ -84,20 +139,6 @@ final class FoundationSeeder extends Seeder
         );
     }
 
-    private function seedOrganizer(User $grantor): User
-    {
-        return User::query()->updateOrCreate(
-            ['email' => DemoAccounts::TENANT_EMAIL],
-            [
-                'name' => 'Organizer Admin',
-                'password' => Hash::make(DemoAccounts::TENANT_PASSWORD),
-                'status' => LifecycleStatus::Active->value,
-                'preferred_locale' => 'ar',
-                'created_by_user_id' => $grantor->id,
-            ],
-        );
-    }
-
     private function seedTenantRoles(Tenant $tenant, User $grantor): void
     {
         $roles = [
@@ -105,9 +146,11 @@ final class FoundationSeeder extends Seeder
             'Event Manager' => [
                 'tenant.view', 'membership.view', 'role.view', 'audit.view', 'configuration.view',
                 'event.view', 'event.manage', 'event.publish', 'event.cancel', 'event.reopen', 'event.archive',
+                'event.invite.view', 'event.invite.manage',
+                'privilege.view', 'privilege.manage',
                 'category.view', 'category.manage',
                 'registration.manage', 'ticketing.manage', 'order.view', 'order.manage',
-                'attendee.view', 'attendee.manage', 'credential.view', 'credential.revoke', 'credential.reissue',
+                'attendee.view', 'attendee.manage', 'credential.view', 'credential.validate', 'credential.revoke', 'credential.reissue',
                 'identity.configure', 'identity.review', 'identity.data.view',
                 'wallet.pass.view', 'wallet.pass.generate', 'wallet.pass.manage',
                 'checkin.scan.submit', 'checkin.dashboard.view', 'checkin.desk.perform',
@@ -115,6 +158,32 @@ final class FoundationSeeder extends Seeder
                 'badge.print', 'badge.reprint', 'badge.template.manage', 'attendee.walkup.register',
                 'acs.configure', 'acs.events.view', 'acs.health.view',
                 'marketplace.manage',
+                'subscription.view',
+            ],
+            'Ticketing Manager' => [
+                'event.view', 'ticketing.manage', 'order.view', 'order.manage', 'payment.refund',
+                'attendee.view', 'credential.view', 'credential.revoke', 'credential.reissue',
+                'wallet.pass.view', 'wallet.pass.generate',
+            ],
+            'On-Site Staff' => [
+                'event.view', 'attendee.view', 'credential.view',
+                'checkin.scan.submit', 'checkin.scan.override', 'checkin.dashboard.view', 'checkin.desk.perform',
+                'kiosk.health.view', 'badge.print', 'badge.reprint', 'attendee.walkup.register',
+            ],
+            'ACS Operator' => [
+                'event.view', 'acs.configure', 'acs.events.view', 'acs.health.view', 'acs.emergency.manage',
+            ],
+            'Venue Owner Admin' => [
+                'venue.manage', 'rentals.approve', 'reports.view', 'audit.view',
+            ],
+            'Venue Asset Manager' => [
+                'venue.manage',
+            ],
+            'Venue Rental Approver' => [
+                'rentals.approve',
+            ],
+            'Venue Finance Manager' => [
+                'reports.view', 'audit.view',
             ],
         ];
 
@@ -127,14 +196,14 @@ final class FoundationSeeder extends Seeder
         }
     }
 
-    private function seedTenantMembership(Tenant $tenant, User $organizer, User $grantor): void
+    private function seedTenantMembership(Tenant $tenant, User $user, string $roleName, User $grantor): void
     {
         $membership = TenantMembership::query()->updateOrCreate(
-            ['tenant_id' => $tenant->id, 'user_id' => $organizer->id],
+            ['tenant_id' => $tenant->id, 'user_id' => $user->id],
             ['status' => LifecycleStatus::Active->value, 'created_by_user_id' => $grantor->id],
         );
 
-        $this->assignTenantRole($tenant, $membership, 'Tenant Administrator', $grantor);
+        $this->assignTenantRole($tenant, $membership, $roleName, $grantor);
     }
 
     private function assignPlatformRole(?User $user, string $roleName, User $grantor): void

@@ -12,6 +12,8 @@ Route::prefix('tenant/events/{event_id}')
 
         Route::post('/badge-print-jobs', [BadgePrintJobController::class, 'store'])
             ->middleware(['permission:badge.print,tenant', 'idempotency']);
+        Route::post('/badge-print-jobs/preview', [BadgePrintJobController::class, 'preview'])
+            ->middleware(['permission:badge.print,tenant']);
         Route::post('/badge-print-jobs/{badge_print_job_id}/reprint', [BadgePrintJobController::class, 'reprint'])
             ->middleware(['permission:badge.reprint,tenant', 'idempotency']);
 

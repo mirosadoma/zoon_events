@@ -25,5 +25,9 @@ final readonly class FreeRegistrationInput
         public string $locale,
         public CarbonImmutable $credentialExpiresAt,
         public bool $bypassIdentityGateForCredential = false,
+        public ?string $eventCategoryId = null,
+        public ?int $priceMinorOverride = null,
+        public ?string $currencyOverride = null,
+        public ?string $eventVenueId = null,
     ) {}
 }

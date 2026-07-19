@@ -84,6 +84,7 @@ final readonly class CompletePaidRegistration implements OrderPaymentPort
                 $order->submission_id,
                 $identity,
                 $order->locale,
+                $order->event_venue_id !== null ? (string) $order->event_venue_id : null,
             );
             $item->forceFill(['attendee_id' => $attendee->id])->save();
             $credential = $this->credentials->issue(
@@ -119,7 +120,10 @@ final readonly class CompletePaidRegistration implements OrderPaymentPort
                 'succeeded',
                 targetType: 'order',
                 targetId: $order->id,
-                metadata: ['event_id' => $order->event_id],
+                metadata: [
+                    'event_id' => $order->event_id,
+                    'attendee_id' => $attendee->id,
+                ],
             );
 
             return new PaidOrderResult($order->id, 'paid', $credential?->id, $credential?->token);

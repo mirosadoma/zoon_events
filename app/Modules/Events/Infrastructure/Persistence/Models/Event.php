@@ -3,6 +3,7 @@
 namespace App\Modules\Events\Infrastructure\Persistence\Models;
 
 use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
+use App\Modules\Events\Domain\EventCodeGenerator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -16,6 +17,15 @@ final class Event extends Model
         'location_address_en', 'location_address_ar', 'capacity', 'main_image_path',
         'active_form_version_id', 'created_by_user_id',
     ];
+
+    protected static function booted(): void
+    {
+        self::creating(function (Event $event): void {
+            if ($event->code === null || $event->code === '') {
+                $event->code = app(EventCodeGenerator::class)->generate();
+            }
+        });
+    }
 
     protected function casts(): array
     {

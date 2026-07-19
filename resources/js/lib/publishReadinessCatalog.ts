@@ -76,15 +76,20 @@ export const publishReadinessLabels: Record<string, ReadinessEntry> = {
         : `/tenant/events/${eventId}/ticket-types`
     ),
   },
+  event_categories: {
+    en: 'At least one category with venue and dates assigned',
+    ar: 'قسم واحد على الأقل مع موقع وتواريخ معيّنة',
+    href: (eventId) => `/tenant/events/${eventId}/categories`,
+  },
   active_branding: {
     en: 'Brand reference and domain reference',
     ar: 'مرجع العلامة التجارية ونطاق الفعالية',
     href: (eventId) => editSection(eventId, 'event-setup-branding'),
   },
-  main_image: {
-    en: 'Main event image',
-    ar: 'الصورة الرئيسية للفعالية',
-    href: (eventId) => editSection(eventId, 'event-setup-branding'),
+  active_badge_template: {
+    en: 'Active custom badge template',
+    ar: 'قالب شارة مخصص نشط',
+    href: (eventId) => `/tenant/events/${eventId}/badge-templates`,
   },
   valid_timezone: {
     en: 'Valid timezone identifier',
@@ -206,6 +211,40 @@ export function canPublishEventStatus(status: string): boolean {
   return status === 'draft' || status === 'configured'
 }
 
+/** Statuses where publish is done or no longer the goal — not a setup failure. */
+export function isPostPublishStatus(status: string): boolean {
+  return [
+    'published',
+    'registration_open',
+    'registration_closed',
+    'live',
+    'completed',
+  ].includes(status)
+}
+
+export type PublishReadinessBadgeKind = 'ready' | 'blocked' | 'published' | 'unavailable'
+
+export function publishReadinessBadgeKind(
+  readiness: string[],
+  context: PublishReadinessContext,
+): PublishReadinessBadgeKind {
+  const status = context.status ?? ''
+
+  if (status === 'published') {
+    return 'published'
+  }
+
+  if (isPostPublishStatus(status)) {
+    return 'unavailable'
+  }
+
+  if (!canPublishEventStatus(status)) {
+    return 'unavailable'
+  }
+
+  return isReadyToPublish(readiness, context) ? 'ready' : 'blocked'
+}
+
 export function isReadyToPublish(
   readiness: string[],
   context: PublishReadinessContext,
@@ -224,8 +263,14 @@ export function publishReadinessTooltip(
   locale: AppLocale,
   context: PublishReadinessContext,
 ): string {
-  if (isReadyToPublish(readiness, context)) {
+  const kind = publishReadinessBadgeKind(readiness, context)
+
+  if (kind === 'ready') {
     return msg(locale).publishReadyMessage
+  }
+
+  if (kind === 'published') {
+    return publishReadinessLabel('status_published', locale, context)
   }
 
   const { requirements, statusBlockers } = splitPublishReadiness(readiness, context)
@@ -233,6 +278,10 @@ export function publishReadinessTooltip(
 
   if (reasons.length === 0) {
     return msg(locale).publishBlockedMessage
+  }
+
+  if (kind === 'unavailable') {
+    return reasons.join(' · ')
   }
 
   return `${msg(locale).publishCannotPrefix}${reasons.join(' · ')}`

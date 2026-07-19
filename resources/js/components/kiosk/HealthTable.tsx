@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
+import { Copy } from 'lucide-react'
 import DataTable from '@/components/tables/DataTable'
 import StatusBadge from '@/components/status/StatusBadge'
 import { useLocale } from '@/hooks/useLocale'
+import { useToast } from '@/hooks/useToast'
+import { localizedPath } from '@/lib/localePath'
 import type { Kiosk } from '@/types/phase3'
 
 interface HealthTableProps {
@@ -12,6 +15,7 @@ interface HealthTableProps {
 
 export function HealthTable({ eventId, tenantId, pollIntervalMs = 15000 }: HealthTableProps) {
   const { locale, t } = useLocale()
+  const { toast } = useToast()
   const [kiosks, setKiosks] = useState<Kiosk[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -51,6 +55,24 @@ export function HealthTable({ eventId, tenantId, pollIntervalMs = 15000 }: Healt
     }
   }, [eventId, tenantId, pollIntervalMs])
 
+  function kioskModeUrl(deviceCode: string): string {
+    const path = localizedPath(locale, `/kiosk/${deviceCode}/unlock`)
+    if (typeof window === 'undefined') {
+      return path
+    }
+
+    return `${window.location.origin}${path}`
+  }
+
+  async function copyKioskLink(deviceCode: string) {
+    try {
+      await navigator.clipboard.writeText(kioskModeUrl(deviceCode))
+      toast(t('copied'), 'success')
+    } catch {
+      toast(t('eventDetailCouldNotCopyLink'), 'error')
+    }
+  }
+
   if (loading) {
     return <p className="text-sm text-[var(--muted)]">{t('kioskHealthLoading')}</p>
   }
@@ -87,7 +109,38 @@ export function HealthTable({ eventId, tenantId, pollIntervalMs = 15000 }: Healt
             return value ? new Date(String(value)).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-US') : '—'
           },
         },
-        { key: 'device_code', header: t('kioskHealthDeviceCode') },
+        {
+          key: 'device_code',
+          header: t('kioskHealthDeviceCode'),
+          render: (row) => {
+            const code = String(row.device_code ?? '')
+            if (!code) return '—'
+
+            const href = kioskModeUrl(code)
+
+            return (
+              <div className="flex items-center gap-2">
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-sm font-medium text-[var(--brand)] hover:underline"
+                >
+                  {code}
+                </a>
+                <button
+                  type="button"
+                  className="ta-table-action inline-flex items-center gap-1"
+                  title={t('kioskHealthCopyLink')}
+                  onClick={() => void copyKioskLink(code)}
+                >
+                  <Copy className="h-3.5 w-3.5" aria-hidden />
+                  <span className="sr-only">{t('kioskHealthCopyLink')}</span>
+                </button>
+              </div>
+            )
+          },
+        },
       ]}
     />
   )

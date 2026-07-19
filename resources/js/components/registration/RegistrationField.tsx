@@ -33,19 +33,27 @@ export function RegistrationField({
   field,
   locale,
   disabled = false,
+  readOnly = false,
+  defaultValue,
+  value,
   error,
   'data-form-field': dataFormField,
 }: {
   field: PublicFormField
   locale: 'en' | 'ar'
   disabled?: boolean
+  readOnly?: boolean
+  defaultValue?: string
+  /** When set, the input is controlled (used to lock invite emails). */
+  value?: string
   error?: string
   'data-form-field'?: string
 }) {
   const label = locale === 'ar' ? field.label_ar : field.label_en
   const messages = locale === 'ar' ? ar : en
   const options = field.options ?? []
-  const required = Boolean(field.required && !disabled)
+  const locked = disabled || readOnly
+  const required = Boolean(field.required && !locked)
   const fieldError = error ? <ValidationError message={error} /> : null
   const invalidClass = error ? FORM_FIELD_INVALID_CLASS : ''
 
@@ -213,7 +221,10 @@ export function RegistrationField({
         required={required}
         aria-required={required}
         disabled={disabled}
-        readOnly={disabled}
+        readOnly={locked}
+        {...(value !== undefined
+          ? { value, onChange: () => undefined }
+          : { defaultValue })}
         data-form-field={dataFormField}
         aria-invalid={error ? 'true' : undefined}
       />

@@ -11,7 +11,6 @@ import SearchInput from '@/components/tables/SearchInput'
 import SelectInput from '@/components/forms/SelectInput'
 import { useLocale } from '@/hooks/useLocale'
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
-import { checkinStatusLabel } from '@/lib/scanLabels'
 
 type EventRow = {
   id: string
@@ -25,6 +24,8 @@ type AttendeeRow = {
   email?: string | null
   phone?: string | null
   status: string
+  invite_status?: string
+  row_type?: 'attendee' | 'invite'
   locale: string
   credential_status?: string | null
 }
@@ -104,8 +105,10 @@ export default function Attendees({
 
   const statusOptions = [
     { value: '', label: t('allStatuses') },
-    { value: 'not_checked_in', label: checkinStatusLabel('not_checked_in', locale) },
-    { value: 'checked_in', label: checkinStatusLabel('checked_in', locale) },
+    { value: 'not_registered', label: t('inviteStatusNotRegistered') },
+    { value: 'registered', label: t('inviteStatusRegistered') },
+    { value: 'attended', label: t('inviteStatusAttended') },
+    { value: 'not_attended', label: t('inviteStatusNotAttended') },
   ]
 
   return (
@@ -135,7 +138,7 @@ export default function Attendees({
               placeholder={t('searchAttendee')}
             />
             <SelectInput
-              label={t('checkInStatus')}
+              label={t('inviteStatus')}
               name="status"
               value={statusFilter}
               onChange={(changeEvent) => {
@@ -165,7 +168,11 @@ export default function Attendees({
                   header: t('attendeeName'),
                   render: (row) => {
                     const attendee = row as unknown as AttendeeRow
-                    const name = displayValue(attendee.display_name, notAvailable)
+                    const name = displayValue(attendee.display_name, attendee.email ?? notAvailable)
+
+                    if (attendee.row_type === 'invite' || String(attendee.id).startsWith('invite-')) {
+                      return <span className="font-medium text-[var(--ink)]">{name}</span>
+                    }
 
                     return (
                       <LocalizedLink href={`/tenant/events/${event.id}/attendees/${attendee.id}`} className="font-medium text-sky-700 hover:underline">
@@ -185,9 +192,15 @@ export default function Attendees({
                   render: (row) => displayValue((row as unknown as AttendeeRow).phone, notAvailable),
                 },
                 {
-                  key: 'status',
-                  header: t('checkIn'),
-                  render: (row) => <StatusBadge status={String(row.status)} />,
+                  key: 'invite_status',
+                  header: t('inviteStatus'),
+                  render: (row) => {
+                    const attendee = row as unknown as AttendeeRow
+                    const inviteStatus = attendee.invite_status
+                      ?? (attendee.status === 'checked_in' ? 'attended' : 'registered')
+
+                    return <StatusBadge status={inviteStatus} />
+                  },
                 },
                 {
                   key: 'credential_status',

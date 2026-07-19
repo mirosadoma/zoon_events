@@ -24,12 +24,12 @@ import {
   Copy, X, ChevronRight,
 } from 'lucide-react'
 import DashboardLayout from '@/layouts/DashboardLayout'
+import { PageHeader } from '@/components/layout'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
 import {
   REGISTRATION_SYSTEM_FIELDS,
-  ADDABLE_REGISTRATION_FIELD_TYPES,
   splitRegistrationFields,
 } from '@/lib/registrationSystemFields'
 
@@ -395,7 +395,16 @@ export default function RegistrationBuilder({
 
   return (
     <DashboardLayout title={t('registrationBuilderTitle')}>
-      <div className="-m-4 sm:-m-6 lg:-m-8 flex h-[calc(100vh-57px)] flex-col overflow-hidden">
+      <PageHeader
+        title={t('registrationBuilderTitle')}
+        breadcrumbs={[
+          { label: t('overview'), href: '/dashboard' },
+          { label: t('events'), href: '/tenant/events' },
+          { label: locale === 'ar' ? (event.name.ar || event.name.en) : (event.name.en || event.name.ar), href: `/tenant/events/${event.id}` },
+          { label: t('registrationForm') },
+        ]}
+      />
+      <div className="-mx-4 sm:-mx-6 lg:-mx-8 mb-[-1rem] sm:mb-[-1.5rem] lg:mb-[-2rem] flex h-[calc(100vh-12rem)] flex-col overflow-hidden sm:h-[calc(100vh-13rem)]">
         {/* Top Toolbar */}
         <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border,#e2e8f0)] bg-[var(--surface-elevated,#ffffff)] px-3 py-2 sm:px-4">
           <input

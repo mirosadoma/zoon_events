@@ -33,7 +33,7 @@ final class InAppNotificationDispatcher
         'dispute.*'         => ['reports.view', 'platform.marketplace.disputes.manage'],
         'audit.*'           => ['audit.view'],
         'configuration.*'   => ['configuration.view'],
-        'registration*'     => ['registration.manage'],
+        'registration.*'    => ['registration.manage'],
         'ticket_type.*'     => ['ticketing.manage'],
         'inventory.*'       => ['order.view'],
         'payment.*'         => ['order.view'],
@@ -41,10 +41,11 @@ final class InAppNotificationDispatcher
         'order.*'           => ['order.view'],
         'attendee.*'        => ['attendee.view'],
         'notification.*'    => ['membership.view'],
-        'offline_scan*'     => ['checkin.dashboard.view'],
+        'offline_scan_batch.*' => ['checkin.dashboard.view'],
         'wallet_pass.*'     => ['wallet.pass.view'],
     ];
 
+    /** @param  array<string, mixed>  $metadata */
     public function dispatch(
         string $action,
         ?string $tenantId,
@@ -52,6 +53,7 @@ final class InAppNotificationDispatcher
         ?string $actorName,
         ?string $targetType,
         ?string $targetId,
+        array $metadata = [],
     ): void {
         $permissions = $this->resolvePermissions($action);
         if ($permissions === []) {
@@ -59,7 +61,7 @@ final class InAppNotificationDispatcher
         }
 
         $type = $this->resolveType($action);
-        $link = $this->resolveLink($action, $targetType, $targetId, $tenantId);
+        $link = $this->resolveLink($action, $targetType, $targetId, $tenantId, $metadata);
 
         $recipientUserIds = $tenantId !== null
             ? $this->resolveTenantRecipients($tenantId, $permissions, $actorId)
@@ -70,6 +72,7 @@ final class InAppNotificationDispatcher
         }
 
         $now = now();
+        $data = $this->notificationData($metadata);
         $rows = array_map(fn (int $userId) => [
             'user_id' => $userId,
             'tenant_id' => $tenantId,
@@ -79,7 +82,7 @@ final class InAppNotificationDispatcher
             'target_id' => $targetId,
             'actor_name' => $actorName,
             'link' => $link,
-            'data' => null,
+            'data' => $data === null ? null : json_encode($data),
             'read_at' => null,
             'created_at' => $now,
             'updated_at' => $now,
@@ -182,25 +185,57 @@ final class InAppNotificationDispatcher
         return $userIds;
     }
 
-    private function resolveLink(string $action, ?string $targetType, ?string $targetId, ?string $tenantId): ?string
-    {
+    /** @param  array<string, mixed>  $metadata */
+    private function resolveLink(
+        string $action,
+        ?string $targetType,
+        ?string $targetId,
+        ?string $tenantId,
+        array $metadata = [],
+    ): ?string {
+        $eventId = isset($metadata['event_id']) && (is_string($metadata['event_id']) || is_numeric($metadata['event_id']))
+            ? (string) $metadata['event_id']
+            : null;
+
         return match (true) {
             str_starts_with($action, 'event.') => $targetId ? "/tenant/events/{$targetId}" : '/tenant/events',
-            str_starts_with($action, 'registration') => $targetId ? "/tenant/events/{$targetId}" : null,
+            str_starts_with($action, 'registration.') => $eventId
+                ? "/tenant/events/{$eventId}/attendees"
+                : ($targetId ? "/tenant/events/{$targetId}" : null),
             str_starts_with($action, 'ticket_type.') => $targetId ? "/tenant/events/{$targetId}/ticket-types" : null,
-            str_starts_with($action, 'order.') => $targetId ? "/tenant/events/{$targetId}/orders" : null,
-            str_starts_with($action, 'payment.') => $targetId ? "/tenant/events/{$targetId}/orders" : null,
-            str_starts_with($action, 'attendee.') => $targetId ? "/tenant/events/{$targetId}/attendees" : null,
-            str_starts_with($action, 'credential.') => $targetId ? "/tenant/events/{$targetId}/credentials" : null,
-            str_starts_with($action, 'scan.') => '/tenant/events',
-            str_starts_with($action, 'offline_scan') => '/tenant/events',
-            str_starts_with($action, 'wallet_pass.') => '/tenant/events',
-            str_starts_with($action, 'badge_print.') => '/tenant/events',
-            str_starts_with($action, 'badge_template.') => '/tenant/events',
-            str_starts_with($action, 'kiosk.') => '/tenant/events',
-            str_starts_with($action, 'access.') => '/tenant/events',
-            str_starts_with($action, 'acs_') => '/tenant/events',
-            str_starts_with($action, 'identity_') => '/tenant/events',
+            str_starts_with($action, 'order.') => $eventId
+                ? "/tenant/events/{$eventId}/orders"
+                : ($targetId ? "/tenant/events/{$targetId}/orders" : null),
+            str_starts_with($action, 'payment.') => $eventId
+                ? "/tenant/events/{$eventId}/orders"
+                : ($targetId ? "/tenant/events/{$targetId}/orders" : null),
+            str_starts_with($action, 'attendee.') => $eventId
+                ? "/tenant/events/{$eventId}/attendees"
+                : ($targetId ? "/tenant/events/{$targetId}/attendees" : null),
+            str_starts_with($action, 'credential.') => $eventId
+                ? "/tenant/events/{$eventId}/credentials"
+                : ($targetId ? "/tenant/events/{$targetId}/credentials" : null),
+            str_starts_with($action, 'scan.') => $eventId
+                ? "/tenant/events/{$eventId}/check-in-dashboard"
+                : '/tenant/events',
+            str_starts_with($action, 'offline_scan') => $eventId
+                ? "/tenant/events/{$eventId}/scan-events"
+                : '/tenant/events',
+            str_starts_with($action, 'wallet_pass.') => $eventId
+                ? "/tenant/events/{$eventId}/wallet-passes"
+                : '/tenant/events',
+            str_starts_with($action, 'badge_print.') => $eventId
+                ? "/tenant/events/{$eventId}/badge-print-jobs"
+                : '/tenant/events',
+            str_starts_with($action, 'badge_template.') => $eventId
+                ? "/tenant/events/{$eventId}/badge-templates"
+                : '/tenant/events',
+            str_starts_with($action, 'kiosk.') => $eventId
+                ? "/tenant/events/{$eventId}/kiosks"
+                : '/tenant/events',
+            str_starts_with($action, 'access.') => $eventId ? "/tenant/events/{$eventId}/acs" : '/tenant/events',
+            str_starts_with($action, 'acs_') => $eventId ? "/tenant/events/{$eventId}/acs" : '/tenant/events',
+            str_starts_with($action, 'identity_') => $eventId ? "/tenant/events/{$eventId}/identity" : '/tenant/events',
             str_starts_with($action, 'role.') => '/admin/roles',
             str_starts_with($action, 'membership.') => '/admin/users',
             str_starts_with($action, 'venue') => '/tenant/venues',
@@ -212,5 +247,22 @@ final class InAppNotificationDispatcher
             str_starts_with($action, 'configuration.') => '/admin/tenant-settings',
             default => null,
         };
+    }
+
+    /** @param  array<string, mixed>  $metadata
+     *  @return array<string, mixed>|null
+     */
+    private function notificationData(array $metadata): ?array
+    {
+        $keys = ['event_id', 'attendee_id', 'credential_id'];
+        $data = [];
+
+        foreach ($keys as $key) {
+            if (isset($metadata[$key]) && (is_string($metadata[$key]) || is_numeric($metadata[$key]))) {
+                $data[$key] = (string) $metadata[$key];
+            }
+        }
+
+        return $data === [] ? null : $data;
     }
 }

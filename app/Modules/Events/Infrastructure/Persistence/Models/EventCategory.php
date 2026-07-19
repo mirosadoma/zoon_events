@@ -16,8 +16,24 @@ class EventCategory extends Model
         'slug',
         'color',
         'capacity',
+        'is_paid',
+        'price_minor',
+        'currency',
         'sort_order',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_paid' => 'boolean',
+            'price_minor' => 'integer',
+        ];
+    }
+
+    public function isPayable(): bool
+    {
+        return (bool) $this->is_paid && (int) $this->price_minor > 0;
+    }
 
     public function event(): BelongsTo
     {
@@ -32,5 +48,10 @@ class EventCategory extends Model
     public function privileges(): HasMany
     {
         return $this->hasMany(EventCategoryPrivilege::class);
+    }
+
+    public function venues(): HasMany
+    {
+        return $this->hasMany(EventCategoryVenue::class)->orderBy('sort_order');
     }
 }
