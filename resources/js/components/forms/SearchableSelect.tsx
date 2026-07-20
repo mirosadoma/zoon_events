@@ -37,7 +37,7 @@ export default function SearchableSelect({
   name,
   'data-form-field': dataFormField,
 }: SearchableSelectProps) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const listId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
@@ -70,7 +70,7 @@ export default function SearchableSelect({
 
   useClickOutside(rootRef, close, open)
 
-  const emptyLabel = locale === 'ar' ? 'لا توجد نتائج' : 'No matches'
+  const emptyLabel = t('searchableSelectNoMatches')
 
   return (
     <div ref={rootRef} className="grid gap-2 text-sm">

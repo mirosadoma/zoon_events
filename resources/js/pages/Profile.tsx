@@ -28,7 +28,7 @@ type Props = {
 }
 
 export default function Profile({ profile }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const messages = locale === 'ar' ? ar : en
   const { toast } = useToast()
   const form = useForm({
@@ -49,7 +49,7 @@ export default function Profile({ profile }: Props) {
     form.patch('/profile', {
       preserveScroll: true,
       onSuccess: () => {
-        toast(locale === 'ar' ? 'تم تحديث الملف الشخصي.' : 'Profile updated.', 'success')
+        toast(t('profilePageUpdated'), 'success')
         router.reload({ only: ['locale', 'direction', 'profile'] })
       },
       onError: () => toast(messages.errorState, 'error'),

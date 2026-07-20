@@ -19,6 +19,8 @@ final class ScanResultResource extends JsonResource
             'scan_event_id' => $submission->scanEventId,
             'result' => $submission->decision->result,
             'reason_code' => $submission->decision->reasonCode,
+            'attendee_id' => $submission->decision->attendeeId,
+            'credential_id' => $submission->decision->credentialId,
             'attendee_display_name' => $submission->attendeeDisplayName,
             'ticket_type_label' => $submission->ticketTypeLabel,
         ];

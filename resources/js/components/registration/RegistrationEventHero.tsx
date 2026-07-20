@@ -1,6 +1,9 @@
 import type { ReactNode } from 'react'
 import { LocalizedEventContent, type LocalizedText } from '@/components/registration/LocalizedEventContent'
 import { formatVenuePillLabel } from '@/lib/venueLabels'
+import { formatDateTime } from '@/lib/formatters'
+import en from '@/locales/en'
+import ar from '@/locales/ar'
 
 export type RegistrationHeroVenue = {
   id: string
@@ -15,6 +18,7 @@ export type RegistrationHeroVenue = {
 export type RegistrationHeroEvent = {
   name: LocalizedText
   description: LocalizedText
+  timezone?: string | null
   start_at?: string | null
   end_at?: string | null
   branding: { brand_reference: string | null; domain_reference?: string | null }
@@ -55,7 +59,7 @@ function EventMediaPreview({
       {images.length > 0 ? (
         <div
           className="registration-event-gallery"
-          aria-label={locale === 'ar' ? 'صور الفعالية' : 'Event photos'}
+          aria-label={(locale === 'ar' ? ar : en).registrationEventPhotos}
         >
           {images.map((url) => (
             <img
@@ -77,20 +81,23 @@ function EventVenueSchedule({
   venues,
   startAt,
   endAt,
+  timeZone,
 }: {
   locale: 'en' | 'ar'
   venues: RegistrationHeroVenue[]
   startAt?: string | null
   endAt?: string | null
+  timeZone?: string | null
 }) {
   const rtl = locale === 'ar'
+  const zone = timeZone || undefined
 
   if (venues.length > 0) {
     return (
       <div className="registration-event-venues" aria-label={rtl ? 'أماكن الفعالية' : 'Event venues'}>
         {venues.map((venue) => (
           <p key={venue.id} className="registration-event-venue-pill">
-            {formatVenuePillLabel(venue, locale)}
+            {formatVenuePillLabel(venue, locale, zone)}
           </p>
         ))}
       </div>
@@ -103,8 +110,8 @@ function EventVenueSchedule({
 
   return (
     <p className="registration-invite-schedule">
-      {new Date(startAt).toLocaleString(rtl ? 'ar-EG' : 'en-US')}
-      {endAt ? ` — ${new Date(endAt).toLocaleString(rtl ? 'ar-EG' : 'en-US')}` : ''}
+      {formatDateTime(startAt, locale, zone)}
+      {endAt ? ` — ${formatDateTime(endAt, locale, zone)}` : ''}
     </p>
   )
 }
@@ -143,6 +150,7 @@ export default function RegistrationEventHero({ locale, event, isPreview = false
             venues={event.venues ?? []}
             startAt={event.start_at}
             endAt={event.end_at}
+            timeZone={event.timezone}
           />
         </header>
         {children}

@@ -15,6 +15,7 @@ return [
         'apple_wallet',
         'google_wallet',
         'acs_integration',
+        'venue_marketplace',
         'config',
     ],
 ];

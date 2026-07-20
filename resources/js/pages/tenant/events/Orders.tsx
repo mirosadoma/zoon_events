@@ -89,7 +89,7 @@ export default function Orders({
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: t('orders') },
         ]}
@@ -100,7 +100,7 @@ export default function Orders({
             <SearchInput
               value={search}
               onChange={setSearch}
-              label={locale === 'ar' ? 'بحث بالاسم أو المرجع' : 'Search name or reference'}
+              label={t('ordersSearchLabel')}
               placeholder="ORD-…"
             />
             <SelectInput
@@ -128,7 +128,7 @@ export default function Orders({
               columns={[
                 {
                   key: 'buyer_name',
-                  header: locale === 'ar' ? 'صاحب الطلب' : 'Order owner',
+                  header: t('ordersOwner'),
                   render: (row) => {
                     const order = row as unknown as OrderRow
 
@@ -141,18 +141,18 @@ export default function Orders({
                 },
                 {
                   key: 'reference',
-                  header: locale === 'ar' ? 'المرجع' : 'Reference',
+                  header: t('ordersReference'),
                   render: (row) => String((row as unknown as OrderRow).reference),
                 },
                 {
                   key: 'status',
-                  header: locale === 'ar' ? 'الحالة' : 'Status',
+                  header: t('status'),
                   render: (row) => <StatusBadge status={String(row.status)} />,
                 },
-                { key: 'total', header: locale === 'ar' ? 'الإجمالي' : 'Total' },
+                { key: 'total', header: t('ordersTotal') },
                 {
                   key: 'notification_status',
-                  header: locale === 'ar' ? 'التسليم' : 'Delivery',
+                  header: t('ordersDelivery'),
                   render: (row) => {
                     const order = row as unknown as OrderRow
 

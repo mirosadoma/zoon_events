@@ -8,12 +8,23 @@ export interface Kiosk {
   confirmation_required: boolean
 }
 
+export interface BadgeBackgroundGradient {
+  type: 'linear'
+  angle: number
+  stops: Array<{ color: string; position: number }>
+}
+
 export interface BadgeTemplate {
   id: string
   name: string
-  layout: Record<string, unknown>
+  layout: Record<string, unknown> | unknown[]
   paper_size: string
   printer_type: string
+  orientation?: string
+  background_color?: string | null
+  background_gradient?: BadgeBackgroundGradient | null
+  canvas_width?: number | null
+  canvas_height?: number | null
   status: 'draft' | 'active' | 'inactive'
 }
 
@@ -33,11 +44,13 @@ export const BADGE_TEMPLATE_ALLOWED_FIELDS = [
   'job_title',
   'qr',
   'ticket_type',
+  'attendee_type',
   'tier',
   'zone',
   'sponsor_logo_ref',
   'organizer_logo_ref',
   'color_code',
+  'custom_text',
 ] as const
 
 export type BadgeTemplateField = (typeof BADGE_TEMPLATE_ALLOWED_FIELDS)[number]

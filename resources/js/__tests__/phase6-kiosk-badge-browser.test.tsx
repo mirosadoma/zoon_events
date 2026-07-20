@@ -62,7 +62,7 @@ describe('phase 6 kiosk and badge browser journeys', () => {
       <BadgePrintJobs
         event={event}
         tenantId="ten_1"
-        printJobs={[{ id: 'job_1', attendee_id: 'att_1', status: 'printed', failure_reason: null, is_reprint: false, reprint_reason: null, original_print_job_id: null, printed_at: '2026-07-01T10:00:00Z' }]}
+        printJobs={[{ id: 'job_1', attendee_id: 'att_1', attendee_name: 'Ada Lovelace', status: 'printed', failure_reason: null, is_reprint: false, reprint_reason: null, original_print_job_id: null, printed_at: '2026-07-01T10:00:00Z' }]}
       />,
     )
 

@@ -48,11 +48,13 @@ final class BadgeLayoutValidatorTest extends TestCase
             'job_title' => [],
             'qr' => [],
             'ticket_type' => [],
+            'attendee_type' => [],
             'tier' => [],
             'zone' => [],
             'sponsor_logo_ref' => [],
             'organizer_logo_ref' => [],
             'color_code' => [],
+            'custom_text' => [],
         ]);
 
         $this->addToAssertionCount(1);

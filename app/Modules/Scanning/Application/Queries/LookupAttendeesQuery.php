@@ -4,8 +4,11 @@ namespace App\Modules\Scanning\Application\Queries;
 
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
+use App\Modules\Orders\Infrastructure\Persistence\Models\Order;
+use App\Modules\Orders\Infrastructure\Persistence\Models\OrderItem;
 use App\Modules\Shared\Application\DataProtection\BlindIndex;
 use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
+use Illuminate\Support\Collection;
 
 /**
  * Lookup-safe attendee search for check-in desk and kiosk.
@@ -16,7 +19,7 @@ use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
  */
 final readonly class LookupAttendeesQuery
 {
-    private const EMAIL_PATTERN = '/^[^@]+@[^@]+\.[^@]+$/';
+    private const EMAIL_PATTERN = '/^[^@\s]+@[^@\s]+\.[^@\s]+$/';
 
     private const PHONE_PATTERN = '/^\+?[0-9\s\-]{6,20}$/';
 
@@ -31,65 +34,76 @@ final readonly class LookupAttendeesQuery
      */
     public function search(string $tenantId, string $eventId, string $fragment, int $maxMatches = 8): array
     {
-        $query = Attendee::query()
+        $fragment = $this->normalizeFragment($fragment);
+        if ($fragment === '') {
+            return ['too_many' => false, 'matches' => []];
+        }
+
+        $base = Attendee::query()
             ->where('tenant_id', $tenantId)
             ->where('event_id', $eventId)
             ->orderBy('registered_at')
             ->orderBy('id');
 
-        $needle = mb_strtolower(trim($fragment));
-        $isNameSearch = true;
-
-        if (preg_match(self::EMAIL_PATTERN, $fragment)) {
-            $query->where('email_index', $this->indexes->email($fragment));
-            $isNameSearch = false;
-        } elseif (preg_match(self::PHONE_PATTERN, $fragment)) {
-            $query->where('phone_index', $this->indexes->phone($fragment));
-            $isNameSearch = false;
-        }
-
-        $rows = $query->with('lastScanEvent')->get();
-
-        if (! $isNameSearch && $rows->count() > $maxMatches) {
-            return ['too_many' => true, 'matches' => []];
-        }
-
-        $mapped = $rows->map(function (Attendee $attendee) use ($tenantId, $eventId): array {
-            $firstName = $this->decryptOrNull($attendee->first_name_ciphertext, $attendee->encryption_key_id, $tenantId, $eventId);
-            $lastName = $this->decryptOrNull($attendee->last_name_ciphertext, $attendee->encryption_key_id, $tenantId, $eventId);
-            $displayName = trim(($firstName ?? '').' '.($lastName ?? ''));
-
-            $credential = Credential::query()
-                ->where('tenant_id', $tenantId)
-                ->where('event_id', $eventId)
-                ->where('attendee_id', $attendee->id)
-                ->whereNull('superseded_by_id')
-                ->where('status', '!=', 'revoked')
-                ->latest('issued_at')
-                ->first();
-
-            return [
-                'attendee_id' => $attendee->id,
-                'credential_id' => $credential?->id,
-                'display_name' => $displayName,
-                'ticket_type_label' => (string) ($attendee->ticket_type_id ?? ''),
-                'checkin_status' => (string) ($attendee->checkin_status ?? 'not_checked_in'),
-            ];
-        });
-
-        if ($isNameSearch) {
-            $filtered = $mapped->filter(
-                fn (array $row): bool => $needle !== '' && str_contains(mb_strtolower($row['display_name']), $needle)
-            )->values();
-
-            if ($filtered->count() > $maxMatches) {
-                return ['too_many' => true, 'matches' => []];
+        if (str_starts_with(mb_strtolower($fragment), 'ord_')) {
+            $attendeeIds = $this->attendeeIdsForOrderReference($tenantId, $eventId, $fragment);
+            if ($attendeeIds === []) {
+                return ['too_many' => false, 'matches' => []];
             }
 
-            return ['too_many' => false, 'matches' => $filtered->all()];
+            $exact = (clone $base)
+                ->whereIn('id', $attendeeIds)
+                ->with('lastScanEvent')
+                ->limit($maxMatches + 1)
+                ->get();
+
+            return $this->finalize($exact, $tenantId, $eventId, $maxMatches, filterNeedle: null);
         }
 
-        return ['too_many' => false, 'matches' => $mapped->values()->all()];
+        $needle = mb_strtolower($fragment);
+        $looksLikeEmail = str_contains($fragment, '@') || preg_match(self::EMAIL_PATTERN, $fragment) === 1;
+        $looksLikePhone = preg_match(self::PHONE_PATTERN, $fragment) === 1;
+
+        if ($looksLikeEmail) {
+            $emailIndex = $this->indexes->email($fragment);
+            $attendeeIds = Attendee::query()
+                ->where('tenant_id', $tenantId)
+                ->where('event_id', $eventId)
+                ->where('email_index', $emailIndex)
+                ->pluck('id')
+                ->all();
+
+            $attendeeIds = array_values(array_unique([
+                ...$attendeeIds,
+                ...$this->attendeeIdsForBuyerEmailIndex($tenantId, $eventId, $emailIndex),
+            ]));
+
+            if ($attendeeIds !== []) {
+                $exact = (clone $base)
+                    ->whereIn('id', $attendeeIds)
+                    ->with('lastScanEvent')
+                    ->limit($maxMatches + 1)
+                    ->get();
+
+                if ($exact->isNotEmpty()) {
+                    return $this->finalize($exact, $tenantId, $eventId, $maxMatches, filterNeedle: null);
+                }
+            }
+        } elseif ($looksLikePhone) {
+            $exact = (clone $base)
+                ->where('phone_index', $this->indexes->phone($fragment))
+                ->with('lastScanEvent')
+                ->limit($maxMatches + 1)
+                ->get();
+
+            if ($exact->isNotEmpty()) {
+                return $this->finalize($exact, $tenantId, $eventId, $maxMatches, filterNeedle: null);
+            }
+        }
+
+        $rows = $base->with('lastScanEvent')->get();
+
+        return $this->finalize($rows, $tenantId, $eventId, $maxMatches, filterNeedle: $needle);
     }
 
     public function emailDestinationForAttendee(string $tenantId, string $eventId, string $attendeeId): ?string
@@ -109,6 +123,117 @@ final readonly class LookupAttendeesQuery
             $tenantId,
             $eventId,
         );
+    }
+
+    /**
+     * @param  Collection<int, Attendee>  $rows
+     * @return array{too_many: bool, matches: list<array{attendee_id: string, credential_id: string|null, display_name: string, ticket_type_label: string, checkin_status: string}>}
+     */
+    private function finalize(
+        Collection $rows,
+        string $tenantId,
+        string $eventId,
+        int $maxMatches,
+        ?string $filterNeedle,
+    ): array {
+        $mapped = $rows->map(function (Attendee $attendee) use ($tenantId, $eventId): array {
+            $firstName = $this->decryptOrNull($attendee->first_name_ciphertext, $attendee->encryption_key_id, $tenantId, $eventId);
+            $lastName = $this->decryptOrNull($attendee->last_name_ciphertext, $attendee->encryption_key_id, $tenantId, $eventId);
+            $email = $this->decryptOrNull($attendee->email_ciphertext, $attendee->encryption_key_id, $tenantId, $eventId);
+            $phone = $this->decryptOrNull($attendee->phone_ciphertext, $attendee->encryption_key_id, $tenantId, $eventId);
+            $displayName = trim(($firstName ?? '').' '.($lastName ?? ''));
+
+            $credential = Credential::query()
+                ->where('tenant_id', $tenantId)
+                ->where('event_id', $eventId)
+                ->where('attendee_id', $attendee->id)
+                ->whereNull('superseded_by_id')
+                ->where('status', '!=', 'revoked')
+                ->latest('issued_at')
+                ->first();
+
+            return [
+                'attendee_id' => (string) $attendee->id,
+                'credential_id' => $credential?->id !== null ? (string) $credential->id : null,
+                'display_name' => $displayName,
+                'email' => $email ?? '',
+                'phone' => $phone ?? '',
+                'ticket_type_label' => (string) ($attendee->ticket_type_id ?? ''),
+                'checkin_status' => (string) ($attendee->checkin_status ?? 'not_checked_in'),
+            ];
+        });
+
+        if ($filterNeedle !== null && $filterNeedle !== '') {
+            $mapped = $mapped->filter(function (array $row) use ($filterNeedle): bool {
+                return str_contains(mb_strtolower($row['display_name']), $filterNeedle)
+                    || str_contains(mb_strtolower($row['email']), $filterNeedle)
+                    || str_contains(mb_strtolower($row['phone']), $filterNeedle);
+            })->values();
+        }
+
+        if ($mapped->count() > $maxMatches) {
+            return ['too_many' => true, 'matches' => []];
+        }
+
+        $matches = $mapped->map(function (array $row): array {
+            unset($row['email'], $row['phone']);
+
+            return $row;
+        })->values()->all();
+
+        return ['too_many' => false, 'matches' => $matches];
+    }
+
+    /** @return list<int|string> */
+    private function attendeeIdsForOrderReference(string $tenantId, string $eventId, string $reference): array
+    {
+        $order = Order::query()
+            ->where('tenant_id', $tenantId)
+            ->where('event_id', $eventId)
+            ->where('public_reference', $reference)
+            ->first();
+
+        if ($order === null) {
+            return [];
+        }
+
+        return OrderItem::query()
+            ->where('tenant_id', $tenantId)
+            ->where('order_id', $order->id)
+            ->whereNotNull('attendee_id')
+            ->pluck('attendee_id')
+            ->all();
+    }
+
+    /** @return list<int|string> */
+    private function attendeeIdsForBuyerEmailIndex(string $tenantId, string $eventId, string $emailIndex): array
+    {
+        $orderIds = Order::query()
+            ->where('tenant_id', $tenantId)
+            ->where('event_id', $eventId)
+            ->where('buyer_email_index', $emailIndex)
+            ->pluck('id')
+            ->all();
+
+        if ($orderIds === []) {
+            return [];
+        }
+
+        return OrderItem::query()
+            ->where('tenant_id', $tenantId)
+            ->whereIn('order_id', $orderIds)
+            ->whereNotNull('attendee_id')
+            ->pluck('attendee_id')
+            ->all();
+    }
+
+    private function normalizeFragment(string $fragment): string
+    {
+        $fragment = trim($fragment);
+        // Strip invisible / bidi marks often introduced by mobile copy-paste.
+        $fragment = preg_replace('/[\x{200B}-\x{200F}\x{FEFF}\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', '', $fragment) ?? $fragment;
+
+        return trim($fragment);
     }
 
     private function decryptOrNull(?string $ciphertext, ?string $keyId, string $tenantId, ?string $eventId = null): ?string

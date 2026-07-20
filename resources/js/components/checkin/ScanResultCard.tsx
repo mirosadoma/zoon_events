@@ -9,6 +9,8 @@ export interface ScanResultView {
   scan_event_id?: string | null
   result: ScanResult
   reason_code: string
+  attendee_id?: string | null
+  credential_id?: string | null
   attendee_display_name?: string | null
   ticket_type_label?: string | null
 }

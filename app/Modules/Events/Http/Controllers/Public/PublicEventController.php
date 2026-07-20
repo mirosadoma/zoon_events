@@ -4,6 +4,7 @@ namespace App\Modules\Events\Http\Controllers\Public;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Events\Application\Queries\GetPublicEvent;
+use App\Modules\Events\Application\Support\EventWallClockDateTime;
 use App\Modules\Events\Domain\Context\PublicEventContextStore;
 use App\Modules\Registration\Application\Queries\GetPublicRegistrationForm;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
@@ -25,8 +26,8 @@ final class PublicEventController extends Controller
             'description' => ['en' => $event->description_en, 'ar' => $event->description_ar],
             'tier' => $event->tier,
             'timezone' => $event->timezone,
-            'start_at' => $event->start_at?->toIso8601String(),
-            'end_at' => $event->end_at?->toIso8601String(),
+            'start_at' => EventWallClockDateTime::toIso8601($event->start_at, $event->timezone),
+            'end_at' => EventWallClockDateTime::toIso8601($event->end_at, $event->timezone),
             'branding' => [
                 'brand_reference' => $event->branding?->brand_reference,
                 'content' => ['en' => $event->branding?->content_en, 'ar' => $event->branding?->content_ar],

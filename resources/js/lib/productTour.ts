@@ -10,10 +10,25 @@ export type TourStep = {
 
 export type TourProfile = 'tenant_admin' | 'event_manager' | 'onsite' | 'ticketing' | 'acs' | 'platform_admin' | 'default'
 
-export function resolveTourProfile(roleLabel: string | null | undefined, permissions: string[]): TourProfile {
-  const label = (roleLabel ?? '').toLowerCase()
+export function normalizePermissionList(permissions: unknown): string[] {
+  if (Array.isArray(permissions)) {
+    return permissions.filter((key): key is string => typeof key === 'string')
+  }
 
-  if (permissions.some((key) => key.startsWith('platform.'))) {
+  if (permissions && typeof permissions === 'object') {
+    return Object.entries(permissions as Record<string, unknown>)
+      .filter(([, granted]) => granted === true)
+      .map(([key]) => key)
+  }
+
+  return []
+}
+
+export function resolveTourProfile(roleLabel: string | null | undefined, permissions: unknown): TourProfile {
+  const label = (roleLabel ?? '').toLowerCase()
+  const keys = normalizePermissionList(permissions)
+
+  if (keys.some((key) => key.startsWith('platform.'))) {
     return 'platform_admin'
   }
   if (label.includes('on-site') || label.includes('ميداني')) {
@@ -142,8 +157,8 @@ const profileSteps: Record<TourProfile, TourStep[]> = {
   default: [],
 }
 
-export function buildTourSteps(profile: TourProfile, permissions: string[]): TourStep[] {
-  const allowed = new Set(permissions)
+export function buildTourSteps(profile: TourProfile, permissions: unknown): TourStep[] {
+  const allowed = new Set(normalizePermissionList(permissions))
   const extras = profileSteps[profile].filter((step) => !step.permission || allowed.has(step.permission))
 
   return [...baseSteps, ...extras]

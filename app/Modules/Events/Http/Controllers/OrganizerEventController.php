@@ -9,6 +9,7 @@ use App\Modules\Events\Application\Actions\CreateEvent;
 use App\Modules\Events\Application\Actions\PublishEvent;
 use App\Modules\Events\Application\Actions\ReopenEvent;
 use App\Modules\Events\Application\Actions\SyncEventMedia;
+use App\Modules\Events\Application\Actions\UnpublishEvent;
 use App\Modules\Events\Application\Actions\UpdateEvent;
 use App\Modules\Events\Http\Requests\EventWriteRequest;
 use App\Modules\Events\Http\Resources\EventResource;
@@ -55,6 +56,13 @@ final class OrganizerEventController extends Controller
     }
 
     public function publish(string $eventId, PublishEvent $action)
+    {
+        $event = $action->execute($this->contexts->current(), $this->event($eventId));
+
+        return $this->success((new EventResource($event))->resolve());
+    }
+
+    public function unpublish(string $eventId, UnpublishEvent $action)
     {
         $event = $action->execute($this->contexts->current(), $this->event($eventId));
 

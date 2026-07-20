@@ -92,16 +92,13 @@ final readonly class ScanAuditListener
         array $metadata = [],
     ): void {
         $context = $this->contexts->currentOrNull();
-        if ($context === null) {
-            return;
-        }
 
         $this->audit->write(
             'tenant',
             $tenantId,
             $action,
             'succeeded',
-            $context->actor,
+            $context?->actor,
             $reasonCode,
             'offline_scan_reconciliation_batch',
             $batchId,
@@ -120,16 +117,13 @@ final readonly class ScanAuditListener
         array $metadata = [],
     ): void {
         $context = $this->contexts->currentOrNull();
-        if ($context === null) {
-            return;
-        }
 
         $this->audit->write(
             'tenant',
             $tenantId,
             $action,
             'succeeded',
-            $context->actor,
+            $context?->actor,
             $reasonCode,
             'scan_event',
             $scanEventId,

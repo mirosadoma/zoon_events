@@ -4,8 +4,13 @@ namespace App\Modules\Events\Domain;
 
 enum EventTier: string
 {
-    case Corporate = 'corporate';
     case Public = 'public';
-    case Vip = 'vip';
-    case Vvip = 'vvip';
+    case Private = 'private';
+    case Both = 'both';
+
+    /** @return list<string> */
+    public static function values(): array
+    {
+        return array_column(self::cases(), 'value');
+    }
 }

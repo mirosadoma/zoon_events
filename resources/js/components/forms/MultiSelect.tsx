@@ -27,7 +27,7 @@ export default function MultiSelect({
   error,
   hint,
 }: MultiSelectProps) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const [query, setQuery] = useState('')
   const normalized = query.trim().toLowerCase()
   const selected = new Set(values)
@@ -51,13 +51,13 @@ export default function MultiSelect({
       <input
         type="search"
         className="control focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]/20"
-        placeholder={placeholder ?? (locale === 'ar' ? 'ابحث...' : 'Search...')}
+        placeholder={placeholder ?? t('multiSelectSearchPlaceholder')}
         value={query}
         onChange={(event) => setQuery(event.target.value)}
       />
       <div className="max-h-56 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-2">
         {filtered.length === 0 ? (
-          <p className="px-2 py-3 text-sm text-[var(--muted)]">{locale === 'ar' ? 'لا توجد نتائج' : 'No options'}</p>
+          <p className="px-2 py-3 text-sm text-[var(--muted)]">{t('multiSelectNoOptions')}</p>
         ) : filtered.map((option) => (
           <label key={option.value} className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-2 hover:bg-[var(--brand-soft)]">
             <input

@@ -19,9 +19,9 @@ enum EventStatus: string
         return in_array($next, match ($this) {
             self::Draft => [self::Configured, self::Cancelled],
             self::Configured => [self::Published, self::Cancelled],
-            self::Published => [self::RegistrationOpen, self::RegistrationClosed, self::Live, self::Cancelled],
-            self::RegistrationOpen => [self::RegistrationClosed, self::Live, self::Cancelled],
-            self::RegistrationClosed => [self::RegistrationOpen, self::Live, self::Cancelled],
+            self::Published => [self::RegistrationOpen, self::RegistrationClosed, self::Live, self::Cancelled, self::Configured],
+            self::RegistrationOpen => [self::RegistrationClosed, self::Live, self::Cancelled, self::Configured],
+            self::RegistrationClosed => [self::RegistrationOpen, self::Live, self::Cancelled, self::Configured],
             self::Live => [self::Completed, self::Cancelled],
             self::Completed => [self::Archived],
             self::Cancelled => [self::Archived],

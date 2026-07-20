@@ -25,7 +25,7 @@ describe('foundation dashboard system states', () => {
   })
 
   it('keeps navigation foundation-only and Arabic/English catalogs equivalent', () => {
-    expect(platformNavigation.map((item) => item.href).join(' ')).not.toMatch(/ticket|payment|wallet|kiosk|scanner|marketplace/)
+    expect(platformNavigation.map((item) => item.href).join(' ')).not.toMatch(/ticket|payment|wallet|kiosk|scanner/)
     expect(Object.keys(ar)).toEqual(Object.keys(en))
     expect(ar.overview).not.toBe(en.overview)
   })

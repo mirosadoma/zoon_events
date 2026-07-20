@@ -4,6 +4,9 @@
          bootstrap="vendor/autoload.php"
          colors="true"
          cacheDirectory=".phpunit.cache">
+    <extensions>
+        <bootstrap class="Tests\Support\SkipMigrateFreshExtension"/>
+    </extensions>
     <testsuites>
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
@@ -39,6 +42,17 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_STORE" value="array"/>
         <env name="DB_CONNECTION" value="mysql"/>
+        <!-- Laragon local MySQL: root with empty password against zonetec_testing -->
+        <env name="DB_HOST" value="127.0.0.1" force="true"/>
+        <env name="DB_PORT" value="3306" force="true"/>
+        <env name="DB_DATABASE" value="zoon_test_v2" force="true"/>
+        <env name="DB_USERNAME" value="root" force="true"/>
+        <env name="DB_PASSWORD" value="" force="true"/>
+        <env name="DB_TESTING_HOST" value="127.0.0.1" force="true"/>
+        <env name="DB_TESTING_PORT" value="3306" force="true"/>
+        <env name="DB_TESTING_DATABASE" value="zoon_test_v2" force="true"/>
+        <env name="DB_TESTING_USERNAME" value="root" force="true"/>
+        <env name="DB_TESTING_PASSWORD" value="" force="true"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="database"/>
         <env name="SESSION_DRIVER" value="array"/>

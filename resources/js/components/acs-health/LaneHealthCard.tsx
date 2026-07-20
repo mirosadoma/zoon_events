@@ -16,7 +16,7 @@ export function LaneHealthCard({
   activeEmergency = false,
   laneName,
 }: LaneHealthCardProps) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const ar = locale === 'ar'
   const title = laneName ?? (ar ? `مسار ${laneId}` : `Lane ${laneId}`)
 
@@ -24,7 +24,7 @@ export function LaneHealthCard({
     <article className="ta-card space-y-3">
       {activeEmergency && (
         <p className="rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/50 dark:text-amber-200" role="status">
-          {ar ? 'خروج الطوارئ نشط' : 'Emergency active'}
+          {t('laneHealthEmergencyActive')}
         </p>
       )}
       <div className="flex items-start justify-between gap-3">
@@ -35,8 +35,8 @@ export function LaneHealthCard({
         <StatusBadge status={healthStatus} />
       </div>
       <p className="text-sm text-[var(--muted)]">
-        {ar ? 'آخر ظهور' : 'Last seen'}:{' '}
-        <span className="text-[var(--ink)]">{lastSeenAt ?? (ar ? 'أبداً' : 'never')}</span>
+        {t('laneHealthLastSeen')}:{' '}
+        <span className="text-[var(--ink)]">{lastSeenAt ?? t('laneHealthNever')}</span>
       </p>
     </article>
   )

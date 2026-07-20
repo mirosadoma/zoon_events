@@ -3,357 +3,456 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-use App\Modules\AccessControl\Application\Actions\RegisterAcsIntegrationCredentialAction;
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\AcsAuthorizationRule;
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\AcsLane;
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\AcsZone;
-use App\Modules\AdminConsole\Infrastructure\Persistence\Models\OrganizerRegistrationRequest;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
+use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgePrintJob;
+use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgeTemplate;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
+use App\Modules\Events\Application\Registration\EnsureDefaultRegistrationSlot;
+use App\Modules\Events\Application\Support\InviteCodeGenerator;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
-use App\Modules\FeatureFlags\Infrastructure\Persistence\Models\FeatureFlag;
-use App\Modules\IdentityVerification\Infrastructure\Persistence\Models\IdentityVerification;
-use App\Modules\IdentityVerification\Infrastructure\Persistence\Models\IdentityVerificationRequirement;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventAgendaItem;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventCategory;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventRegistrationInvite;
+use App\Modules\Kiosk\Infrastructure\Persistence\Models\Kiosk;
 use App\Modules\Orders\Application\Actions\CompleteFreeRegistration;
 use App\Modules\Orders\Domain\FreeRegistrationInput;
-use App\Modules\Orders\Infrastructure\Persistence\Models\Order;
+use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationFormVersion;
+use App\Modules\Scanning\Infrastructure\Persistence\Models\ScanEvent;
+use App\Modules\Shared\Domain\LifecycleStatus;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\Tenant;
 use Carbon\CarbonImmutable;
-use Database\Factories\AccessEventFactory;
-use Database\Factories\BadgePrintJobFactory;
-use Database\Factories\BadgeTemplateFactory;
-use Database\Factories\EventCheckInSettingFactory;
-use Database\Factories\EventCheckInSummaryFactory;
-use Database\Factories\KioskFactory;
-use Database\Factories\KioskSessionFactory;
-use Database\Factories\ScanEventFactory;
-use Database\Factories\WalletPassFactory;
-use Database\Seeders\Concerns\BuildsDemoEvent;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
-/**
- * Seeds rich demo content across events, registrations, check-in, on-site, ACS, identity, and platform pages.
- */
 final class DemoContentSeeder extends Seeder
 {
-    use BuildsDemoEvent;
-
     public function run(): void
     {
-        if (app()->environment('production')) {
+
+        $tenant = Tenant::query()->where('slug', DemoAccounts::TENANT_SLUG)->first();
+        if (! $tenant) {
             return;
         }
 
-        config([
-            'notifications.dispatch_sync' => false,
-            'notifications.email_adapter' => 'log',
-        ]);
-
-        $tenant = Tenant::query()->where('slug', 'fixture-alpha')->first();
-        $actor = User::query()->where('email', DemoAccounts::PRIMARY_DEMO_EMAIL)->first()
-            ?? User::query()->orderBy('created_at')->first();
-
-        if ($tenant === null || ! $actor instanceof User) {
-            return;
-        }
-
-        $summit = $this->ensurePublishedEvent(
-            $tenant,
-            $actor,
-            'zonetec-summit-2026',
-            'Zonetec Summit 2026',
-            'قمة زونتك 2026',
-            500,
-            [
-                'tier' => 'public',
-                'event_type' => 'conference',
-                'registration_mode' => 'free_registration',
-            ],
-        );
-
-        $this->ensurePublishedEvent(
-            $tenant,
-            $actor,
-            'leadership-seminar-2026',
-            'Leadership Seminar 2026',
-            'ندوة القيادة 2026',
-            150,
-            [
-                'tier' => 'corporate',
-                'event_type' => 'seminar',
-                'registration_mode' => 'free_registration',
-            ],
-        );
-
-        $this->ensurePublishedEvent(
-            $tenant,
-            $actor,
-            'gala-night-2026',
-            'Gala Night 2026',
-            'أمسية جالا 2026',
-            200,
-            [
-                'tier' => 'public',
-                'event_type' => 'corporate_gathering',
-                'registration_mode' => 'paid_ticketing',
-                'with_paid_tickets' => true,
-                'with_price_tiers' => true,
-            ],
-        );
-
-        $this->ensureDraftEvent($tenant, $actor, 'workshop-draft', 'Leadership Workshop', 'ورشة القيادة', 'corporate', 'workshop');
-
-        $bravo = Tenant::query()->where('slug', 'fixture-bravo')->first();
-        $bravoActor = User::query()->where('email', DemoAccounts::FIXTURE_BRAVO_EMAIL)->first();
-
-        if ($bravo instanceof Tenant && $bravoActor instanceof User) {
-            $this->ensureDraftEvent($bravo, $bravoActor, 'bravo-planning-event', 'Bravo Planning Session', 'جلسة تخطيط برافو');
-        }
-
-        $credentials = $this->seedRegistrations($tenant, $summit);
-        $this->seedCheckIn($tenant, $summit['event'], $credentials);
-        $this->seedOnSite($tenant, $summit['event'], $credentials, $actor);
-        $this->seedAcs($summit['event'], $credentials);
-        $this->seedIdentity($tenant, $summit['event'], $summit['ticket_type_id'], $credentials, $actor);
-        $this->seedPlatformExtras($actor);
-    }
-
-    /**
-     * @param  array{event: Event, form_version_id: string, ticket_type_id: string}  $fixture
-     * @return list<Credential>
-     */
-    private function seedRegistrations(Tenant $tenant, array $fixture): array
-    {
-        $existingCount = Order::query()
+        $event = Event::query()
+            ->withoutGlobalScopes()
             ->where('tenant_id', $tenant->id)
-            ->where('event_id', $fixture['event']->id)
-            ->count();
+            ->where('slug', 'tech-conf-2026')
+            ->first();
 
-        if ($existingCount >= 10) {
-            return Credential::query()
-                ->where('tenant_id', $tenant->id)
-                ->where('event_id', $fixture['event']->id)
-                ->limit(12)
-                ->get()
-                ->all();
-        }
-
-        $action = app(CompleteFreeRegistration::class);
-        $credentials = [];
-        $expiresAt = CarbonImmutable::parse($fixture['event']->end_at)->addDay();
-
-        for ($i = 1; $i <= 12; $i++) {
-            $result = $action->execute(new FreeRegistrationInput(
-                tenantId: (string) $tenant->id,
-                eventId: (string) $fixture['event']->id,
-                formVersionId: $fixture['form_version_id'],
-                ticketTypeId: $fixture['ticket_type_id'],
-                idempotencyKey: "demo-summit-reg-{$i}",
-                answers: ['email' => "attendee{$i}@demo.zonetec.test", 'company' => "Company {$i}"],
-                consent: ['terms' => true, 'privacy' => true, 'marketing' => $i % 3 === 0],
-                buyer: ['first_name' => 'Demo', 'last_name' => "Buyer {$i}", 'email' => "buyer{$i}@demo.zonetec.test"],
-                attendee: ['first_name' => 'Demo', 'last_name' => "Attendee {$i}", 'email' => "attendee{$i}@demo.zonetec.test"],
-                locale: 'en',
-                credentialExpiresAt: $expiresAt,
-            ));
-
-            if ($result->credentialId !== null) {
-                $credential = Credential::query()->find($result->credentialId);
-
-                if ($credential instanceof Credential) {
-                    $credentials[] = $credential;
-                }
-            }
-        }
-
-        return $credentials;
-    }
-
-    /**
-     * @param  list<Credential>  $credentials
-     */
-    private function seedCheckIn(Tenant $tenant, Event $event, array $credentials): void
-    {
-        EventCheckInSettingFactory::new()->forEvent($tenant, $event)->create();
-        EventCheckInSummaryFactory::new()->forEvent($tenant, $event)->create([
-            'registered_count' => count($credentials),
-            'checked_in_count' => min(5, count($credentials)),
-            'rejected_count' => 2,
-            'duplicate_count' => 1,
-            'last_scan_at' => now()->subMinutes(10),
-        ]);
-
-        foreach (array_slice($credentials, 0, 6) as $index => $credential) {
-            ScanEventFactory::new()->forCredential($tenant, $event, $credential)->create([
-                'result' => $index === 5 ? 'rejected' : 'accepted',
-                'reason' => $index === 5 ? 'credential_revoked' : 'entry_granted',
-                'scanned_at' => now()->subMinutes(30 - ($index * 3)),
-            ]);
-        }
-    }
-
-    /**
-     * @param  list<Credential>  $credentials
-     */
-    private function seedOnSite(Tenant $tenant, Event $event, array $credentials, User $actor): void
-    {
-        $kiosks = KioskFactory::new()->count(2)->online()->create([
-            'tenant_id' => $tenant->id,
-            'event_id' => $event->id,
-        ]);
-
-        foreach ($kiosks as $kiosk) {
-            KioskSessionFactory::new()->create([
-                'tenant_id' => $tenant->id,
-                'kiosk_id' => $kiosk->id,
-            ]);
-        }
-
-        $template = BadgeTemplateFactory::new()->create([
-            'tenant_id' => $tenant->id,
-            'event_id' => $event->id,
-            'name' => 'Summit badge',
-        ]);
-
-        foreach (array_slice($credentials, 0, 4) as $index => $credential) {
-            $attendee = Attendee::query()->find($credential->attendee_id);
-
-            if (! $attendee instanceof Attendee) {
-                continue;
-            }
-
-            BadgePrintJobFactory::new()
-                ->forCredential($credential, $attendee, $template)
-                ->create($index < 2 ? ['status' => 'printed', 'printed_at' => now()->subHour()] : []);
-
-            if ($index < 3) {
-                WalletPassFactory::new()->forCredential($credential, $attendee)->create();
-            }
-        }
-    }
-
-    /**
-     * @param  list<Credential>  $credentials
-     */
-    private function seedAcs(Event $event, array $credentials): void
-    {
-        if ($credentials === []) {
+        if (! $event) {
             return;
         }
 
-        $credential = $credentials[0];
+        $organizer = User::query()->where('email', DemoAccounts::TENANT_EMAIL)->first();
+        $primaryVenue = $event->venues()->orderBy('sort_order')->first();
 
-        $zone = AcsZone::factory()->create([
-            'tenant_id' => $event->tenant_id,
-            'event_id' => $event->id,
-            'name' => 'Main hall',
-            'status' => 'active',
-        ]);
+        $event->forceFill([
+            'created_by_user_id' => $organizer?->id ?? $event->created_by_user_id,
+            'status' => in_array((string) $event->status, ['draft', 'published'], true)
+                ? 'registration_open'
+                : $event->status,
+        ])->save();
 
-        $lane = AcsLane::factory()->create([
-            'tenant_id' => $event->tenant_id,
-            'event_id' => $event->id,
-            'zone_id' => $zone->id,
-            'name' => 'Gate A',
-            'status' => 'active',
-            'is_admission_lane' => true,
-        ]);
+        $this->seedAgenda($tenant, $event, $primaryVenue);
+        $ticket = app(EnsureDefaultRegistrationSlot::class)->execute($event, $organizer?->id);
+        if ($ticket === null) {
+            return;
+        }
 
-        AcsAuthorizationRule::factory()->create([
-            'tenant_id' => $event->tenant_id,
-            'event_id' => $event->id,
-            'zone_id' => $zone->id,
-            'ticket_type_id' => $credential->ticket_type_id,
-            'status' => 'active',
-        ]);
+        $formVersion = RegistrationFormVersion::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('event_id', $event->id)
+            ->where('status', 'published')
+            ->orderByDesc('version')
+            ->first();
 
-        app(RegisterAcsIntegrationCredentialAction::class)->execute(
-            (string) $event->tenant_id,
-            (string) $event->id,
-            'Demo ACS Integration',
-            ['authorize', 'event.ingest', 'emergency.ingest'],
-        );
+        if ($formVersion === null) {
+            return;
+        }
 
-        AccessEventFactory::new()->count(5)->create([
-            'tenant_id' => $event->tenant_id,
-            'event_id' => $event->id,
-            'lane_id' => $lane->id,
-            'zone_id' => $zone->id,
-            'credential_id' => $credential->id,
-        ]);
+        $categories = EventCategory::query()
+            ->where('event_id', $event->id)
+            ->orderBy('sort_order')
+            ->get()
+            ->values();
+
+        $attendeeIds = $this->seedRegistrations($tenant, $event, $formVersion->id, (string) $ticket->id, $categories);
+        $this->seedVisitorAccount($attendeeIds[0] ?? null);
+        $this->seedPrivateInvites($tenant);
+        $kiosk = $this->seedKiosk($tenant, $event);
+        $this->seedAcs($tenant, $event, (string) $ticket->id);
+        $this->seedCheckInAndBadges($tenant, $event, $attendeeIds, $kiosk, $organizer);
     }
 
-    /**
-     * @param  list<Credential>  $credentials
-     */
-    private function seedIdentity(Tenant $tenant, Event $event, string $ticketTypeId, array $credentials, User $actor): void
+    private function seedAgenda(Tenant $tenant, Event $event, mixed $primaryVenue): void
     {
-        IdentityVerificationRequirement::query()->updateOrCreate(
-            ['tenant_id' => $tenant->id, 'event_id' => $event->id, 'ticket_type_id' => $ticketTypeId],
-            [
-                'level' => 'required_before_gate',
-                'face_fallback_enabled' => true,
-            ],
-        );
+        $anchor = $primaryVenue?->start_at ?? $event->start_at;
+        if ($anchor === null) {
+            return;
+        }
 
-        $statuses = ['pending', 'manually_approved', 'rejected'];
+        $day = CarbonImmutable::parse($anchor)->timezone($event->timezone)->startOfDay();
+        $items = [
+            ['title_en' => 'Registration & Networking', 'title_ar' => 'التسجيل والتواصل', 'start' => 8, 'end' => 9],
+            ['title_en' => 'Opening Keynote', 'title_ar' => 'الكلمة الافتتاحية', 'start' => 9, 'end' => 10],
+            ['title_en' => 'AI & Cloud Workshops', 'title_ar' => 'ورش الذكاء الاصطناعي والسحابة', 'start' => 10, 'end' => 12],
+            ['title_en' => 'Partner Showcase', 'title_ar' => 'عرض الشركاء', 'start' => 13, 'end' => 15],
+            ['title_en' => 'Closing Panel', 'title_ar' => 'جلسة ختامية', 'start' => 15, 'end' => 17],
+        ];
 
-        foreach (array_slice($credentials, 0, 3) as $index => $credential) {
-            IdentityVerification::query()->updateOrCreate(
-                ['tenant_id' => $tenant->id, 'event_id' => $event->id, 'attendee_id' => $credential->attendee_id],
+        foreach ($items as $index => $item) {
+            EventAgendaItem::query()->updateOrCreate(
                 [
-                    'method' => 'manual_review',
-                    'status' => $statuses[$index] ?? 'pending_review',
-                    'provider' => 'demo',
-                    'provider_reference' => "demo-ref-{$index}",
-                    'verified_name' => $index === 1 ? 'Demo Attendee Verified' : null,
-                    'verified_at' => $index === 1 ? now()->subDay() : null,
-                    'rejection_reason' => $index === 2 ? 'Document image was unreadable.' : null,
-                    'manual_review_by' => $index > 0 ? $actor->id : null,
-                    'manual_review_at' => $index > 0 ? now()->subHours(4) : null,
+                    'tenant_id' => $tenant->id,
+                    'event_id' => $event->id,
+                    'title_en' => $item['title_en'],
+                ],
+                [
+                    'title_ar' => $item['title_ar'],
+                    'start_at' => $day->copy()->addHours($item['start']),
+                    'end_at' => $day->copy()->addHours($item['end']),
+                    'sort_order' => $index,
                 ],
             );
         }
     }
 
-    private function seedPlatformExtras(User $actor): void
+    /**
+     * @param  \Illuminate\Support\Collection<int, EventCategory>  $categories
+     * @return list<string>
+     */
+    private function seedRegistrations(
+        Tenant $tenant,
+        Event $event,
+        string $formVersionId,
+        string $ticketTypeId,
+        $categories,
+    ): array {
+        Mail::fake();
+
+        $complete = app(CompleteFreeRegistration::class);
+        $attendeeIds = [];
+        $primaryVenue = $event->venues()->orderBy('sort_order')->first();
+        $venueId = $primaryVenue?->id;
+        $expiresAt = CarbonImmutable::parse($primaryVenue?->end_at ?? $event->end_at ?? now()->addMonths(2))->addDay();
+
+        $people = [
+            ['first' => 'Sara', 'last' => 'AlHarbi', 'email' => 'attendee1@demo.zonetec.test', 'category' => 'normal'],
+            ['first' => 'Omar', 'last' => 'Hassan', 'email' => 'attendee2@demo.zonetec.test', 'category' => 'normal'],
+            ['first' => 'Layla', 'last' => 'Mansour', 'email' => 'attendee3@demo.zonetec.test', 'category' => 'vip'],
+            ['first' => 'Yousef', 'last' => 'Nasser', 'email' => 'attendee4@demo.zonetec.test', 'category' => 'vip'],
+            ['first' => 'Noura', 'last' => 'Fahad', 'email' => 'attendee5@demo.zonetec.test', 'category' => 'vvip'],
+            ['first' => 'Karim', 'last' => 'Saleh', 'email' => 'attendee6@demo.zonetec.test', 'category' => 'speaker'],
+            ['first' => 'Huda', 'last' => 'Ibrahim', 'email' => 'attendee7@demo.zonetec.test', 'category' => 'normal'],
+            ['first' => 'Faisal', 'last' => 'Ahmad', 'email' => 'attendee8@demo.zonetec.test', 'category' => 'normal'],
+            ['first' => 'Maya', 'last' => 'Rashid', 'email' => 'attendee9@demo.zonetec.test', 'category' => 'vip'],
+            ['first' => 'Tariq', 'last' => 'Zaid', 'email' => 'attendee10@demo.zonetec.test', 'category' => 'normal'],
+            ['first' => 'Rania', 'last' => 'Omar', 'email' => 'attendee11@demo.zonetec.test', 'category' => 'speaker'],
+            ['first' => 'Samir', 'last' => 'Khalil', 'email' => 'attendee12@demo.zonetec.test', 'category' => 'normal'],
+        ];
+
+        foreach ($people as $index => $person) {
+            $existing = Attendee::query()
+                ->where('tenant_id', $tenant->id)
+                ->where('event_id', $event->id)
+                ->where('email_index', app(\App\Modules\Shared\Application\DataProtection\BlindIndex::class)->email($person['email']))
+                ->first();
+
+            if ($existing) {
+                $attendeeIds[] = (string) $existing->id;
+
+                continue;
+            }
+
+            $category = $categories->firstWhere('slug', $person['category']) ?? $categories->first();
+            $identity = [
+                'first_name' => $person['first'],
+                'last_name' => $person['last'],
+                'email' => $person['email'],
+                'phone' => '+9665'.str_pad((string) (10000000 + $index), 8, '0', STR_PAD_LEFT),
+            ];
+
+            $completed = $complete->execute(new FreeRegistrationInput(
+                tenantId: (string) $tenant->id,
+                eventId: (string) $event->id,
+                formVersionId: $formVersionId,
+                ticketTypeId: $ticketTypeId,
+                idempotencyKey: 'demo-seed-'.Str::slug($person['email']),
+                answers: [
+                    'full_name' => $person['first'].' '.$person['last'],
+                    'email' => $person['email'],
+                    'phone' => $identity['phone'],
+                    'company' => 'Zonetec Demo',
+                    'job_title' => 'Attendee',
+                    'country' => 'sa',
+                ],
+                consent: ['terms' => true, 'privacy' => true, 'marketing' => false],
+                buyer: $identity,
+                attendee: $identity,
+                locale: 'en',
+                credentialExpiresAt: $expiresAt,
+                bypassIdentityGateForCredential: true,
+                eventCategoryId: $category !== null ? (string) $category->id : null,
+                eventVenueId: $venueId !== null ? (string) $venueId : null,
+            ));
+
+            $attendeeId = Attendee::query()
+                ->where('tenant_id', $tenant->id)
+                ->where('event_id', $event->id)
+                ->where('order_id', $completed->orderId)
+                ->value('id');
+
+            if ($attendeeId !== null) {
+                $attendeeIds[] = (string) $attendeeId;
+            }
+        }
+
+        return $attendeeIds;
+    }
+
+    private function seedVisitorAccount(?string $attendeeId): void
     {
-        OrganizerRegistrationRequest::query()->updateOrCreate(
-            ['email' => 'pending.organizer@demo.zonetec.test', 'status' => 'pending'],
+        if ($attendeeId === null) {
+            return;
+        }
+
+        $visitor = User::query()->updateOrCreate(
+            ['email' => DemoAccounts::VISITOR_EMAIL],
             [
-                'name' => 'Pending Organizer',
-                'password_hash' => Hash::make('PendingDemo2026!'),
-                'organization_name' => 'Future Events Co.',
-                'phone' => '+20 111 222 3333',
-                'message' => 'We run 10+ corporate events per year and would like to onboard.',
+                'name' => 'Demo Visitor',
+                'password' => Hash::make(DemoAccounts::VISITOR_PASSWORD),
+                'type' => 'visitor',
+                'status' => LifecycleStatus::Active->value,
+                'preferred_locale' => 'en',
             ],
         );
 
-        OrganizerRegistrationRequest::query()->updateOrCreate(
-            ['email' => 'rejected.organizer@demo.zonetec.test', 'status' => 'rejected'],
+        Attendee::query()->whereKey($attendeeId)->update(['user_id' => $visitor->id]);
+    }
+
+    private function seedPrivateInvites(Tenant $tenant): void
+    {
+        $private = Event::query()
+            ->withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->where('slug', 'leadership-workshop')
+            ->first();
+
+        if (! $private) {
+            return;
+        }
+
+        $generator = app(InviteCodeGenerator::class);
+        $emails = [
+            'invite1@demo.zonetec.test',
+            'invite2@demo.zonetec.test',
+            'invite3@demo.zonetec.test',
+        ];
+
+        foreach ($emails as $email) {
+            $existing = EventRegistrationInvite::query()
+                ->where('tenant_id', $tenant->id)
+                ->where('event_id', $private->id)
+                ->where('email', $email)
+                ->first();
+
+            if ($existing) {
+                continue;
+            }
+
+            EventRegistrationInvite::query()->create([
+                'tenant_id' => $tenant->id,
+                'event_id' => $private->id,
+                'email' => $email,
+                'code' => $generator->generateUnique($private->id),
+                'is_active' => true,
+                'invite_status' => 'not_registered',
+                'sent_at' => now(),
+            ]);
+        }
+    }
+
+    private function seedKiosk(Tenant $tenant, Event $event): Kiosk
+    {
+        return Kiosk::query()->updateOrCreate(
             [
-                'name' => 'Rejected Organizer',
-                'password_hash' => Hash::make('RejectedDemo2026!'),
-                'organization_name' => 'Incomplete Org',
-                'rejection_reason' => 'Missing business registration documents.',
-                'reviewed_by_user_id' => $actor->id,
-                'reviewed_at' => now()->subDays(2),
+                'tenant_id' => $tenant->id,
+                'event_id' => $event->id,
+                'device_code' => 'DEMO-KIOSK-01',
+            ],
+            [
+                'device_name' => 'Main Lobby Kiosk',
+                'location_label' => 'Main Entrance',
+                'status' => 'online',
+                'printer_status' => 'ready',
+                'last_heartbeat_at' => now(),
+                'confirmation_required' => false,
             ],
         );
+    }
 
-        FeatureFlag::query()->updateOrCreate(
-            ['key' => 'demo.wallet_passes'],
+    private function seedAcs(Tenant $tenant, Event $event, string $ticketTypeId): void
+    {
+        $primaryVenue = $event->venues()->orderBy('sort_order')->first();
+        $validFrom = $primaryVenue?->start_at ?? $event->start_at;
+        $validUntil = $primaryVenue?->end_at ?? $event->end_at;
+
+        $zone = AcsZone::query()->updateOrCreate(
             [
-                'name' => 'Wallet passes demo',
-                'description' => 'Enables wallet pass generation in demo environments.',
-                'owner' => 'platform',
-                'value_type' => 'boolean',
-                'default_value' => true,
+                'tenant_id' => $tenant->id,
+                'event_id' => $event->id,
+                'name' => 'Main Hall',
+            ],
+            [
+                'external_acs_zone_id' => 'zone-main',
+                'anti_passback_enabled' => true,
+                'unavailability_mode' => 'fail_closed',
+                'emergency_egress_mode' => 'fail_open',
                 'status' => 'active',
-                'security_class' => 'standard',
-                'created_by_user_id' => $actor->id,
             ],
         );
+
+        $lane = AcsLane::query()->updateOrCreate(
+            [
+                'tenant_id' => $tenant->id,
+                'event_id' => $event->id,
+                'zone_id' => $zone->id,
+                'name' => 'Entrance Lane A',
+            ],
+            [
+                'external_acs_lane_id' => 'lane-a',
+                'gate_type' => 'turnstile',
+                'access_direction' => 'entry',
+                'is_admission_lane' => true,
+                'status' => 'active',
+                'health_status' => 'online',
+                'last_seen_at' => now(),
+            ],
+        );
+
+        AcsAuthorizationRule::query()->updateOrCreate(
+            [
+                'tenant_id' => $tenant->id,
+                'event_id' => $event->id,
+                'zone_id' => $zone->id,
+                'lane_id' => $lane->id,
+                'ticket_type_id' => $ticketTypeId,
+            ],
+            [
+                'attendee_type' => 'general',
+                'access_direction' => 'entry',
+                'anti_passback_exempt' => false,
+                'valid_from' => $validFrom !== null ? CarbonImmutable::parse($validFrom)->subDay() : null,
+                'valid_until' => $validUntil !== null ? CarbonImmutable::parse($validUntil)->addDay() : null,
+                'status' => 'active',
+            ],
+        );
+    }
+
+    /**
+     * @param  list<string>  $attendeeIds
+     */
+    private function seedCheckInAndBadges(
+        Tenant $tenant,
+        Event $event,
+        array $attendeeIds,
+        Kiosk $kiosk,
+        ?User $organizer,
+    ): void {
+        $template = BadgeTemplate::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('event_id', $event->id)
+            ->first();
+
+        $checkedIn = 0;
+        $toCheckIn = array_slice($attendeeIds, 0, 5);
+
+        foreach ($toCheckIn as $attendeeId) {
+            $credential = Credential::query()
+                ->where('tenant_id', $tenant->id)
+                ->where('event_id', $event->id)
+                ->where('attendee_id', $attendeeId)
+                ->first();
+
+            if ($credential === null) {
+                continue;
+            }
+
+            $scan = ScanEvent::query()->create([
+                'tenant_id' => $tenant->id,
+                'event_id' => $event->id,
+                'attendee_id' => $attendeeId,
+                'credential_id' => $credential->id,
+                'scanner_type' => 'manual_desk',
+                'scanner_id' => 'demo-desk-1',
+                'gate_id' => 'main-gate',
+                'zone_id' => 'main-hall',
+                'direction' => 'in',
+                'result' => 'accepted',
+                'reason' => null,
+                'offline_mode' => false,
+                'scanned_at' => now()->subMinutes(30 - $checkedIn),
+                'synced_at' => now(),
+            ]);
+
+            Attendee::query()->whereKey($attendeeId)->update([
+                'checkin_status' => 'checked_in',
+                'first_checked_in_at' => $scan->scanned_at,
+                'last_scan_event_id' => $scan->id,
+                'invite_status' => 'attended',
+            ]);
+
+            if ($template !== null) {
+                BadgePrintJob::query()->updateOrCreate(
+                    [
+                        'tenant_id' => $tenant->id,
+                        'event_id' => $event->id,
+                        'attendee_id' => $attendeeId,
+                        'is_reprint' => false,
+                    ],
+                    [
+                        'credential_id' => $credential->id,
+                        'badge_template_id' => $template->id,
+                        'kiosk_id' => $kiosk->id,
+                        'printed_by_user_id' => $organizer?->id,
+                        'status' => 'printed',
+                        'printed_at' => now()->subMinutes(25 - $checkedIn),
+                    ],
+                );
+            }
+
+            $checkedIn++;
+        }
+
+        $summary = DB::table('event_check_in_summaries')
+            ->where('tenant_id', $tenant->id)
+            ->where('event_id', $event->id)
+            ->first();
+
+        $payload = [
+            'registered_count' => count($attendeeIds),
+            'checked_in_count' => $checkedIn,
+            'rejected_count' => 0,
+            'duplicate_count' => 0,
+            'last_scan_at' => now(),
+            'updated_at' => now(),
+        ];
+
+        if ($summary) {
+            DB::table('event_check_in_summaries')->where('id', $summary->id)->update($payload);
+        } else {
+            DB::table('event_check_in_summaries')->insert([
+                'tenant_id' => $tenant->id,
+                'event_id' => $event->id,
+                ...$payload,
+            ]);
+        }
     }
 }

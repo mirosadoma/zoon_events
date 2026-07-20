@@ -35,6 +35,11 @@ final class AccessControlServiceProvider extends ServiceProvider
                 default => $app->make(MockAcsAdapter::class),
             };
         });
+
+        $this->app->bind(
+            \App\Modules\AccessControl\Application\Contracts\DelegatedAcsAssetPort::class,
+            \App\Modules\AccessControl\Application\Services\DatabaseDelegatedAcsAssetPort::class,
+        );
     }
 
     public function boot(): void

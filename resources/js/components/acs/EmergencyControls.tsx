@@ -13,7 +13,7 @@ type EmergencyControlsProps = {
 }
 
 export function EmergencyControls({ eventId, tenantId, activeEmergency, onChanged }: EmergencyControlsProps) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const [raiseOpen, setRaiseOpen] = useState(false)
   const [clearOpen, setClearOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -40,23 +40,23 @@ export function EmergencyControls({ eventId, tenantId, activeEmergency, onChange
       <div className="flex flex-wrap gap-3">
         {!activeEmergency && (
           <button type="button" className="button-primary" onClick={() => setRaiseOpen(true)}>
-            {locale === 'ar' ? 'تفعيل خروج الطوارئ' : 'Raise emergency egress'}
+            {t('acsEmergencyRaise')}
           </button>
         )}
         {activeEmergency && (
           <button type="button" className="button-secondary" onClick={() => setClearOpen(true)}>
-            {locale === 'ar' ? 'إلغاء خروج الطوارئ' : 'Clear emergency egress'}
+            {t('acsEmergencyClear')}
           </button>
         )}
       </div>
 
       <ReasonModal
         open={raiseOpen}
-        title={locale === 'ar' ? 'تفعيل خروج الطوارئ' : 'Raise emergency egress'}
-        message={locale === 'ar' ? 'يرجى تقديم سبب لتفعيل خروج الطوارئ.' : 'Please provide a reason for raising emergency egress.'}
-        reasonLabel={locale === 'ar' ? 'السبب' : 'Reason'}
-        confirmLabel={locale === 'ar' ? 'تفعيل' : 'Raise'}
-        cancelLabel={locale === 'ar' ? 'إلغاء' : 'Cancel'}
+        title={t('acsEmergencyRaiseTitle')}
+        message={t('acsEmergencyRaiseMessage')}
+        reasonLabel={t('acsEmergencyReason')}
+        confirmLabel={t('acsEmergencyRaiseConfirm')}
+        cancelLabel={t('cancel')}
         loading={loading}
         onConfirm={() => void submitEmergency('raise')}
         onCancel={() => setRaiseOpen(false)}
@@ -64,10 +64,10 @@ export function EmergencyControls({ eventId, tenantId, activeEmergency, onChange
 
       <ConfirmModal
         open={clearOpen}
-        title={locale === 'ar' ? 'إلغاء خروج الطوارئ' : 'Clear emergency egress'}
-        message={locale === 'ar' ? 'هل أنت متأكد من إلغاء خروج الطوارئ؟' : 'Are you sure you want to clear emergency egress?'}
-        confirmLabel={locale === 'ar' ? 'إلغاء الطوارئ' : 'Clear emergency'}
-        cancelLabel={locale === 'ar' ? 'إغلاق' : 'Cancel'}
+        title={t('acsEmergencyClearTitle')}
+        message={t('acsEmergencyClearMessage')}
+        confirmLabel={t('acsEmergencyClearConfirm')}
+        cancelLabel={t('cancel')}
         loading={loading}
         onConfirm={() => void submitEmergency('clear')}
         onCancel={() => setClearOpen(false)}

@@ -26,7 +26,6 @@ type Props = {
 export default function AcsGateHealth({ event, tenantId, health: initialHealth }: Props) {
   const { locale, t } = useLocale()
   const [health, setHealth] = useState(initialHealth)
-  const ar = locale === 'ar'
 
   useEffect(() => {
     let active = true
@@ -51,27 +50,27 @@ export default function AcsGateHealth({ event, tenantId, health: initialHealth }
   }, [event.id, tenantId])
 
   return (
-    <DashboardLayout title={ar ? 'صحة البوابة' : 'Gate health'}>
+    <DashboardLayout title={t('acsPageGateHealth')}>
       <PageHeader
-        title={ar ? 'صحة البوابة' : 'Gate health'}
+        title={t('acsPageGateHealth')}
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: ar ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: 'ACS', href: `/tenant/events/${event.id}/acs` },
-          { label: ar ? 'صحة البوابة' : 'Gate health' },
+          { label: t('acsPageGateHealth') },
         ]}
         actions={(
           <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/acs/access-logs`}>
-            {ar ? 'سجلات الوصول' : 'Access logs'}
+            {t('acsPageAccessLogs')}
           </LocalizedLink>
         )}
       />
       <PageContent>
         <div className="ta-card flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-sm text-[var(--muted)]">{ar ? 'حالة التكامل' : 'Integration status'}</p>
+            <p className="text-sm text-[var(--muted)]">{t('acsPageIntegrationStatus')}</p>
             <div className="mt-2">
               <StatusBadge status={health.integration_status} size="md" />
             </div>
@@ -96,21 +95,21 @@ export default function AcsGateHealth({ event, tenantId, health: initialHealth }
 
         {health.active_emergency && (
           <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200" role="alert">
-            {ar ? 'خروج الطوارئ نشط — البوابات في وضع الإخلاء.' : 'Emergency egress is active — gates are in fail-open egress mode.'}
+            {t('acsPageEmergencyEgressActive')}
           </p>
         )}
 
         <section className="mt-8 space-y-3">
           <div>
-            <h2 className="text-lg font-semibold text-[var(--ink)]">{ar ? 'صحة المسارات' : 'Lane health'}</h2>
+            <h2 className="text-lg font-semibold text-[var(--ink)]">{t('acsPageLaneHealth')}</h2>
             <p className="text-sm text-[var(--muted)]">
-              {ar ? 'يتم التحديث تلقائياً كل بضع ثوانٍ.' : 'Updates automatically every few seconds.'}
+              {t('acsPageAutoUpdate')}
             </p>
           </div>
           {health.lanes.length === 0 ? (
             <EmptyState
-              title={ar ? 'لا توجد مسارات للمراقبة' : 'No lanes to monitor'}
-              detail={ar ? 'أضف مسارات ACS لعرض حالة الاتصال.' : 'Add ACS lanes to see connectivity status.'}
+              title={t('acsPageNoLanesToMonitor')}
+              detail={t('acsPageAddLanesDescription')}
             />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -2,4 +2,10 @@
 
 namespace Database\Seeders;
 
-final class PermissionCatalogSeeder extends PermissionSeeder {}
+/**
+ * Backwards-compatible alias used by older feature tests.
+ * Canonical seeder: {@see PermissionSeeder}.
+ */
+class PermissionCatalogSeeder extends PermissionSeeder
+{
+}

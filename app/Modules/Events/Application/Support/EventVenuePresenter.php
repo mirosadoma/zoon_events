@@ -32,8 +32,8 @@ final readonly class EventVenuePresenter
                     'ar' => $venue->country?->name_ar ?? '',
                 ],
                 'location_address' => $venue->location_address ?? '',
-                'start_at' => $venue->start_at?->toIso8601String(),
-                'end_at' => $venue->end_at?->toIso8601String(),
+                'start_at' => EventWallClockDateTime::toIso8601($venue->start_at, $event->timezone),
+                'end_at' => EventWallClockDateTime::toIso8601($venue->end_at, $event->timezone),
             ])
             ->values()
             ->all();

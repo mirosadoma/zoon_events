@@ -11,6 +11,7 @@ use App\Modules\Operations\Application\Health\Checks\DataProtectionHealthCheck;
 use App\Modules\Operations\Application\Health\Checks\GoogleWalletHealthCheck;
 use App\Modules\Operations\Application\Health\Checks\KioskFleetHealthCheck;
 use App\Modules\Operations\Application\Health\Checks\NotificationConfigurationHealthCheck;
+use App\Modules\Operations\Application\Health\Checks\VenueMarketplaceHealthCheck;
 use App\Modules\Operations\Application\Health\Checks\PaymentCheck;
 use App\Modules\Operations\Contracts\HealthCheck;
 use App\Modules\Shared\Contracts\Clock;
@@ -65,6 +66,7 @@ class HealthService
                 'badge_printer' => $this->runExtensionCheck(BadgePrinterHealthCheck::class),
                 'kiosk_fleet' => $this->runExtensionCheck(KioskFleetHealthCheck::class),
                 'acs_integration' => $this->runExtensionCheck(AcsIntegrationHealthCheck::class),
+                'venue_marketplace' => $this->runExtensionCheck(VenueMarketplaceHealthCheck::class),
                 default => null,
             };
 

@@ -25,6 +25,10 @@ final class ScanningServiceProvider extends ServiceProvider
     {
         $this->app->bind(ScanDecisionEvaluator::class, ScanDecisionEvaluatorImpl::class);
         $this->app->bind(ScanEventPersonalDataAnonymizer::class, DatabaseScanEventPersonalDataAnonymizer::class);
+        $this->app->bind(
+            \App\Modules\Scanning\Application\Contracts\DelegatedScannerAssetPort::class,
+            \App\Modules\Scanning\Application\Services\DatabaseDelegatedScannerAssetPort::class,
+        );
     }
 
     public function boot(): void

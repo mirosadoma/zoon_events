@@ -28,7 +28,6 @@ export default function AcsLanes({ event, tenantId, zones, lanes: initialLanes }
   const [externalId, setExternalId] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const ar = locale === 'ar'
 
   async function handleCreate(formEvent: FormEvent<HTMLFormElement>) {
     formEvent.preventDefault()
@@ -62,20 +61,20 @@ export default function AcsLanes({ event, tenantId, zones, lanes: initialLanes }
   }
 
   return (
-    <DashboardLayout title={ar ? 'مسارات ACS' : 'ACS lanes'}>
+    <DashboardLayout title={t('acsPageLanes')}>
       <PageHeader
-        title={ar ? 'مسارات ACS' : 'ACS lanes'}
+        title={t('acsPageLanes')}
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: ar ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: 'ACS', href: `/tenant/events/${event.id}/acs` },
-          { label: ar ? 'المسارات' : 'Lanes' },
+          { label: t('acsPageLanes') },
         ]}
         actions={(
           <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/acs/rules`}>
-            {ar ? 'القواعد' : 'Rules'}
+            {t('acsPageRules')}
           </LocalizedLink>
         )}
       />
@@ -85,11 +84,11 @@ export default function AcsLanes({ event, tenantId, zones, lanes: initialLanes }
         {zones.length === 0 ? (
           <div className="mt-6">
             <EmptyState
-              title={ar ? 'أنشئ منطقة أولاً' : 'Create a zone first'}
-              detail={ar ? 'المسارات تحتاج منطقة مرتبطة.' : 'Lanes require a mapped zone.'}
+              title={t('acsPageCreateZoneFirst')}
+              detail={t('acsPageLanesRequireZone')}
               action={(
                 <LocalizedLink className="button-primary" href={`/tenant/events/${event.id}/acs/zones`}>
-                  {ar ? 'إضافة منطقة' : 'Add zone'}
+                  {t('acsPageAddZone')}
                 </LocalizedLink>
               )}
             />
@@ -97,22 +96,22 @@ export default function AcsLanes({ event, tenantId, zones, lanes: initialLanes }
         ) : (
           <form className="ta-card mt-6 space-y-4" onSubmit={handleCreate}>
             <div>
-              <h2 className="text-lg font-semibold text-[var(--ink)]">{ar ? 'إنشاء مسار' : 'Create lane'}</h2>
+              <h2 className="text-lg font-semibold text-[var(--ink)]">{t('acsPageCreateLane')}</h2>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                {ar ? 'اربط بوابة أو مسار بمنطقة ACS.' : 'Map a gate or lane to an ACS zone.'}
+                {t('acsPageCreateLaneDescription')}
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <SelectInput
-                label={ar ? 'المنطقة' : 'Zone'}
+                label={t('zone')}
                 name="zone_id"
                 value={zoneId}
                 onChange={(e) => setZoneId(e.target.value)}
                 options={zones.map((zone) => ({ value: zone.id, label: zone.name }))}
               />
-              <TextInput label={ar ? 'الاسم' : 'Name'} name="name" value={name} onChange={(e) => setName(e.target.value)} required />
+              <TextInput label={t('name')} name="name" value={name} onChange={(e) => setName(e.target.value)} required />
               <TextInput
-                label={ar ? 'المعرف الخارجي' : 'External lane ID'}
+                label={t('acsPageExternalLaneId')}
                 name="external_acs_lane_id"
                 value={externalId}
                 onChange={(e) => setExternalId(e.target.value)}
@@ -124,7 +123,7 @@ export default function AcsLanes({ event, tenantId, zones, lanes: initialLanes }
                 {error}
               </p>
             )}
-            <SubmitButtonWithLoader loading={submitting} label={ar ? 'إنشاء مسار' : 'Create lane'} />
+            <SubmitButtonWithLoader loading={submitting} label={t('acsPageCreateLane')} />
           </form>
         )}
       </PageContent>

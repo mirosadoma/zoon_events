@@ -1,7 +1,7 @@
 import { clsx } from 'clsx'
 import { useLocale } from '@/hooks/useLocale'
 import {
-  isReadyToPublish,
+  publishReadinessBadgeKind,
   publishReadinessTooltip,
   type PublishReadinessContext,
 } from '@/lib/publishReadinessCatalog'
@@ -13,22 +13,33 @@ type Props = {
 }
 
 export default function PublishReadinessBadge({ readiness, context, className = '' }: Props) {
-  const { locale } = useLocale()
-  const ready = isReadyToPublish(readiness, context)
+  const { locale, t } = useLocale()
+  const kind = publishReadinessBadgeKind(readiness, context)
   const tooltip = publishReadinessTooltip(readiness, locale, context)
+
+  const label = (() => {
+    switch (kind) {
+      case 'ready':
+        return t('publishReadinessReady')
+      case 'published':
+        return t('publishReadinessPublished')
+      case 'unavailable':
+        return t('publishReadinessUnavailable')
+      default:
+        return t('publishReadinessCannotPublish')
+    }
+  })()
 
   return (
     <span
       className={clsx(
         'ta-badge',
-        ready ? 'ta-badge-success' : 'ta-badge-warning',
+        kind === 'ready' || kind === 'published' ? 'ta-badge-success' : 'ta-badge-warning',
         className,
       )}
       title={tooltip}
     >
-      {ready
-        ? (locale === 'ar' ? 'جاهزة للنشر' : 'Ready to publish')
-        : (locale === 'ar' ? 'لا يمكن نشرها' : 'Cannot publish')}
+      {label}
     </span>
   )
 }

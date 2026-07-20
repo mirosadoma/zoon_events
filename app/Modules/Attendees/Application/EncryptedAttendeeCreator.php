@@ -12,7 +12,17 @@ final readonly class EncryptedAttendeeCreator implements AttendeeCreator
 {
     public function __construct(private PersonalDataCipher $cipher, private BlindIndex $indexes) {}
 
-    public function create(string $tenantId, string $eventId, string $orderId, string $orderItemId, string $ticketTypeId, string $submissionId, array $identity, string $locale): AttendeeRecord
+    public function create(
+        string $tenantId,
+        string $eventId,
+        string $orderId,
+        string $orderItemId,
+        string $ticketTypeId,
+        string $submissionId,
+        array $identity,
+        string $locale,
+        ?string $eventVenueId = null,
+    ): AttendeeRecord
     {
         $scope = "{$tenantId}:{$eventId}:attendee";
         $encrypt = fn (string $value): string => $this->cipher->encrypt($value, $scope)['ciphertext'];
@@ -23,6 +33,7 @@ final readonly class EncryptedAttendeeCreator implements AttendeeCreator
             'order_item_id' => $orderItemId,
             'ticket_type_id' => $ticketTypeId,
             'submission_id' => $submissionId,
+            'event_venue_id' => $eventVenueId !== null && $eventVenueId !== '' ? (int) $eventVenueId : null,
             'first_name_ciphertext' => $encrypt($identity['first_name']),
             'last_name_ciphertext' => $encrypt($identity['last_name']),
             'email_ciphertext' => $encrypt($identity['email']),
@@ -31,6 +42,7 @@ final readonly class EncryptedAttendeeCreator implements AttendeeCreator
             'phone_index' => isset($identity['phone']) ? $this->indexes->phone($identity['phone']) : null,
             'encryption_key_id' => $this->indexes->keyId(),
             'registration_status' => 'registered',
+            'invite_status' => 'registered',
             'preferred_locale' => $locale,
             'registered_at' => now(),
         ]);

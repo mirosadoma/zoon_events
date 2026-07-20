@@ -13,7 +13,7 @@ final class Order extends Model
         'buyer_name_ciphertext', 'buyer_email_ciphertext', 'buyer_phone_ciphertext',
         'buyer_email_index', 'buyer_phone_index', 'encryption_key_id', 'subtotal_minor',
         'tax_minor', 'fees_minor', 'total_minor', 'currency', 'inventory_hold_id',
-        'submission_id', 'fulfillment_payload_ciphertext', 'fulfillment_encryption_key_id',
+        'submission_id', 'event_category_id', 'event_venue_id', 'fulfillment_payload_ciphertext', 'fulfillment_encryption_key_id',
         'credential_expires_at', 'locale', 'paid_at', 'cancelled_at', 'refunded_at',
     ];
 

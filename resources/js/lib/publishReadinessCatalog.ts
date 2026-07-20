@@ -1,4 +1,10 @@
 import type { AppLocale } from '@/lib/localePath'
+import en from '@/locales/en'
+import ar from '@/locales/ar'
+
+function msg(locale: AppLocale) {
+  return locale === 'ar' ? ar : en
+}
 
 export type PublishReadinessContext = {
   status?: string
@@ -70,15 +76,20 @@ export const publishReadinessLabels: Record<string, ReadinessEntry> = {
         : `/tenant/events/${eventId}/ticket-types`
     ),
   },
+  event_categories: {
+    en: 'At least one category with venue and dates assigned',
+    ar: 'قسم واحد على الأقل مع موقع وتواريخ معيّنة',
+    href: (eventId) => `/tenant/events/${eventId}/categories`,
+  },
   active_branding: {
     en: 'Brand reference and domain reference',
     ar: 'مرجع العلامة التجارية ونطاق الفعالية',
     href: (eventId) => editSection(eventId, 'event-setup-branding'),
   },
-  main_image: {
-    en: 'Main event image',
-    ar: 'الصورة الرئيسية للفعالية',
-    href: (eventId) => editSection(eventId, 'event-setup-branding'),
+  active_badge_template: {
+    en: 'Active custom badge template',
+    ar: 'قالب شارة مخصص نشط',
+    href: (eventId) => `/tenant/events/${eventId}/badge-templates`,
   },
   valid_timezone: {
     en: 'Valid timezone identifier',
@@ -200,6 +211,40 @@ export function canPublishEventStatus(status: string): boolean {
   return status === 'draft' || status === 'configured'
 }
 
+/** Statuses where publish is done or no longer the goal — not a setup failure. */
+export function isPostPublishStatus(status: string): boolean {
+  return [
+    'published',
+    'registration_open',
+    'registration_closed',
+    'live',
+    'completed',
+  ].includes(status)
+}
+
+export type PublishReadinessBadgeKind = 'ready' | 'blocked' | 'published' | 'unavailable'
+
+export function publishReadinessBadgeKind(
+  readiness: string[],
+  context: PublishReadinessContext,
+): PublishReadinessBadgeKind {
+  const status = context.status ?? ''
+
+  if (status === 'published') {
+    return 'published'
+  }
+
+  if (isPostPublishStatus(status)) {
+    return 'unavailable'
+  }
+
+  if (!canPublishEventStatus(status)) {
+    return 'unavailable'
+  }
+
+  return isReadyToPublish(readiness, context) ? 'ready' : 'blocked'
+}
+
 export function isReadyToPublish(
   readiness: string[],
   context: PublishReadinessContext,
@@ -218,20 +263,28 @@ export function publishReadinessTooltip(
   locale: AppLocale,
   context: PublishReadinessContext,
 ): string {
-  if (isReadyToPublish(readiness, context)) {
-    return locale === 'ar' ? 'الفعالية جاهزة للنشر.' : 'The event is ready to publish.'
+  const kind = publishReadinessBadgeKind(readiness, context)
+
+  if (kind === 'ready') {
+    return msg(locale).publishReadyMessage
+  }
+
+  if (kind === 'published') {
+    return publishReadinessLabel('status_published', locale, context)
   }
 
   const { requirements, statusBlockers } = splitPublishReadiness(readiness, context)
   const reasons = [...statusBlockers, ...requirements].map((item) => publishReadinessLabel(item, locale, context))
 
   if (reasons.length === 0) {
-    return locale === 'ar' ? 'لا يمكن نشر الفعالية.' : 'The event cannot be published.'
+    return msg(locale).publishBlockedMessage
   }
 
-  return locale === 'ar'
-    ? `لا يمكن النشر: ${reasons.join(' · ')}`
-    : `Cannot publish: ${reasons.join(' · ')}`
+  if (kind === 'unavailable') {
+    return reasons.join(' · ')
+  }
+
+  return `${msg(locale).publishCannotPrefix}${reasons.join(' · ')}`
 }
 
 export function publishBlockedMessage(
@@ -240,7 +293,7 @@ export function publishBlockedMessage(
   context: PublishReadinessContext,
 ): string {
   if (isReadyToPublish(readiness, context)) {
-    return locale === 'ar' ? 'الفعالية جاهزة للنشر.' : 'The event is ready to publish.'
+    return msg(locale).publishReadyMessage
   }
 
   const { requirements, statusBlockers } = splitPublishReadiness(readiness, context)
@@ -248,16 +301,15 @@ export function publishBlockedMessage(
   if (!canPublishEventStatus(context.status ?? '') && statusBlockers.length > 0) {
     const reason = publishReadinessLabel(statusBlockers[0], locale, context)
 
-    return locale === 'ar'
-      ? `لا يمكن نشرها لأنها ${reason.charAt(0).toLowerCase()}${reason.slice(1)}`
-      : `Cannot publish because ${reason.charAt(0).toLowerCase()}${reason.slice(1)}`
+    return msg(locale).publishCannotBecause.replace(
+      ':reason',
+      `${reason.charAt(0).toLowerCase()}${reason.slice(1)}`,
+    )
   }
 
   if (requirements.length > 0) {
-    return locale === 'ar'
-      ? `لا يمكن نشرها — الإعداد غير مكتمل (${requirements.length} متطلبات).`
-      : `Cannot publish — setup is incomplete (${requirements.length} requirement(s)).`
+    return msg(locale).eventDetailCannotPublish.replace(':count', String(requirements.length))
   }
 
-  return locale === 'ar' ? 'لا يمكن نشر الفعالية.' : 'The event cannot be published.'
+  return msg(locale).publishBlockedMessage
 }

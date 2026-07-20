@@ -29,6 +29,11 @@ final class BadgePrintingServiceProvider extends ServiceProvider
                 default => $app->make(FakePrinterAdapter::class),
             };
         });
+
+        $this->app->bind(
+            \App\Modules\BadgePrinting\Application\Contracts\DelegatedPrinterAssetPort::class,
+            \App\Modules\BadgePrinting\Application\Services\DatabaseDelegatedPrinterAssetPort::class,
+        );
     }
 
     public function boot(): void

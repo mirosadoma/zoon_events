@@ -18,14 +18,14 @@ final readonly class KioskModeViewModel
     public function make(Kiosk $kiosk, Event $event): array
     {
         return [
-            'deviceCode' => $kiosk->device_code,
+            'deviceCode' => (string) $kiosk->device_code,
             'kiosk' => [
-                'id' => $kiosk->id,
+                'id' => (string) $kiosk->id,
                 'device_name' => $kiosk->device_name,
-                'confirmation_required' => $kiosk->confirmation_required,
+                'confirmation_required' => (bool) $kiosk->confirmation_required,
             ],
             'event' => [
-                'id' => $event->id,
+                'id' => (string) $event->id,
                 'name' => ['en' => $event->name_en, 'ar' => $event->name_ar],
             ],
             'branding' => null,

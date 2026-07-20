@@ -1,5 +1,7 @@
 <?php
 
+use App\Modules\Registration\Http\Controllers\EmbedCodeController;
+use App\Modules\Registration\Http\Controllers\EventBrandingController;
 use App\Modules\Registration\Http\Controllers\OrganizerRegistrationFormController;
 use App\Modules\Registration\Http\Controllers\PreviewRegistrationController;
 use Illuminate\Support\Facades\Route;
@@ -9,6 +11,14 @@ Route::prefix('tenant/events/{event_id}/registration-form')
     ->group(function (): void {
         Route::put('/', [OrganizerRegistrationFormController::class, 'save'])->middleware('idempotency');
         Route::post('/publish', [OrganizerRegistrationFormController::class, 'publish'])->middleware('idempotency');
+    });
+
+Route::prefix('tenant/events/{event_id}')
+    ->middleware(['auth:sanctum', 'throttle:phase1-organizer', 'tenant.context.clear', 'tenant.context', 'permission:registration.manage,tenant'])
+    ->group(function (): void {
+        Route::get('/embed-code', EmbedCodeController::class);
+        Route::get('/branding', [EventBrandingController::class, 'show']);
+        Route::put('/branding', [EventBrandingController::class, 'update'])->middleware('idempotency');
     });
 
 Route::post('tenant/events/{event_id}/registration-preview', [PreviewRegistrationController::class, 'store'])

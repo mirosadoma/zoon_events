@@ -23,6 +23,7 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'type',
         'password',
         'status',
         'preferred_locale',
@@ -68,5 +69,10 @@ class User extends Authenticatable
         return $this->status instanceof LifecycleStatus
             ? $this->status->isActive()
             : $this->status === LifecycleStatus::Active->value;
+    }
+
+    public function isVisitor(): bool
+    {
+        return ($this->type ?? 'staff') === 'visitor';
     }
 }

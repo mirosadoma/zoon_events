@@ -11,11 +11,16 @@ use App\Modules\AdminConsole\ViewModels\Events\EventSetupReferenceData;
 use App\Modules\AdminConsole\ViewModels\Events\EventSetupViewModel;
 use App\Modules\Authorization\Application\PermissionEvaluator;
 use App\Modules\Events\Application\Support\EventMediaPresenter;
+use App\Modules\Events\Application\Support\EventWallClockDateTime;
 use App\Modules\Events\Application\Support\PublicRegistrationEventPresenter;
 use App\Modules\Events\Application\Support\ResolvesEventOrganizer;
+use App\Modules\Events\Domain\CategoryLockStatus;
 use App\Modules\Events\Domain\EventRegistrationProfile;
+use App\Modules\Events\Infrastructure\Persistence\Models\CategoryTemplate;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventAgendaItem;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventBranding;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventCategory;
 use App\Modules\IdentityVerification\Application\Actions\ViewIdentityDataAction;
 use App\Modules\IdentityVerification\Application\Queries\PendingReviewQueue;
 use App\Modules\IdentityVerification\Infrastructure\Persistence\Models\IdentityVerification;
@@ -75,7 +80,7 @@ final class EventDashboardController extends Controller
                 'name' => ['en' => '', 'ar' => ''],
                 'description' => ['en' => '', 'ar' => ''],
                 'status' => 'draft',
-                'tier' => 'corporate',
+                'tier' => 'public',
                 'event_type' => 'seminar',
                 'registration_mode' => 'free_registration',
                 'timezone' => 'Africa/Cairo',
@@ -86,6 +91,13 @@ final class EventDashboardController extends Controller
                 'capacity' => null,
                 'brand_reference' => null,
                 'domain_reference' => null,
+                'theme' => [
+                    'primary_color' => '#0f172a',
+                    'text_color' => '#0f172a',
+                    'background_color' => '#ffffff',
+                    'logo_url' => null,
+                    'sponsor_logo_url' => null,
+                ],
                 'organizer_user_id' => null,
                 'main_image' => null,
                 'images' => [],
@@ -157,8 +169,8 @@ final class EventDashboardController extends Controller
                 'id' => (string) $item->id,
                 'title_en' => $item->title_en,
                 'title_ar' => $item->title_ar,
-                'start_at' => $item->start_at?->toIso8601String(),
-                'end_at' => $item->end_at?->toIso8601String(),
+                'start_at' => EventWallClockDateTime::toInput($item->start_at, $event->timezone),
+                'end_at' => EventWallClockDateTime::toInput($item->end_at, $event->timezone),
             ])
             ->values()
             ->all();
@@ -167,6 +179,85 @@ final class EventDashboardController extends Controller
             'event' => $this->events->detail($event)['event'],
             'tenantId' => (string) $context->tenant->id,
             'items' => $items,
+        ]);
+    }
+
+    public function categories(string $eventId): Response
+    {
+        $context = $this->authorizeTenant('category.view');
+        $event = $this->event($context, $eventId);
+
+        $templates = CategoryTemplate::query()
+            ->where('tenant_id', $context->tenant->id)
+            ->with('privileges')
+            ->orderBy('sort_order')
+            ->get();
+
+        $assignments = EventCategory::query()
+            ->where('event_id', $event->id)
+            ->with(['venues.days', 'venues.venue'])
+            ->get()
+            ->keyBy('category_template_id');
+
+        $venues = $event->venues()
+            ->orderBy('sort_order')
+            ->get()
+            ->map(fn ($venue): array => [
+                'id' => (string) $venue->id,
+                'name' => ['en' => $venue->name_en, 'ar' => $venue->name_ar],
+            ])
+            ->values()
+            ->all();
+
+        $dates = [];
+        if ($event->start_at !== null && $event->end_at !== null) {
+            $start = $event->start_at->timezone($event->timezone)->startOfDay();
+            $end = $event->end_at->timezone($event->timezone)->startOfDay();
+            for ($cursor = $start; $cursor->lessThanOrEqualTo($end); $cursor = $cursor->addDay()) {
+                $dates[] = $cursor->toDateString();
+            }
+        }
+
+        $categories = $templates->map(function (CategoryTemplate $template) use ($assignments): array {
+            /** @var EventCategory|null $assignment */
+            $assignment = $assignments->get($template->id);
+
+            return [
+                'id' => (string) $template->id,
+                'name' => $template->name,
+                'name_ar' => $template->name_ar,
+                'slug' => $template->slug,
+                'color' => $template->color,
+                'enabled' => $assignment !== null,
+                'is_paid' => (bool) ($assignment?->is_paid ?? false),
+                'price_minor' => (int) ($assignment?->price_minor ?? 0),
+                'currency' => (string) ($assignment?->currency ?: 'SAR'),
+                'assignment_id' => $assignment !== null ? (string) $assignment->id : null,
+                'venues' => $assignment === null
+                    ? []
+                    : $assignment->venues->map(fn ($venue): array => [
+                        'event_venue_id' => (string) $venue->event_venue_id,
+                        'days' => $venue->days->map(fn ($day): array => [
+                            'date' => $day->date?->toDateString(),
+                            'capacity' => $day->capacity !== null ? (string) $day->capacity : '',
+                        ])->values()->all(),
+                    ])->values()->all(),
+            ];
+        })->values()->all();
+
+        return Inertia::render('tenant/events/CategoryAssignment', [
+            'event' => [
+                ...$this->events->detail($event)['event'],
+                'start_at' => EventWallClockDateTime::toIso8601($event->start_at, $event->timezone),
+                'end_at' => EventWallClockDateTime::toIso8601($event->end_at, $event->timezone),
+                'timezone' => $event->timezone,
+            ],
+            'tenantId' => (string) $context->tenant->id,
+            'categories' => $categories,
+            'venues' => $venues,
+            'eventDates' => $dates,
+            'locked' => CategoryLockStatus::locksCategories((string) $event->status),
+            'canManage' => $this->permissions->hasTenantPermission($context, 'category.manage'),
         ]);
     }
 
@@ -283,6 +374,21 @@ final class EventDashboardController extends Controller
             ->values()
             ->all();
 
+        $categories = EventCategory::query()
+            ->where('event_id', $event->id)
+            ->orderBy('sort_order')
+            ->get()
+            ->map(fn (EventCategory $category): array => [
+                'id' => (string) $category->id,
+                'name' => ['en' => $category->name, 'ar' => $category->name_ar ?: $category->name],
+                'color' => $category->color,
+                'is_paid' => (bool) $category->is_paid,
+                'price_minor' => (int) $category->price_minor,
+                'currency' => (string) ($category->currency ?: 'SAR'),
+            ])
+            ->values()
+            ->all();
+
         $rawFields = is_array($version->fields) ? $version->fields : [];
         $previewFields = collect($rawFields)
             ->filter(fn (mixed $field): bool => is_array($field)
@@ -305,8 +411,10 @@ final class EventDashboardController extends Controller
                 'privacy_notice_version' => $formState['privacyNoticeVersion'],
                 'terms_version' => $formState['termsVersion'],
             ],
+            'categories' => $categories,
+            'requiresCategorySelection' => true,
             'ticketTypes' => $ticketTypes,
-            'requiresTicketSelection' => EventRegistrationProfile::requiresTicketConfiguration($event),
+            'requiresTicketSelection' => false,
             'isPreview' => true,
         ]);
     }
@@ -326,8 +434,8 @@ final class EventDashboardController extends Controller
                 ->map(fn (EventAgendaItem $item): array => [
                     'id' => (string) $item->id,
                     'title' => ['en' => $item->title_en, 'ar' => $item->title_ar],
-                    'start_at' => $item->start_at?->toIso8601String(),
-                    'end_at' => $item->end_at?->toIso8601String(),
+                    'start_at' => EventWallClockDateTime::toIso8601($item->start_at, $event->timezone),
+                    'end_at' => EventWallClockDateTime::toIso8601($item->end_at, $event->timezone),
                 ])
                 ->values()
                 ->all(),
@@ -443,12 +551,18 @@ final class EventDashboardController extends Controller
             && $version->status === 'draft'
             && ($publishedVersion === null || (int) $version->version > (int) $publishedVersion->version);
 
+        $branding = EventBranding::query()
+            ->where('tenant_id', $tenantId)
+            ->where('event_id', $event->id)
+            ->first();
+
         return [
             'formName' => $form?->name ?? 'Registration form',
             'privacyNoticeVersion' => (string) ($version?->privacy_notice_version ?? 'v1'),
             'termsVersion' => (string) ($version?->terms_version ?? 'v1'),
             'fields' => $fields,
             'hasUnpublishedChanges' => $hasUnpublishedChanges,
+            'theme' => $branding?->theme_config,
         ];
     }
 }

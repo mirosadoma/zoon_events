@@ -126,7 +126,7 @@ export default function Topbar() {
             className="ta-topbar-action"
             onClick={toggleTheme}
             aria-label={messages.theme}
-            title={isDark ? (locale === 'ar' ? 'الوضع الفاتح' : 'Light mode') : (locale === 'ar' ? 'الوضع الداكن' : 'Dark mode')}
+            title={isDark ? messages.topbarLightMode : messages.topbarDarkMode}
           >
             {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
@@ -137,7 +137,7 @@ export default function Topbar() {
             onClick={toggleLocale}
             aria-label={messages.toggleLocale}
           >
-            {locale === 'ar' ? 'EN' : 'ع'}
+            {locale === 'ar' ? messages.localeSwitchToEn : messages.localeSwitchToAr}
           </button>
 
           <NotificationDropdown />

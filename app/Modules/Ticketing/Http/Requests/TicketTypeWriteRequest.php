@@ -2,6 +2,8 @@
 
 namespace App\Modules\Ticketing\Http\Requests;
 
+use App\Modules\Events\Application\Support\EventWallClockDateTime;
+use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use Illuminate\Foundation\Http\FormRequest;
 
 final class TicketTypeWriteRequest extends FormRequest
@@ -28,6 +30,7 @@ final class TicketTypeWriteRequest extends FormRequest
     public function attributesForAction(): array
     {
         $data = $this->validated();
+        $timezone = $this->eventTimezone();
 
         return [
             'code' => $data['code'],
@@ -39,9 +42,21 @@ final class TicketTypeWriteRequest extends FormRequest
             'capacity' => $data['capacity'],
             'base_price_minor' => $data['price_minor'],
             'currency' => $data['currency'],
-            'sale_starts_at' => $data['sale_starts_at'],
-            'sale_ends_at' => $data['sale_ends_at'],
+            'sale_starts_at' => EventWallClockDateTime::parseToAppStorage((string) $data['sale_starts_at'], $timezone)?->toDateTimeString(),
+            'sale_ends_at' => EventWallClockDateTime::parseToAppStorage((string) $data['sale_ends_at'], $timezone)?->toDateTimeString(),
             'status' => $data['status'] ?? 'active',
         ];
+    }
+
+    private function eventTimezone(): string
+    {
+        $eventId = $this->route('event_id') ?? $this->route('eventId');
+        if ($eventId === null || $eventId === '') {
+            return 'UTC';
+        }
+
+        $timezone = Event::query()->whereKey($eventId)->value('timezone');
+
+        return is_string($timezone) && $timezone !== '' ? $timezone : 'UTC';
     }
 }

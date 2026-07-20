@@ -1,35 +1,28 @@
 export const EVENT_TIERS = [
   {
-    value: 'corporate',
-    label_en: 'Corporate',
-    label_ar: 'مؤسسي',
-    description_en: 'Internal teams, invite lists, and controlled access.',
-    description_ar: 'فرق داخلية، قوائم دعوة، ووصول محكوم.',
-  },
-  {
     value: 'public',
     label_en: 'Public',
     label_ar: 'عام',
-    description_en: 'Open registration for broad audiences.',
-    description_ar: 'تسجيل مفتوح لجمهور واسع.',
+    description_en: 'Open registration for anyone with the link.',
+    description_ar: 'تسجيل مفتوح لأي شخص لديه الرابط.',
   },
   {
-    value: 'vip',
-    label_en: 'VIP',
-    label_ar: 'VIP',
-    description_en: 'Invite-only with elevated arrival experience.',
-    description_ar: 'بدعوة فقط مع تجربة وصول مميزة.',
-  },
-  {
-    value: 'vvip',
-    label_en: 'VVIP',
-    label_ar: 'VVIP',
-    description_en: 'Highest assurance with strict identity controls.',
-    description_ar: 'أعلى مستوى أمان مع ضوابط هوية صارمة.',
+    value: 'private',
+    label_en: 'Private',
+    label_ar: 'خاص',
+    description_en: 'Invite-only access with controlled registration.',
+    description_ar: 'وصول بدعوة فقط مع تسجيل محكوم.',
   },
 ] as const
 
-export type EventTier = (typeof EVENT_TIERS)[number]['value']
+export type EventTierOption = (typeof EVENT_TIERS)[number]['value']
+export type EventTier = EventTierOption | 'both'
+
+export const EVENT_TIER_BOTH_LABEL = {
+  value: 'both' as const,
+  label_en: 'Public & Private',
+  label_ar: 'عام وخاص',
+}
 
 export const EVENT_TYPES = [
   {
@@ -89,10 +82,51 @@ export type EventCapabilities = {
   allows_paid_ticketing?: boolean
 }
 
-export function allowsPaidTicketing(tier: string): boolean {
-  return tier === 'public'
+export function encodeEventTiers(selected: EventTierOption[]): EventTier {
+  const hasPublic = selected.includes('public')
+  const hasPrivate = selected.includes('private')
+
+  if (hasPublic && hasPrivate) {
+    return 'both'
+  }
+
+  if (hasPrivate) {
+    return 'private'
+  }
+
+  return 'public'
 }
 
-export function requiresTicketing(tier: string, registrationMode: string): boolean {
-  return tier === 'public' && registrationMode === 'paid_ticketing'
+export function decodeEventTiers(tier: string): EventTierOption[] {
+  if (tier === 'both') {
+    return ['public', 'private']
+  }
+
+  if (tier === 'private') {
+    return ['private']
+  }
+
+  return ['public']
+}
+
+export function labelForEventTier(tier: string | undefined, locale: 'en' | 'ar'): string {
+  if (!tier) {
+    return '—'
+  }
+
+  if (tier === 'both') {
+    return locale === 'ar' ? EVENT_TIER_BOTH_LABEL.label_ar : EVENT_TIER_BOTH_LABEL.label_en
+  }
+
+  const match = EVENT_TIERS.find((option) => option.value === tier)
+
+  return match ? (locale === 'ar' ? match.label_ar : match.label_en) : tier
+}
+
+export function allowsPaidTicketing(_tier: string): boolean {
+  return false
+}
+
+export function requiresTicketing(_tier: string, _registrationMode: string): boolean {
+  return false
 }

@@ -16,6 +16,7 @@ final class UpdateTenantRequest extends FormRequest
         return [
             'name' => ['sometimes', 'string', 'max:160'],
             'status' => ['sometimes', 'in:active,suspended,deactivated'],
+            'organization_type' => ['sometimes', 'in:organizer,venue_owner,hybrid'],
             'default_locale' => ['sometimes', 'in:en,ar'],
             'timezone' => ['sometimes', 'timezone'],
             'data_residency_region' => ['sometimes', 'string', 'max:64'],

@@ -8,10 +8,8 @@ final class EventTierDefaults
     public function for(EventTier $tier): array
     {
         return match ($tier) {
-            EventTier::Corporate => $this->defaults('private', true, 24),
-            EventTier::Public => $this->defaults('public', false, 24),
-            EventTier::Vip => $this->defaults('private', true, 48),
-            EventTier::Vvip => $this->defaults('private', true, 48),
+            EventTier::Public, EventTier::Both => $this->defaults('public', false, 24),
+            EventTier::Private => $this->defaults('private', true, 24),
         };
     }
 

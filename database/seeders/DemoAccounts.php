@@ -2,14 +2,29 @@
 
 namespace Database\Seeders;
 
-/** Demo login credentials seeded in non-production environments. */
+/**
+ * Centralises every demo credential so tests and seeders reference one place.
+ */
 final class DemoAccounts
 {
-    public const PRIMARY_DEMO_EMAIL = 'demo@zonetec.test';
+    // ── Platform Admin (مشرف) ───────────────────────────────
+    public const ADMIN_EMAIL = 'super.admin@admin.com';
 
-    public const PRIMARY_DEMO_PASSWORD = 'DemoMeet2026!';
+    public const ADMIN_PASSWORD = 'admin1234';
 
-    public const PLATFORM_ADMIN_EMAIL = 'super.admin@admin.com';
+    // ── Tenant / Organizer (منظم) ──────────────────────────
+    public const TENANT_EMAIL = 'demo@zonetec.test';
+
+    public const TENANT_PASSWORD = 'DemoMeet2026!';
+
+    public const TENANT_ORG_NAME = 'Zonetec Events';
+
+    public const TENANT_SLUG = 'zonetec-events';
+
+    // ── Operational staff ─────────────────────────────────
+    public const TICKETING_EMAIL = 'ticketing@zonetec.test';
+
+    public const TICKETING_PASSWORD = 'TicketDemo2026!';
 
     public const ONSITE_EMAIL = 'onsite@zonetec.test';
 
@@ -19,19 +34,17 @@ final class DemoAccounts
 
     public const ACS_PASSWORD = 'AcsDemo2026!';
 
-    public const TICKETING_EMAIL = 'ticketing@zonetec.test';
+    // ── Visitor portal ────────────────────────────────────
+    public const VISITOR_EMAIL = 'visitor@zonetec.test';
 
-    public const TICKETING_PASSWORD = 'TicketDemo2026!';
+    public const VISITOR_PASSWORD = 'VisitorDemo2026!';
 
-    public const FIXTURE_CREATOR_EMAIL = 'fixture.creator@example.test';
+    // Backwards-compat aliases
+    public const PLATFORM_ADMIN_EMAIL = self::ADMIN_EMAIL;
 
-    public const FIXTURE_CREATOR_PASSWORD = 'synthetic-only-creator-password';
+    public const PLATFORM_ADMIN_PASSWORD = self::ADMIN_PASSWORD;
 
-    public const FIXTURE_ALPHA_EMAIL = 'fixture.alpha@example.test';
+    public const PRIMARY_DEMO_EMAIL = self::TENANT_EMAIL;
 
-    public const FIXTURE_ALPHA_PASSWORD = 'synthetic-only-alpha-password';
-
-    public const FIXTURE_BRAVO_EMAIL = 'fixture.bravo@example.test';
-
-    public const FIXTURE_BRAVO_PASSWORD = 'synthetic-only-bravo-password';
+    public const PRIMARY_DEMO_PASSWORD = self::TENANT_PASSWORD;
 }

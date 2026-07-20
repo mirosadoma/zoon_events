@@ -24,7 +24,7 @@ export function defaultFieldOptions(): FieldOptionRow[] {
 }
 
 export default function FieldOptionsRepeater({ options, onChange, fieldKeyPrefix, fieldError }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
 
   function updateOption(index: number, patch: Partial<FieldOptionRow>) {
     onChange(
@@ -55,17 +55,17 @@ export default function FieldOptionsRepeater({ options, onChange, fieldKeyPrefix
     <div className="space-y-3 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold">
-          {locale === 'ar' ? 'خيارات الحقل' : 'Field options'}
+          {t('fieldOptionsTitle')}
         </h3>
         <button type="button" className="button-secondary" onClick={addOption}>
-          {locale === 'ar' ? 'إضافة خيار' : 'Add option'}
+          {t('fieldOptionsAdd')}
         </button>
       </div>
       <ul className="space-y-3">
         {options.map((option, index) => (
           <li key={option.id} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
             <TextInput
-              label={locale === 'ar' ? 'التسمية بالإنجليزية' : 'English label'}
+              label={t('fieldOptionsLabelEn')}
               name={`option_label_en_${index}`}
               value={option.label_en}
               onChange={(event) => updateOption(index, { label_en: event.target.value })}
@@ -73,7 +73,7 @@ export default function FieldOptionsRepeater({ options, onChange, fieldKeyPrefix
               {...(fieldKeyPrefix ? formFieldProps(`${fieldKeyPrefix}.options.${index}.label_en`) : {})}
             />
             <TextInput
-              label={locale === 'ar' ? 'التسمية بالعربية' : 'Arabic label'}
+              label={t('fieldOptionsLabelAr')}
               name={`option_label_ar_${index}`}
               value={option.label_ar}
               onChange={(event) => updateOption(index, { label_ar: event.target.value })}
@@ -87,7 +87,7 @@ export default function FieldOptionsRepeater({ options, onChange, fieldKeyPrefix
                 onClick={() => removeOption(index)}
                 disabled={options.length <= 1}
               >
-                {locale === 'ar' ? 'حذف' : 'Remove'}
+                {t('fieldOptionsRemove')}
               </button>
             </div>
           </li>

@@ -20,7 +20,6 @@ type Props = {
 export default function AcsAccessLogs({ event, tenantId, accessEvents: initialEvents }: Props) {
   const { locale, t } = useLocale()
   const [events, setEvents] = useState(initialEvents)
-  const ar = locale === 'ar'
 
   useEffect(() => {
     let active = true
@@ -44,57 +43,57 @@ export default function AcsAccessLogs({ event, tenantId, accessEvents: initialEv
   }, [event.id, tenantId])
 
   return (
-    <DashboardLayout title={ar ? 'سجلات الوصول' : 'Access logs'}>
+    <DashboardLayout title={t('acsPageAccessLogs')}>
       <PageHeader
-        title={ar ? 'سجلات الوصول' : 'Access logs'}
+        title={t('acsPageAccessLogs')}
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: ar ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: 'ACS', href: `/tenant/events/${event.id}/acs` },
-          { label: ar ? 'سجلات الوصول' : 'Access logs' },
+          { label: t('acsPageAccessLogs') },
         ]}
         actions={(
           <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/acs/gate-health`}>
-            {ar ? 'صحة البوابة' : 'Gate health'}
+            {t('acsPageGateHealth')}
           </LocalizedLink>
         )}
       />
       <PageContent>
         {events.length === 0 ? (
           <EmptyState
-            title={ar ? 'لا توجد أحداث وصول' : 'No access events yet'}
-            detail={ar ? 'ستظهر قرارات البوابة هنا عند حدوثها.' : 'Gate decisions will appear here as they happen.'}
+            title={t('acsPageNoAccessEvents')}
+            detail={t('acsPageAccessEventsDescription')}
           />
         ) : (
           <DataTable
-            title={ar ? 'أحدث الأحداث' : 'Recent events'}
+            title={t('acsPageRecentEvents')}
             rows={events as unknown as Record<string, unknown>[]}
             getRowKey={(row) => String(row.id)}
             columns={[
               {
                 key: 'occurred_at',
-                header: ar ? 'الوقت' : 'Occurred',
+                header: t('acsPageOccurred'),
                 render: (row) => <span className="whitespace-nowrap text-[var(--muted)]">{String(row.occurred_at)}</span>,
               },
               {
                 key: 'event_type',
-                header: ar ? 'النوع' : 'Type',
+                header: t('acsPageType'),
               },
               {
                 key: 'direction',
-                header: ar ? 'الاتجاه' : 'Direction',
+                header: t('acsPageDirection'),
               },
               {
                 key: 'decision',
-                header: ar ? 'القرار' : 'Decision',
+                header: t('acsPageDecision'),
                 render: (row) =>
                   row.decision ? <StatusBadge status={String(row.decision)} /> : <span className="text-[var(--muted)]">—</span>,
               },
               {
                 key: 'reason_code',
-                header: ar ? 'السبب' : 'Reason',
+                header: t('reason'),
                 render: (row) => <span className="font-mono text-xs">{String(row.reason_code)}</span>,
               },
             ]}

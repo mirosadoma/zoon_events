@@ -17,6 +17,15 @@ const SCAN_REASON_LABELS: Record<string, Record<AppLocale, string>> = {
   identity_pending: { en: 'Identity verification pending', ar: 'التحقق من الهوية قيد الانتظار' },
   duplicate_entry: { en: 'Duplicate entry attempt', ar: 'محاولة دخول مكررة' },
   already_checked_in: { en: 'Already checked in', ar: 'تم تسجيل الحضور مسبقاً' },
+  credential_invalid: { en: 'Credential is invalid', ar: 'بيانات الدخول غير صالحة' },
+  order_reference_not_found: {
+    en: 'Order reference not found for this event',
+    ar: 'مرجع الطلب غير موجود لهذه الفعالية',
+  },
+  order_reference_wrong_event: {
+    en: 'This order belongs to a different event',
+    ar: 'هذا الطلب يخص فعالية أخرى',
+  },
 }
 
 export function scanReasonLabel(reason: string | null | undefined, locale: AppLocale): string {

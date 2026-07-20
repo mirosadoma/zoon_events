@@ -2,11 +2,14 @@
 
 namespace App\Modules\AdminConsole\ViewModels\Events;
 
+use App\Modules\Events\Application\Actions\UnpublishEvent;
 use App\Modules\Events\Application\Publication\PublicationReadiness;
+use App\Modules\Events\Application\Support\EventWallClockDateTime;
 use App\Modules\Events\Application\Support\PublicRegistrationUrlBuilder;
 use App\Modules\Events\Domain\EventRegistrationProfile;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\IdentityVerification\Infrastructure\Persistence\Models\IdentityVerificationRequirement;
+use App\Modules\Kiosk\Infrastructure\Persistence\Models\Kiosk;
 use App\Modules\Ticketing\Contracts\ActiveTicketCounter;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\PriceTier;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketInventory;
@@ -75,24 +78,24 @@ final readonly class EventDashboardViewModel
             'tickets' => $tickets
                 ->reject(fn (TicketType $ticket): bool => $ticket->code === EventRegistrationProfile::SYSTEM_REGISTRATION_TICKET_CODE)
                 ->map(function (TicketType $ticket) use ($inventory): array {
-                $stock = $inventory->get($ticket->id);
+                    $stock = $inventory->get($ticket->id);
 
-                return [
-                    'id' => $ticket->id,
-                    'code' => $ticket->code,
-                    'name' => ['en' => $ticket->name_en, 'ar' => $ticket->name_ar],
-                    'description' => ['en' => $ticket->description_en ?? '', 'ar' => $ticket->description_ar ?? ''],
-                    'attendee_type' => $ticket->attendee_type,
-                    'price_minor' => $ticket->base_price_minor,
-                    'currency' => $ticket->currency,
-                    'capacity' => $stock?->capacity ?? 0,
-                    'remaining_quantity' => $stock?->remaining() ?? 0,
-                    'sale_starts_at' => $ticket->sale_starts_at?->toIso8601String(),
-                    'sale_ends_at' => $ticket->sale_ends_at?->toIso8601String(),
-                    'status' => $ticket->status,
-                    'state' => $this->availability($ticket, $stock),
-                ];
-            })->values()->all(),
+                    return [
+                        'id' => $ticket->id,
+                        'code' => $ticket->code,
+                        'name' => ['en' => $ticket->name_en, 'ar' => $ticket->name_ar],
+                        'description' => ['en' => $ticket->description_en ?? '', 'ar' => $ticket->description_ar ?? ''],
+                        'attendee_type' => $ticket->attendee_type,
+                        'price_minor' => $ticket->base_price_minor,
+                        'currency' => $ticket->currency,
+                        'capacity' => $stock?->capacity ?? 0,
+                        'remaining_quantity' => $stock?->remaining() ?? 0,
+                        'sale_starts_at' => EventWallClockDateTime::toInput($ticket->sale_starts_at, $event->timezone),
+                        'sale_ends_at' => EventWallClockDateTime::toInput($ticket->sale_ends_at, $event->timezone),
+                        'status' => $ticket->status,
+                        'state' => $this->availability($ticket, $stock),
+                    ];
+                })->values()->all(),
         ];
     }
 
@@ -123,8 +126,8 @@ final readonly class EventDashboardViewModel
                 'ticket_type_id' => $tier->ticket_type_id,
                 'price_minor' => $tier->price_minor,
                 'currency' => $tier->currency,
-                'starts_at' => $tier->starts_at?->toIso8601String(),
-                'ends_at' => $tier->ends_at?->toIso8601String(),
+                'starts_at' => EventWallClockDateTime::toInput($tier->starts_at, $event->timezone),
+                'ends_at' => EventWallClockDateTime::toInput($tier->ends_at, $event->timezone),
                 'remaining_at_most' => $tier->remaining_at_most,
                 'priority' => $tier->priority,
                 'status' => $tier->status,
@@ -141,14 +144,15 @@ final readonly class EventDashboardViewModel
         return [
             'id' => $event->id,
             'slug' => $event->slug,
+            'code' => $event->code,
             'name' => ['en' => $event->name_en, 'ar' => $event->name_ar],
             'status' => $event->status,
             'tier' => $event->tier,
             'event_type' => $event->event_type ?? 'seminar',
             'registration_mode' => $event->registration_mode ?? 'free_registration',
             'timezone' => $event->timezone,
-            'start_at' => $event->start_at?->toIso8601String(),
-            'end_at' => $event->end_at?->toIso8601String(),
+            'start_at' => EventWallClockDateTime::toIso8601($event->start_at, $event->timezone),
+            'end_at' => EventWallClockDateTime::toIso8601($event->end_at, $event->timezone),
             'capacity' => $event->capacity,
             'readiness' => $this->readiness->missingForEvent(
                 $event,
@@ -156,6 +160,7 @@ final readonly class EventDashboardViewModel
             ),
             'registration_url' => $this->registrationUrls->forEvent($event),
             'capabilities' => EventRegistrationProfile::capabilities($event),
+            'can_unpublish' => UnpublishEvent::canUnpublish($event),
         ];
     }
 
@@ -167,6 +172,9 @@ final readonly class EventDashboardViewModel
      *   ticket_types:bool,
      *   price_tiers:bool,
      *   agenda:bool,
+     *   categories:bool,
+     *   badge_templates:bool,
+     *   kiosks:bool,
      *   identity:bool,
      *   published:bool
      * }
@@ -182,6 +190,13 @@ final readonly class EventDashboardViewModel
                     ->where('event_id', $event->id)
                     ->exists(),
             'agenda' => ! in_array('published_agenda', $missing, true),
+            'categories' => ! in_array('event_categories', $missing, true),
+            'badge_templates' => ! in_array('active_badge_template', $missing, true),
+            'kiosks' => Kiosk::query()
+                ->where('tenant_id', $event->tenant_id)
+                ->where('event_id', $event->id)
+                ->whereNull('retired_at')
+                ->exists(),
             'identity' => IdentityVerificationRequirement::query()
                 ->where('tenant_id', $event->tenant_id)
                 ->where('event_id', $event->id)
@@ -197,6 +212,9 @@ final readonly class EventDashboardViewModel
      *   ticket_types:bool,
      *   price_tiers:bool,
      *   agenda:bool,
+     *   categories:bool,
+     *   badge_templates:bool,
+     *   kiosks:bool,
      *   identity:bool,
      *   published:bool
      * }  $setupProgress
@@ -221,6 +239,10 @@ final readonly class EventDashboardViewModel
             $setupTabs[] = ['label' => 'Price tiers', 'href' => "{$base}/price-tiers", 'key' => 'price_tiers', 'completed' => $setupProgress['price_tiers']];
         }
 
+        $setupTabs[] = ['label' => 'Categories', 'href' => "{$base}/categories", 'key' => 'categories', 'completed' => $setupProgress['categories']];
+        $setupTabs[] = ['label' => 'Badge templates', 'href' => "{$base}/badge-templates", 'key' => 'badge_templates', 'completed' => $setupProgress['badge_templates']];
+        $setupTabs[] = ['label' => 'Kiosks', 'href' => "{$base}/kiosks", 'key' => 'kiosks', 'completed' => $setupProgress['kiosks']];
+
         return [
             'setupTabs' => $setupTabs,
             'operationsTabs' => [
@@ -232,8 +254,6 @@ final readonly class EventDashboardViewModel
                 ['label' => 'Check-in dashboard', 'href' => "{$base}/check-in-dashboard", 'key' => 'check_in_dashboard', 'completed' => false],
                 ['label' => 'Scanner', 'href' => "{$base}/scanner", 'key' => 'scanner', 'completed' => false],
                 ['label' => 'Scan events', 'href' => "{$base}/scan-events", 'key' => 'scan_events', 'completed' => false],
-                ['label' => 'Kiosks', 'href' => "{$base}/kiosks", 'key' => 'kiosks', 'completed' => false],
-                ['label' => 'Badge templates', 'href' => "{$base}/badge-templates", 'key' => 'badge_templates', 'completed' => false],
                 ['label' => 'Badge print jobs', 'href' => "{$base}/badge-print-jobs", 'key' => 'badge_print_jobs', 'completed' => false],
                 ['label' => 'Manual desk', 'href' => "{$base}/manual-desk", 'key' => 'manual_desk', 'completed' => false],
                 ['label' => 'ACS', 'href' => "{$base}/acs", 'key' => 'acs', 'completed' => false],

@@ -17,6 +17,7 @@ use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\Authorization\Application\PermissionEvaluator;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventRegistrationInvite;
 use App\Modules\IdentityVerification\Application\Queries\IdentityGate;
 use App\Modules\Notifications\Infrastructure\Persistence\Models\Notification;
 use App\Modules\Orders\Infrastructure\Persistence\Models\Order;
@@ -112,6 +113,11 @@ final class EventOperationsController extends Controller
         $context = $this->authorizeTenant('attendee.view');
         $event = $this->event($context, $eventId);
         $filters = $this->attendeeFilters($request);
+
+        if ($filters['status'] === 'not_registered') {
+            return $this->attendeesFromInvites($request, $event, $filters);
+        }
+
         $result = $this->listAttendees->paginate(
             (string) $context->tenant->id,
             (string) $event->id,
@@ -125,7 +131,7 @@ final class EventOperationsController extends Controller
             $result['attendees']->pluck('id')->all(),
         );
 
-        return Inertia::render('tenant/events/Attendees', $this->attendees->index(
+        $payload = $this->attendees->index(
             $event,
             $result['attendees'],
             $credentialStatuses,
@@ -136,7 +142,81 @@ final class EventOperationsController extends Controller
                 'total' => $result['total'],
                 'last_page' => $result['last_page'],
             ],
-        ));
+        );
+
+        if ($filters['status'] === '' && $filters['search'] === '') {
+            $pendingInvites = EventRegistrationInvite::query()
+                ->where('event_id', $event->id)
+                ->where('invite_status', 'not_registered')
+                ->orderByDesc('id')
+                ->limit(50)
+                ->get();
+
+            if ($pendingInvites->isNotEmpty()) {
+                $inviteRows = $pendingInvites->map(fn (EventRegistrationInvite $invite): array => [
+                    'id' => 'invite-'.$invite->id,
+                    'row_type' => 'invite',
+                    'status' => 'not_checked_in',
+                    'invite_status' => 'not_registered',
+                    'locale' => 'en',
+                    'credential_status' => null,
+                    'label' => $invite->email,
+                    'display_name' => null,
+                    'email' => $invite->email,
+                    'phone' => null,
+                ])->all();
+
+                $payload['attendees'] = [...$inviteRows, ...$payload['attendees']];
+            }
+        }
+
+        return Inertia::render('tenant/events/Attendees', $payload);
+    }
+
+    /**
+     * @param  array{search: string, status: string}  $filters
+     */
+    private function attendeesFromInvites(Request $request, Event $event, array $filters): Response
+    {
+        $perPage = ListEventAttendeesQuery::PER_PAGE;
+        $page = max(1, (int) $request->integer('page', 1));
+        $search = mb_strtolower($filters['search']);
+
+        $query = EventRegistrationInvite::query()
+            ->where('event_id', $event->id)
+            ->where('invite_status', 'not_registered')
+            ->when($search !== '', fn ($builder) => $builder->where('email', 'like', '%'.$search.'%'))
+            ->orderByDesc('id');
+
+        $paginator = $query->paginate($perPage, ['*'], 'page', $page);
+        $rows = $paginator->getCollection()->map(fn (EventRegistrationInvite $invite): array => [
+            'id' => 'invite-'.$invite->id,
+            'row_type' => 'invite',
+            'status' => 'not_checked_in',
+            'invite_status' => 'not_registered',
+            'locale' => 'en',
+            'credential_status' => null,
+            'label' => $invite->email,
+            'display_name' => null,
+            'email' => $invite->email,
+            'phone' => null,
+        ])->values()->all();
+
+        return Inertia::render('tenant/events/Attendees', [
+            'event' => [
+                'id' => (string) $event->id,
+                'name' => ['en' => $event->name_en, 'ar' => $event->name_ar],
+                'status' => $event->status,
+            ],
+            'attendees' => $rows,
+            'filters' => $filters,
+            'pagination' => [
+                'page' => $paginator->currentPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'last_page' => max(1, $paginator->lastPage()),
+            ],
+        ]);
     }
 
     public function attendeesExport(Request $request, string $eventId): StreamedResponse
@@ -306,7 +386,14 @@ final class EventOperationsController extends Controller
     private function attendeeFilters(Request $request): array
     {
         $status = trim((string) $request->query('status', ''));
-        if (! in_array($status, ['not_checked_in', 'checked_in'], true)) {
+        if (! in_array($status, [
+            'not_registered',
+            'registered',
+            'attended',
+            'not_attended',
+            'not_checked_in',
+            'checked_in',
+        ], true)) {
             $status = '';
         }
 

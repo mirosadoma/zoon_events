@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Modules\AdminConsole\Infrastructure\Persistence\Models\City;
 use App\Modules\AdminConsole\Infrastructure\Persistence\Models\Country;
-use App\Modules\AdminConsole\Infrastructure\Persistence\Models\Timezone;
 use Illuminate\Database\Seeder;
 
 final class GeographySeeder extends Seeder
@@ -33,60 +32,25 @@ final class GeographySeeder extends Seeder
                 ['name_en' => 'Amman', 'name_ar' => 'عمّان'],
                 ['name_en' => 'Aqaba', 'name_ar' => 'العقبة'],
             ]],
+            ['code' => 'KW', 'name_en' => 'Kuwait', 'name_ar' => 'الكويت', 'cities' => [
+                ['name_en' => 'Kuwait City', 'name_ar' => 'مدينة الكويت'],
+            ]],
+            ['code' => 'BH', 'name_en' => 'Bahrain', 'name_ar' => 'البحرين', 'cities' => [
+                ['name_en' => 'Manama', 'name_ar' => 'المنامة'],
+            ]],
         ];
 
         foreach ($countries as $countryData) {
             $country = Country::query()->updateOrCreate(
                 ['code' => $countryData['code']],
-                [
-                    'name_en' => $countryData['name_en'],
-                    'name_ar' => $countryData['name_ar'],
-                    'is_active' => true,
-                ],
+                ['name_en' => $countryData['name_en'], 'name_ar' => $countryData['name_ar'], 'is_active' => true],
             );
 
             foreach ($countryData['cities'] as $cityData) {
                 City::query()->updateOrCreate(
                     ['country_id' => $country->id, 'name_en' => $cityData['name_en']],
-                    [
-                        'name_ar' => $cityData['name_ar'],
-                        'is_active' => true,
-                    ],
+                    ['name_ar' => $cityData['name_ar'], 'is_active' => true],
                 );
-            }
-        }
-
-        $this->syncTimezoneCountries();
-    }
-
-    private function syncTimezoneCountries(): void
-    {
-        $countries = Country::query()->with('cities')->get();
-        $map = require database_path('data/timezone_countries.php');
-
-        foreach (Timezone::query()->get() as $timezone) {
-            if (isset($map[$timezone->identifier])) {
-                $timezone->update([
-                    'country_en' => $map[$timezone->identifier]['en'],
-                    'country_ar' => $map[$timezone->identifier]['ar'],
-                ]);
-
-                continue;
-            }
-
-            $cityPart = str_replace('_', ' ', explode('/', $timezone->identifier)[1] ?? '');
-
-            foreach ($countries as $country) {
-                foreach ($country->cities as $city) {
-                    if (strcasecmp($city->name_en, $cityPart) === 0) {
-                        $timezone->update([
-                            'country_en' => $country->name_en,
-                            'country_ar' => $country->name_ar,
-                        ]);
-
-                        continue 3;
-                    }
-                }
             }
         }
     }

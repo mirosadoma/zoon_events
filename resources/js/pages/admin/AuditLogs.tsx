@@ -10,7 +10,7 @@ import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import FiltersBar from '@/components/tables/FiltersBar'
 import { useLocale } from '@/hooks/useLocale'
-import { auditActionLabel } from '@/lib/permissionCatalog'
+import { auditActionLabel, auditTargetTypeLabel } from '@/lib/permissionCatalog'
 import en from '@/locales/en'
 import ar from '@/locales/ar'
 
@@ -41,7 +41,7 @@ type Props = {
 }
 
 export default function AdminAuditLogs({ auditLogs, filters }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const localizedRouter = useLocalizedRouter()
   const messages = locale === 'ar' ? ar : en
   const [draft, setDraft] = useState({
@@ -122,16 +122,20 @@ export default function AdminAuditLogs({ auditLogs, filters }: Props) {
               },
               {
                 key: 'reason_code',
-                header: locale === 'ar' ? 'سبب المشكلة' : 'Failure reason',
+                header: t('auditLogsFailureReason'),
                 render: (row) => {
                   const outcome = String(row.outcome ?? '')
                   const reason = row.reason_code ? String(row.reason_code) : null
                   if (outcome !== 'failed' && !reason) return '—'
-                  return reason ?? (locale === 'ar' ? 'فشل بدون تفاصيل' : 'Failed without details')
+                  return reason ?? t('auditLogsFailedNoDetails')
                 },
               },
               { key: 'actor_id', header: messages.adminFilterActor },
-              { key: 'target_type', header: messages.adminTargetType },
+              {
+                key: 'target_type',
+                header: messages.adminTargetType,
+                render: (row) => row.target_type ? auditTargetTypeLabel(String(row.target_type), locale) : '—',
+              },
               { key: 'target_id', header: messages.adminTargetId },
             ]}
           />

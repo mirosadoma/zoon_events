@@ -103,7 +103,7 @@ export default function MapPicker({
   'data-form-field-latitude': dataFormFieldLatitude,
   'data-form-field-longitude': dataFormFieldLongitude,
 }: MapPickerProps) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const [mounted, setMounted] = useState(false)
   const resolvedLatitudeError = latitudeError ?? error
   const resolvedLongitudeError = longitudeError ?? error
@@ -131,7 +131,7 @@ export default function MapPicker({
       <span className="text-sm font-medium text-[var(--ink)]">{label}</span>
       <div className="grid gap-3 sm:grid-cols-2">
         <TextInput
-          label={locale === 'ar' ? 'خط العرض' : 'Latitude'}
+          label={t('mapPickerLatitude')}
           name="latitude"
           type="text"
           inputMode="decimal"
@@ -142,7 +142,7 @@ export default function MapPicker({
           data-form-field={dataFormFieldLatitude}
         />
         <TextInput
-          label={locale === 'ar' ? 'خط الطول' : 'Longitude'}
+          label={t('mapPickerLongitude')}
           name="longitude"
           type="text"
           inputMode="decimal"
@@ -192,9 +192,7 @@ export default function MapPicker({
         )}
       </div>
       <p className="text-xs text-[var(--muted)]">
-        {locale === 'ar'
-          ? 'انقر على الخريطة لتحديد الإحداثيات، أو أدخل خط العرض وخط الطول يدوياً.'
-          : 'Click on the map to set coordinates, or enter latitude and longitude manually.'}
+        {t('mapPickerHelp')}
       </p>
       {mapError ? <ValidationError message={mapError} /> : null}
     </div>

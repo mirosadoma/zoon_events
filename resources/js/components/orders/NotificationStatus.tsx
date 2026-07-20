@@ -1,3 +1,6 @@
+import en from '@/locales/en'
+import ar from '@/locales/ar'
+
 const safeLabels: Record<'en' | 'ar', Record<string, string>> = {
   en: {
     pending: 'Queued',
@@ -18,7 +21,8 @@ const safeLabels: Record<'en' | 'ar', Record<string, string>> = {
 }
 
 export function NotificationStatus({ status, locale = 'en' }: { status: string; locale?: 'en' | 'ar' }) {
-  const unavailable = locale === 'ar' ? 'غير متاح' : 'Unavailable'
-  const label = locale === 'ar' ? 'حالة إرسال التأكيد' : 'Confirmation delivery status'
+  const messages = locale === 'ar' ? ar : en
+  const unavailable = messages.notificationUnavailable
+  const label = messages.notificationDeliveryStatus
   return <span role="status" aria-label={label}>{safeLabels[locale][status] ?? unavailable}</span>
 }

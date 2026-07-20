@@ -51,6 +51,9 @@ Route::prefix('kiosk/v1')
             ->middleware(['idempotency'])
             ->name('api.v1.kiosk.scans');
 
+        Route::post('/badge-print-jobs/preview', [KioskBadgePrintController::class, 'preview'])
+            ->name('api.v1.kiosk.badge-print-jobs.preview');
+
         Route::post('/badge-print-jobs', [KioskBadgePrintController::class, 'store'])
             ->middleware(['idempotency'])
             ->name('api.v1.kiosk.badge-print-jobs');

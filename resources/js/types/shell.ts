@@ -34,6 +34,7 @@ export type NavigationItem = {
   href: string
   icon?: string
   permission: PermissionKey | null
+  permissionsAny?: PermissionKey[]
   children?: NavigationItem[]
 }
 

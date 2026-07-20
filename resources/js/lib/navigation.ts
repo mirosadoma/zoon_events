@@ -19,6 +19,14 @@ export function isNavItemActive(currentPath: string, itemHref: string): boolean 
     return path === '/tenant/events/create'
   }
 
+  if (itemPath === '/tenant/privileges') {
+    return path === '/tenant/privileges/create' || path.startsWith('/tenant/privileges/')
+  }
+
+  if (itemPath === '/tenant/categories') {
+    return path === '/tenant/categories/create' || path.startsWith('/tenant/categories/')
+  }
+
   const isEventDetailRoot = /\/tenant\/events\/[^/]+$/.test(itemPath)
 
   if (isEventDetailRoot) {
@@ -46,17 +54,37 @@ export const platformNavigationGroups: NavigationGroup[] = [
       { key: 'admin-audit', label: 'audit', href: '/admin/audit-logs', icon: 'admin-audit', permission: 'audit.view' },
     ],
   },
+//   {
+//     key: 'marketplace',
+//     label: 'navGroupMarketplace',
+//     items: [
+//       { key: 'venues', label: 'venues', href: '/tenant/venues', icon: 'venues', permission: 'venue.manage' },
+//       { key: 'marketplace', label: 'marketplace', href: '/tenant/marketplace', icon: 'marketplace', permission: 'marketplace.manage' },
+//       { key: 'rentals', label: 'marketplaceRentals', href: '/tenant/marketplace/rentals', icon: 'rentals', permission: null, permissionsAny: ['marketplace.manage', 'rentals.approve', 'reports.view'] },
+//       { key: 'statements', label: 'marketplaceStatements', href: '/tenant/marketplace/statements', icon: 'statements', permission: 'reports.view' },
+//       { key: 'platform-marketplace', label: 'platformMarketplace', href: '/platform/marketplace', icon: 'platform-marketplace', permission: 'platform.marketplace.view' },
+//     ],
+//   },
+  {
+    key: 'platform-admin',
+    label: 'navGroupAdminControl',
+    items: [
+      { key: 'platform-users', label: 'platformUsers', href: '/platform/users', icon: 'admin-users', permission: 'platform.user.view' },
+      { key: 'platform-roles', label: 'platformRoles', href: '/platform/roles', icon: 'admin-roles', permission: 'platform.role.view' },
+      { key: 'subscriptions', label: 'subscriptions', href: '/platform/subscriptions', icon: 'configuration', permission: 'platform.subscription.view' },
+    ],
+  },
   {
     key: 'platform',
     label: 'navGroupPlatform',
     items: [
+      { key: 'privileges', label: 'privileges', href: '/tenant/privileges', icon: 'privileges', permission: 'privilege.view' },
+      { key: 'categories', label: 'categories', href: '/tenant/categories', icon: 'categories', permission: 'category.view' },
       { key: 'events', label: 'events', href: '/tenant/events', icon: 'events', permission: 'event.view' },
+      { key: 'all-events', label: 'allEvents', href: '/platform/all-events', icon: 'events', permission: 'platform.event.view' },
       { key: 'tenants', label: 'tenants', href: '/platform/tenants', icon: 'tenants', permission: 'platform.tenant.view' },
-      { key: 'platform-users', label: 'users', href: '/platform/users', icon: 'platform-users', permission: 'platform.user.view' },
-      { key: 'organizer-requests', label: 'organizerRequests', href: '/platform/organizer-requests', icon: 'organizer-requests', permission: 'platform.user.manage' },
       { key: 'site-settings', label: 'siteSettings', href: '/platform/site-settings', icon: 'site-settings', permission: 'platform.configuration.view' },
       { key: 'geography', label: 'geography', href: '/platform/geography', icon: 'geography', permission: 'platform.configuration.view' },
-      { key: 'platform-roles', label: 'roles', href: '/platform/roles', icon: 'platform-roles', permission: 'platform.role.view' },
       { key: 'platform-audit', label: 'audit', href: '/platform/audit', icon: 'platform-audit', permission: 'platform.audit.view' },
       { key: 'health', label: 'health', href: '/platform/health', icon: 'health', permission: 'operations.health.view' },
       { key: 'featureFlags', label: 'featureFlags', href: '/platform/feature-flags', icon: 'featureFlags', permission: 'platform.feature_flag.view' },
@@ -76,14 +104,16 @@ export function filterNavigation(
 
   for (const item of items) {
     const children = item.children ? filterNavigation(item.children, can) : undefined
-    const permitted = item.permission === null || can[item.permission] === true
+    const permitted = item.permissionsAny !== undefined && item.permissionsAny.length > 0
+      ? item.permissionsAny.some((key) => can[key] === true)
+      : (item.permission === null || can[item.permission] === true)
     const hasVisibleChildren = children !== undefined && children.length > 0
 
     if (!permitted && !hasVisibleChildren) {
       continue
     }
 
-    if (children !== undefined && children.length === 0 && item.permission !== null && !permitted) {
+    if (children !== undefined && children.length === 0 && !permitted) {
       continue
     }
 

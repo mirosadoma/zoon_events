@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Kiosk\Domain\Context\KioskSessionContextStore;
 use App\Modules\Kiosk\Http\Requests\KioskScanRequest;
 use App\Modules\Scanning\Application\Actions\SubmitScanAction;
+use App\Modules\Scanning\Application\Support\ScanPayloadResolver;
 use App\Modules\Scanning\Domain\ValueObjects\ScanContext;
 use App\Modules\Scanning\Http\Resources\ScanResultResource;
 use App\Modules\Scanning\Infrastructure\Persistence\Models\EventCheckInSetting;
@@ -18,12 +19,27 @@ final class KioskScanController extends Controller
 {
     use RespondsWithApi;
 
-    public function __construct(private readonly KioskSessionContextStore $kioskContexts) {}
+    public function __construct(
+        private readonly KioskSessionContextStore $kioskContexts,
+        private readonly ScanPayloadResolver $payloads,
+    ) {}
 
     public function store(KioskScanRequest $request, SubmitScanAction $action): JsonResponse
     {
         $context = $this->kioskContexts->current();
-        $credentialId = $request->input('credential_id');
+
+        $resolvedPayload = $request->filled('credential_id')
+            ? [
+                'qr_payload' => '',
+                'credential_id' => $request->input('credential_id'),
+            ]
+            : $this->payloads->resolveQrPayload(
+                $request->string('qr_payload')->toString(),
+                (string) $context->tenantId,
+                (string) $context->eventId,
+            );
+
+        $credentialId = $resolvedPayload['credential_id'];
 
         $settings = EventCheckInSetting::query()
             ->where('tenant_id', $context->tenantId)
@@ -45,7 +61,7 @@ final class KioskScanController extends Controller
             eventId: $context->eventId,
             scannerId: $context->kioskId,
             scannerType: 'kiosk',
-            qrPayload: $request->string('qr_payload', '')->toString(),
+            qrPayload: $resolvedPayload['qr_payload'],
             credentialId: $credentialId,
             override: false,
             overrideReason: null,

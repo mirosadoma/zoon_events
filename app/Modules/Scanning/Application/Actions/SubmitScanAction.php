@@ -2,6 +2,8 @@
 
 namespace App\Modules\Scanning\Application\Actions;
 
+use App\Modules\Attendees\Application\Actions\SyncAttendeeInviteStatus;
+use App\Modules\Attendees\Domain\AttendeeInviteStatus;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\Audit\Application\AuditedTransaction;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
@@ -27,6 +29,7 @@ final readonly class SubmitScanAction
         private ScanDecisionEvaluator $evaluator,
         private AuditedTransaction $audited,
         private PersonalDataCipher $cipher,
+        private SyncAttendeeInviteStatus $inviteStatuses,
     ) {}
 
     public function execute(ScanContext $context, ?ScanDecision $forcedDecision = null): ScanSubmission
@@ -91,9 +94,21 @@ final readonly class SubmitScanAction
 
             $attendee->forceFill([
                 'checkin_status' => 'checked_in',
+                'invite_status' => AttendeeInviteStatus::Attended->value,
                 'first_checked_in_at' => $attendee->first_checked_in_at ?? $scannedAt,
                 'last_scan_event_id' => $scanEvent->id,
             ])->save();
+
+            try {
+                $scope = "{$attendee->tenant_id}:{$attendee->event_id}:attendee";
+                $email = $this->cipher->decrypt([
+                    'key_id' => $attendee->encryption_key_id,
+                    'ciphertext' => $attendee->email_ciphertext,
+                ], $scope);
+                $this->inviteStatuses->markAttendedForEmail((string) $attendee->event_id, $email);
+            } catch (\Throwable) {
+                // Invite email sync is best-effort; check-in already succeeded.
+            }
         }
 
         $this->updateSummary($context, $decision->result, $scannedAt);
@@ -154,7 +169,7 @@ final readonly class SubmitScanAction
     /** @return array{attendee_display_name:?string,ticket_type_label:?string} */
     private function resolveDisplayFields(ScanContext $context, ScanDecision $decision): array
     {
-        if (! in_array($decision->result, ['accepted', 'manual_override'], true)
+        if (! in_array($decision->result, ['accepted', 'manual_override', 'duplicate'], true)
             || $decision->credentialId === null
             || $decision->attendeeId === null) {
             return ['attendee_display_name' => null, 'ticket_type_label' => null];

@@ -6,7 +6,6 @@ type Props = {
   currentStep: number
   stepTitle: string
   stepDescription?: string
-  locale?: 'en' | 'ar'
   children: React.ReactNode
   footer: React.ReactNode
 }
@@ -16,7 +15,6 @@ export default function EventCreateWizardLayout({
   currentStep,
   stepTitle,
   stepDescription,
-  locale = 'en',
   children,
   footer,
 }: Props) {
@@ -24,7 +22,7 @@ export default function EventCreateWizardLayout({
     <div className="event-create-wizard">
       <div className="event-create-wizard-shell">
         <aside className="event-create-wizard-aside">
-          <FormStepper steps={steps} currentStep={currentStep} variant="vertical" locale={locale} />
+          <FormStepper steps={steps} currentStep={currentStep} variant="vertical" />
         </aside>
 
         <div className="event-create-wizard-main">

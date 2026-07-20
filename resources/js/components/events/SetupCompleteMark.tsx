@@ -8,13 +8,13 @@ type Props = {
 }
 
 export default function SetupCompleteMark({ completed = false, className = '' }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
 
   if (!completed) {
     return null
   }
 
-  const label = locale === 'ar' ? 'مكتمل' : 'Done'
+  const label = t('setupCompleteMark')
 
   return (
     <span

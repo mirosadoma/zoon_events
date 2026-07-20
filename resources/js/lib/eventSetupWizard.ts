@@ -1,5 +1,8 @@
 import type { AppLocale } from '@/lib/localePath'
-import { allowsPaidTicketing, requiresTicketing } from '@/lib/eventOptions'
+import type { EventTierOption } from '@/lib/eventOptions'
+import { encodeEventTiers } from '@/lib/eventOptions'
+import en from '@/locales/en'
+import ar from '@/locales/ar'
 
 export type EventSetupWizardStep = 'type' | 'details' | 'schedule' | 'branding' | 'review'
 
@@ -9,13 +12,12 @@ export type EventSetupWizardForm = {
   name_ar: string
   description_en: string
   description_ar: string
-  tier: string
+  tiers: EventTierOption[]
   event_type: string
-  registration_mode: string
   timezone: string
-  capacity: string
-  brand_reference: string
   domain_reference: string
+  text_color: string
+  background_color: string
   organizer_user_id: string
 }
 
@@ -47,14 +49,14 @@ export function eventSetupWizardStepCopy(
     type: {
       title_en: 'Choose the event profile',
       title_ar: 'اختر ملف الفعالية',
-      description_en: 'Pick the format, audience tier, and whether attendees pay for tickets.',
-      description_ar: 'حدد الشكل، فئة الجمهور، وهل الحضور يدفعون تذاكراً.',
+      description_en: 'Pick the format and type. You can select Public, Private, or both.',
+      description_ar: 'حدد الشكل والنوع. يمكنك اختيار عام أو خاص أو كليهما.',
     },
     details: {
-      title_en: 'Name and capacity',
-      title_ar: 'الاسم والسعة',
-      description_en: 'Set how the event appears publicly and how many people can register.',
-      description_ar: 'حدد كيف تظهر الفعالية للجمهور وعدد المسجّلين المسموح.',
+      title_en: 'Name and details',
+      title_ar: 'الاسم والتفاصيل',
+      description_en: 'Set how the event appears publicly.',
+      description_ar: 'حدد كيف تظهر الفعالية للجمهور.',
     },
     schedule: {
       title_en: 'Schedule and venues',
@@ -65,8 +67,8 @@ export function eventSetupWizardStepCopy(
     branding: {
       title_en: 'Branding and visuals',
       title_ar: 'الهوية والصور',
-      description_en: 'Upload the hero image and connect your white-label domain.',
-      description_ar: 'ارفع الصورة الرئيسية واربط نطاق العلامة البيضاء.',
+      description_en: 'Add logos, text and background colors, then upload the hero image.',
+      description_ar: 'أضف الشعارات وألوان النص والخلفية ثم ارفع الصورة الرئيسية.',
     },
     review: {
       title_en: 'Review and create',
@@ -90,26 +92,21 @@ export function validateEventSetupWizardStep(
   options: {
     locale: AppLocale
     requiresOrganizerSelection: boolean
-    hasMainImage: boolean
     venueCount: number
   },
 ): Record<string, string> {
   const errors: Record<string, string> = {}
-  const required = options.locale === 'ar' ? 'هذا الحقل مطلوب.' : 'This field is required.'
+  const required = (options.locale === 'ar' ? ar : en).fieldRequired
 
   if (step === 'type') {
     if (!form.event_type) errors.event_type = required
-    if (!form.tier) errors.tier = required
-    if (allowsPaidTicketing(form.tier) && !form.registration_mode) {
-      errors.registration_mode = required
-    }
+    if (form.tiers.length === 0) errors.tier = required
   }
 
   if (step === 'details') {
     if (!form.slug.trim()) errors.slug = required
     if (!form.name_en.trim()) errors['name.en'] = required
     if (!form.name_ar.trim()) errors['name.ar'] = required
-    if (!form.capacity.trim() || Number(form.capacity) < 1) errors.capacity = required
     if (options.requiresOrganizerSelection && !form.organizer_user_id) {
       errors.organizer_user_id = required
     }
@@ -124,12 +121,6 @@ export function validateEventSetupWizardStep(
     }
   }
 
-  if (step === 'branding' && !options.hasMainImage) {
-    errors.main_image = options.locale === 'ar'
-      ? 'الصورة الرئيسية مطلوبة.'
-      : 'Main image is required.'
-  }
-
   return errors
 }
 
@@ -139,30 +130,25 @@ export function eventSetupWizardSummary(
   labels: {
     eventTypes: Record<string, string>
     tiers: Record<string, string>
-    registrationModes: Record<string, string>
   },
 ): Array<{ label: string; value: string }> {
-  const registrationLabel = requiresTicketing(form.tier, form.registration_mode)
-    ? labels.registrationModes.paid_ticketing
-    : labels.registrationModes.free_registration
+  const tierValue = encodeEventTiers(form.tiers)
+  const tierLabel = labels.tiers[tierValue]
+    ?? form.tiers.map((tier) => labels.tiers[tier] ?? tier).join(locale === 'ar' ? ' و ' : ' & ')
 
   if (locale === 'ar') {
     return [
-      { label: 'نوع الفعالية', value: labels.eventTypes[form.event_type] ?? form.event_type },
-      { label: 'الفئة', value: labels.tiers[form.tier] ?? form.tier },
-      { label: 'التسجيل', value: registrationLabel },
+      { label: 'شكل الفعالية', value: labels.eventTypes[form.event_type] ?? form.event_type },
+      { label: 'النوع', value: tierLabel },
       { label: 'الاسم', value: form.name_ar || form.name_en },
-      { label: 'السعة', value: form.capacity },
       { label: 'المنطقة الزمنية', value: form.timezone },
     ]
   }
 
   return [
-    { label: 'Event type', value: labels.eventTypes[form.event_type] ?? form.event_type },
-    { label: 'Tier', value: labels.tiers[form.tier] ?? form.tier },
-    { label: 'Registration', value: registrationLabel },
+    { label: 'Event format', value: labels.eventTypes[form.event_type] ?? form.event_type },
+    { label: 'Type', value: tierLabel },
     { label: 'Name', value: form.name_en || form.name_ar },
-    { label: 'Capacity', value: form.capacity },
     { label: 'Timezone', value: form.timezone },
   ]
 }

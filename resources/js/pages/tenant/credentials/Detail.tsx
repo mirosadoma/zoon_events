@@ -62,7 +62,7 @@ export default function CredentialDetailPage({ event, credential, tenantId: page
       return true
     }
 
-    toast(locale === 'ar' ? 'سياق المستأجر غير متوفر.' : 'Tenant context is unavailable.', 'error')
+    toast(t('credentialDetailTenantUnavailable'), 'error')
 
     return false
   }
@@ -77,11 +77,11 @@ export default function CredentialDetailPage({ event, credential, tenantId: page
         idempotency: true,
         body: { reason },
       })
-      toast(locale === 'ar' ? 'تم إلغاء بيانات الدخول.' : 'Credential revoked.', 'success')
+      toast(t('credentialDetailRevoked'), 'success')
       router.reload()
       return true
     } catch (error) {
-      toast(extractError(error, locale === 'ar' ? 'تعذر إلغاء بيانات الدخول.' : 'Failed to revoke credential.'), 'error')
+      toast(extractError(error, t('credentialDetailRevokeFailed')), 'error')
       return false
     } finally {
       setBusyAction(null)
@@ -98,11 +98,11 @@ export default function CredentialDetailPage({ event, credential, tenantId: page
         idempotency: true,
         body: { reason },
       })
-      toast(locale === 'ar' ? 'تمت إعادة إصدار بيانات الدخول.' : 'Credential reissued.', 'success')
+      toast(t('credentialDetailReissued'), 'success')
       router.reload()
       return true
     } catch (error) {
-      toast(extractError(error, locale === 'ar' ? 'تعذر إعادة إصدار بيانات الدخول.' : 'Failed to reissue credential.'), 'error')
+      toast(extractError(error, t('credentialDetailReissueFailed')), 'error')
       return false
     } finally {
       setBusyAction(null)
@@ -116,9 +116,9 @@ export default function CredentialDetailPage({ event, credential, tenantId: page
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
-          { label: locale === 'ar' ? 'بيانات الدخول' : 'Credentials', href: `/tenant/events/${event.id}/credentials` },
+          { label: t('credentials'), href: `/tenant/events/${event.id}/credentials` },
           { label: credential.code },
         ]}
       />
@@ -142,21 +142,21 @@ export default function CredentialDetailPage({ event, credential, tenantId: page
         ) : null}
 
         <DetailsCard
-          title={locale === 'ar' ? 'تفاصيل بيانات الدخول' : 'Credential details'}
+          title={t('credentialDetailDetails')}
           items={[
-            { label: locale === 'ar' ? 'الحالة' : 'Status', value: <StatusBadge status={credential.status} /> },
+            { label: t('credentialDetailStatus'), value: <StatusBadge status={credential.status} /> },
             {
-              label: locale === 'ar' ? 'الحاضر' : 'Attendee',
+              label: t('credentialDetailAttendee'),
               value: (
                 <LocalizedLink href={`/tenant/events/${event.id}/attendees/${String(credential.attendee_id)}`} className="text-sky-700 hover:underline">
                   {credential.attendee_label ?? String(credential.attendee_id)}
                 </LocalizedLink>
               ),
             },
-            { label: locale === 'ar' ? 'تاريخ الإصدار' : 'Issued', value: credential.issued_at ?? '—' },
-            { label: locale === 'ar' ? 'تاريخ الانتهاء' : 'Expires', value: credential.expires_at ?? '—' },
-            { label: locale === 'ar' ? 'تاريخ الإلغاء' : 'Revoked', value: credential.revoked_at ?? '—' },
-            { label: locale === 'ar' ? 'سبب الإلغاء' : 'Revoke reason', value: credential.revocation_reason ?? '—' },
+            { label: t('credentialDetailIssued'), value: credential.issued_at ?? '—' },
+            { label: t('credentialDetailExpires'), value: credential.expires_at ?? '—' },
+            { label: t('credentialDetailRevoked_'), value: credential.revoked_at ?? '—' },
+            { label: t('credentialDetailRevokeReason'), value: credential.revocation_reason ?? '—' },
           ]}
         />
 

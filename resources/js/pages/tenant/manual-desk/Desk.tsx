@@ -10,6 +10,8 @@ import { PageContent, PageHeader } from '@/components/layout'
 import PermissionGate from '@/components/layout/PermissionGate'
 import ReasonModal from '@/components/modals/ReasonModal'
 import { useLocale } from '@/hooks/useLocale'
+import { apiFetch } from '@/lib/apiFetch'
+import { openBlankPrintWindow, writeBadgePrintDocument } from '@/lib/openBadgePrintWindow'
 
 type EventRow = {
   id: string
@@ -46,7 +48,6 @@ type Props = {
 
 export default function ManualDesk({ event, tenantId }: Props) {
   const { locale, t } = useLocale()
-  const ar = locale === 'ar'
   const [query, setQuery] = useState('')
   const [lookupResult, setLookupResult] = useState<{ too_many: boolean; matches: LookupMatch[] } | null>(null)
   const [scanResult, setScanResult] = useState<ScanResult | null>(null)
@@ -107,41 +108,63 @@ export default function ManualDesk({ event, tenantId }: Props) {
   }
 
   async function handlePrint(attendeeId: string, credentialId: string) {
-    await fetch(`/api/v1/tenant/events/${event.id}/badge-print-jobs`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { ...apiHeaders, 'Idempotency-Key': crypto.randomUUID() },
-      body: JSON.stringify({ attendee_id: attendeeId, credential_id: credentialId }),
-    })
+    const printWindow = openBlankPrintWindow()
+    try {
+      const job = await apiFetch<{ print_html?: string | null }>(
+        `/api/v1/tenant/events/${event.id}/badge-print-jobs`,
+        {
+          method: 'POST',
+          tenantId,
+          idempotency: true,
+          body: { attendee_id: attendeeId, credential_id: credentialId },
+        },
+      )
+      if (!writeBadgePrintDocument(printWindow, job.print_html)) {
+        printWindow?.close()
+      }
+    } catch {
+      printWindow?.close()
+    }
   }
 
   async function handleReprint(reason: string) {
     if (!reprintJobId) return
 
-    await fetch(`/api/v1/tenant/events/${event.id}/badge-print-jobs/${reprintJobId}/reprint`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { ...apiHeaders, 'Idempotency-Key': crypto.randomUUID() },
-      body: JSON.stringify({ reprint_reason: reason }),
-    })
+    const printWindow = openBlankPrintWindow()
+    try {
+      const job = await apiFetch<{ print_html?: string | null }>(
+        `/api/v1/tenant/events/${event.id}/badge-print-jobs/${reprintJobId}/reprint`,
+        {
+          method: 'POST',
+          tenantId,
+          idempotency: true,
+          body: { reprint_reason: reason },
+        },
+      )
+      if (!writeBadgePrintDocument(printWindow, job.print_html)) {
+        printWindow?.close()
+      }
+    } catch {
+      printWindow?.close()
+    }
     setReprintJobId(null)
   }
 
   return (
-    <DashboardLayout title={ar ? 'مكتب الاستقبال' : 'Manual desk'}>
+    <DashboardLayout title={t('manualDeskPageTitle')}>
       <PageHeader
-        title={ar ? 'مكتب الاستقبال' : 'Manual desk'}
+        title={t('manualDeskPageTitle')}
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: ar ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
-          { label: ar ? 'مكتب الاستقبال' : 'Manual desk' },
+          { label: t('manualDeskPageTitle') },
         ]}
         actions={(
           <PermissionGate permission="attendee.walkup.register">
             <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/manual-desk/walk-up`}>
-              {ar ? 'تسجيل مباشر' : 'Walk-up registration'}
+              {t('manualDeskPageWalkUp')}
             </LocalizedLink>
           </PermissionGate>
         )}
@@ -152,24 +175,24 @@ export default function ManualDesk({ event, tenantId }: Props) {
             <form className="ta-card space-y-4" onSubmit={handleLookup}>
               <div>
                 <h2 className="text-lg font-semibold text-[var(--ink)]">
-                  {ar ? 'بحث الحاضرين' : 'Attendee lookup'}
+                  {t('manualDeskPageAttendeeLookup')}
                 </h2>
                 <div className="mt-1">
-                  <DeskSearchHint ar={ar} />
+                  <DeskSearchHint />
                 </div>
               </div>
               <div className="flex flex-wrap items-end gap-3">
                 <TextInput
-                  label={ar ? 'بحث' : 'Search'}
+                  label={t('manualDeskPageSearch')}
                   name="query"
                   value={query}
                   onChange={(changeEvent) => setQuery(changeEvent.target.value)}
-                  placeholder={ar ? 'الاسم أو البريد أو الهاتف' : 'Name, email, or phone'}
+                  placeholder={t('manualDeskPageSearchPlaceholder')}
                   wrapperClassName="min-w-[16rem] flex-1"
                 />
                 <SubmitButtonWithLoader
                   loading={loading}
-                  label={ar ? 'بحث' : 'Search'}
+                  label={t('manualDeskPageSearch')}
                 />
               </div>
             </form>
@@ -195,10 +218,10 @@ export default function ManualDesk({ event, tenantId }: Props) {
                 {selectedMatch?.attendee_id && selectedMatch.credential_id && scanResult.result === 'accepted' && (
                   <div className="ta-card space-y-3">
                     <h2 className="text-lg font-semibold text-[var(--ink)]">
-                      {ar ? 'الشارة' : 'Badge'}
+                      {t('manualDeskPageBadge')}
                     </h2>
                     <p className="text-sm text-[var(--muted)]">
-                      {ar ? 'اطبع شارة الحاضر بعد قبول الحضور.' : 'Print the attendee badge after a successful check-in.'}
+                      {t('manualDeskPageBadgeDescription')}
                     </p>
                     <div className="flex flex-wrap gap-3">
                       <PermissionGate permission="badge.print">
@@ -208,7 +231,7 @@ export default function ManualDesk({ event, tenantId }: Props) {
                           onClick={() => void handlePrint(selectedMatch.attendee_id!, selectedMatch.credential_id!)}
                         >
                           <Printer className="h-4 w-4" aria-hidden />
-                          {ar ? 'طباعة الشارة' : 'Print badge'}
+                          {t('manualDeskPagePrintBadge')}
                         </button>
                       </PermissionGate>
                       <PermissionGate permission="badge.reprint">
@@ -218,7 +241,7 @@ export default function ManualDesk({ event, tenantId }: Props) {
                           onClick={() => setReprintJobId('latest')}
                         >
                           <RotateCcw className="h-4 w-4" aria-hidden />
-                          {ar ? 'إعادة طباعة' : 'Reprint badge'}
+                          {t('manualDeskPageReprintBadge')}
                         </button>
                       </PermissionGate>
                     </div>
@@ -232,12 +255,10 @@ export default function ManualDesk({ event, tenantId }: Props) {
                 </div>
                 <div>
                   <p className="font-semibold text-[var(--ink)]">
-                    {ar ? 'نتيجة الحضور' : 'Check-in result'}
+                    {t('manualDeskPageCheckInResult')}
                   </p>
                   <p className="mt-1 text-sm text-[var(--muted)]">
-                    {ar
-                      ? 'ستظهر نتيجة تسجيل الحضور هنا بعد اختيار حاضر.'
-                      : 'The check-in outcome will appear here after you select an attendee.'}
+                    {t('manualDeskPageCheckInResultDescription')}
                   </p>
                 </div>
               </div>
@@ -248,11 +269,11 @@ export default function ManualDesk({ event, tenantId }: Props) {
 
       <ReasonModal
         open={overrideTarget !== null}
-        title={ar ? 'تجاوز تسجيل الحضور' : 'Manual override'}
-        message={ar ? 'يرجى تقديم سبب للتجاوز.' : 'Please provide a reason for this override.'}
-        reasonLabel={ar ? 'السبب' : 'Reason'}
-        confirmLabel={ar ? 'تجاوز' : 'Override'}
-        cancelLabel={ar ? 'إلغاء' : 'Cancel'}
+        title={t('manualDeskPageManualOverride')}
+        message={t('manualDeskPageOverrideReason')}
+        reasonLabel={t('reason')}
+        confirmLabel={t('manualDeskPageOverride')}
+        cancelLabel={t('cancel')}
         loading={submitting}
         onConfirm={(reason) => {
           if (overrideTarget) {
@@ -264,11 +285,11 @@ export default function ManualDesk({ event, tenantId }: Props) {
 
       <ReasonModal
         open={reprintJobId !== null}
-        title={ar ? 'إعادة طباعة الشارة' : 'Reprint badge'}
-        message={ar ? 'يرجى تقديم سبب لإعادة الطباعة.' : 'Please provide a reason for this reprint.'}
-        reasonLabel={ar ? 'السبب' : 'Reason'}
-        confirmLabel={ar ? 'إعادة طباعة' : 'Reprint'}
-        cancelLabel={ar ? 'إلغاء' : 'Cancel'}
+        title={t('manualDeskPageReprintBadge')}
+        message={t('manualDeskPageReprintReason')}
+        reasonLabel={t('reason')}
+        confirmLabel={t('kioskPageReprint')}
+        cancelLabel={t('cancel')}
         onConfirm={handleReprint}
         onCancel={() => setReprintJobId(null)}
       />

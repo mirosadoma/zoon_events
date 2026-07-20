@@ -11,14 +11,27 @@ type PageHeaderProps = {
 
 export default function PageHeader({ title, description, breadcrumbs = [], actions }: PageHeaderProps) {
   return (
-    <header className="mb-6 space-y-3">
-      {breadcrumbs.length > 0 && <Breadcrumbs items={breadcrumbs} />}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[var(--ink)]">{title}</h1>
-          {description && <p className="mt-1 text-sm text-[var(--muted)]">{description}</p>}
+    <header className="ta-page-header">
+      {breadcrumbs.length > 0 ? (
+        <div className="ta-page-header__crumbs">
+          <Breadcrumbs items={breadcrumbs} />
         </div>
-        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+      ) : null}
+
+      <div className="ta-page-header__body">
+        <div className="ta-page-header__copy">
+          <div className="ta-page-header__accent" aria-hidden="true" />
+          <div className="ta-page-header__text">
+            <h1 className="ta-page-header__title">{title}</h1>
+            {description ? (
+              <p className="ta-page-header__description">{description}</p>
+            ) : null}
+          </div>
+        </div>
+
+        {actions ? (
+          <div className="ta-page-header__actions">{actions}</div>
+        ) : null}
       </div>
     </header>
   )

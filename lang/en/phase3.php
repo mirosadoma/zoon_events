@@ -3,6 +3,7 @@
 return [
     'kiosk_session_invalid' => 'Kiosk session is invalid or has expired.',
     'kiosk_session_unconfirmed' => 'Kiosk session must be confirmed before use.',
+    'kiosk_confirmation_invalid' => 'The kiosk confirmation code is incorrect.',
     'kiosk_retired' => 'This kiosk has been retired and can no longer be used.',
     'lookup_too_many_matches' => 'Too many matching attendees. Please refine your search.',
     'lookup_confirmation_required' => 'A confirmation code is required before check-in.',
@@ -14,6 +15,7 @@ return [
     'badge_reprint_not_permitted' => 'You do not have permission to reprint badges.',
     'badge_no_prior_print_job' => 'No existing badge print job found for this attendee.',
     'badge_print_not_permitted' => 'You do not have permission to print badges.',
+    'badge_print_checkin_required' => 'Check the visitor in before printing a badge.',
     'printer_unavailable' => 'The badge printer is currently unavailable.',
     'printer_error' => 'The badge printer reported an error.',
     'payload_rejected' => 'The print payload was rejected by the printer.',

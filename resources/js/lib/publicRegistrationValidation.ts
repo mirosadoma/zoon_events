@@ -61,6 +61,10 @@ export function publicRegistrationFieldSelector(apiKey: string): string | null {
     return '[data-form-field="ticket_type"]'
   }
 
+  if (normalized === 'event_category_id') {
+    return '[data-form-field="event_category_id"]'
+  }
+
   return formFieldSelector(normalized)
 }
 
@@ -84,7 +88,10 @@ export function collectPublicRegistrationClientErrors(
   fields: PublicFormField[],
   answers: Record<string, string | boolean | string[]>,
   options: {
-    ticketTypeId: string
+    ticketTypeId?: string
+    categoryId?: string
+    requireCategory?: boolean
+    requireTicket?: boolean
     venueRequired: boolean
     venueId: string
     acceptedTerms: boolean
@@ -92,7 +99,11 @@ export function collectPublicRegistrationClientErrors(
 ): Record<string, string> {
   const errors: Record<string, string> = {}
 
-  if (!options.ticketTypeId) {
+  if (options.requireCategory && !options.categoryId) {
+    errors.event_category_id = 'is required.'
+  }
+
+  if ((options.requireTicket ?? true) && !options.ticketTypeId) {
     errors.ticket_type = 'is required.'
   }
 

@@ -38,7 +38,6 @@ function shortId(value: string | number | null | undefined): string {
 
 export default function WalletPassDetailPage({ event, walletPass }: Props) {
   const { locale, t } = useLocale()
-  const ar = locale === 'ar'
   const serial = walletPass.serial || walletPass.id
   const attendeeId = String(walletPass.attendee_id ?? '')
   const credentialId = String(walletPass.credential_id ?? '')
@@ -50,25 +49,25 @@ export default function WalletPassDetailPage({ event, walletPass }: Props) {
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: ar ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
-          { label: ar ? 'تذاكر المحفظة' : 'Wallet passes', href: `/tenant/events/${event.id}/wallet-passes` },
+          { label: t('walletDetailPasses'), href: `/tenant/events/${event.id}/wallet-passes` },
           { label: serial },
         ]}
         actions={(
           <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/wallet-passes`}>
-            {ar ? 'العودة للقائمة' : 'Back to list'}
+            {t('kioskPageBackToList')}
           </LocalizedLink>
         )}
       />
       <PageContent>
         <DetailsCard
-          title={ar ? 'تفاصيل تذكرة المحفظة' : 'Wallet pass details'}
+          title={t('walletDetailPassDetails')}
           items={[
-            { label: ar ? 'الحالة' : 'Status', value: <StatusBadge status={walletPass.status} /> },
-            { label: ar ? 'المزود' : 'Provider', value: walletPass.provider },
+            { label: t('status'), value: <StatusBadge status={walletPass.status} /> },
+            { label: t('walletDetailProvider'), value: walletPass.provider },
             {
-              label: ar ? 'الحاضر' : 'Attendee',
+              label: t('walletDetailAttendee'),
               value: attendeeId ? (
                 <LocalizedLink href={`/tenant/events/${event.id}/attendees/${attendeeId}`} className="text-sky-700 hover:underline">
                   {shortId(attendeeId)}
@@ -76,17 +75,17 @@ export default function WalletPassDetailPage({ event, walletPass }: Props) {
               ) : '—',
             },
             {
-              label: ar ? 'بيانات الدخول' : 'Credential',
+              label: t('walletDetailCredential'),
               value: credentialId ? (
                 <LocalizedLink href={`/tenant/events/${event.id}/credentials/${credentialId}`} className="text-sky-700 hover:underline">
                   {shortId(credentialId)}
                 </LocalizedLink>
               ) : '—',
             },
-            { label: ar ? 'آخر دفع' : 'Last pushed', value: walletPass.last_pushed_at ?? '—' },
-            { label: ar ? 'سبب الدفع' : 'Push reason', value: walletPass.last_push_reason_code ?? '—' },
+            { label: t('walletDetailLastPushed'), value: walletPass.last_pushed_at ?? '—' },
+            { label: t('walletDetailPushReason'), value: walletPass.last_push_reason_code ?? '—' },
             {
-              label: ar ? 'رابط التذكرة' : 'Pass URL',
+              label: t('walletDetailPassUrl'),
               value: walletPass.pass_url
                 ? (
                   <a href={walletPass.pass_url} className="break-all text-sky-700 hover:underline" target="_blank" rel="noreferrer">

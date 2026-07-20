@@ -52,7 +52,7 @@ export default function WalletPasses({
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: t('walletPasses') },
         ]}
@@ -60,8 +60,8 @@ export default function WalletPasses({
       <PageContent>
         {walletPasses.length === 0 ? (
           <EmptyState
-            title={locale === 'ar' ? 'لا توجد تذاكر محفظة' : 'No wallet passes yet'}
-            detail={locale === 'ar' ? 'ستظهر التذاكر بعد الإصدار.' : 'Passes will appear after generation.'}
+            title={t('walletPassesNoWalletPasses')}
+            detail={t('walletPassesNoWalletPassesDetail')}
           />
         ) : (
           <>
@@ -71,7 +71,7 @@ export default function WalletPasses({
               columns={[
                 {
                   key: 'serial',
-                  header: locale === 'ar' ? 'الرقم التسلسلي' : 'Serial',
+                  header: t('walletPassesSerial'),
                   render: (row) => {
                     const pass = row as unknown as WalletPassRow
 
@@ -82,10 +82,10 @@ export default function WalletPasses({
                     )
                   },
                 },
-                { key: 'provider', header: locale === 'ar' ? 'المزود' : 'Provider' },
+                { key: 'provider', header: t('walletPassesProvider') },
                 {
                   key: 'status',
-                  header: locale === 'ar' ? 'الحالة' : 'Status',
+                  header: t('walletPassesStatus'),
                   render: (row) => <StatusBadge status={String(row.status)} />,
                 },
                 {
@@ -105,7 +105,7 @@ export default function WalletPasses({
                     )
                   },
                 },
-                { key: 'last_pushed_at', header: locale === 'ar' ? 'آخر دفع' : 'Last pushed' },
+                { key: 'last_pushed_at', header: t('walletPassesLastPushed') },
               ]}
             />
             <Pagination

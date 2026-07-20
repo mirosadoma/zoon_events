@@ -18,12 +18,13 @@ final readonly class AttendeesExcelExport
      */
     public function download(Collection $attendees, array $credentialStatuses, string $filename): StreamedResponse
     {
-        $headers = ['Name', 'Email', 'Phone', 'Check-in status', 'Credential status', 'Locale', 'Registered at'];
+        $headers = ['Name', 'Email', 'Phone', 'Invite status', 'Check-in status', 'Credential status', 'Locale', 'Registered at'];
         $rows = $attendees->map(function (Attendee $attendee) use ($credentialStatuses): array {
             return [
                 $this->personalData->attendeeDisplayName($attendee) ?? '',
                 $this->personalData->attendeeEmail($attendee) ?? '',
                 $this->personalData->attendeePhone($attendee) ?? '',
+                (string) ($attendee->invite_status ?? 'registered'),
                 (string) ($attendee->checkin_status ?? 'not_checked_in'),
                 $credentialStatuses[$attendee->id] ?? '',
                 (string) $attendee->preferred_locale,

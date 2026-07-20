@@ -8,6 +8,7 @@ import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
 import TextInput from '@/components/forms/TextInput'
 import SelectInput from '@/components/forms/SelectInput'
 import DateTimeInput from '@/components/forms/DateTimeInput'
+import { toDateTimeLocalValue } from '@/lib/dateTimeLocal'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
@@ -62,11 +63,7 @@ type TierFormState = {
 type FormErrors = Record<string, string>
 
 function toLocalDateTime(value: string | null | undefined): string {
-  if (!value) return ''
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return ''
-  const pad = (n: number) => n.toString().padStart(2, '0')
-  return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`
+  return toDateTimeLocalValue(value)
 }
 
 function emptyForm(ticketTypes: TicketTypeRow[]): TierFormState {
@@ -113,7 +110,7 @@ function formToPayload(form: TierFormState, status?: string) {
 }
 
 export default function PriceTiers({ tenantId, event, ticketTypes, priceTiers }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const { toast } = useToast()
   const [tierForm, setTierForm] = useState<TierFormState>(() => emptyForm(ticketTypes))
   const [editingTier, setEditingTier] = useState<PriceTierRow | null>(null)
@@ -166,20 +163,15 @@ export default function PriceTiers({ tenantId, event, ticketTypes, priceTiers }:
         body: formToPayload(tierForm),
       })
 
-      toast(
-        editingTier
-          ? (locale === 'ar' ? 'تم تحديث شريحة السعر.' : 'Price tier updated.')
-          : (locale === 'ar' ? 'تم إنشاء شريحة السعر.' : 'Price tier created.'),
-        'success',
-      )
+      toast(editingTier ? t('priceTierUpdated') : t('priceTierCreated'), 'success')
       resetForm()
       router.reload()
     } catch (error) {
       if (error instanceof ApiFetchError) {
         setFormErrors(error.errors)
-        toast(error.message || (locale === 'ar' ? 'تعذر حفظ شريحة السعر.' : 'Failed to save price tier.'), 'error')
+        toast(error.message || t('priceTierFailedToSave'), 'error')
       } else {
-        toast(locale === 'ar' ? 'تعذر حفظ شريحة السعر.' : 'Failed to save price tier.', 'error')
+        toast(t('priceTierFailedToSave'), 'error')
       }
     } finally {
       setSubmitting(null)
@@ -197,15 +189,10 @@ export default function PriceTiers({ tenantId, event, ticketTypes, priceTiers }:
         body: { status: 'retired' },
       })
 
-      toast(locale === 'ar' ? 'تم تعطيل شريحة السعر.' : 'Price tier disabled.', 'success')
+      toast(t('priceTierDisabled'), 'success')
       router.reload()
     } catch (error) {
-      toast(
-        error instanceof ApiFetchError
-          ? error.message
-          : (locale === 'ar' ? 'تعذر تعطيل شريحة السعر.' : 'Failed to disable price tier.'),
-        'error',
-      )
+      toast(error instanceof ApiFetchError ? error.message : t('priceTierFailedToDisable'), 'error')
     } finally {
       setSubmitting(null)
     }
@@ -229,7 +216,7 @@ export default function PriceTiers({ tenantId, event, ticketTypes, priceTiers }:
       <form className="state-panel grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit}>
         {allowTicketTypeSelect ? (
           <SelectInput
-            label={locale === 'ar' ? 'نوع التذكرة' : 'Ticket type'}
+            label={t('priceTierTicketType')}
             name="ticket_type_id"
             value={tierForm.ticket_type_id}
             onChange={(e) => onTicketTypeChange(e.target.value, tierForm, setTierForm)}
@@ -237,12 +224,12 @@ export default function PriceTiers({ tenantId, event, ticketTypes, priceTiers }:
             required
           />
         ) : (
-          <TextInput label={locale === 'ar' ? 'نوع التذكرة' : 'Ticket type'} name="ticket_type_id" value={tierForm.ticket_type_id} readOnly />
+          <TextInput label={t('priceTierTicketType')} name="ticket_type_id" value={tierForm.ticket_type_id} readOnly />
         )}
-        <TextInput label={locale === 'ar' ? 'الاسم' : 'Name'} name="name" value={tierForm.name} onChange={(e) => setTierForm({ ...tierForm, name: e.target.value })} required error={formErrors.name} />
-        <TextInput label={locale === 'ar' ? 'السعر' : 'Price'} name="price_minor" type="number" min={0} value={tierForm.price_minor} onChange={(e) => setTierForm({ ...tierForm, price_minor: e.target.value })} required error={formErrors.price_minor} />
+        <TextInput label={t('priceTierName')} name="name" value={tierForm.name} onChange={(e) => setTierForm({ ...tierForm, name: e.target.value })} required error={formErrors.name} />
+        <TextInput label={t('priceTierPrice')} name="price_minor" type="number" min={0} value={tierForm.price_minor} onChange={(e) => setTierForm({ ...tierForm, price_minor: e.target.value })} required error={formErrors.price_minor} />
         <SelectInput
-          label={locale === 'ar' ? 'العملة' : 'Currency'}
+          label={t('ticketTypeCurrency')}
           name="currency"
           value={tierForm.currency}
           onChange={(e) => setTierForm({ ...tierForm, currency: e.target.value })}
@@ -250,21 +237,21 @@ export default function PriceTiers({ tenantId, event, ticketTypes, priceTiers }:
           required
           error={formErrors.currency}
         />
-        <TextInput label={locale === 'ar' ? 'الأولوية' : 'Priority'} name="priority" type="number" min={1} value={tierForm.priority} onChange={(e) => setTierForm({ ...tierForm, priority: e.target.value })} required error={formErrors.priority} />
-        <DateTimeInput label={locale === 'ar' ? 'يبدأ في' : 'Starts at'} name="starts_at" value={tierForm.starts_at} onChange={(e) => setTierForm({ ...tierForm, starts_at: e.target.value })} error={formErrors.starts_at} />
-        <DateTimeInput label={locale === 'ar' ? 'ينتهي في' : 'Ends at'} name="ends_at" value={tierForm.ends_at} onChange={(e) => setTierForm({ ...tierForm, ends_at: e.target.value })} error={formErrors.ends_at} />
-        <TextInput label={locale === 'ar' ? 'الحد الأقصى للمتبقي' : 'Remaining at most'} name="remaining_at_most" type="number" min={1} value={tierForm.remaining_at_most} onChange={(e) => setTierForm({ ...tierForm, remaining_at_most: e.target.value })} error={formErrors.remaining_at_most} />
+        <TextInput label={t('priceTierPriority')} name="priority" type="number" min={1} value={tierForm.priority} onChange={(e) => setTierForm({ ...tierForm, priority: e.target.value })} required error={formErrors.priority} />
+        <DateTimeInput label={t('priceTierStartsAt')} name="starts_at" value={tierForm.starts_at} onChange={(e) => setTierForm({ ...tierForm, starts_at: e.target.value })} error={formErrors.starts_at} />
+        <DateTimeInput label={t('priceTierEndsAt')} name="ends_at" value={tierForm.ends_at} onChange={(e) => setTierForm({ ...tierForm, ends_at: e.target.value })} error={formErrors.ends_at} />
+        <TextInput label={t('priceTierRemainingAtMost')} name="remaining_at_most" type="number" min={1} value={tierForm.remaining_at_most} onChange={(e) => setTierForm({ ...tierForm, remaining_at_most: e.target.value })} error={formErrors.remaining_at_most} />
         <p className="text-sm text-slate-600 sm:col-span-2">
-          {locale === 'ar' ? 'يجب تحديد وقت البداية أو النهاية أو حد السعة على الأقل.' : 'At least one of start time, end time, or capacity threshold is required.'}
+          {t('priceTierRequiredNote')}
         </p>
         <div className="flex flex-wrap gap-2 sm:col-span-2">
           <SubmitButtonWithLoader
             loading={submitting === 'save'}
-            label={editingTier ? (locale === 'ar' ? 'تحديث' : 'Update') : (locale === 'ar' ? 'إضافة' : 'Add')}
+            label={editingTier ? t('update') : t('add')}
           />
           {editingTier ? (
             <button type="button" className="button-secondary" onClick={resetForm}>
-              {locale === 'ar' ? 'إلغاء التعديل' : 'Cancel edit'}
+              {t('ticketTypeCancelEdit')}
             </button>
           ) : null}
         </div>
@@ -273,28 +260,26 @@ export default function PriceTiers({ tenantId, event, ticketTypes, priceTiers }:
   }
 
   return (
-    <DashboardLayout title={locale === 'ar' ? 'شرائح الأسعار' : 'Price tiers'}>
+    <DashboardLayout title={t('priceTiers')}>
       <PageHeader
-        title={locale === 'ar' ? 'شرائح الأسعار' : 'Price tiers'}
+        title={t('priceTiers')}
         description={event.name[locale]}
         breadcrumbs={[
-          { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
-          { label: locale === 'ar' ? 'شرائح الأسعار' : 'Price tiers' },
+          { label: t('priceTiers') },
         ]}
       />
       <PageContent>
         {ticketTypes.length === 0 ? (
           <EmptyState
-            title={locale === 'ar' ? 'لا توجد أنواع تذاكر' : 'No ticket types yet'}
-            detail={locale === 'ar' ? 'أنشئ نوع تذكرة قبل إضافة شرائح الأسعار.' : 'Create a ticket type before adding price tiers.'}
+            title={t('ticketTypeNoTickets')}
+            detail={t('priceTierNoTicketTypesDetail')}
           />
         ) : (
           <section className="mb-8">
             <h2 className="mb-4 text-lg font-semibold">
-              {editingTier
-                ? (locale === 'ar' ? 'تعديل شريحة السعر' : 'Edit price tier')
-                : (locale === 'ar' ? 'إضافة شريحة سعر' : 'Add price tier')}
+              {editingTier ? t('priceTierEdit') : t('priceTierAdd')}
             </h2>
             {renderForm()}
           </section>
@@ -302,35 +287,35 @@ export default function PriceTiers({ tenantId, event, ticketTypes, priceTiers }:
 
         {priceTiers.length === 0 ? (
           <EmptyState
-            title={locale === 'ar' ? 'لا توجد شرائح أسعار' : 'No price tiers yet'}
-            detail={locale === 'ar' ? 'أضف شرائح الأسعار بعد إنشاء أنواع التذاكر.' : 'Add price tiers after creating ticket types.'}
+            title={t('priceTierNoTiers')}
+            detail={t('priceTierNoTiersDetail')}
           />
         ) : (
           <DataTable
             rows={priceTiers as unknown as Record<string, unknown>[]}
             getRowKey={(row) => String(row.id)}
             columns={[
-              { key: 'name', header: locale === 'ar' ? 'الاسم' : 'Name' },
-              { key: 'ticket_type_id', header: locale === 'ar' ? 'نوع التذكرة' : 'Ticket type' },
+              { key: 'name', header: t('priceTierName') },
+              { key: 'ticket_type_id', header: t('priceTierTicketType') },
               {
                 key: 'price_minor',
-                header: locale === 'ar' ? 'السعر' : 'Price',
+                header: t('priceTierPrice'),
                 render: (row) => formatMoney(Number(row.price_minor), String(row.currency), locale),
               },
               {
                 key: 'status',
-                header: locale === 'ar' ? 'الحالة' : 'Status',
+                header: t('status'),
                 render: (row) => <StatusBadge status={String(row.status)} />,
               },
               {
                 key: 'is_active_now',
-                header: locale === 'ar' ? 'نشط الآن' : 'Active now',
-                render: (row) => <StatusBadge status={row.is_active_now ? 'active' : 'inactive'} label={row.is_active_now ? (locale === 'ar' ? 'نعم' : 'Yes') : (locale === 'ar' ? 'لا' : 'No')} />,
+                header: t('priceTierActiveNow'),
+                render: (row) => <StatusBadge status={row.is_active_now ? 'active' : 'inactive'} label={row.is_active_now ? t('yes') : t('no')} />,
               },
-              { key: 'priority', header: locale === 'ar' ? 'الأولوية' : 'Priority' },
+              { key: 'priority', header: t('priceTierPriority') },
               {
                 key: 'actions',
-                header: locale === 'ar' ? 'إجراءات' : 'Actions',
+                header: t('actions'),
                 render: (row) => {
                   const tier = row as unknown as PriceTierRow
                   return (
@@ -340,11 +325,11 @@ export default function PriceTiers({ tenantId, event, ticketTypes, priceTiers }:
                         className="button-secondary"
                         onClick={() => startEdit(tier)}
                       >
-                        {locale === 'ar' ? 'تعديل' : 'Edit'}
+                        {t('edit')}
                       </button>
                       {tier.status !== 'retired' && (
                         <button type="button" className="button-secondary" disabled={submitting === tier.id} onClick={() => void retireTier(tier)}>
-                          {locale === 'ar' ? 'تعطيل' : 'Disable'}
+                          {t('disable')}
                         </button>
                       )}
                     </div>

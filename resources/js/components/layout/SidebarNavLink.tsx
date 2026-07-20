@@ -8,15 +8,20 @@ import {
   ClipboardList,
   Flag,
   Globe,
+  Layers,
   LayoutDashboard,
   Map,
   ScanLine,
   Settings,
   Shield,
+  Store,
   Ticket,
   UserCircle,
   Users,
   Wallet,
+  Building2,
+  FileText,
+  Scale,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { clsx } from 'clsx'
@@ -27,6 +32,8 @@ import { localizedPath, type AppLocale } from '@/lib/localePath'
 const NAV_ICONS: Record<string, LucideIcon> = {
   overview: LayoutDashboard,
   events: CalendarDays,
+  privileges: Shield,
+  categories: Layers,
   profile: UserCircle,
   'admin-users': Users,
   'admin-roles': Shield,
@@ -68,6 +75,13 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   'acs-access-logs': ClipboardList,
   'acs-gate-health': Activity,
   reports: ClipboardList,
+  venues: Building2,
+  marketplace: Store,
+  rentals: FileText,
+  statements: FileText,
+  'marketplace-rentals': Ticket,
+  'marketplace-statements': FileText,
+  'platform-marketplace': Scale,
 }
 
 type SidebarNavLinkProps = {

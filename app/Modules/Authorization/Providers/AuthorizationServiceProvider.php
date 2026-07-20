@@ -3,13 +3,15 @@
 namespace App\Modules\Authorization\Providers;
 
 use App\Modules\Authorization\Application\PermissionEvaluator;
+use App\Modules\Authorization\Application\Contracts\DelegatedControlGuard;
+use App\Modules\Authorization\Application\Services\DenyingDelegatedControlGuard;
 use App\Modules\Authorization\Contracts\PermissionEvaluator as PermissionEvaluatorContract;
 use App\Modules\Authorization\Policies\Phase1\Phase1Policy;
 use App\Modules\Authorization\Policies\Phase2\Phase2Policy;
 use App\Modules\Authorization\Policies\Phase3\Phase3Policy;
 use App\Modules\Authorization\Policies\Phase4\Phase4Policy;
+use App\Modules\Authorization\Domain\PermissionCatalog;
 use App\Modules\Tenancy\Domain\Context\TenantContextStore;
-use Database\Seeders\PermissionSeeder;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -23,11 +25,12 @@ class AuthorizationServiceProvider extends ServiceProvider
         $this->app->singleton(Phase2Policy::class);
         $this->app->singleton(Phase3Policy::class);
         $this->app->singleton(Phase4Policy::class);
+        $this->app->bind(DelegatedControlGuard::class, DenyingDelegatedControlGuard::class);
     }
 
     public function boot(): void
     {
-        foreach (PermissionSeeder::definitions() as $definition) {
+        foreach (PermissionCatalog::all() as $definition) {
             Gate::define($definition['key'], function ($user) use ($definition): bool {
                 $evaluator = app(PermissionEvaluator::class);
 

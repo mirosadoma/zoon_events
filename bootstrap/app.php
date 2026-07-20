@@ -5,7 +5,9 @@ use App\Modules\AccessControl\Http\Middleware\ClearAcsIntegration;
 use App\Modules\AccessControl\Http\Middleware\RequireAcsCapability;
 use App\Modules\AccessControl\Http\Middleware\ResolveAcsIntegration;
 use App\Modules\AdminConsole\Http\Middleware\AuthorizeDashboardPage;
+use App\Modules\AdminConsole\Http\Middleware\EnsureNotVisitor;
 use App\Modules\AdminConsole\Http\Middleware\EnsureSiteIsAvailable;
+use App\Modules\AdminConsole\Http\Middleware\EnsureVisitor;
 use App\Modules\Authorization\Http\Middleware\RequirePermission;
 use App\Modules\Events\Http\Middleware\ClearPublicEventContext;
 use App\Modules\Events\Http\Middleware\ResolvePublicEventContext;
@@ -54,6 +56,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => RequirePermission::class,
             'idempotency' => RequireIdempotencyKey::class,
             'dashboard.permission' => AuthorizeDashboardPage::class,
+            'visitor' => EnsureVisitor::class,
+            'not.visitor' => EnsureNotVisitor::class,
             'public.event.context' => ResolvePublicEventContext::class,
             'public.event.context.clear' => ClearPublicEventContext::class,
             'apple-pass-auth' => AuthenticateApplePass::class,

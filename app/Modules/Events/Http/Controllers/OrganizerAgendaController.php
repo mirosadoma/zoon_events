@@ -4,6 +4,7 @@ namespace App\Modules\Events\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Events\Application\Actions\SyncEventAgendaItems;
+use App\Modules\Events\Application\Support\EventWallClockDateTime;
 use App\Modules\Events\Contracts\EventScope;
 use App\Modules\Events\Http\Requests\AgendaSyncRequest;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
@@ -40,20 +41,20 @@ final class OrganizerAgendaController extends Controller
             ->orderBy('sort_order')
             ->orderBy('start_at')
             ->get()
-            ->map(fn (EventAgendaItem $item): array => $this->mapItem($item))
+            ->map(fn (EventAgendaItem $item): array => $this->mapItem($item, (string) $event->timezone))
             ->values()
             ->all();
 
         return $this->success(['items' => $saved]);
     }
 
-    private function mapItem(EventAgendaItem $item): array
+    private function mapItem(EventAgendaItem $item, string $timezone): array
     {
         return [
             'id' => (string) $item->id,
             'title' => ['en' => $item->title_en, 'ar' => $item->title_ar],
-            'start_at' => $item->start_at?->toIso8601String(),
-            'end_at' => $item->end_at?->toIso8601String(),
+            'start_at' => EventWallClockDateTime::toInput($item->start_at, $timezone),
+            'end_at' => EventWallClockDateTime::toInput($item->end_at, $timezone),
             'sort_order' => $item->sort_order,
         ];
     }

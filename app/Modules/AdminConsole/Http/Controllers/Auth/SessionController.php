@@ -53,6 +53,11 @@ final class SessionController extends Controller
         $request->session()->regenerate();
         $this->audit->writePlatform('auth.session.started', 'succeeded', $user, targetType: 'user', targetId: $user->id);
 
+        $locale = app()->getLocale() === 'ar' ? 'ar' : 'en';
+        if ($user->isVisitor()) {
+            return redirect()->intended("/{$locale}/visitor");
+        }
+
         return redirect()->intended(route('dashboard'));
     }
 

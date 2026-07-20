@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Modules\AccessControl\Providers\AccessControlServiceProvider;
+use App\Modules\Subscriptions\Providers\SubscriptionsServiceProvider;
+use App\Modules\VenueMarketplace\Providers\VenueMarketplaceServiceProvider;
 use App\Modules\AdminConsole\Providers\AdminConsoleServiceProvider;
 use App\Modules\Attendees\Providers\AttendeesServiceProvider;
 use App\Modules\Audit\Providers\AuditServiceProvider;
@@ -56,6 +58,8 @@ class ModuleServiceProvider extends ServiceProvider
         KioskServiceProvider::class,
         BadgePrintingServiceProvider::class,
         AccessControlServiceProvider::class,
+        VenueMarketplaceServiceProvider::class,
+        SubscriptionsServiceProvider::class,
     ];
 
     public function register(): void

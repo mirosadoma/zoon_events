@@ -4,6 +4,7 @@ namespace App\Modules\Events\Application\Actions;
 
 use App\Modules\Events\Application\Support\EventMediaPresenter;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventBranding;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventImage;
 use App\Modules\Tenancy\Domain\Context\TenantContext;
 use Illuminate\Http\Request;
@@ -28,7 +29,9 @@ final readonly class SyncEventMedia
             $this->appendGalleryImages($context, $event, $request->file('images'));
         }
 
-        return $event->refresh()->load('images');
+        $this->syncBrandLogos($context, $event, $request);
+
+        return $event->refresh()->load(['images', 'branding']);
     }
 
     private function replaceMainImage(TenantContext $context, Event $event, UploadedFile $file): void
@@ -87,5 +90,54 @@ final readonly class SyncEventMedia
                 'sort_order' => $nextSort,
             ]);
         }
+    }
+
+    private function syncBrandLogos(TenantContext $context, Event $event, Request $request): void
+    {
+        $logoUpdates = [];
+
+        foreach (['brand_logo' => 'logo_path', 'sponsor_logo' => 'sponsor_logo_path'] as $input => $themeKey) {
+            if (! $request->hasFile($input)) {
+                continue;
+            }
+
+            $file = $request->file($input);
+            if (! $file instanceof UploadedFile) {
+                continue;
+            }
+
+            $path = $file->store("tenants/{$context->tenant->id}/events/{$event->id}/branding", 'public');
+            $logoUpdates[$themeKey] = $path;
+        }
+
+        if ($logoUpdates === []) {
+            return;
+        }
+
+        $branding = EventBranding::query()->firstOrCreate(
+            ['tenant_id' => $context->tenant->id, 'event_id' => $event->id],
+            [
+                'brand_reference' => $event->slug.'-brand',
+                'domain_reference' => config('app.url'),
+                'content_en' => [],
+                'content_ar' => [],
+                'sender_name_en' => $event->name_en,
+                'sender_name_ar' => $event->name_ar,
+                'status' => 'active',
+                'theme_config' => [],
+            ],
+        );
+
+        $theme = is_array($branding->theme_config) ? $branding->theme_config : [];
+
+        foreach ($logoUpdates as $themeKey => $path) {
+            $previous = $theme[$themeKey] ?? null;
+            if (is_string($previous) && $previous !== '') {
+                Storage::disk('public')->delete($previous);
+            }
+            $theme[$themeKey] = $path;
+        }
+
+        $branding->forceFill(['theme_config' => $theme])->save();
     }
 }

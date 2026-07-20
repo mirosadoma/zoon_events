@@ -23,7 +23,22 @@ vi.mock('@inertiajs/react', () => ({
 }))
 
 vi.mock('@/hooks/useLocale', () => ({
-  useLocale: () => ({ locale: 'en', direction: 'ltr' }),
+  useLocale: () => {
+    const locale = 'en'
+    const messages = locale === 'ar' ? ar : en
+    return {
+      locale,
+      direction: 'ltr' as const,
+      t: (key: string) => {
+        const value = messages[key as keyof typeof messages]
+        return typeof value === 'string' ? value : key
+      },
+    }
+  },
+}))
+
+vi.mock('@/components/registration/RegistrationPageControls', () => ({
+  default: () => null,
 }))
 
 describe('phase 2 wallet and check-in browser surfaces', () => {
@@ -37,16 +52,17 @@ describe('phase 2 wallet and check-in browser surfaces', () => {
   })
   it('renders wallet buttons in English LTR and Arabic RTL', () => {
     const { container: english } = render(
-      <Confirmation locale="en" reference="ord_1" accessToken="tok" />,
+      <Confirmation locale="en" reference="ord_1" accessToken="tok" attendeeName="Alex" />,
     )
     expect(english.querySelector('main')).toHaveAttribute('dir', 'ltr')
-    expect(screen.getAllByRole('link')).toHaveLength(2)
+    expect(screen.getByRole('link', { name: /Add to Apple Wallet/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Save to Google Wallet/i })).toBeInTheDocument()
 
     const { container: arabic } = render(
-      <Confirmation locale="ar" reference="ord_1" accessToken="tok" />,
+      <Confirmation locale="ar" reference="ord_1" accessToken="tok" attendeeName="عمرو" />,
     )
     expect(arabic.querySelector('main')).toHaveAttribute('dir', 'rtl')
-    expect(screen.getByRole('heading', { name: 'اكتمل التسجيل' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Welcome عمرو/ })).toBeInTheDocument()
   })
 
   it('renders check-in scanner with accessible labels in both locales', () => {

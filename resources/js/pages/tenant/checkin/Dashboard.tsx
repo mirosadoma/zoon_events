@@ -54,7 +54,7 @@ export default function CheckInDashboard({
         }
       } catch {
         if (active) {
-          setError(locale === 'ar' ? 'تعذر تحميل ملخص تسجيل الحضور' : 'Unable to load check-in summary')
+          setError(t('checkinDashLoadError'))
         }
       } finally {
         if (active) {
@@ -80,20 +80,20 @@ export default function CheckInDashboard({
     && summary.duplicate_count === 0
 
   return (
-    <DashboardLayout title={locale === 'ar' ? 'لوحة تسجيل الحضور' : 'Check-in dashboard'}>
+    <DashboardLayout title={t('checkinDashTitle')}>
       <PageHeader
-        title={locale === 'ar' ? 'لوحة تسجيل الحضور' : 'Check-in dashboard'}
+        title={t('checkinDashTitle')}
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: locale === 'ar' ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
-          { label: locale === 'ar' ? 'لوحة تسجيل الحضور' : 'Check-in dashboard' },
+          { label: t('checkinDashTitle') },
         ]}
         actions={(
           <div className="flex flex-wrap gap-2">
-            <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/scanner`}>{locale === 'ar' ? 'الماسح' : 'Scanner'}</LocalizedLink>
-            <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/scan-events`}>{locale === 'ar' ? 'أحداث المسح' : 'Scan events'}</LocalizedLink>
+            <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/scanner`}>{t('scanner')}</LocalizedLink>
+            <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/scan-events`}>{t('scanEvents')}</LocalizedLink>
           </div>
         )}
       />
@@ -102,8 +102,8 @@ export default function CheckInDashboard({
         {error ? <ErrorState title={error} /> : null}
         {!loading && !error && summary !== null && isEmpty ? (
           <EmptyState
-            title={locale === 'ar' ? 'لا توجد عمليات مسح بعد' : 'No scans yet'}
-            detail={locale === 'ar' ? 'ستظهر العدادات عند أول مسح.' : 'Counters will populate after the first scan.'}
+            title={t('checkinDashNoScans')}
+            detail={t('checkinDashNoScansDetail')}
           />
         ) : null}
         {!loading && !error && summary !== null ? (

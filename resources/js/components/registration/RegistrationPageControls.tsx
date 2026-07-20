@@ -2,6 +2,8 @@ import { router } from '@inertiajs/react'
 import { Globe, Moon, Sun } from 'lucide-react'
 import { useTheme } from '@/hooks/useTheme'
 import { swapLocaleInPath, type AppLocale } from '@/lib/localePath'
+import en from '@/locales/en'
+import ar from '@/locales/ar'
 
 type Props = {
   locale: AppLocale
@@ -9,6 +11,7 @@ type Props = {
 
 export default function RegistrationPageControls({ locale }: Props) {
   const { theme, setTheme } = useTheme()
+  const messages = locale === 'ar' ? ar : en
   const rtl = locale === 'ar'
 
   function toggleLocale() {
@@ -28,16 +31,16 @@ export default function RegistrationPageControls({ locale }: Props) {
         type="button"
         className="registration-page-control"
         onClick={toggleLocale}
-        aria-label={rtl ? 'Switch to English' : 'التبديل إلى العربية'}
+        aria-label={rtl ? messages.localeSwitchToEn : messages.localeSwitchToAr}
       >
         <Globe className="h-4 w-4" aria-hidden />
-        <span>{locale === 'ar' ? 'EN' : 'ع'}</span>
+        <span>{rtl ? messages.localeSwitchToEn : messages.localeSwitchToAr}</span>
       </button>
       <button
         type="button"
         className="registration-page-control"
         onClick={toggleTheme}
-        aria-label={rtl ? (theme === 'dark' ? 'الوضع الفاتح' : 'الوضع الداكن') : (theme === 'dark' ? 'Light mode' : 'Dark mode')}
+        aria-label={theme === 'dark' ? messages.topbarLightMode : messages.topbarDarkMode}
       >
         {theme === 'dark' ? <Sun className="h-4 w-4" aria-hidden /> : <Moon className="h-4 w-4" aria-hidden />}
       </button>

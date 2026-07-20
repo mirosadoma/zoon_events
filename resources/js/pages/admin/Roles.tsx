@@ -113,7 +113,7 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
     event.preventDefault()
 
     if (!isPlatform && (!tenantId || tenantId === 'undefined')) {
-      toast(locale === 'ar' ? 'تعذر تحديد المستأجر الحالي.' : 'Unable to resolve the current tenant.', 'error')
+      toast(t('adminRolesTenantUnavailable'), 'error')
       return
     }
 
@@ -134,7 +134,7 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
       setRoles((current) => [...current, created].sort((a, b) => roleDisplayName(a, locale).localeCompare(roleDisplayName(b, locale), locale)))
       setCreateForm({ name_en: '', name_ar: '', description: '' })
       selectRole(created)
-      toast(locale === 'ar' ? 'تم إنشاء الدور.' : 'Role created.', 'success')
+      toast(t('adminRolesCreated'), 'success')
     } catch (error) {
       if (!createValidation.applyApiError(error)) {
         const message = error instanceof ApiFetchError ? error.message : messages.errorState
@@ -153,7 +153,7 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
     }
 
     if (!isPlatform && (!tenantId || tenantId === 'undefined')) {
-      toast(locale === 'ar' ? 'تعذر تحديد المستأجر الحالي.' : 'Unable to resolve the current tenant.', 'error')
+      toast(t('adminRolesTenantUnavailable'), 'error')
       return
     }
 
@@ -209,7 +209,7 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
     }
 
     if (!isPlatform && (!tenantId || tenantId === 'undefined')) {
-      toast(locale === 'ar' ? 'تعذر تحديد المستأجر الحالي.' : 'Unable to resolve the current tenant.', 'error')
+      toast(t('adminRolesTenantUnavailable'), 'error')
       return
     }
 
@@ -233,7 +233,7 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
         }
       }
 
-      toast(locale === 'ar' ? 'تم حذف الدور.' : 'Role deleted.', 'success')
+      toast(t('adminRolesDeleted'), 'success')
     } catch (error) {
       const message = error instanceof ApiFetchError ? error.message : messages.errorState
       toast(message, 'error')
@@ -243,22 +243,22 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
   return (
     <DashboardLayout title={messages.roles}>
       <PageHeader
-        title={isPlatform ? (locale === 'ar' ? 'أدوار المنصة' : 'Platform roles') : messages.roles}
-        description={isPlatform ? (locale === 'ar' ? 'إدارة أدوار وصلاحيات المنصة.' : 'Manage platform roles and permissions.') : messages.adminRolesDescription}
+        title={isPlatform ? t('adminRolesPlatformRoles') : messages.roles}
+        description={isPlatform ? t('adminRolesPlatformRolesDesc') : messages.adminRolesDescription}
         breadcrumbs={[
           { label: messages.overview, href: '/dashboard' },
           { label: isPlatform ? messages.navGroupPlatform : messages.administration, href: isPlatform ? '/platform/tenants' : '/admin/users' },
-          { label: isPlatform ? (locale === 'ar' ? 'أدوار المنصة' : 'Platform roles') : messages.roles },
+          { label: isPlatform ? t('adminRolesPlatformRoles') : messages.roles },
         ]}
       />
       <PageContent>
         <PermissionGate permission={managePermission}>
           <form className="state-panel mb-6 grid gap-4 md:grid-cols-2" onSubmit={createRole}>
             <h2 className="md:col-span-2 text-lg font-semibold">
-              {locale === 'ar' ? 'إضافة دور جديد' : 'Add new role'}
+              {t('adminRolesAddNew')}
             </h2>
             <TextInput
-              label={isPlatform ? (locale === 'ar' ? 'اسم الدور' : 'Role name') : (locale === 'ar' ? 'اسم الدور بالإنجليزية' : 'Role name (English)')}
+              label={isPlatform ? t('adminRolesRoleName') : t('adminRolesRoleNameEn')}
               name="name_en"
               value={createForm.name_en}
               onChange={(event) => setCreateForm({ ...createForm, name_en: event.target.value })}
@@ -268,7 +268,7 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
             />
             {!isPlatform && (
               <TextInput
-                label={locale === 'ar' ? 'اسم الدور بالعربية' : 'Role name (Arabic)'}
+                label={t('adminRolesRoleNameAr')}
                 name="name_ar"
                 value={createForm.name_ar}
                 onChange={(event) => setCreateForm({ ...createForm, name_ar: event.target.value })}
@@ -279,7 +279,7 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
             )}
             <TextareaInput
               wrapperClassName="md:col-span-2"
-              label={locale === 'ar' ? 'الوصف' : 'Description'}
+              label={t('adminRolesFieldDescription')}
               name="description"
               value={createForm.description}
               onChange={(event) => setCreateForm({ ...createForm, description: event.target.value })}
@@ -289,7 +289,7 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
             <div className="md:col-span-2">
               <SubmitButtonWithLoader
                 loading={creating}
-                label={locale === 'ar' ? 'إنشاء الدور' : 'Create role'}
+                label={t('adminRolesCreateRole')}
               />
             </div>
           </form>
@@ -309,10 +309,10 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
                 >
                   <div className="flex items-center justify-between gap-3">
                     <span className="font-medium">{roleDisplayName(role, locale)}</span>
-                    {role.is_system ? <StatusBadge status="system" /> : null}
-                  </div>
-                  {role.description ? <p className="mt-1 text-sm text-[var(--muted)]">{role.description}</p> : null}
-                  <p className="mt-2 text-xs text-[var(--muted)]">{role.permissions.length} {locale === 'ar' ? 'صلاحية' : 'permissions'}</p>
+                  {role.is_system ? <StatusBadge status="system" /> : null}
+                </div>
+                {role.description ? <p className="mt-1 text-sm text-[var(--muted)]">{role.description}</p> : null}
+                <p className="mt-2 text-xs text-[var(--muted)]">{role.permissions.length} {t('adminRolesPermissions')}</p>
                 </button>
               ))}
             </div>
@@ -324,7 +324,7 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
                   {!selectedRole.is_system && (
                     <PermissionGate permission={managePermission}>
                       <button type="button" className="button-secondary text-sm text-red-600" onClick={() => void deleteRole(selectedRole)}>
-                        {locale === 'ar' ? 'حذف الدور' : 'Delete role'}
+                        {t('adminRolesDeleteRole')}
                       </button>
                     </PermissionGate>
                   )}
@@ -335,7 +335,7 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
                   <PermissionGate permission={managePermission}>
                     <div className="mt-4 grid gap-4 md:grid-cols-2">
                       <TextInput
-                        label={isPlatform ? (locale === 'ar' ? 'اسم الدور' : 'Role name') : (locale === 'ar' ? 'الاسم بالإنجليزية' : 'English name')}
+                        label={isPlatform ? t('adminRolesRoleName') : t('adminRolesEnglishName')}
                         name="edit_name_en"
                         value={editNames.name_en}
                         onChange={(event) => setEditNames((current) => ({ ...current, name_en: event.target.value }))}
@@ -344,7 +344,7 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
                       />
                       {!isPlatform && (
                         <TextInput
-                          label={locale === 'ar' ? 'الاسم بالعربية' : 'Arabic name'}
+                          label={t('adminRolesArabicName')}
                           name="edit_name_ar"
                           value={editNames.name_ar}
                           onChange={(event) => setEditNames((current) => ({ ...current, name_ar: event.target.value }))}

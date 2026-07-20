@@ -32,10 +32,21 @@ final readonly class ReprintBadgeAction
         User $actor,
         TenantContext $tenantContext,
         string $eventId,
-        string $attendeeId,
+        string $badgePrintJobId,
         string $reason,
     ): BadgePrintJob {
         $tenantId = $tenantContext->tenant->id;
+
+        $targetJob = BadgePrintJob::query()
+            ->where('tenant_id', $tenantId)
+            ->where('event_id', $eventId)
+            ->find($badgePrintJobId);
+
+        if ($targetJob === null) {
+            throw Phase3Problem::make('badge_no_prior_print_job');
+        }
+
+        $attendeeId = (string) $targetJob->attendee_id;
 
         if (! $this->policy->allows($actor, 'reprintBadge')) {
             $this->audit->write(
@@ -57,29 +68,12 @@ final readonly class ReprintBadgeAction
             throw Phase3Problem::make('badge_reprint_reason_required');
         }
 
-        $priorJob = BadgePrintJob::query()
-            ->where('tenant_id', $tenantId)
-            ->where('event_id', $eventId)
-            ->where('attendee_id', $attendeeId)
-            ->orderByDesc('created_at')
-            ->first();
-
-        if ($priorJob === null) {
-            $this->audit->write(
-                'tenant', $tenantId, 'badge_print.reprint_blocked', 'blocked',
-                actor: $actor,
-                reasonCode: 'badge_no_prior_print_job',
-                targetType: 'attendee', targetId: $attendeeId,
-            );
-            throw Phase3Problem::make('badge_no_prior_print_job');
-        }
-
         $settings = EventCheckInSetting::query()
             ->where('tenant_id', $tenantId)
             ->where('event_id', $eventId)
             ->first();
 
-        $credentialId = $priorJob->credential_id;
+        $credentialId = (string) $targetJob->credential_id;
 
         if ($settings?->reprint_revokes_old_qr) {
             $reissued = $this->reissue->execute($tenantContext, $eventId, $credentialId, $reason);
@@ -89,8 +83,17 @@ final readonly class ReprintBadgeAction
         $template = BadgeTemplate::query()
             ->where('tenant_id', $tenantId)
             ->where('event_id', $eventId)
-            ->where('id', $priorJob->badge_template_id)
+            ->where('id', $targetJob->badge_template_id)
             ->first();
+
+        if ($template === null) {
+            $template = BadgeTemplate::query()
+                ->where('tenant_id', $tenantId)
+                ->where('event_id', $eventId)
+                ->where('status', 'active')
+                ->orderByDesc('id')
+                ->first();
+        }
 
         if ($template === null) {
             throw Phase3Problem::make('badge_template_not_active');
@@ -99,19 +102,17 @@ final readonly class ReprintBadgeAction
         $payload = $this->renderer->execute($tenantId, $eventId, $attendeeId, $credentialId, $template);
 
         return $this->transaction->run(
-            mutation: function () use ($tenantId, $eventId, $attendeeId, $credentialId, $template, $payload, $priorJob, $actor, $reason): BadgePrintJob {
-                $job = BadgePrintJob::create([
-                    'tenant_id' => $tenantId,
-                    'event_id' => $eventId,
-                    'attendee_id' => $attendeeId,
+            mutation: function () use ($targetJob, $credentialId, $template, $payload, $actor, $reason): BadgePrintJob {
+                $targetJob->forceFill([
                     'credential_id' => $credentialId,
                     'badge_template_id' => $template->id,
                     'printed_by_user_id' => $actor->id,
                     'status' => 'queued',
+                    'failure_reason' => null,
                     'is_reprint' => true,
                     'reprint_reason' => $reason,
-                    'original_print_job_id' => $priorJob->id,
-                ]);
+                    'printed_at' => null,
+                ])->save();
 
                 try {
                     $result = $this->printer->print($payload);
@@ -123,17 +124,22 @@ final readonly class ReprintBadgeAction
                     );
                 }
 
-                $job->forceFill([
+                $targetJob->forceFill([
                     'status' => $result->status === 'printed' ? 'printed' : 'failed',
                     'failure_reason' => $result->status !== 'printed' ? ($result->reasonCode ?? 'unknown') : null,
                     'printed_at' => $result->status === 'printed' ? CarbonImmutable::now() : null,
                 ])->save();
 
-                return $job;
+                return $targetJob->refresh();
             },
-            audit: function (BadgePrintJob $job) use ($tenantId, $eventId, $priorJob, $reason): void {
+            audit: function (BadgePrintJob $job) use ($tenantId, $eventId, $reason): void {
                 event(new BadgePrintJobReprinted(
-                    $tenantId, $eventId, $job->id, $job->attendee_id, $priorJob->id, $reason
+                    $tenantId,
+                    $eventId,
+                    (string) $job->id,
+                    (string) $job->attendee_id,
+                    (string) ($job->original_print_job_id ?? $job->id),
+                    $reason,
                 ));
             },
         );

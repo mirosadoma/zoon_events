@@ -51,7 +51,6 @@ final class EnsureSiteIsAvailable
             return false;
         }
 
-        return $this->permissions->hasPlatformPermission($user, 'platform.tenant.manage')
-            || $this->permissions->hasPlatformPermission($user, 'platform.user.manage');
+        return $this->permissions->hasPlatformPermission($user, 'platform.tenant.manage');
     }
 }

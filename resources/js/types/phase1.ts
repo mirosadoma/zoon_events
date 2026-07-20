@@ -1,6 +1,6 @@
 export type Phase1Locale = 'en' | 'ar'
 
-export type EventTier = 'corporate' | 'public' | 'vip' | 'vvip'
+export type EventTier = 'public' | 'private' | 'both'
 
 export type EventStatus =
   | 'draft'

@@ -12,7 +12,7 @@ use App\Modules\Tenancy\Domain\Context\TenantContextStore;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\TenantMembership;
 use App\Modules\Tenancy\Infrastructure\Persistence\Scopes\TenantScope;
 use Carbon\CarbonImmutable;
-use Database\Seeders\PermissionSeeder;
+use App\Modules\Authorization\Domain\PermissionCatalog;
 use Illuminate\Http\Request;
 
 final class SessionContextBuilder
@@ -43,6 +43,8 @@ final class SessionContextBuilder
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'type' => $user->type ?? 'staff',
+                    'is_visitor' => $user->isVisitor(),
                     'role_label' => $this->resolveRoleLabel($user, $context),
                     'phone' => null,
                     'last_login_at' => $user->last_authenticated_at?->toIso8601String(),
@@ -58,6 +60,8 @@ final class SessionContextBuilder
                 'locale' => app()->getLocale(),
                 'theme' => $request->cookie('theme', 'system'),
                 'role_label' => $this->resolveRoleLabel($user, $context),
+                'user_type' => $user->type ?? 'staff',
+                'is_visitor' => $user->isVisitor(),
             ],
             'can' => $can,
             'permissions' => $permissions,
@@ -89,7 +93,7 @@ final class SessionContextBuilder
             return null;
         }
 
-        return new TenantContext($membership->tenant, $membership, $user);
+        return $this->contexts->bind($membership->tenant, $membership, $user);
     }
 
     /**
@@ -99,7 +103,7 @@ final class SessionContextBuilder
     {
         $can = [];
 
-        foreach (PermissionSeeder::definitions() as $definition) {
+        foreach (PermissionCatalog::all() as $definition) {
             $key = $definition['key'];
 
             if ($definition['scope'] === 'platform') {

@@ -30,19 +30,18 @@ final readonly class PublishEvent
                 ->lockForUpdate()
                 ->findOrFail($event->id);
             $this->registrationSlots->execute($event, $context->actor->id);
+            $event->refresh();
 
-            $snapshot = [
-                ...$event->only([
-                    'name_en', 'name_ar', 'timezone', 'start_at', 'end_at',
-                    'registration_opens_at', 'registration_closes_at', 'active_form_version_id',
-                    'main_image_path', 'tier', 'registration_mode',
-                ]),
-                'agenda_items' => $event->agendaItems()->count(),
-                'active_ticket_types' => $this->tickets->countOrganizerTicketTypesForEvent($context->tenant->id, $event->id),
-                'branding_active' => $event->branding()->where('status', 'active')->exists(),
-            ];
+            $missing = $this->readiness->missingForEvent(
+                $event,
+                $this->tickets->countOrganizerTicketTypesForEvent($context->tenant->id, $event->id),
+            );
 
-            $missing = $this->readiness->missing($snapshot);
+            // Publish is allowed from draft/configured; ignore status blockers that belong to post-publish states.
+            $missing = array_values(array_filter(
+                $missing,
+                static fn (string $item): bool => ! str_starts_with($item, 'status_'),
+            ));
 
             if ($missing !== []) {
                 throw Phase1Problem::eventNotPublishable($missing);

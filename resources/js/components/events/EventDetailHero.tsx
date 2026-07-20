@@ -2,10 +2,9 @@ import type { CSSProperties } from 'react'
 import StatusBadge from '@/components/status/StatusBadge'
 import { useLocale } from '@/hooks/useLocale'
 import type { EventCapabilities } from '@/lib/eventOptions'
-import { EVENT_TIERS, EVENT_TYPES, REGISTRATION_MODES } from '@/lib/eventOptions'
+import { EVENT_TYPES, REGISTRATION_MODES, labelForEventTier } from '@/lib/eventOptions'
 import { setupCompletionPercent, type EventSetupProgress } from '@/lib/eventSetupProgress'
-import { formatDate, formatNumber } from '@/lib/formatters'
-import { CalendarRange, Layers3, Sparkles, Users } from 'lucide-react'
+import { Ticket } from 'lucide-react'
 
 type Props = {
   status: string
@@ -40,48 +39,41 @@ export default function EventDetailHero({
   tier,
   eventType,
   registrationMode,
-  timezone,
-  startAt,
-  endAt,
-  capacity,
   setupProgress,
   capabilities,
   published,
 }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const setupPercent = setupCompletionPercent(setupProgress, capabilities)
-  const tierLabel = labelFor(EVENT_TIERS, tier, locale)
+  const tierLabel = labelForEventTier(tier, locale)
   const typeLabel = labelFor(EVENT_TYPES, eventType, locale)
   const modeLabel = labelFor(REGISTRATION_MODES, registrationMode, locale)
-  const startsLabel = startAt ? formatDate(startAt, locale, timezone) : '—'
-  const endsLabel = endAt ? formatDate(endAt, locale, timezone) : '—'
-  const capacityLabel = capacity != null ? formatNumber(capacity, locale) : '—'
 
   return (
-    <section className="event-detail-hero" aria-label={locale === 'ar' ? 'نظرة عامة على الفعالية' : 'Event overview'}>
-      <div className="event-detail-hero-glow" aria-hidden="true" />
-      <div className="event-detail-hero-layout">
-        <div className="event-detail-hero-copy">
-          <p className="event-detail-hero-kicker">
-            <Sparkles className="h-4 w-4" aria-hidden="true" />
-            {tierLabel}
-            <span className="event-detail-hero-dot" aria-hidden="true" />
-            {typeLabel}
-          </p>
-          <div className="event-detail-hero-status">
-            <StatusBadge status={status} size="md" />
-            <span className="event-detail-hero-mode">{modeLabel}</span>
+    <section className="event-detail-hero" aria-label={t('eventHeroOverview')}>
+      <div className="event-detail-hero__glow" aria-hidden="true" />
+
+      <div className="event-detail-hero__top">
+        <div className="event-detail-hero__copy">
+          <div className="event-detail-hero__chips">
+            <span className="event-detail-hero__chip">{tierLabel}</span>
+            <span className="event-detail-hero__chip event-detail-hero__chip--muted">{typeLabel}</span>
           </div>
-          <p className="event-detail-hero-subtitle">
-            {published
-              ? (locale === 'ar' ? 'الفعالية منشورة وجاهزة لاستقبال الحضور.' : 'This event is live and ready for attendees.')
-              : (locale === 'ar'
-                ? 'أكمل الإعداد أدناه ثم انشر الفعالية عندما تكون جاهزة.'
-                : 'Complete setup below, then publish when you are ready to go live.')}
+
+          <div className="event-detail-hero__status">
+            <StatusBadge status={status} size="md" />
+            <span className="event-detail-hero__mode">
+              <Ticket className="h-3.5 w-3.5" aria-hidden="true" />
+              {modeLabel}
+            </span>
+          </div>
+
+          <p className="event-detail-hero__subtitle">
+            {published ? t('eventHeroPublished') : t('eventHeroDraft')}
           </p>
         </div>
 
-        <div className="event-detail-hero-progress" aria-label={locale === 'ar' ? 'تقدم الإعداد' : 'Setup progress'}>
+        <aside className="event-detail-hero__progress" aria-label={t('eventHeroSetupProgress')}>
           <div
             className="event-setup-progress-ring"
             style={{ '--setup-progress': `${setupPercent}%` } as CSSProperties}
@@ -90,68 +82,24 @@ export default function EventDetailHero({
           >
             <span className="event-setup-progress-value">{setupPercent}%</span>
           </div>
-          <p className="event-setup-progress-label">
-            {locale === 'ar' ? 'اكتمال الإعداد' : 'Setup complete'}
-          </p>
-        </div>
-      </div>
-
-      <div className="event-detail-hero-metrics">
-        <div className="event-detail-metric">
-          <span className="event-detail-metric-icon" aria-hidden="true">
-            <CalendarRange className="h-4 w-4" />
-          </span>
-          <div>
-            <span className="event-detail-metric-label">{locale === 'ar' ? 'البداية' : 'Starts'}</span>
-            <strong>{startsLabel}</strong>
+          <div className="event-detail-hero__progress-copy">
+            <p className="event-setup-progress-label">
+              {t('eventHeroSetupComplete')}
+            </p>
+            <div
+              className="event-setup-progress-track event-setup-progress-track--compact"
+              role="progressbar"
+              aria-valuenow={setupPercent}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <span className="event-setup-progress-fill" style={{ width: `${setupPercent}%` }} />
+            </div>
+            <p className="event-detail-hero__progress-hint">
+              {setupPercent >= 100 ? t('eventHeroReadyToPublish') : t('eventHeroStepsRemaining')}
+            </p>
           </div>
-        </div>
-        <div className="event-detail-metric">
-          <span className="event-detail-metric-icon" aria-hidden="true">
-            <CalendarRange className="h-4 w-4" />
-          </span>
-          <div>
-            <span className="event-detail-metric-label">{locale === 'ar' ? 'النهاية' : 'Ends'}</span>
-            <strong>{endsLabel}</strong>
-          </div>
-        </div>
-        <div className="event-detail-metric">
-          <span className="event-detail-metric-icon" aria-hidden="true">
-            <Users className="h-4 w-4" />
-          </span>
-          <div>
-            <span className="event-detail-metric-label">{locale === 'ar' ? 'السعة' : 'Capacity'}</span>
-            <strong>{capacityLabel}</strong>
-          </div>
-        </div>
-        <div className="event-detail-metric">
-          <span className="event-detail-metric-icon" aria-hidden="true">
-            <Layers3 className="h-4 w-4" />
-          </span>
-          <div>
-            <span className="event-detail-metric-label">{locale === 'ar' ? 'المنطقة الزمنية' : 'Timezone'}</span>
-            <strong>{timezone}</strong>
-          </div>
-        </div>
-      </div>
-
-      <div
-        className="event-setup-progress-bar"
-        role="progressbar"
-        aria-valuenow={setupPercent}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label={locale === 'ar' ? 'تقدم الإعداد' : 'Setup progress'}
-      >
-        <div className="event-setup-progress-bar-header">
-          <span className="event-setup-progress-bar-label">
-            {locale === 'ar' ? 'تقدم الإعداد' : 'Setup progress'}
-          </span>
-          <span className="event-setup-progress-bar-percent">{setupPercent}%</span>
-        </div>
-        <div className="event-setup-progress-track">
-          <span className="event-setup-progress-fill" style={{ width: `${setupPercent}%` }} />
-        </div>
+        </aside>
       </div>
     </section>
   )

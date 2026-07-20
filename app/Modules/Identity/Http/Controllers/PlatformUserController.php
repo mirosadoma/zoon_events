@@ -5,12 +5,14 @@ namespace App\Modules\Identity\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Modules\Audit\Application\AuditWriter;
-use App\Modules\Shared\Application\Pagination\CursorPaginator;
+use App\Modules\Authorization\Infrastructure\Persistence\Models\PlatformRole;
 use App\Modules\Shared\Domain\LifecycleStatus;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
 
 class PlatformUserController extends Controller
 {
@@ -18,27 +20,29 @@ class PlatformUserController extends Controller
 
     public function __construct(
         private readonly AuditWriter $audit,
-        private readonly CursorPaginator $paginator,
     ) {}
 
-    public function index(Request $request)
+    public function index(): JsonResponse
     {
-        $page = $this->paginator->paginate(User::query(), 'platform:users', [], $request->string('cursor')->toString(), $request->integer('page_size', 50));
+        $users = User::query()
+            ->whereHas('platformAssignments')
+            ->with('platformAssignments')
+            ->latest()
+            ->limit(100)
+            ->get();
 
-        return $this->success(
-            collect($page->items)->map(fn (User $user): array => $this->mapUser($user))->all(),
-            meta: ['page_size' => $page->pageSize, 'has_more' => $page->hasMore, 'next_cursor' => $page->nextCursor],
-        );
+        $data = $users->map(fn (User $user): array => $this->mapUser($user));
+
+        return $this->success($data->all());
     }
 
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:160'],
             'email' => ['required', 'email', 'max:254', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:12', 'max:1024'],
-            'preferred_locale' => ['required', 'in:en,ar'],
-            'reason' => ['required', 'string', 'max:500'],
+            'password' => ['required', 'confirmed', Password::min(8)],
+            'role_id' => ['required', 'exists:platform_roles,id'],
         ]);
 
         /** @var User $actor */
@@ -47,62 +51,127 @@ class PlatformUserController extends Controller
         $user = DB::transaction(function () use ($validated, $actor): User {
             $user = User::query()->create([
                 'name' => $validated['name'],
-                'email' => strtolower($validated['email']),
+                'email' => $validated['email'],
                 'password' => Hash::make($validated['password']),
-                'status' => LifecycleStatus::Active->value,
-                'preferred_locale' => $validated['preferred_locale'],
+                'status' => LifecycleStatus::Active,
+                'preferred_locale' => 'en',
                 'created_by_user_id' => $actor->id,
             ]);
-            $this->audit->writePlatform('user.provisioned', 'succeeded', $actor, targetType: 'user', targetId: $user->id, metadata: ['reason' => $validated['reason']]);
+
+            DB::table('platform_role_assignments')->insert([
+                'user_id' => $user->id,
+                'platform_role_id' => $validated['role_id'],
+                'granted_by_user_id' => $actor->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
 
             return $user;
         });
 
-        return $this->success($this->mapUser($user), 201);
+        $this->audit->writePlatform(
+            'platform_user.created',
+            'succeeded',
+            $actor,
+            targetType: 'user',
+            targetId: $user->id,
+            metadata: ['email' => $validated['email']],
+        );
+
+        return $this->success($this->mapUser($user->refresh()->load('platformAssignments')), 201);
     }
 
-    public function update(Request $request, string $userId)
+    public function update(Request $request, string $userId): JsonResponse
     {
         $user = User::query()->findOrFail($userId);
+
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:160'],
-            'status' => ['sometimes', 'in:active,suspended,deactivated'],
-            'preferred_locale' => ['sometimes', 'in:en,ar'],
-            'reason' => ['required', 'string', 'max:500'],
+            'email' => ['sometimes', 'email', 'max:254', "unique:users,email,{$user->id}"],
+            'role_id' => ['sometimes', 'exists:platform_roles,id'],
         ]);
 
         /** @var User $actor */
         $actor = $request->user();
+
         DB::transaction(function () use ($user, $validated, $actor): void {
-            $user->fill(collect($validated)->except('reason')->all());
-            if (($validated['status'] ?? null) === LifecycleStatus::Active->value) {
-                $user->suspended_at = null;
-                $user->deactivated_at = null;
-            } elseif (($validated['status'] ?? null) === LifecycleStatus::Suspended->value) {
-                $user->suspended_at = now();
-                $user->deactivated_at = null;
-                $user->tokens()->delete();
-            } elseif (($validated['status'] ?? null) === LifecycleStatus::Deactivated->value) {
-                $user->deactivated_at = now();
-                $user->tokens()->delete();
-                $user->memberships()->where('status', 'active')->update(['status' => 'deactivated', 'deactivated_at' => now()]);
+            $user->update(array_filter([
+                'name' => $validated['name'] ?? null,
+                'email' => $validated['email'] ?? null,
+            ]));
+
+            if (isset($validated['role_id'])) {
+                DB::table('platform_role_assignments')
+                    ->where('user_id', $user->id)
+                    ->whereNull('revoked_at')
+                    ->update(['revoked_at' => now(), 'revoked_by_user_id' => $actor->id]);
+
+                DB::table('platform_role_assignments')->insert([
+                    'user_id' => $user->id,
+                    'platform_role_id' => $validated['role_id'],
+                    'granted_by_user_id' => $actor->id,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
             }
-            $user->save();
-            $this->audit->writePlatform('user.updated', 'succeeded', $actor, targetType: 'user', targetId: $user->id, metadata: ['reason' => $validated['reason']]);
         });
 
-        return $this->success($this->mapUser($user->refresh()));
+        $this->audit->writePlatform(
+            'platform_user.updated',
+            'succeeded',
+            $actor,
+            targetType: 'user',
+            targetId: $user->id,
+        );
+
+        return $this->success($this->mapUser($user->refresh()->load('platformAssignments')));
+    }
+
+    public function destroy(Request $request, string $userId): JsonResponse
+    {
+        $user = User::query()->findOrFail($userId);
+
+        /** @var User $actor */
+        $actor = $request->user();
+
+        abort_if($user->id === $actor->id, 403, 'Cannot delete yourself.');
+
+        $this->audit->writePlatform(
+            'platform_user.deleted',
+            'succeeded',
+            $actor,
+            targetType: 'user',
+            targetId: $user->id,
+            metadata: ['email' => $user->email],
+        );
+
+        DB::transaction(function () use ($user): void {
+            DB::table('platform_role_assignments')->where('user_id', $user->id)->delete();
+            $user->delete();
+        });
+
+        return $this->success(null, 204);
     }
 
     private function mapUser(User $user): array
     {
+        $roleIds = DB::table('platform_role_assignments')
+            ->where('user_id', $user->id)
+            ->whereNull('revoked_at')
+            ->pluck('platform_role_id');
+
+        $roles = PlatformRole::query()->whereIn('id', $roleIds)->get();
+
         return [
-            'id' => $user->id,
+            'id' => (string) $user->id,
             'name' => $user->name,
             'email' => $user->email,
-            'status' => $user->status->value,
-            'preferred_locale' => $user->preferred_locale,
+            'status' => $user->status instanceof LifecycleStatus ? $user->status->value : $user->status,
             'created_at' => $user->created_at?->toIso8601String(),
+            'roles' => $roles->map(fn (PlatformRole $role): array => [
+                'id' => (string) $role->id,
+                'name' => $role->name,
+            ])->all(),
         ];
     }
 }

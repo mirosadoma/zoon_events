@@ -30,7 +30,6 @@ export default function AcsRules({ event, tenantId, zones, lanes, rules: initial
   const [ticketTypeId, setTicketTypeId] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const ar = locale === 'ar'
 
   async function handleCreate(formEvent: FormEvent<HTMLFormElement>) {
     formEvent.preventDefault()
@@ -61,20 +60,20 @@ export default function AcsRules({ event, tenantId, zones, lanes, rules: initial
   }
 
   return (
-    <DashboardLayout title={ar ? 'قواعد ACS' : 'ACS rules'}>
+    <DashboardLayout title={t('acsPageRules')}>
       <PageHeader
-        title={ar ? 'قواعد ACS' : 'ACS rules'}
+        title={t('acsPageRules')}
         description={event.name[locale]}
         breadcrumbs={[
           { label: t('overview'), href: '/dashboard' },
-          { label: ar ? 'الفعاليات' : 'Events', href: '/tenant/events' },
+          { label: t('events'), href: '/tenant/events' },
           { label: event.name[locale], href: `/tenant/events/${event.id}` },
           { label: 'ACS', href: `/tenant/events/${event.id}/acs` },
-          { label: ar ? 'القواعد' : 'Rules' },
+          { label: t('acsPageRules') },
         ]}
         actions={(
           <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/acs/gate-health`}>
-            {ar ? 'صحة البوابة' : 'Gate health'}
+            {t('acsPageGateHealth')}
           </LocalizedLink>
         )}
       />
@@ -84,11 +83,11 @@ export default function AcsRules({ event, tenantId, zones, lanes, rules: initial
         {zones.length === 0 ? (
           <div className="mt-6">
             <EmptyState
-              title={ar ? 'أنشئ منطقة أولاً' : 'Create a zone first'}
-              detail={ar ? 'القواعد تحتاج منطقة للتفويض.' : 'Rules need a zone to authorize against.'}
+              title={t('acsPageCreateZoneFirst')}
+              detail={t('acsPageRulesNeedZone')}
               action={(
                 <LocalizedLink className="button-primary" href={`/tenant/events/${event.id}/acs/zones`}>
-                  {ar ? 'إضافة منطقة' : 'Add zone'}
+                  {t('acsPageAddZone')}
                 </LocalizedLink>
               )}
             />
@@ -96,21 +95,21 @@ export default function AcsRules({ event, tenantId, zones, lanes, rules: initial
         ) : (
           <form className="ta-card mt-6 space-y-4" onSubmit={handleCreate}>
             <div>
-              <h2 className="text-lg font-semibold text-[var(--ink)]">{ar ? 'إنشاء قاعدة' : 'Create rule'}</h2>
+              <h2 className="text-lg font-semibold text-[var(--ink)]">{t('acsPageCreateRule')}</h2>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                {ar ? 'حدد من يُسمح له بالدخول إلى المنطقة أو المسار.' : 'Define who may enter a zone or lane.'}
+                {t('acsPageCreateRuleDescription')}
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <SelectInput
-                label={ar ? 'المنطقة' : 'Zone'}
+                label={t('zone')}
                 name="zone_id"
                 value={zoneId}
                 onChange={(e) => setZoneId(e.target.value)}
                 options={zones.map((zone) => ({ value: zone.id, label: zone.name }))}
               />
               <SelectInput
-                label={ar ? 'المسار (اختياري)' : 'Lane (optional)'}
+                label={t('acsPageLaneOptional')}
                 name="lane_id"
                 value={laneId}
                 onChange={(e) => setLaneId(e.target.value)}
@@ -122,7 +121,7 @@ export default function AcsRules({ event, tenantId, zones, lanes, rules: initial
                 ]}
               />
               <SelectInput
-                label={ar ? 'نوع التذكرة (اختياري)' : 'Ticket type (optional)'}
+                label={t('acsPageTicketTypeOptional')}
                 name="ticket_type_id"
                 value={ticketTypeId}
                 onChange={(e) => setTicketTypeId(e.target.value)}
@@ -137,7 +136,7 @@ export default function AcsRules({ event, tenantId, zones, lanes, rules: initial
                 {error}
               </p>
             )}
-            <SubmitButtonWithLoader loading={submitting} label={ar ? 'إنشاء قاعدة' : 'Create rule'} />
+            <SubmitButtonWithLoader loading={submitting} label={t('acsPageCreateRule')} />
           </form>
         )}
       </PageContent>

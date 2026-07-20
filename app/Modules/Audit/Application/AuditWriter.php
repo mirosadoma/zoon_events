@@ -7,6 +7,7 @@ use App\Modules\Audit\Application\Integrity\AuditIntegrityService;
 use App\Modules\Audit\Application\Sanitization\AuditSanitizer;
 use App\Modules\Audit\Contracts\AuditWriter as AuditWriterContract;
 use App\Modules\Audit\Infrastructure\Persistence\Models\AuditLog;
+use App\Modules\Notifications\Application\InAppNotificationDispatcher;
 use App\Modules\Shared\Contracts\Clock;
 use App\Modules\Shared\Domain\Context\RequestContextStore;
 use App\Modules\Tenancy\Domain\Context\TenantContext;
@@ -20,6 +21,7 @@ class AuditWriter implements AuditWriterContract
         private readonly Request $request,
         private readonly AuditIntegrityService $integrity,
         private readonly AuditSanitizer $sanitizer,
+        private readonly InAppNotificationDispatcher $notificationDispatcher,
     ) {}
 
     /**
@@ -65,6 +67,20 @@ class AuditWriter implements AuditWriterContract
         $record->forceFill($payload);
         $record->integrity_hash = $this->integrity->sign($record->integrityPayload());
         $record->save();
+
+        try {
+            $this->notificationDispatcher->dispatch(
+                action: $action,
+                tenantId: $tenantId,
+                actorId: $actor?->id,
+                actorName: $actor?->name,
+                targetType: $targetType,
+                targetId: $targetId,
+                metadata: $metadata,
+            );
+        } catch (\Throwable) {
+            // Notification dispatch must never break the audit write path
+        }
 
         return $record;
     }

@@ -1,4 +1,5 @@
-import { useTranslation } from 'react-i18next'
+import { Wallet } from 'lucide-react'
+import { useLocale } from '@/hooks/useLocale'
 
 export default function AddToWalletButtons({
   locale,
@@ -11,17 +12,33 @@ export default function AddToWalletButtons({
   googleSaveUrl: string
   credentialStatus: string
 }) {
-  const { t } = useTranslation()
+  const { t } = useLocale()
   const isActive = credentialStatus === 'active'
+  const direction = locale === 'ar' ? 'rtl' : 'ltr'
 
   if (!isActive) {
     return null
   }
 
   return (
-    <div lang={locale} dir={locale === 'ar' ? 'rtl' : 'ltr'}>
-      <a href={applePassUrl}>{t('phase2.wallet_pass.added')}</a>
-      <a href={googleSaveUrl}>{t('phase2.wallet_pass.added')}</a>
+    <div className="registration-wallet-actions" lang={locale} dir={direction}>
+      <p className="registration-wallet-heading">{t('walletAddPassTitle')}</p>
+      <div className="registration-wallet-buttons">
+        <a
+          href={applePassUrl}
+          className="registration-wallet-button registration-wallet-button-apple"
+        >
+          <Wallet className="h-4 w-4" aria-hidden="true" />
+          <span>{t('walletAddToApple')}</span>
+        </a>
+        <a
+          href={googleSaveUrl}
+          className="registration-wallet-button registration-wallet-button-google"
+        >
+          <Wallet className="h-4 w-4" aria-hidden="true" />
+          <span>{t('walletAddToGoogle')}</span>
+        </a>
+      </div>
     </div>
   )
 }

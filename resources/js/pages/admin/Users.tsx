@@ -121,7 +121,7 @@ export default function AdminUsers({ tenantId: pageTenantId, users: initialUsers
     }
 
     if (!tenantId) {
-      toast(locale === 'ar' ? 'سياق المستأجر غير متوفر.' : 'Tenant context is unavailable.', 'error')
+      toast(t('adminUsersTenantUnavailable'), 'error')
 
       return
     }
@@ -160,7 +160,7 @@ export default function AdminUsers({ tenantId: pageTenantId, users: initialUsers
     }
 
     if (!tenantId) {
-      toast(locale === 'ar' ? 'سياق المستأجر غير متوفر.' : 'Tenant context is unavailable.', 'error')
+      toast(t('adminUsersTenantUnavailable'), 'error')
 
       return
     }
@@ -186,7 +186,7 @@ export default function AdminUsers({ tenantId: pageTenantId, users: initialUsers
         )
       }
 
-      toast(locale === 'ar' ? 'تم تعيين الدور.' : 'Role assigned.', 'success')
+      toast(t('adminUsersRoleAssigned'), 'success')
     } catch (error) {
       toast(
         error instanceof ApiFetchError ? error.message : messages.errorState,
@@ -230,9 +230,7 @@ export default function AdminUsers({ tenantId: pageTenantId, users: initialUsers
     <DashboardLayout title={messages.users}>
       <PageHeader
         title={messages.users}
-        description={locale === 'ar'
-          ? 'يظهر هنا فقط المستخدمون الذين أضفتهم أنت ولم يُعيَّنوا بعد في أدوار النظام (منظم/مشرف).'
-          : 'Only users you invited appear here, excluding accounts already on system organizer/supervisor roles.'}
+        description={t('adminUsersDescription_')}
         breadcrumbs={[
           { label: messages.overview, href: '/dashboard' },
           { label: messages.administration, href: '/admin/users' },
@@ -275,9 +273,7 @@ export default function AdminUsers({ tenantId: pageTenantId, users: initialUsers
         {filteredUsers.length === 0 ? (
           <EmptyState
             title={messages.adminNoUsers}
-            detail={locale === 'ar'
-              ? 'اضغط «إضافة مستخدم» لدعوة عضو فريق جديد ثم عيّن له دوراً مخصصاً.'
-              : 'Use Add user to invite a new team member, then assign a custom role.'}
+            detail={t('adminUsersEmptyDetail')}
             action={(
               <PermissionGate permission="membership.manage">
                 <button
@@ -302,7 +298,7 @@ export default function AdminUsers({ tenantId: pageTenantId, users: initialUsers
               { key: 'email', header: messages.profileEmail },
               {
                 key: 'roles',
-                header: locale === 'ar' ? 'الأدوار' : 'Roles',
+                header: t('adminUsersRoles'),
                 render: (row) => {
                   const user = row as unknown as UserRow
                   const userRoles = user.roles ?? []
@@ -341,13 +337,13 @@ export default function AdminUsers({ tenantId: pageTenantId, users: initialUsers
                       <PermissionGate permission="role.assign">
                         <div className="flex flex-wrap items-end gap-2">
                           <SelectInput
-                            label={locale === 'ar' ? 'تعيين دور' : 'Assign role'}
+                            label={t('adminUsersAssignRole')}
                             name={`role_${user.id}`}
                             value={selectedRoleByUser[user.id] ?? ''}
                             onChange={(event) =>
                               setSelectedRoleByUser((current) => ({ ...current, [user.id]: event.target.value }))
                             }
-                            options={[{ value: '', label: locale === 'ar' ? 'اختر دوراً' : 'Select role' }, ...roleOptions]}
+                            options={[{ value: '', label: t('adminUsersSelectRole') }, ...roleOptions]}
                           />
                           <button
                             type="button"
@@ -355,7 +351,7 @@ export default function AdminUsers({ tenantId: pageTenantId, users: initialUsers
                             disabled={!selectedRoleByUser[user.id] || assigningFor === user.id}
                             onClick={() => void assignRole(user)}
                           >
-                            {locale === 'ar' ? 'تعيين' : 'Assign'}
+                            {t('adminUsersAssign')}
                           </button>
                         </div>
                       </PermissionGate>
@@ -416,7 +412,7 @@ export default function AdminUsers({ tenantId: pageTenantId, users: initialUsers
                 onChange={(event) => setInviteForm((current) => ({ ...current, email: event.target.value }))}
               />
               <TextInput
-                label={locale === 'ar' ? 'كلمة المرور' : 'Password'}
+                label={t('adminUsersPassword')}
                 name="password"
                 type="password"
                 value={inviteForm.password}

@@ -3,6 +3,7 @@
 return [
     'kiosk_session_invalid' => 'جلسة الكشك غير صالحة أو انتهت صلاحيتها.',
     'kiosk_session_unconfirmed' => 'يجب تأكيد جلسة الكشك قبل الاستخدام.',
+    'kiosk_confirmation_invalid' => 'رمز تأكيد الكشك غير صحيح.',
     'kiosk_retired' => 'تم إيقاف هذا الكشك ولا يمكن استخدامه بعد الآن.',
     'lookup_too_many_matches' => 'عدد كبير من الحضور المطابقين. يرجى تضييق نطاق البحث.',
     'lookup_confirmation_required' => 'رمز التأكيد مطلوب قبل تسجيل الحضور.',
@@ -14,6 +15,7 @@ return [
     'badge_reprint_not_permitted' => 'ليس لديك صلاحية إعادة طباعة الشارات.',
     'badge_no_prior_print_job' => 'لم يتم العثور على طباعة شارة سابقة لهذا الحاضر.',
     'badge_print_not_permitted' => 'ليس لديك صلاحية طباعة الشارات.',
+    'badge_print_checkin_required' => 'يجب تسجيل دخول الزائر أولاً قبل طباعة الشارة.',
     'printer_unavailable' => 'طابعة الشارات غير متاحة حاليًا.',
     'printer_error' => 'أبلغت طابعة الشارات عن خطأ.',
     'payload_rejected' => 'رفضت الطابعة بيانات الطباعة.',

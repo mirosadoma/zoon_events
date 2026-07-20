@@ -1,6 +1,4 @@
 import { FormEvent, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { QRCodeSVG } from 'qrcode.react'
-import LocalizedLink from '@/components/routing/LocalizedLink'
 import { LocalizedEventContent, type LocalizedText } from '@/components/registration/LocalizedEventContent'
 import RegistrationEventHero, { type RegistrationHeroEvent } from '@/components/registration/RegistrationEventHero'
 import RegistrationPageControls from '@/components/registration/RegistrationPageControls'
@@ -27,6 +25,27 @@ type TicketTypeOption = {
   currency: string
 }
 
+type CategoryOption = {
+  id: string
+  name: LocalizedText
+  color: string | null
+  is_paid: boolean
+  price_minor: number
+  currency: string
+  capacity?: number | null
+  remaining?: number | null
+  is_full?: boolean
+}
+
+type ThemeConfig = {
+  primary_color?: string
+  accent_color?: string
+  background_color?: string
+  font_family?: string
+  logo_path?: string
+  header_image_path?: string
+}
+
 type Props = {
   locale: 'en' | 'ar'
   tenantId?: string
@@ -42,16 +61,13 @@ type Props = {
     privacy_notice_version: string
     terms_version: string
   }
+  categories?: CategoryOption[]
+  requiresCategorySelection?: boolean
   ticketTypes?: TicketTypeOption[]
   requiresTicketSelection?: boolean
-}
-
-type SuccessState = {
-  reference: string
-  accessToken?: string | null
-  credentialToken?: string | null
-  identityVerifyUrl?: string | null
-  credentialStatus?: 'issued' | 'pending_identity' | 'unavailable'
+  theme?: ThemeConfig | null
+  inviteCode?: string | null
+  lockedEmail?: string | null
 }
 
 function splitName(value: string): { first_name: string; last_name: string } {
@@ -85,25 +101,45 @@ export default function PublicRegistrationEvent({
   submitUrl,
   event,
   form,
+  categories = [],
+  requiresCategorySelection = false,
   ticketTypes = [],
   requiresTicketSelection = true,
+  theme,
+  inviteCode = null,
+  lockedEmail = null,
 }: Props) {
   const { t } = useLocale()
   const direction = locale === 'ar' ? 'rtl' : 'ltr'
+  const themeStyle = useMemo(() => {
+    if (!theme) return undefined
+    const vars: Record<string, string> = {}
+    if (theme.primary_color) vars['--reg-primary'] = theme.primary_color
+    if (theme.accent_color) vars['--reg-accent'] = theme.accent_color
+    if (theme.background_color) vars['--reg-bg'] = theme.background_color
+    if (theme.font_family) vars['--reg-font'] = theme.font_family
+    return Object.keys(vars).length > 0 ? vars as React.CSSProperties : undefined
+  }, [theme])
   const registrationFields = useMemo(
     () => form.fields.filter((field) => field.type !== 'consent'),
     [form.fields],
   )
   const fieldLabels = useMemo(
-    () => buildPublicRegistrationFieldLabels(registrationFields, {
-      en: 'Location - Date',
-      ar: 'الموقع - التاريخ',
-    }, {
-      en: t('publicRegistrationConsentLabel'),
-      ar: t('publicRegistrationConsentLabel'),
-    }, {
-      en: t('publicRegistrationChooseTicket'),
-      ar: t('publicRegistrationChooseTicket'),
+    () => ({
+      ...buildPublicRegistrationFieldLabels(registrationFields, {
+        en: 'Location - Date',
+        ar: 'الموقع - التاريخ',
+      }, {
+        en: t('publicRegistrationConsentLabel'),
+        ar: t('publicRegistrationConsentLabel'),
+      }, {
+        en: t('publicRegistrationChooseTicket'),
+        ar: t('publicRegistrationChooseTicket'),
+      }),
+      event_category_id: {
+        en: t('publicRegistrationChooseCategory'),
+        ar: t('publicRegistrationChooseCategory'),
+      },
     }),
     [registrationFields, t],
   )
@@ -118,8 +154,12 @@ export default function PublicRegistrationEvent({
   const [formTarget, setFormTarget] = useState<HTMLElement | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<SuccessState | null>(null)
   const [ticketTypeId, setTicketTypeId] = useState(String(ticketTypes[0]?.id ?? ''))
+  const availableCategories = useMemo(
+    () => categories.filter((category) => !category.is_full),
+    [categories],
+  )
+  const [categoryId, setCategoryId] = useState(String(availableCategories[0]?.id ?? categories[0]?.id ?? ''))
   const [venueId, setVenueId] = useState(String(venues[0]?.id ?? ''))
   const [acceptedTerms, setAcceptedTerms] = useState(false)
 
@@ -127,10 +167,23 @@ export default function PublicRegistrationEvent({
     setFormTarget(formRef.current)
   }, [])
 
-  const selectedTicket = useMemo(
-    () => ticketTypes.find((ticket) => ticket.id === ticketTypeId) ?? ticketTypes[0] ?? null,
-    [ticketTypeId, ticketTypes],
-  )
+  useLayoutEffect(() => {
+    if (categoryId && availableCategories.some((category) => category.id === categoryId)) {
+      return
+    }
+    setCategoryId(String(availableCategories[0]?.id ?? ''))
+  }, [availableCategories, categoryId])
+
+  const canSubmit = requiresCategorySelection
+    ? availableCategories.length > 0
+    : !requiresTicketSelection || ticketTypes.length > 0
+
+  // Private invite links skip category/ticket pickers entirely.
+  const showCategoryPicker = requiresCategorySelection
+  const showTicketPicker = !requiresCategorySelection && requiresTicketSelection
+  const showSelectionWarning = showCategoryPicker
+    ? categories.length === 0 || availableCategories.length === 0
+    : showTicketPicker && ticketTypes.length === 0
 
   async function handleSubmit(submitEvent: FormEvent<HTMLFormElement>) {
     submitEvent.preventDefault()
@@ -172,8 +225,47 @@ export default function PublicRegistrationEvent({
       answers.phone = normalizeRegistrationPhone(answers.phone)
     }
 
+    if (lockedEmail) {
+      const locked = lockedEmail.trim().toLowerCase()
+      const emailFieldKeys = registrationFields
+        .filter((field) => field.type === 'email' || field.key === 'email')
+        .map((field) => field.key)
+
+      let mismatchedKey: string | null = null
+      for (const key of emailFieldKeys) {
+        const submitted = String(answers[key] ?? '').trim().toLowerCase()
+        if (submitted !== '' && submitted !== locked) {
+          mismatchedKey = key
+          break
+        }
+      }
+
+      if (mismatchedKey === null) {
+        const submitted = answerText(answers.email).toLowerCase()
+        if (submitted !== '' && submitted !== locked) {
+          mismatchedKey = 'email'
+        }
+      }
+
+      if (mismatchedKey !== null) {
+        validation.applyErrors({
+          [mismatchedKey]: t('publicRegistrationInviteEmailLocked'),
+        })
+        setError(t('publicRegistrationInviteEmailLocked'))
+        return
+      }
+
+      answers.email = locked
+      emailFieldKeys.forEach((key) => {
+        answers[key] = locked
+      })
+    }
+
     const clientErrors = collectPublicRegistrationClientErrors(registrationFields, answers, {
       ticketTypeId,
+      categoryId,
+      requireCategory: requiresCategorySelection,
+      requireTicket: requiresTicketSelection,
       venueRequired: venues.length > 0,
       venueId,
       acceptedTerms,
@@ -186,27 +278,28 @@ export default function PublicRegistrationEvent({
     const fullName = answerText(answers.full_name)
       || answerText(answers.name)
       || `${answerText(answers.first_name)} ${answerText(answers.last_name)}`.trim()
-    const email = answerText(answers.email)
+    const email = (lockedEmail?.trim() || answerText(answers.email)).toLowerCase()
     const phone = answerText(answers.phone) ? normalizeRegistrationPhone(answerText(answers.phone)) : undefined
     const person = { ...splitName(fullName), email, phone }
+    answers.email = email
 
     setSubmitting(true)
 
     try {
       const result = await apiFetch<{
-        public_reference: string
+        next?: string
+        otp_url?: string
+        public_reference?: string
         access_token?: string | null
-        credential_token?: string | null
-        identity_verify_url?: string | null
-        credential_status?: 'issued' | 'pending_identity' | 'unavailable'
-        credential?: { qr_payload?: string | null } | null
       }>(submitUrl!, {
         method: 'POST',
         idempotency: true,
         body: {
           form_version_id: String(form.version_id),
-          ticket_type_id: String(ticketTypeId),
+          event_category_id: requiresCategorySelection ? Number(categoryId) : undefined,
+          ticket_type_id: requiresTicketSelection ? String(ticketTypeId) : undefined,
           event_venue_id: venues.length > 0 ? String(venueId) : null,
+          invite_code: inviteCode || undefined,
           buyer: person,
           attendee: person,
           answers,
@@ -214,13 +307,12 @@ export default function PublicRegistrationEvent({
         },
       })
 
-      setSuccess({
-        reference: result.public_reference,
-        accessToken: result.access_token,
-        credentialToken: result.credential_token ?? null,
-        identityVerifyUrl: result.identity_verify_url ?? null,
-        credentialStatus: result.credential_status,
-      })
+      if (result.otp_url) {
+        window.location.assign(result.otp_url)
+        return
+      }
+
+      setError(t('publicRegistrationFailed'))
     } catch (caught) {
       if (validation.applyApiError(caught)) {
         setError(null)
@@ -235,60 +327,79 @@ export default function PublicRegistrationEvent({
     }
   }
 
-  if (success) {
-    return (
-      <>
-        <RegistrationPageControls locale={locale} />
-        <main className="registration-invite registration-invite-success" lang={locale} dir={direction}>
-        <div className="registration-invite-card">
-          <p className="registration-invite-kicker">{t('publicRegistrationSuccessKicker')}</p>
-          <h1>{t('publicRegistrationWelcomeEvent')}</h1>
-          <p className="registration-invite-lead">
-            <LocalizedEventContent value={event.name} locale={locale} />
-          </p>
-          <div className="registration-success-meta">
-            <div>
-              <span className="registration-success-label">{t('publicRegistrationOrderReference')}</span>
-              <strong>{success.reference}</strong>
-            </div>
-            {selectedTicket ? (
-              <div>
-                <span className="registration-success-label">{t('publicRegistrationTicket')}</span>
-                <strong><LocalizedEventContent value={selectedTicket.name} locale={locale} /></strong>
-              </div>
-            ) : null}
-          </div>
-          {success.credentialStatus === 'issued' && success.reference ? (
-            <div className="registration-qr-panel">
-              <p>{t('publicRegistrationScanQr')}</p>
-              <QRCodeSVG value={success.reference} size={220} className="registration-qr-code" />
-            </div>
-          ) : success.credentialStatus === 'pending_identity' && (success.identityVerifyUrl || (success.accessToken && event.slug)) ? (
-            <div className="registration-qr-panel">
-              <p>{t('publicRegistrationIdentityPending')}</p>
-              <LocalizedLink
-                href={success.identityVerifyUrl ?? `/identity/${event.slug}/${success.accessToken}`}
-                className="button-primary inline-flex"
-              >
-                {t('publicRegistrationCompleteIdentity')}
-              </LocalizedLink>
-            </div>
-          ) : null}
-          <p className="registration-invite-footnote">
-            {t('publicRegistrationEmailFootnote')}
-          </p>
-        </div>
-      </main>
-      </>
-    )
-  }
-
   return (
     <>
       <RegistrationPageControls locale={locale} />
-      <main className={`registration-invite${isPreview ? ' registration-invite-preview' : ''}`} lang={locale} dir={direction}>
+      <main className={`registration-invite${isPreview ? ' registration-invite-preview' : ''}`} lang={locale} dir={direction} style={themeStyle}>
         <RegistrationEventHero locale={locale} event={event} isPreview={isPreview}>
-          {requiresTicketSelection && ticketTypes.length > 0 ? (
+          {showCategoryPicker ? (
+            categories.length > 0 ? (
+              <section
+                className={`registration-ticket-picker${validation.fieldError('event_category_id') ? ' form-field-invalid' : ''}`}
+                aria-label={t('publicRegistrationCategorySelection')}
+                data-form-field="event_category_id"
+              >
+                <h2>{t('publicRegistrationChooseCategory')}</h2>
+                <div className="registration-ticket-options">
+                  {categories.map((category) => {
+                    const selected = category.id === categoryId
+                    const isFull = Boolean(category.is_full)
+                    const price = (category.price_minor / 100).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-US', {
+                      style: 'currency',
+                      currency: category.currency || 'SAR',
+                    })
+                    const remainingLabel = category.remaining !== null && category.remaining !== undefined
+                      ? t('publicRegistrationCategoryRemaining').replace(':count', String(category.remaining))
+                      : null
+
+                    return (
+                      <button
+                        key={category.id}
+                        type="button"
+                        className={[
+                          'registration-ticket-option',
+                          selected && !isFull ? 'registration-ticket-option-active' : '',
+                          isFull ? 'registration-ticket-option-full' : '',
+                        ].filter(Boolean).join(' ')}
+                        onClick={() => {
+                          if (!isFull) {
+                            setCategoryId(String(category.id))
+                          }
+                        }}
+                        disabled={isPreview || isFull}
+                        aria-disabled={isPreview || isFull}
+                      >
+                        <span className="registration-ticket-option-top">
+                          <span
+                            className="registration-ticket-code"
+                            style={category.color ? { color: category.color } : undefined}
+                          >
+                            {category.is_paid ? price : t('publicRegistrationFree')}
+                          </span>
+                          {isFull ? (
+                            <span className="registration-ticket-badge registration-ticket-badge-full">
+                              {t('publicRegistrationCategoryFull')}
+                            </span>
+                          ) : remainingLabel ? (
+                            <span className="registration-ticket-badge">
+                              {remainingLabel}
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="registration-ticket-name">
+                          <LocalizedEventContent value={category.name} locale={locale} />
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </section>
+            ) : (
+              <p className="registration-invite-warning">
+                {t('publicRegistrationNoCategories')}
+              </p>
+            )
+          ) : showTicketPicker && ticketTypes.length > 0 ? (
             <section
               className={`registration-ticket-picker${validation.fieldError('ticket_type') ? ' form-field-invalid' : ''}`}
               aria-label={t('publicRegistrationTicketSelection')}
@@ -320,11 +431,15 @@ export default function PublicRegistrationEvent({
                 })}
               </div>
             </section>
-          ) : (
+          ) : showSelectionWarning ? (
             <p className="registration-invite-warning">
-              {t('publicRegistrationNoTickets')}
+              {showCategoryPicker
+                ? (categories.length > 0
+                  ? t('publicRegistrationAllCategoriesFull')
+                  : t('publicRegistrationNoCategories'))
+                : t('publicRegistrationNoTickets')}
             </p>
-          )}
+          ) : null}
 
           <form
             ref={formRef}
@@ -347,16 +462,22 @@ export default function PublicRegistrationEvent({
               error={validation.fieldError('event_venue_id')}
             />
 
-            {registrationFields.map((field) => (
-              <RegistrationField
-                key={field.key}
-                field={field}
-                locale={locale}
-                disabled={isPreview}
-                error={validation.fieldError(field.key)}
-                data-form-field={field.key}
-              />
-            ))}
+            {registrationFields.map((field) => {
+              const isLockedEmail = Boolean(lockedEmail) && (field.type === 'email' || field.key === 'email')
+
+              return (
+                <RegistrationField
+                  key={field.key}
+                  field={field}
+                  locale={locale}
+                  disabled={isPreview}
+                  readOnly={isLockedEmail}
+                  value={isLockedEmail ? (lockedEmail ?? '') : undefined}
+                  error={validation.fieldError(field.key)}
+                  data-form-field={field.key}
+                />
+              )
+            })}
 
             <label className={`registration-consent${validation.fieldError('consent') ? ' form-field-invalid' : ''}`}>
               <input
@@ -378,7 +499,7 @@ export default function PublicRegistrationEvent({
             {error ? <p role="alert" className="registration-invite-error">{error}</p> : null}
 
             {!isPreview ? (
-              <button type="submit" className="button-primary registration-invite-submit" disabled={submitting || ticketTypes.length === 0}>
+              <button type="submit" className="button-primary registration-invite-submit" disabled={submitting || !canSubmit}>
                 {submitting ? t('publicRegistrationRegistering') : t('publicRegistrationComplete')}
               </button>
             ) : (

@@ -18,6 +18,7 @@ return [
     'confirmation_footer_here' => 'here',
     'view_credential' => '(View entry card)',
     'event_not_publishable' => 'The event is not ready to publish.',
+    'event_not_unpublishable' => 'This event cannot be unpublished. It may already have registrations or its start date has passed.',
     'registration_closed' => 'Registration is closed.',
     'ticket_unavailable' => 'The selected ticket is unavailable.',
     'inventory_conflict' => 'Ticket inventory changed. Please try again.',

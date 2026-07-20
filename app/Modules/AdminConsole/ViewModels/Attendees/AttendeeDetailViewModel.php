@@ -96,6 +96,7 @@ final readonly class AttendeeDetailViewModel
         return [
             'id' => (string) $attendee->id,
             'status' => $attendee->checkin_status ?? 'not_checked_in',
+            'invite_status' => $attendee->invite_status ?? 'registered',
             'locale' => $attendee->preferred_locale,
             'credential_status' => $credentialStatus,
             'label' => $displayName ?: substr((string) $attendee->id, -8),

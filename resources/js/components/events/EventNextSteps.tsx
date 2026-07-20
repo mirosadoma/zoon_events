@@ -1,9 +1,12 @@
+import type { CSSProperties } from 'react'
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import CopyRegistrationLinkButton from '@/components/events/CopyRegistrationLinkButton'
 import SetupCompleteMark from '@/components/events/SetupCompleteMark'
 import PermissionGate from '@/components/layout/PermissionGate'
+import StatusBadge from '@/components/status/StatusBadge'
 import { useLocale } from '@/hooks/useLocale'
 import type { EventCapabilities } from '@/lib/eventOptions'
+import { EVENT_TYPES, REGISTRATION_MODES, labelForEventTier } from '@/lib/eventOptions'
 import {
   isNextStepComplete,
   setupCompletionPercent,
@@ -11,9 +14,11 @@ import {
 } from '@/lib/eventSetupProgress'
 import { publishBlockedMessage, type PublishReadinessContext } from '@/lib/publishReadinessCatalog'
 import {
+  BadgeCheck,
   CalendarDays,
   ClipboardList,
-  ListChecks,
+  Layers,
+  Monitor,
   Rocket,
   Tags,
   Ticket,
@@ -22,6 +27,10 @@ import type { LucideIcon } from 'lucide-react'
 
 type Props = {
   eventId: string
+  status: string
+  tier: string
+  eventType?: string
+  registrationMode?: string
   readiness: string[]
   capabilities?: EventCapabilities
   context: PublishReadinessContext
@@ -39,6 +48,21 @@ type NextStep = {
   description: string
   href: string
   icon: LucideIcon
+  optional?: boolean
+}
+
+function labelFor(
+  options: ReadonlyArray<{ value: string; label_en: string; label_ar: string }>,
+  value: string | undefined,
+  locale: 'en' | 'ar',
+): string {
+  if (!value) {
+    return '—'
+  }
+
+  const match = options.find((option) => option.value === value)
+
+  return match ? (locale === 'ar' ? match.label_ar : match.label_en) : value
 }
 
 export default function EventNextSteps({
@@ -52,27 +76,35 @@ export default function EventNextSteps({
   registrationUrl,
   onCopyRegistrationLink,
   eventId,
+  status,
+  tier,
+  eventType,
+  registrationMode,
 }: Props) {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const base = `/tenant/events/${eventId}`
   const needsTicketing = capabilities?.requires_ticketing ?? false
   const needsPriceTiers = capabilities?.requires_price_tiers ?? false
-  const publishButtonLabel = locale === 'ar' ? 'نشر الفعالية' : 'Publish event'
+  const publishButtonLabel = t('eventNextPublishButton')
   const blockedMessage = publishBlockedMessage(readiness, locale, context)
   const setupPercent = setupCompletionPercent(setupProgress, capabilities)
+  const published = setupProgress.published
+  const tierLabel = labelForEventTier(tier, locale)
+  const typeLabel = labelFor(EVENT_TYPES, eventType, locale)
+  const modeLabel = labelFor(REGISTRATION_MODES, registrationMode, locale)
 
   const steps: NextStep[] = [
     {
       key: 'agenda',
-      title: locale === 'ar' ? 'جدول الأعمال' : 'Agenda',
-      description: locale === 'ar' ? 'أضف الجلسات والعناصر الزمنية للفعالية.' : 'Add sessions and schedule items for the event.',
+      title: t('eventNextAgenda'),
+      description: t('eventNextAgendaDescription'),
       href: `${base}/agenda`,
       icon: CalendarDays,
     },
     {
       key: 'registration-form',
-      title: locale === 'ar' ? 'نموذج التسجيل' : 'Registration form',
-      description: locale === 'ar' ? 'حدد الحقول التي يملأها الحضور.' : 'Configure the fields attendees complete.',
+      title: t('eventNextRegistrationForm'),
+      description: t('eventNextRegistrationFormDescription'),
       href: `${base}/registration-form`,
       icon: ClipboardList,
     },
@@ -81,8 +113,8 @@ export default function EventNextSteps({
   if (needsTicketing) {
     steps.push({
       key: 'ticket-types',
-      title: locale === 'ar' ? 'أنواع التذاكر' : 'Ticket types',
-      description: locale === 'ar' ? 'أنشئ التذاكر والأسعار.' : 'Create tickets and pricing.',
+      title: t('eventNextTicketTypes'),
+      description: t('eventNextTicketTypesDescription'),
       href: `${base}/ticket-types`,
       icon: Ticket,
     })
@@ -91,34 +123,91 @@ export default function EventNextSteps({
   if (needsPriceTiers) {
     steps.push({
       key: 'price-tiers',
-      title: locale === 'ar' ? 'مستويات الأسعار' : 'Price tiers',
-      description: locale === 'ar' ? 'أضف early bird أو شرائح سعرية.' : 'Add early-bird or scheduled tiers.',
+      title: t('eventNextPriceTiers'),
+      description: t('eventNextPriceTiersDescription'),
       href: `${base}/price-tiers`,
       icon: Tags,
     })
   }
 
+  steps.push({
+    key: 'categories',
+    title: t('eventNextCategories'),
+    description: t('eventNextCategoriesDescription'),
+    href: `${base}/categories`,
+    icon: Layers,
+  })
+
+  steps.push({
+    key: 'badge-templates',
+    title: t('eventNextBadgeTemplates'),
+    description: t('eventNextBadgeTemplatesDescription'),
+    href: `${base}/badge-templates`,
+    icon: BadgeCheck,
+  })
+
+  steps.push({
+    key: 'kiosks',
+    title: t('eventNextKiosks'),
+    description: t('eventNextKiosksDescription'),
+    href: `${base}/kiosks`,
+    icon: Monitor,
+    optional: true,
+  })
+
   return (
     <section className="event-next-steps state-panel mt-6">
-      <div className="event-next-steps-header">
-        <div>
-          <p className="event-next-steps-kicker">
-            <ListChecks className="h-4 w-4" aria-hidden="true" />
-            {locale === 'ar' ? 'مسار الإعداد' : 'Setup journey'}
-          </p>
-          <h2 className="text-lg font-semibold">
-            {locale === 'ar' ? 'الخطوات التالية' : 'Next steps'}
-          </h2>
-          <p className="event-next-steps-subtitle">
-            {locale === 'ar'
-              ? 'اتبع الخطوات بالترتيب لإطلاق فعالية احترافية.'
-              : 'Follow these steps in order to launch a polished event experience.'}
-          </p>
+      <div className="event-next-steps-header event-detail-hero">
+        <div className="event-detail-hero__glow" aria-hidden="true" />
+
+        <div className="event-detail-hero__top">
+          <div className="event-detail-hero__copy">
+            <div className="event-detail-hero__chips">
+              <span className="event-detail-hero__chip">{tierLabel}</span>
+              <span className="event-detail-hero__chip event-detail-hero__chip--muted">{typeLabel}</span>
+            </div>
+
+            <div className="event-detail-hero__status">
+              <StatusBadge status={status} size="md" />
+              <span className="event-detail-hero__mode">
+                <Ticket className="h-3.5 w-3.5" aria-hidden="true" />
+                {modeLabel}
+              </span>
+            </div>
+
+            <p className="event-detail-hero__subtitle">
+              {published ? t('eventHeroPublished') : t('eventHeroDraft')}
+            </p>
+          </div>
+
         </div>
-        <div className="event-next-steps-summary">
-          <strong>{setupPercent}%</strong>
-          <span>{locale === 'ar' ? 'مكتمل' : 'complete'}</span>
+        <aside className="event-detail-hero__progress" aria-label={t('eventHeroSetupProgress')}>
+        <div
+            className="event-setup-progress-ring"
+            style={{ '--setup-progress': `${setupPercent}%` } as CSSProperties}
+            role="img"
+            aria-label={`${setupPercent}%`}
+        >
+            <span className="event-setup-progress-value">{setupPercent}%</span>
         </div>
+        <div className="event-detail-hero__progress-copy">
+            <p className="event-setup-progress-label">
+            {t('eventHeroSetupComplete')}
+            </p>
+            <div
+            className="event-setup-progress-track event-setup-progress-track--compact"
+            role="progressbar"
+            aria-valuenow={setupPercent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            >
+            <span className="event-setup-progress-fill" style={{ width: `${setupPercent}%` }} />
+            </div>
+            <p className="event-detail-hero__progress-hint">
+            {setupPercent >= 100 ? t('eventHeroReadyToPublish') : t('eventHeroStepsRemaining')}
+            </p>
+        </div>
+        </aside>
       </div>
 
       <ol className="event-next-steps-list">
@@ -148,9 +237,14 @@ export default function EventNextSteps({
                       <p className="event-next-step-description">{step.description}</p>
                     </div>
                   </div>
-                  <LocalizedLink href={step.href} className="button-secondary event-next-step-action shrink-0">
-                    {locale === 'ar' ? 'فتح' : 'Open'}
-                  </LocalizedLink>
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                    {step.optional ? (
+                      <span className="event-next-step-optional">{t('eventNextOptional')}</span>
+                    ) : null}
+                    <LocalizedLink href={step.href} className="button-secondary event-next-step-action">
+                      {t('eventNextOpen')}
+                    </LocalizedLink>
+                  </div>
                 </div>
               </div>
             </li>
@@ -165,12 +259,12 @@ export default function EventNextSteps({
             <div className="event-next-step-top">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-medium">{locale === 'ar' ? 'النشر' : 'Publish'}</h3>
+                  <h3 className="font-medium">{t('eventNextPublishTitle')}</h3>
                   <SetupCompleteMark completed={setupProgress.published} />
                 </div>
                 <p className="event-next-step-description">
                   {canPublishNow
-                    ? (locale === 'ar' ? 'الفعالية جاهزة للنشر للحضور.' : 'The event is ready to publish for attendees.')
+                    ? t('eventNextPublishReady')
                     : blockedMessage}
                 </p>
               </div>

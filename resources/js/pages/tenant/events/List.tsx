@@ -1,14 +1,12 @@
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
-import CopyRegistrationLinkButton from '@/components/events/CopyRegistrationLinkButton'
 import PublishReadinessBadge from '@/components/events/PublishReadinessBadge'
 import { PageContent, PageHeader } from '@/components/layout'
 import StatusBadge from '@/components/status/StatusBadge'
 import { DataTable } from '@/components/tables'
 import { useLocale } from '@/hooks/useLocale'
-import { useToast } from '@/hooks/useToast'
-import { requiresTicketing } from '@/lib/eventOptions'
+import { labelForEventTier, requiresTicketing } from '@/lib/eventOptions'
 import type { PublishReadinessContext } from '@/lib/publishReadinessCatalog'
 
 type EventRow = {
@@ -20,7 +18,6 @@ type EventRow = {
   registration_mode?: string
   timezone: string
   start_at?: string | null
-  capacity?: number | null
   registration_url?: string | null
   readiness?: string[]
 }
@@ -38,32 +35,22 @@ function readinessContextFor(event: EventRow): PublishReadinessContext {
 
 export default function EventList({ events }: Props) {
   const { locale, t } = useLocale()
-  const { toast } = useToast()
-
-  async function copyRegistrationLink(url: string) {
-    try {
-      await navigator.clipboard.writeText(url)
-      toast(locale === 'ar' ? 'تم النسخ' : 'Copied', 'success')
-    } catch {
-      toast(locale === 'ar' ? 'تعذر نسخ الرابط.' : 'Could not copy the link.', 'error')
-    }
-  }
 
   return (
-    <DashboardLayout title={locale === 'ar' ? 'الفعاليات' : 'Events'}>
+    <DashboardLayout title={t('events')}>
       <PageHeader
-        title={locale === 'ar' ? 'الفعاليات' : 'Events'}
-        description={locale === 'ar' ? 'إدارة فعاليات المستأجر.' : 'Manage tenant events.'}
-        breadcrumbs={[{ label: t('overview'), href: '/dashboard' }, { label: locale === 'ar' ? 'الفعاليات' : 'Events' }]}
+        title={t('events')}
+        description={t('eventListDescription')}
+        breadcrumbs={[{ label: t('overview'), href: '/dashboard' }, { label: t('events') }]}
         actions={
           <LocalizedLink className="button-primary" href="/tenant/events/create">
-            {locale === 'ar' ? 'فعالية جديدة' : 'New event'}
+            {t('eventListNewEvent')}
           </LocalizedLink>
         }
       />
       <PageContent>
         {events.length === 0 ? (
-          <EmptyState title={locale === 'ar' ? 'لا توجد فعاليات' : 'No events yet'} detail={locale === 'ar' ? 'أنشئ أول فعالية للبدء.' : 'Create the first event to get started.'} />
+          <EmptyState title={t('eventListNoEvents')} detail={t('eventListNoEventsDetail')} />
         ) : (
           <DataTable
             rows={events as unknown as Record<string, unknown>[]}
@@ -71,24 +58,28 @@ export default function EventList({ events }: Props) {
             columns={[
               {
                 key: 'name',
-                header: locale === 'ar' ? 'الاسم' : 'Name',
+                header: t('eventListName'),
                 render: (row) => {
                   const event = row as unknown as EventRow
 
                   return <LocalizedLink href={`/tenant/events/${event.id}`} className="font-medium text-sky-700 hover:underline">{event.name[locale]}</LocalizedLink>
                 },
               },
-              { key: 'tier', header: locale === 'ar' ? 'الفئة' : 'Tier' },
-              { key: 'event_type', header: locale === 'ar' ? 'النوع' : 'Type' },
-              { key: 'registration_mode', header: locale === 'ar' ? 'التسجيل' : 'Registration' },
+              {
+                key: 'tier',
+                header: t('eventListTier'),
+                render: (row) => labelForEventTier(String((row as unknown as EventRow).tier), locale),
+              },
+              { key: 'event_type', header: t('eventListType') },
+              { key: 'registration_mode', header: t('eventListRegistration') },
               {
                 key: 'status',
-                header: locale === 'ar' ? 'الحالة' : 'Status',
+                header: t('status'),
                 render: (row) => <StatusBadge status={String(row.status)} />,
               },
               {
                 key: 'publish_readiness',
-                header: locale === 'ar' ? 'جاهزية النشر' : 'Publish readiness',
+                header: t('eventListPublishReadiness'),
                 render: (row) => {
                   const event = row as unknown as EventRow
 
@@ -100,27 +91,20 @@ export default function EventList({ events }: Props) {
                   )
                 },
               },
-              { key: 'timezone', header: locale === 'ar' ? 'المنطقة الزمنية' : 'Timezone' },
-              { key: 'capacity', header: locale === 'ar' ? 'السعة' : 'Capacity' },
+              { key: 'timezone', header: t('eventListTimezone') },
               {
                 key: 'actions',
-                header: locale === 'ar' ? 'إجراءات' : 'Actions',
+                header: t('actions'),
                 render: (row) => {
                   const event = row as unknown as EventRow
 
                   return (
                     <div className="ta-table-actions">
-                      {event.registration_url ? (
-                        <CopyRegistrationLinkButton
-                          compact
-                          onClick={() => void copyRegistrationLink(event.registration_url!)}
-                        />
-                      ) : null}
                       <LocalizedLink href={`/tenant/events/${event.id}`} className="ta-table-action">
-                        {locale === 'ar' ? 'عرض' : 'View'}
+                        {t('view')}
                       </LocalizedLink>
                       <LocalizedLink href={`/tenant/events/${event.id}/edit`} className="ta-table-action">
-                        {locale === 'ar' ? 'تعديل' : 'Edit'}
+                        {t('edit')}
                       </LocalizedLink>
                     </div>
                   )

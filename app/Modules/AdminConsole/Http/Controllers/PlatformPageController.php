@@ -6,12 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Modules\Audit\Application\Queries\SearchAuditLogs;
 use App\Modules\Audit\Infrastructure\Persistence\Models\AuditLog;
-use App\Modules\Authorization\Infrastructure\Persistence\Models\Permission;
 use App\Modules\Authorization\Infrastructure\Persistence\Models\PlatformRole;
+use App\Modules\Events\Application\Support\EventWallClockDateTime;
+use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\FeatureFlags\Infrastructure\Persistence\Models\FeatureFlag;
 use App\Modules\Operations\Application\Health\HealthService;
+use App\Modules\Shared\Domain\LifecycleStatus;
 use App\Modules\Tenancy\Http\Controllers\ConfigurationController;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\Tenant;
+use App\Modules\Tenancy\Infrastructure\Persistence\Models\TenantMembership;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -29,9 +33,10 @@ final class PlatformPageController extends Controller
         unset($locale);
 
         $permission = [
-            'tenants' => 'platform.tenant.view',
+            'all-events' => 'platform.event.view',
             'users' => 'platform.user.view',
             'roles' => 'platform.role.view',
+            'tenants' => 'platform.tenant.view',
             'audit' => 'platform.audit.view',
             'health' => 'operations.health.view',
             'feature-flags' => 'platform.feature_flag.view',
@@ -41,31 +46,12 @@ final class PlatformPageController extends Controller
         abort_if($permission === null, 404);
         Gate::authorize($permission);
 
-        if ($section === 'roles') {
-            return Inertia::render('admin/Roles', [
-                'scope' => 'platform',
-                'tenantId' => null,
-                'roles' => $this->rowsFor('roles'),
-                'availablePermissions' => Permission::query()
-                    ->where('scope', 'platform')
-                    ->orderBy('module')
-                    ->orderBy('key')
-                    ->get(['key', 'module'])
-                    ->map(fn (Permission $permission): array => [
-                        'key' => $permission->key,
-                        'module' => $permission->module,
-                    ])
-                    ->values()
-                    ->all(),
-            ]);
-        }
-
         return Inertia::render('platform/Section', [
             'section' => $section,
             'canManage' => $this->canManage($section),
             'rows' => $this->rowsFor($section),
             'health' => $section === 'health' ? $this->health->readiness()->toArray() : null,
-            'users' => $section === 'tenants' ? User::query()->orderBy('name')->limit(200)->get(['id', 'name', 'email'])->all() : [],
+            'platformRoles' => in_array($section, ['users', 'roles']) ? $this->platformRoles() : [],
         ]);
     }
 
@@ -77,9 +63,10 @@ final class PlatformPageController extends Controller
     private function canManage(string $section): bool
     {
         return match ($section) {
-            'tenants' => Gate::allows('platform.tenant.manage'),
+            'all-events' => Gate::allows('platform.event.view'),
             'users' => Gate::allows('platform.user.manage'),
             'roles' => Gate::allows('platform.role.manage'),
+            'tenants' => Gate::allows('platform.tenant.manage'),
             'feature-flags' => Gate::allows('platform.feature_flag.manage'),
             default => false,
         };
@@ -91,30 +78,32 @@ final class PlatformPageController extends Controller
     private function rowsFor(string $section): array
     {
         return match ($section) {
-            'tenants' => Tenant::query()->latest()->limit(100)->get()->map(fn (Tenant $tenant): array => [
-                'id' => (string) $tenant->id,
-                'name' => $tenant->name,
-                'slug' => $tenant->slug,
-                'status' => $tenant->status->value,
-                'default_locale' => $tenant->default_locale,
-                'timezone' => $tenant->timezone,
-                'created_at' => $tenant->created_at?->toIso8601String(),
-            ])->all(),
-            'users' => User::query()->latest()->limit(100)->get()->map(fn (User $user): array => [
-                'id' => (string) $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'status' => $user->status->value,
-                'preferred_locale' => $user->preferred_locale,
-                'created_at' => $user->created_at?->toIso8601String(),
-            ])->all(),
-            'roles' => PlatformRole::query()->with('permissions')->orderBy('name')->get()->map(fn (PlatformRole $role): array => [
-                'id' => (string) $role->id,
-                'name' => $role->name,
-                'description' => $role->description,
-                'is_system' => (bool) $role->is_system,
-                'permissions' => $role->permissions->pluck('key')->values()->all(),
-            ])->all(),
+            'all-events' => $this->allEvents(),
+            'users' => $this->platformUsers(),
+            'roles' => $this->platformRoles(),
+            'tenants' => Tenant::query()->latest()->limit(100)->get()->map(function (Tenant $tenant): array {
+                $membership = TenantMembership::query()
+                    ->where('tenant_id', $tenant->id)
+                    ->where('status', 'active')
+                    ->first();
+                $adminUser = $membership ? User::query()->find($membership->user_id) : null;
+
+                return [
+                    'id' => (string) $tenant->id,
+                    'name' => $tenant->name,
+                    'slug' => $tenant->slug,
+                    'status' => $tenant->status->value,
+                    'default_locale' => $tenant->default_locale,
+                    'timezone' => $tenant->timezone,
+                    'created_at' => $tenant->created_at?->toIso8601String(),
+                    'admin' => $adminUser ? [
+                        'id' => (string) $adminUser->id,
+                        'name' => $adminUser->name,
+                        'email' => $adminUser->email,
+                        'phone' => $adminUser->phone ?? null,
+                    ] : null,
+                ];
+            })->all(),
             'audit' => collect($this->searchAuditLogs->platform([])->items)->map(fn (AuditLog $log): array => [
                 'id' => (string) $log->id,
                 'action' => $log->action,
@@ -135,6 +124,85 @@ final class PlatformPageController extends Controller
             'configuration' => $this->configurationSchemas(),
             default => [],
         };
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function allEvents(): array
+    {
+        return Event::query()
+            ->withoutGlobalScopes()
+            ->latest('created_at')
+            ->limit(200)
+            ->get()
+            ->map(function (Event $event): array {
+                $tenant = Tenant::query()->find($event->tenant_id);
+
+                return [
+                    'id' => (string) $event->id,
+                    'name' => $event->name_en ?: $event->name_ar,
+                    'name_ar' => $event->name_ar,
+                    'slug' => $event->slug,
+                    'organizer' => $tenant?->name ?? '—',
+                    'tenant_id' => (string) $event->tenant_id,
+                    'tenant_slug' => $tenant?->slug,
+                    'status' => $event->status,
+                    'event_type' => $event->event_type,
+                    'timezone' => $event->timezone,
+                    'start_at' => EventWallClockDateTime::toIso8601($event->start_at, (string) $event->timezone),
+                    'created_at' => $event->created_at?->toIso8601String(),
+                ];
+            })->all();
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function platformUsers(): array
+    {
+        return User::query()
+            ->whereHas('platformAssignments')
+            ->latest()
+            ->limit(100)
+            ->get()
+            ->map(function (User $user): array {
+                $roleIds = DB::table('platform_role_assignments')
+                    ->where('user_id', $user->id)
+                    ->whereNull('revoked_at')
+                    ->pluck('platform_role_id');
+
+                $roles = PlatformRole::query()->whereIn('id', $roleIds)->get();
+
+                return [
+                    'id' => (string) $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'status' => $user->status instanceof LifecycleStatus ? $user->status->value : $user->status,
+                    'created_at' => $user->created_at?->toIso8601String(),
+                    'roles' => $roles->map(fn (PlatformRole $role): array => [
+                        'id' => (string) $role->id,
+                        'name' => $role->name,
+                    ])->all(),
+                ];
+            })->all();
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function platformRoles(): array
+    {
+        return PlatformRole::query()->latest()->limit(100)->get()->map(function (PlatformRole $role): array {
+            $permissionKeys = DB::table('platform_role_permissions as prp')
+                ->join('permissions as p', 'p.id', '=', 'prp.permission_id')
+                ->where('prp.platform_role_id', $role->id)
+                ->pluck('p.key')
+                ->all();
+
+            return [
+                'id' => (string) $role->id,
+                'name' => $role->name,
+                'description' => $role->description,
+                'is_system' => (bool) $role->is_system,
+                'permissions' => $permissionKeys,
+                'created_at' => $role->created_at?->toIso8601String(),
+            ];
+        })->all();
     }
 
     /**

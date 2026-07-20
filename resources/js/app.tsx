@@ -8,10 +8,12 @@ import GlobalRouteLoaderHost from '@/components/loaders/GlobalRouteLoaderHost'
 import LocaleDocumentSync from '@/components/routing/LocaleDocumentSync'
 import { NavigationLoadingProvider } from '@/contexts/NavigationLoadingContext'
 import { ToastProvider } from '@/contexts/ToastContext'
+import { installReloadOnBrowserHistory } from '@/lib/reloadOnBrowserHistory'
 
-const pages = import.meta.glob<{ default: ComponentType }>('./pages/**/*.tsx', {
-  eager: true,
-})
+const pages = import.meta.glob<{ default: ComponentType }>(
+  ['./pages/**/*.tsx', '!./pages/**/__tests__/**', '!./pages/**/*.test.tsx'],
+  { eager: true },
+)
 
 const el = document.getElementById('app')
 
@@ -54,6 +56,8 @@ createInertiaApp({
   },
 
   setup({ el, App, props }) {
+    installReloadOnBrowserHistory()
+
     createRoot(el).render(
       <ToastProvider>
         <NavigationLoadingProvider>

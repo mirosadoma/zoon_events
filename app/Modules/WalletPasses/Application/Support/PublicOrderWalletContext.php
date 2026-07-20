@@ -17,8 +17,13 @@ final readonly class PublicOrderWalletContext
     public function resolve(Request $request, string $publicReference): array
     {
         $token = (string) $request->header('X-Order-Access-Token');
+        if ($token === '') {
+            $token = (string) $request->query('access_token', $request->input('access_token', ''));
+        }
+
         $order = Order::query()->where('public_reference', $publicReference)->first();
         if ($order === null
+            || $token === ''
             || ! hash_equals($order->access_token_hash, hash('sha256', $token))
             || ! $this->hosts->allows($request->getHost(), $order->tenant_id, $order->event_id)) {
             abort(404);

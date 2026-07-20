@@ -54,6 +54,11 @@ final class BadgeTemplateController extends Controller
             layout: (array) $request->input('layout'),
             paperSize: $request->string('paper_size')->toString(),
             printerType: $request->string('printer_type')->toString(),
+            orientation: $request->filled('orientation') ? $request->string('orientation')->toString() : null,
+            backgroundColor: $request->filled('background_color') ? $request->string('background_color')->toString() : null,
+            backgroundGradient: $request->filled('background_gradient') ? (array) $request->input('background_gradient') : null,
+            canvasWidth: $request->filled('canvas_width') ? $request->integer('canvas_width') : null,
+            canvasHeight: $request->filled('canvas_height') ? $request->integer('canvas_height') : null,
         );
 
         return $this->success((new BadgeTemplateResource($template))->resolve(), 201);
@@ -72,6 +77,11 @@ final class BadgeTemplateController extends Controller
             layout: (array) $request->input('layout'),
             paperSize: $request->string('paper_size')->toString(),
             printerType: $request->string('printer_type')->toString(),
+            orientation: $request->filled('orientation') ? $request->string('orientation')->toString() : null,
+            backgroundColor: $request->filled('background_color') ? $request->string('background_color')->toString() : null,
+            backgroundGradient: $request->filled('background_gradient') ? (array) $request->input('background_gradient') : null,
+            canvasWidth: $request->filled('canvas_width') ? $request->integer('canvas_width') : null,
+            canvasHeight: $request->filled('canvas_height') ? $request->integer('canvas_height') : null,
         );
 
         return $this->success((new BadgeTemplateResource($template))->resolve());

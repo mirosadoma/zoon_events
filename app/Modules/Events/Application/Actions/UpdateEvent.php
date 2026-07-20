@@ -23,9 +23,15 @@ final readonly class UpdateEvent
     public function execute(TenantContext $context, Event $event, array $attributes): Event
     {
         return DB::transaction(function () use ($context, $event, $attributes): Event {
-            $branding = array_intersect_key($attributes, array_flip(['brand_reference', 'domain_reference']));
+            $brandingKeys = ['brand_reference', 'domain_reference', 'theme_config'];
+            $branding = array_intersect_key($attributes, array_flip($brandingKeys));
             $venueRows = $attributes['venues'] ?? null;
-            unset($attributes['brand_reference'], $attributes['domain_reference'], $attributes['venues']);
+            unset(
+                $attributes['brand_reference'],
+                $attributes['domain_reference'],
+                $attributes['theme_config'],
+                $attributes['venues'],
+            );
 
             if (array_key_exists('organizer_user_id', $attributes)) {
                 if ($this->organizers->requiresSelection($context)) {
@@ -43,19 +49,42 @@ final readonly class UpdateEvent
                 $event->status = 'configured';
             }
             $event->save();
+
             if ($branding !== []) {
+                $existing = EventBranding::query()
+                    ->where('tenant_id', $context->tenant->id)
+                    ->where('event_id', $event->id)
+                    ->first();
+
+                $themeConfig = $branding['theme_config'] ?? null;
+                if (is_array($themeConfig)) {
+                    $themeConfig = array_merge(
+                        is_array($existing?->theme_config) ? $existing->theme_config : [],
+                        $themeConfig,
+                    );
+                } else {
+                    $themeConfig = $existing?->theme_config;
+                }
+
                 EventBranding::query()->updateOrCreate(
                     ['tenant_id' => $context->tenant->id, 'event_id' => $event->id],
                     [
-                        ...$branding,
-                        'content_en' => [],
-                        'content_ar' => [],
+                        'brand_reference' => $branding['brand_reference']
+                            ?? $existing?->brand_reference
+                            ?? ($event->slug.'-brand'),
+                        'domain_reference' => $branding['domain_reference']
+                            ?? $existing?->domain_reference
+                            ?? config('app.url'),
+                        'theme_config' => $themeConfig ?? [],
+                        'content_en' => $existing?->content_en ?? [],
+                        'content_ar' => $existing?->content_ar ?? [],
                         'sender_name_en' => $event->name_en,
                         'sender_name_ar' => $event->name_ar,
                         'status' => 'active',
                     ],
                 );
             }
+
             if (is_array($venueRows)) {
                 $this->venues->execute($context->tenant->id, $event, $venueRows);
             }
