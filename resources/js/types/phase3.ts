@@ -8,6 +8,12 @@ export interface Kiosk {
   confirmation_required: boolean
 }
 
+export interface BadgeBackgroundGradient {
+  type: 'linear'
+  angle: number
+  stops: Array<{ color: string; position: number }>
+}
+
 export interface BadgeTemplate {
   id: string
   name: string
@@ -16,6 +22,7 @@ export interface BadgeTemplate {
   printer_type: string
   orientation?: string
   background_color?: string | null
+  background_gradient?: BadgeBackgroundGradient | null
   canvas_width?: number | null
   canvas_height?: number | null
   status: 'draft' | 'active' | 'inactive'

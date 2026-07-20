@@ -26,7 +26,9 @@ class RegistrationBadgeMail extends Mailable
      *   paper_size?:string|null,
      *   background_color?:string|null,
      *   html?:string|null,
-     *   fields?:array<string, string|null>
+     *   fields?:array<string, string|null>,
+     *   canvas_width?:int|null,
+     *   canvas_height?:int|null
      * }  $badge
      */
     public function __construct(
@@ -37,6 +39,8 @@ class RegistrationBadgeMail extends Mailable
         public readonly string $qrContentId = 'badge-qr',
         /** @var list<array{cid: string, bytes: string, mime: string, filename: string}> */
         public readonly array $inlineImages = [],
+        public readonly ?string $badgePngBytes = null,
+        public readonly string $badgePngContentId = 'badge-preview',
     ) {}
 
     public function envelope(): Envelope
@@ -61,6 +65,8 @@ class RegistrationBadgeMail extends Mailable
                 'qrPngBytes' => $this->qrPngBytes,
                 'qrContentId' => $this->qrContentId,
                 'inlineImages' => $this->inlineImages,
+                'badgePngBytes' => $this->badgePngBytes,
+                'badgePngContentId' => $this->badgePngContentId,
                 'locale' => $this->preferredLocale,
                 'direction' => $direction,
                 'textAlign' => $direction === 'rtl' ? 'right' : 'left',
@@ -72,13 +78,16 @@ class RegistrationBadgeMail extends Mailable
     /** @return array<int, Attachment> */
     public function attachments(): array
     {
-        if ($this->qrPngBytes === null || $this->qrPngBytes === '') {
-            return [];
+        $attachments = [];
+
+        if ($this->badgePngBytes !== null && $this->badgePngBytes !== '') {
+            $attachments[] = Attachment::fromData(fn (): string => $this->badgePngBytes, 'event-badge.png')
+                ->withMime('image/png');
+        } elseif ($this->qrPngBytes !== null && $this->qrPngBytes !== '') {
+            $attachments[] = Attachment::fromData(fn (): string => $this->qrPngBytes, 'event-badge-qr.png')
+                ->withMime('image/png');
         }
 
-        return [
-            Attachment::fromData(fn (): string => $this->qrPngBytes, 'event-badge-qr.png')
-                ->withMime('image/png'),
-        ];
+        return $attachments;
     }
 }

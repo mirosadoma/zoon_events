@@ -27,6 +27,7 @@ final readonly class CreateOrUpdateBadgeTemplateAction
         string $printerType,
         ?string $orientation = null,
         ?string $backgroundColor = null,
+        ?array $backgroundGradient = null,
         ?int $canvasWidth = null,
         ?int $canvasHeight = null,
     ): BadgeTemplate {
@@ -39,6 +40,7 @@ final readonly class CreateOrUpdateBadgeTemplateAction
             'printer_type' => $printerType,
             'orientation' => $orientation ?? 'portrait',
             'background_color' => $backgroundColor,
+            'background_gradient' => $backgroundGradient,
             'canvas_width' => $canvasWidth,
             'canvas_height' => $canvasHeight,
         ];

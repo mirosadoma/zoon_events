@@ -11,11 +11,15 @@
     if (! empty($qrPngBytes) && isset($message)) {
         $qrSrc = $message->embedData($qrPngBytes, 'badge-qr.png', 'image/png');
     }
+    $badgePngSrc = null;
+    if (! empty($badgePngBytes) && isset($message)) {
+        $badgePngSrc = $message->embedData($badgePngBytes, 'event-badge.png', 'image/png');
+    }
     $renderedBadge = $badgeHtml ?? '';
-    if (is_string($renderedBadge) && $renderedBadge !== '' && is_string($qrSrc) && $qrSrc !== '') {
+    if ($badgePngSrc === null && is_string($renderedBadge) && $renderedBadge !== '' && is_string($qrSrc) && $qrSrc !== '') {
         $renderedBadge = str_replace('cid:'.$qrContentId, $qrSrc, $renderedBadge);
     }
-    if (is_string($renderedBadge) && $renderedBadge !== '' && ! empty($inlineImages) && isset($message)) {
+    if ($badgePngSrc === null && is_string($renderedBadge) && $renderedBadge !== '' && ! empty($inlineImages) && isset($message)) {
         foreach ($inlineImages as $image) {
             if (! is_array($image) || empty($image['bytes']) || empty($image['cid'])) {
                 continue;
@@ -28,6 +32,7 @@
             $renderedBadge = str_replace('cid:'.$image['cid'], $embeddedSrc, $renderedBadge);
         }
     }
+    $badgeWidth = (int) ($badge['canvas_width'] ?? 420);
 
     $summaryRows = array_filter([
         ($locale === 'ar' ? 'الاسم' : 'Name') => $badge['attendee_name'] ?? null,
@@ -74,7 +79,13 @@
                     </td>
                 </tr>
 
-                @if($renderedBadge !== '')
+                @if($badgePngSrc !== null)
+                    <tr>
+                        <td align="center" style="padding:20px 16px 8px;">
+                            <img src="{{ $badgePngSrc }}" width="{{ $badgeWidth }}" alt="{{ $locale === 'ar' ? 'شارة الحضور' : 'Attendee badge' }}" style="display:block;max-width:100%;height:auto;border:0;border-radius:8px;">
+                        </td>
+                    </tr>
+                @elseif($renderedBadge !== '')
                     <tr>
                         <td align="center" style="padding:20px 16px 8px;">
                             <div style="display:inline-block;max-width:100%;overflow:auto;">
@@ -104,7 +115,7 @@
                     </tr>
                 @endif
 
-                @if(!empty($qrSrc))
+                @if($badgePngSrc === null && !empty($qrSrc))
                     <tr>
                         <td align="center" style="padding:8px 28px 8px;">
                             <p style="margin:0 0 12px;font-size:13px;color:#64748b;text-align:center;">

@@ -2,10 +2,17 @@
 
 namespace App\Modules\BadgePrinting\Application\Actions;
 
+use App\Modules\BadgePrinting\Application\Support\BadgeBackgroundRenderer;
+use App\Modules\BadgePrinting\Application\Support\BadgeLayoutFontSize;
 use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgeTemplate;
 
 final readonly class RenderBadgeEmailHtmlAction
 {
+    public function __construct(
+        private BadgeLayoutFontSize $fontSizes,
+        private BadgeBackgroundRenderer $backgrounds,
+    ) {}
+
     /** @var array<string, array{w:int,h:int}> */
     private const PAPER_PRESETS = [
         'CR80' => ['w' => 242, 'h' => 153],
@@ -41,7 +48,8 @@ final readonly class RenderBadgeEmailHtmlAction
         bool $showFieldGuides = false,
     ): string {
         [$width, $height] = $this->canvasSize($template);
-        $background = $this->safeColor($template->background_color) ?? '#ffffff';
+        $gradient = is_array($template->background_gradient) ? $template->background_gradient : null;
+        $background = $this->backgrounds->toCss($template->background_color, $gradient);
         $items = $this->layoutItems((array) $template->layout);
 
         $parts = [];
@@ -59,7 +67,7 @@ final readonly class RenderBadgeEmailHtmlAction
         }
 
         foreach ($items as $item) {
-            $parts[] = $this->renderItem($item, $fieldValues, $qrDataUri, $showFieldGuides);
+            $parts[] = $this->renderItem($item, $fieldValues, $qrDataUri, $height, $showFieldGuides);
         }
 
         $parts[] = '</div>';
@@ -134,7 +142,7 @@ final readonly class RenderBadgeEmailHtmlAction
      * @param  array<string, mixed>  $item
      * @param  array<string, string|null>  $fieldValues
      */
-    private function renderItem(array $item, array $fieldValues, ?string $qrDataUri, bool $showFieldGuides = false): string
+    private function renderItem(array $item, array $fieldValues, ?string $qrDataUri, int $canvasHeight, bool $showFieldGuides = false): string
     {
         $field = (string) ($item['field'] ?? '');
         $x = (int) ($item['x'] ?? 0);
@@ -144,12 +152,15 @@ final readonly class RenderBadgeEmailHtmlAction
         $rotation = (int) ($item['rotation'] ?? 0);
         $radius = max(0, (int) ($item['borderRadius'] ?? 0));
         $bg = $this->safeColor(isset($item['backgroundColor']) ? (string) $item['backgroundColor'] : null);
-        $fontSize = max(8, (int) ($item['fontSize'] ?? 12));
+        $fontSize = $this->fontSizes->resolveCssPx($item, $canvasHeight);
         $fontFamily = $this->safeFont(isset($item['fontFamily']) ? (string) $item['fontFamily'] : 'Arial');
         $fontWeight = ($item['fontWeight'] ?? 'normal') === 'bold' ? 'bold' : 'normal';
         $color = $this->safeColor(isset($item['color']) ? (string) $item['color'] : null) ?? '#000000';
         $alignRaw = $item['textAlign'] ?? 'left';
         $align = in_array($alignRaw, ['left', 'center', 'right'], true) ? (string) $alignRaw : 'left';
+        $verticalRaw = $item['verticalAlign'] ?? 'center';
+        $vertical = in_array($verticalRaw, ['top', 'center', 'bottom'], true) ? (string) $verticalRaw : 'center';
+        $contentAlignStyle = $this->contentAlignStyle($align, $vertical);
         $isGuided = $showFieldGuides && in_array($field, self::GUIDE_FIELDS, true);
         $guideColor = self::GUIDE_COLORS[$field] ?? '#0ea5e9';
 
@@ -181,11 +192,10 @@ final readonly class RenderBadgeEmailHtmlAction
             }
 
             return sprintf(
-                '<div style="%s"><img src="%s" alt="QR" width="%d" height="%d" style="display:block;width:100%%;height:100%%;object-fit:contain;border:0;"></div>',
+                '<div style="%s"><div style="%s"><img src="%s" alt="QR" style="display:block;max-width:100%%;max-height:100%%;width:auto;height:auto;object-fit:contain;border:0;"></div></div>',
                 $boxStyle,
+                $contentAlignStyle,
                 e($qrDataUri),
-                $w,
-                $h,
             );
         }
 
@@ -195,8 +205,9 @@ final readonly class RenderBadgeEmailHtmlAction
                 ?? '#3b82f6';
 
             return sprintf(
-                '<div style="%sbackground:%s;"></div>',
+                '<div style="%s"><div style="%s"><div style="width:100%%;height:100%%;max-width:100%%;max-height:100%%;background:%s;"></div></div></div>',
                 $boxStyle,
+                $contentAlignStyle,
                 e($swatch),
             );
         }
@@ -208,11 +219,10 @@ final readonly class RenderBadgeEmailHtmlAction
             }
 
             return sprintf(
-                '<div style="%s"><img src="%s" alt="" width="%d" height="%d" style="display:block;width:100%%;height:100%%;object-fit:contain;border:0;"></div>',
+                '<div style="%s"><div style="%s"><img src="%s" alt="" style="display:block;max-width:100%%;max-height:100%%;width:auto;height:auto;object-fit:contain;border:0;"></div></div>',
                 $boxStyle,
+                $contentAlignStyle,
                 e($src),
-                $w,
-                $h,
             );
         }
 
@@ -230,7 +240,7 @@ final readonly class RenderBadgeEmailHtmlAction
         $displayColor = $text !== '' ? $color : '#64748b';
 
         $textStyle = sprintf(
-            'font-size:%dpx;font-family:%s,sans-serif;font-weight:%s;color:%s;text-align:%s;line-height:1.2;width:100%%;height:100%%;overflow:hidden;word-break:break-word;%s',
+            'font-size:%dpx;font-family:%s,sans-serif;font-weight:%s;color:%s;text-align:%s;line-height:1.2;overflow:hidden;word-break:break-word;%s',
             $fontSize,
             e($fontFamily),
             $fontWeight,
@@ -249,11 +259,32 @@ final readonly class RenderBadgeEmailHtmlAction
         }
 
         return sprintf(
-            '<div style="%s">%s<div style="%s">%s</div></div>',
+            '<div style="%s">%s<div style="%s"><div style="width:100%%;%s">%s</div></div></div>',
             $boxStyle,
             $labelHtml,
+            $contentAlignStyle,
             $textStyle,
             e($displayText),
+        );
+    }
+
+    private function contentAlignStyle(string $horizontal, string $vertical): string
+    {
+        $justify = match ($vertical) {
+            'top' => 'flex-start',
+            'bottom' => 'flex-end',
+            default => 'center',
+        };
+        $align = match ($horizontal) {
+            'right' => 'flex-end',
+            'center' => 'center',
+            default => 'flex-start',
+        };
+
+        return sprintf(
+            'display:flex;flex-direction:column;width:100%%;height:100%%;justify-content:%s;align-items:%s;',
+            $justify,
+            $align,
         );
     }
 

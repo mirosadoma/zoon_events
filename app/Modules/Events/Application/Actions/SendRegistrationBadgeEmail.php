@@ -2,8 +2,9 @@
 
 namespace App\Modules\Events\Application\Actions;
 
+use App\Modules\BadgePrinting\Application\Actions\BuildBadgePrintDocumentAction;
 use App\Modules\BadgePrinting\Application\Actions\RenderBadgeEmailHtmlAction;
-use App\Modules\BadgePrinting\Application\Actions\RenderBadgePrintPayloadAction;
+use App\Modules\BadgePrinting\Application\Actions\RenderBadgePngAction;
 use App\Modules\BadgePrinting\Application\Support\PrepareBadgeEmailEmbeddedImages;
 use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgeTemplate;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
@@ -16,11 +17,14 @@ final readonly class SendRegistrationBadgeEmail
 {
     public const QR_CONTENT_ID = 'badge-qr';
 
+    public const BADGE_PNG_CONTENT_ID = 'badge-preview';
+
     public function __construct(
-        private RenderBadgePrintPayloadAction $badgePayload,
+        private BuildBadgePrintDocumentAction $printDocuments,
+        private RenderBadgePngAction $badgePng,
         private RenderBadgeEmailHtmlAction $badgeHtml,
-        private QrCodeImageDataUri $qrImages,
         private PrepareBadgeEmailEmbeddedImages $embeddedImages,
+        private QrCodeImageDataUri $qrImages,
     ) {}
 
     public function execute(
@@ -54,37 +58,42 @@ final readonly class SendRegistrationBadgeEmail
             return;
         }
 
-        $payload = $this->badgePayload->execute(
+        $document = $this->printDocuments->build(
             (string) $event->tenant_id,
             (string) $event->id,
             $attendeeId,
             $credentialId,
             $template,
+            [],
+            false,
         );
 
-        $fields = $payload->fields;
-        foreach ($fields as $key => $value) {
-            if (is_scalar($value) || $value === null) {
-                $fields[(string) $key] = $value !== null ? (string) $value : null;
-            }
-        }
-
-        $prepared = $this->embeddedImages->execute($template, $fields);
-        $fields = $prepared['fields'];
-        $template = $prepared['template'];
-        $inlineImages = $prepared['images'];
-
+        $fields = $document['fields'];
         $qrPayload = is_string($fields['qr'] ?? null) ? $fields['qr'] : null;
         $qrPngBytes = $qrPayload !== null ? $this->qrImages->pngBytesFromPayload($qrPayload, 360) : null;
-        // CID works in email clients; data-URIs are commonly blocked.
-        $qrCidSrc = $qrPngBytes !== null ? 'cid:'.self::QR_CONTENT_ID : null;
+
+        $badgePngBytes = $this->badgePng->execute($template, $fields, $qrPayload);
+        $badgeHtml = null;
+        $inlineImages = [];
+
+        if ($badgePngBytes === null) {
+            Log::warning('public_registration.badge_png_fallback_html', [
+                'event_id' => $event->id,
+                'attendee_id' => $attendeeId,
+            ]);
+
+            $prepared = $this->embeddedImages->execute($template, $fields);
+            $fields = $prepared['fields'];
+            $template = $prepared['template'];
+            $inlineImages = $prepared['images'];
+            $qrCidSrc = $qrPngBytes !== null ? 'cid:'.self::QR_CONTENT_ID : null;
+            $badgeHtml = $this->badgeHtml->execute($template, $fields, $qrCidSrc);
+        }
 
         $resolvedLocale = $locale === 'ar' ? 'ar' : 'en';
         $eventName = $resolvedLocale === 'ar'
             ? ($event->name_ar ?: $event->name_en)
             : $event->name_en;
-
-        $badgeHtml = $this->badgeHtml->execute($template, $fields, $qrCidSrc);
 
         Mail::to($email)->send(new RegistrationBadgeMail(
             eventName: $eventName,
@@ -101,11 +110,15 @@ final readonly class SendRegistrationBadgeEmail
                 'background_color' => $template->background_color ?: '#ffffff',
                 'html' => $badgeHtml,
                 'fields' => $fields,
+                'canvas_width' => $template->canvas_width,
+                'canvas_height' => $template->canvas_height,
             ],
             preferredLocale: $resolvedLocale,
-            qrPngBytes: $qrPngBytes,
+            qrPngBytes: $badgePngBytes === null ? $qrPngBytes : null,
             qrContentId: self::QR_CONTENT_ID,
             inlineImages: $inlineImages,
+            badgePngBytes: $badgePngBytes,
+            badgePngContentId: self::BADGE_PNG_CONTENT_ID,
         ));
     }
 }

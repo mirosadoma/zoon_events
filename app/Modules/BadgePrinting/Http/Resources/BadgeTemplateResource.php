@@ -25,6 +25,7 @@ final class BadgeTemplateResource extends JsonResource
             'printer_type' => $this->printer_type,
             'orientation' => $this->orientation ?? 'portrait',
             'background_color' => $this->background_color,
+            'background_gradient' => $this->background_gradient,
             'canvas_width' => $this->canvas_width,
             'canvas_height' => $this->canvas_height,
             'status' => $this->status,

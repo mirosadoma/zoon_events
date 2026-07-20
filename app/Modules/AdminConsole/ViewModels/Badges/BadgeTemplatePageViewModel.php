@@ -25,6 +25,7 @@ final readonly class BadgeTemplatePageViewModel
                 'printer_type' => $template->printer_type,
                 'orientation' => $template->orientation ?? 'portrait',
                 'background_color' => $template->background_color,
+                'background_gradient' => $template->background_gradient,
                 'canvas_width' => $template->canvas_width,
                 'canvas_height' => $template->canvas_height,
                 'status' => $template->status,
