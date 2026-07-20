@@ -774,7 +774,7 @@ export default function BadgeTemplateDesigner({
           </button>
 
           {bgPanelOpen && (
-            <div className="absolute left-0 top-full z-50 mt-1 w-72 rounded-lg border border-slate-600 bg-slate-800 p-3 shadow-xl">
+            <div className="absolute left-0 top-full z-50 mt-1 rounded-lg border border-slate-600 bg-slate-800 p-3 shadow-xl">
               <div className="mb-3 flex gap-1">
                 {(['solid', 'gradient'] as const).map((mode) => (
                   <button

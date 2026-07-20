@@ -6,6 +6,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -23,6 +24,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Root-relative asset URLs so Vite's CSS preload helper can match existing
+        // <link> tags (absolute APP_URL hrefs cause duplicate crossorigin loads → crash).
+        Vite::createAssetPathsUsing(
+            fn (string $path, ?bool $secure = null): string => '/'.ltrim($path, '/'),
+        );
+
         $this->app->booted(function (): void {
             $request = request();
             $locale = 'en';
