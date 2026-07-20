@@ -12,6 +12,7 @@ final readonly class BadgeLayoutValidator
         'job_title',
         'qr',
         'ticket_type',
+        'attendee_type',
         'tier',
         'zone',
         'sponsor_logo_ref',

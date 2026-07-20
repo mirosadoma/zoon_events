@@ -107,7 +107,7 @@ export default function SendPrivateInviteModal({ open, eventId, tenantId, onClos
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
       <div className="w-full max-w-lg rounded-[var(--radius-panel)] border border-[var(--border)] bg-[var(--surface-elevated)] p-5 shadow-xl">
         <div className="mb-4">
-          <h2 className="text-lg font-semibold text-[var(--ink)]">{t('inviteSendTitle')}</h2>
+          <h2 className="text-lg font-semibold text-[var(--ink)]">{t('sendPrivateLink')}</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">{t('inviteSendDescription')}</p>
         </div>
 

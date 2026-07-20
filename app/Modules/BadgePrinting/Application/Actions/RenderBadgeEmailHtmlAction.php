@@ -308,6 +308,10 @@ final readonly class RenderBadgeEmailHtmlAction
             return null;
         }
 
+        if (str_starts_with($path, 'cid:')) {
+            return $path;
+        }
+
         if (str_starts_with($path, 'data:')) {
             return $path;
         }

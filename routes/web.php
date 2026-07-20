@@ -82,6 +82,11 @@ Route::prefix('{locale}')
         Route::get('/public/orders/{public_reference}/wallet-passes/google', [PublicOrderSignedWalletController::class, 'google'])
             ->middleware('signed')
             ->name('public.order.wallet.google');
+        Route::get('/events/{event_slug}/agenda/{invite_code}', [PublicEventAgendaController::class, 'show'])
+            ->where('event_slug', '[a-z0-9-]+')
+            ->where('invite_code', '\d{10}')
+            ->middleware('throttle:public-event')
+            ->name('public.events.agenda.invite');
         Route::get('/events/{event_slug}/agenda', [PublicEventAgendaController::class, 'show'])
             ->where('event_slug', '[a-z0-9-]+')
             ->middleware('throttle:public-event')

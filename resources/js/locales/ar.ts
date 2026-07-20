@@ -1351,7 +1351,7 @@ export default {
   eventNextPublishReady: 'الفعالية جاهزة للنشر للحضور.',
   // CopyRegistrationLinkButton
   copyPublicLinkTitle: 'نسخ الرابط العام',
-  inviteSendTitle: 'إرسال رابط التسجيل',
+  sendPrivateLink: 'إرسال الرابط الخاص',
   inviteSendDescription: 'أرسل رابط تسجيل شخصي بالبريد أو ارفع ملف Excel بقائمة الضيوف.',
   inviteModeEmail: 'بريد واحد',
   inviteModeExcel: 'ملف Excel',

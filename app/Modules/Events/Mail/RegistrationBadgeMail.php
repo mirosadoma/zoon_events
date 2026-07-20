@@ -35,6 +35,8 @@ class RegistrationBadgeMail extends Mailable
         public readonly string $preferredLocale = 'en',
         public readonly ?string $qrPngBytes = null,
         public readonly string $qrContentId = 'badge-qr',
+        /** @var list<array{cid: string, bytes: string, mime: string, filename: string}> */
+        public readonly array $inlineImages = [],
     ) {}
 
     public function envelope(): Envelope
@@ -58,6 +60,7 @@ class RegistrationBadgeMail extends Mailable
                 'badgeHtml' => $this->badge['html'] ?? null,
                 'qrPngBytes' => $this->qrPngBytes,
                 'qrContentId' => $this->qrContentId,
+                'inlineImages' => $this->inlineImages,
                 'locale' => $this->preferredLocale,
                 'direction' => $direction,
                 'textAlign' => $direction === 'rtl' ? 'right' : 'left',

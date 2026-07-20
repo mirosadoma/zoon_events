@@ -15,6 +15,19 @@
     if (is_string($renderedBadge) && $renderedBadge !== '' && is_string($qrSrc) && $qrSrc !== '') {
         $renderedBadge = str_replace('cid:'.$qrContentId, $qrSrc, $renderedBadge);
     }
+    if (is_string($renderedBadge) && $renderedBadge !== '' && ! empty($inlineImages) && isset($message)) {
+        foreach ($inlineImages as $image) {
+            if (! is_array($image) || empty($image['bytes']) || empty($image['cid'])) {
+                continue;
+            }
+            $embeddedSrc = $message->embedData(
+                $image['bytes'],
+                $image['filename'] ?? ($image['cid'].'.png'),
+                $image['mime'] ?? 'image/png',
+            );
+            $renderedBadge = str_replace('cid:'.$image['cid'], $embeddedSrc, $renderedBadge);
+        }
+    }
 
     $summaryRows = array_filter([
         ($locale === 'ar' ? 'الاسم' : 'Name') => $badge['attendee_name'] ?? null,

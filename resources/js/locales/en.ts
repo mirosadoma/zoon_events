@@ -1855,7 +1855,7 @@ export default {
   eventNextPublishReady: 'The event is ready to publish for attendees.',
   // CopyRegistrationLinkButton
   copyPublicLinkTitle: 'Copy public link',
-  inviteSendTitle: 'Send registration link',
+  sendPrivateLink: 'Send private link',
   inviteSendDescription: 'Send a personal registration link by email or upload an Excel list of guests.',
   inviteModeEmail: 'Single email',
   inviteModeExcel: 'Excel file',

@@ -31,7 +31,7 @@ final readonly class PublicRegistrationUrlBuilder
     {
         $locale ??= app()->getLocale() === 'ar' ? 'ar' : 'en';
 
-        return url(sprintf('/%s/events/%s/agenda?invite=%s', $locale, $event->slug, $invite->code));
+        return url(sprintf('/%s/events/%s/agenda/%s', $locale, $event->slug, $invite->code));
     }
 
     public function isShareable(Event $event): bool

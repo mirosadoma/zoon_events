@@ -37,6 +37,7 @@ export const BADGE_TEMPLATE_ALLOWED_FIELDS = [
   'job_title',
   'qr',
   'ticket_type',
+  'attendee_type',
   'tier',
   'zone',
   'sponsor_logo_ref',

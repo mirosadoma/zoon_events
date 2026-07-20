@@ -31,13 +31,16 @@ final class PublicEventAgendaController extends Controller
         private readonly RenderRegistrationSoldOutPage $registrationSoldOutPages,
     ) {}
 
-    public function show(Request $request, string $locale, string $eventSlug): Response
+    public function show(Request $request, string $locale, string $eventSlug, ?string $inviteCode = null): Response
     {
         $event = $this->events->findBySlug($eventSlug);
         $resolvedLocale = $locale === 'ar' ? 'ar' : 'en';
 
         try {
-            $invite = $this->invites->requireForPrivateEvent($event, $request->query('invite'));
+            $invite = $this->invites->requireForPrivateEvent(
+                $event,
+                $inviteCode ?? $request->query('invite'),
+            );
         } catch (FoundationException $exception) {
             if (str_starts_with($exception->problemCode, 'invite_')) {
                 return $this->inviteUnavailablePages->execute($resolvedLocale, $event, $exception->problemCode);

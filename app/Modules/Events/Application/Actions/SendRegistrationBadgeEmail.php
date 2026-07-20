@@ -4,6 +4,7 @@ namespace App\Modules\Events\Application\Actions;
 
 use App\Modules\BadgePrinting\Application\Actions\RenderBadgeEmailHtmlAction;
 use App\Modules\BadgePrinting\Application\Actions\RenderBadgePrintPayloadAction;
+use App\Modules\BadgePrinting\Application\Support\PrepareBadgeEmailEmbeddedImages;
 use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgeTemplate;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Mail\RegistrationBadgeMail;
@@ -19,6 +20,7 @@ final readonly class SendRegistrationBadgeEmail
         private RenderBadgePrintPayloadAction $badgePayload,
         private RenderBadgeEmailHtmlAction $badgeHtml,
         private QrCodeImageDataUri $qrImages,
+        private PrepareBadgeEmailEmbeddedImages $embeddedImages,
     ) {}
 
     public function execute(
@@ -61,6 +63,17 @@ final readonly class SendRegistrationBadgeEmail
         );
 
         $fields = $payload->fields;
+        foreach ($fields as $key => $value) {
+            if (is_scalar($value) || $value === null) {
+                $fields[(string) $key] = $value !== null ? (string) $value : null;
+            }
+        }
+
+        $prepared = $this->embeddedImages->execute($template, $fields);
+        $fields = $prepared['fields'];
+        $template = $prepared['template'];
+        $inlineImages = $prepared['images'];
+
         $qrPayload = is_string($fields['qr'] ?? null) ? $fields['qr'] : null;
         $qrPngBytes = $qrPayload !== null ? $this->qrImages->pngBytesFromPayload($qrPayload, 360) : null;
         // CID works in email clients; data-URIs are commonly blocked.
@@ -92,6 +105,7 @@ final readonly class SendRegistrationBadgeEmail
             preferredLocale: $resolvedLocale,
             qrPngBytes: $qrPngBytes,
             qrContentId: self::QR_CONTENT_ID,
+            inlineImages: $inlineImages,
         ));
     }
 }

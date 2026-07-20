@@ -172,7 +172,7 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
                   onClick={() => setInviteOpen(true)}
                 >
                   <Mail className="h-4 w-4" aria-hidden="true" />
-                  {t('inviteSendTitle')}
+                  {t('sendPrivateLink')}
                 </button>
               </PermissionGate>
             ) : null}

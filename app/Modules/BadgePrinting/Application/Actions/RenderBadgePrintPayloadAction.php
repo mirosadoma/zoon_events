@@ -11,6 +11,7 @@ use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventBranding;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventCategory;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventCategoryVenue;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventRegistrationInvite;
 use App\Modules\Orders\Infrastructure\Persistence\Models\Order;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationSubmission;
 use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
@@ -41,6 +42,7 @@ final readonly class RenderBadgePrintPayloadAction
                 'attendee_name' => $context['attendee_name'],
                 'qr' => $context['qr'],
                 'ticket_type' => $context['ticket_type'],
+                'attendee_type' => $context['attendee_type'],
                 'company' => $this->answer($context['answers'], ['company', 'organisation', 'organization', 'company_name', 'org']),
                 'job_title' => $this->answer($context['answers'], ['job_title', 'jobTitle', 'title', 'position', 'job', 'job_role']),
                 'tier' => $context['tier'],
@@ -66,6 +68,7 @@ final readonly class RenderBadgePrintPayloadAction
      *   attendee_name:?string,
      *   qr:?string,
      *   ticket_type:?string,
+     *   attendee_type:?string,
      *   answers:array<string,mixed>,
      *   tier:?string,
      *   zone:?string,
@@ -95,6 +98,7 @@ final readonly class RenderBadgePrintPayloadAction
             'attendee_name' => $this->resolveAttendeeName($tenantId, $eventId, $attendee),
             'qr' => $this->resolveQrPayload($credential),
             'ticket_type' => $this->resolveTicketType($tenantId, $eventId, $attendee, $credential),
+            'attendee_type' => $this->resolveAttendeeType($eventId, $attendee),
             'answers' => $answers,
             'tier' => $this->resolveTierLabel($category, $locale),
             'zone' => $this->resolveZone($category, $attendee, $locale),
@@ -154,6 +158,44 @@ final readonly class RenderBadgePrintPayloadAction
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    private function resolveAttendeeEmail(string $tenantId, string $eventId, ?Attendee $attendee): ?string
+    {
+        if ($attendee === null || $attendee->email_ciphertext === null) {
+            return null;
+        }
+
+        $scope = "{$tenantId}:{$eventId}:attendee";
+
+        try {
+            return strtolower(trim($this->cipher->decrypt(
+                ['key_id' => $attendee->encryption_key_id, 'ciphertext' => $attendee->email_ciphertext],
+                $scope,
+            )));
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function resolveAttendeeType(string $eventId, ?Attendee $attendee): ?string
+    {
+        if ($attendee === null) {
+            return null;
+        }
+
+        $email = $this->resolveAttendeeEmail((string) $attendee->tenant_id, (string) $attendee->event_id, $attendee);
+        if ($email === null || $email === '') {
+            return 'Public';
+        }
+
+        $registeredViaInvite = EventRegistrationInvite::query()
+            ->where('event_id', $eventId)
+            ->where('email', $email)
+            ->whereNotNull('used_at')
+            ->exists();
+
+        return $registeredViaInvite ? 'Private' : 'Public';
     }
 
     private function resolveQrPayload(?Credential $credential): ?string

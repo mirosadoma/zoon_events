@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect, type PointerEvent as ReactPoi
 import { QRCodeSVG } from 'qrcode.react'
 import {
   Type, Building2, Briefcase, QrCode, Ticket, Layers, MapPin,
-  Image, Palette, PenLine, Plus, Trash2, Save, GripVertical,
+  Image, Palette, PenLine, Plus, Trash2, Save, GripVertical, UserCheck,
 } from 'lucide-react'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
 import { useToast } from '@/hooks/useToast'
@@ -71,7 +71,7 @@ interface BadgeTemplateDesignerProps {
 const SNAP = 4
 
 const AVAILABLE_FIELDS = [
-  'attendee_name', 'company', 'job_title', 'qr', 'ticket_type',
+  'attendee_name', 'company', 'job_title', 'qr', 'ticket_type', 'attendee_type',
   'tier', 'zone', 'sponsor_logo_ref', 'organizer_logo_ref',
   'color_code', 'custom_text',
 ] as const
@@ -82,6 +82,7 @@ const FIELD_ICONS: Record<string, typeof Type> = {
   job_title: Briefcase,
   qr: QrCode,
   ticket_type: Ticket,
+  attendee_type: UserCheck,
   tier: Layers,
   zone: MapPin,
   sponsor_logo_ref: Image,
@@ -96,6 +97,7 @@ const FIELD_LABELS: Record<string, string> = {
   job_title: 'Job Title',
   qr: 'QR Code',
   ticket_type: 'Ticket Type',
+  attendee_type: 'Attendee Type',
   tier: 'Tier',
   zone: 'Zone',
   sponsor_logo_ref: 'Sponsor Logo',
