@@ -112,11 +112,11 @@ final class EventDemoSeeder extends Seeder
 
         $events = [
             [
-                'name_en' => 'Annual Tech Conference 2026',
-                'name_ar' => 'المؤتمر التقني السنوي 2026',
-                'description_en' => 'A two-day technology conference covering AI, cloud, and digital transformation with keynotes, workshops, and networking.',
-                'description_ar' => 'مؤتمر تقني لمدة يومين يغطي الذكاء الاصطناعي والسحابة والتحول الرقمي مع كلمات رئيسية وورش عمل وفرص للتواصل.',
-                'slug' => 'tech-conf-2026',
+                'name_en' => 'Zonetec Summit 2026',
+                'name_ar' => 'قمة زونتك 2026',
+                'description_en' => 'Demo event for full platform walkthrough.',
+                'description_ar' => 'فعالية تجريبية لاستعراض المنصة بالكامل.',
+                'slug' => 'zonetec-summit-2026',
                 'event_type' => 'conference',
                 'registration_mode' => 'free_registration',
                 'tier' => 'public',
@@ -244,13 +244,13 @@ final class EventDemoSeeder extends Seeder
                     'event_type' => $eventData['event_type'],
                     'registration_mode' => $eventData['registration_mode'],
                     'tier' => $eventData['tier'],
+                    'code' => $eventData['code'],
                     'status' => 'draft',
                     'timezone' => $tenant->timezone,
                     'created_by_user_id' => User::query()->where('email', DemoAccounts::TENANT_EMAIL)->value('id')
                         ?? User::query()->first()?->id,
                 ],
             );
-            $event->forceFill(['code' => $eventData['code']])->save();
 
             $keepVenueIds = [];
 

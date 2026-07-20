@@ -21,7 +21,7 @@ final class BuilderDemoSeeder extends Seeder
 
         $event = Event::query()
             ->where('tenant_id', $tenant->id)
-            ->where('slug', 'tech-conf-2026')
+            ->where('slug', 'zonetec-summit-2026')
             ->first();
 
         if (! $event) {
