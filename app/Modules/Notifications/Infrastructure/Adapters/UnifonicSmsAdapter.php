@@ -7,6 +7,7 @@ use App\Modules\Notifications\Domain\NotificationChannel;
 use App\Modules\Notifications\Domain\NotificationRequest;
 use App\Modules\Notifications\Domain\NotificationResult;
 use App\Modules\Notifications\Domain\NotificationStatus;
+use App\Modules\Shared\Support\Environment\EnvironmentValue;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
@@ -22,8 +23,8 @@ final class UnifonicSmsAdapter implements NotificationAdapter
         }
 
         $secretReference = (string) config('notifications.unifonic.app_sid_reference');
-        $appSid = $secretReference !== '' ? getenv($secretReference) : false;
-        if (! is_string($appSid) || $appSid === '') {
+        $appSid = $secretReference !== '' ? EnvironmentValue::get($secretReference) : null;
+        if ($appSid === null) {
             return new NotificationResult(NotificationStatus::PermanentFailure, reasonCode: 'configuration_invalid');
         }
 

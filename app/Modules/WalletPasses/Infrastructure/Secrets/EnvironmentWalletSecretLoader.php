@@ -2,8 +2,8 @@
 
 namespace App\Modules\WalletPasses\Infrastructure\Secrets;
 
+use App\Modules\Shared\Support\Environment\EnvironmentValue;
 use App\Modules\WalletPasses\Contracts\WalletSecretLoader;
-use Illuminate\Support\Env;
 use InvalidArgumentException;
 
 final class EnvironmentWalletSecretLoader implements WalletSecretLoader
@@ -57,8 +57,8 @@ final class EnvironmentWalletSecretLoader implements WalletSecretLoader
 
     private function loadString(string $reference): string
     {
-        $value = Env::get($reference);
-        if (! is_string($value) || $value === '') {
+        $value = EnvironmentValue::get($reference);
+        if ($value === null) {
             throw new InvalidArgumentException('Wallet secret reference is unavailable.');
         }
 

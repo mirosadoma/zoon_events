@@ -3,15 +3,15 @@
 namespace App\Modules\Credentials\Application\Signing;
 
 use App\Modules\Credentials\Contracts\SecretReferenceLoader;
-use Illuminate\Support\Env;
+use App\Modules\Shared\Support\Environment\EnvironmentValue;
 use InvalidArgumentException;
 
 final class EnvironmentSecretReferenceLoader implements SecretReferenceLoader
 {
     public function load(string $reference): string
     {
-        $value = Env::get($reference);
-        if (! is_string($value) || $value === '') {
+        $value = EnvironmentValue::get($reference);
+        if ($value === null) {
             throw new InvalidArgumentException('Credential secret reference is unavailable.');
         }
 

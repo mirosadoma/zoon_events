@@ -3,15 +3,15 @@
 namespace App\Modules\Payments\Infrastructure\Secrets;
 
 use App\Modules\Payments\Contracts\PaymentSecretLoader;
-use Illuminate\Support\Env;
+use App\Modules\Shared\Support\Environment\EnvironmentValue;
 use InvalidArgumentException;
 
 final class EnvironmentPaymentSecretLoader implements PaymentSecretLoader
 {
     public function load(string $reference): string
     {
-        $value = Env::get($reference);
-        if (! is_string($value) || $value === '') {
+        $value = EnvironmentValue::get($reference);
+        if ($value === null) {
             throw new InvalidArgumentException('Payment secret reference is unavailable.');
         }
 
