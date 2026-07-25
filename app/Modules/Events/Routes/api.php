@@ -23,6 +23,7 @@ Route::prefix('tenant/events')
         Route::post('/{event_id}/cancel', [OrganizerEventController::class, 'cancel'])->middleware(['permission:event.cancel,tenant', 'idempotency']);
         Route::post('/{event_id}/reopen', [OrganizerEventController::class, 'reopen'])->middleware(['permission:event.reopen,tenant', 'idempotency']);
         Route::post('/{event_id}/archive', [OrganizerEventController::class, 'archive'])->middleware(['permission:event.archive,tenant', 'idempotency']);
+        Route::post('/{event_id}/copy', [OrganizerEventController::class, 'copy'])->middleware(['permission:event.manage,tenant', 'idempotency']);
         Route::put('/{event_id}/agenda', [OrganizerAgendaController::class, 'sync'])->middleware(['permission:event.manage,tenant', 'idempotency']);
         Route::put('/{event_id}/venues', [OrganizerEventVenueController::class, 'sync'])->middleware(['permission:event.manage,tenant', 'idempotency']);
 

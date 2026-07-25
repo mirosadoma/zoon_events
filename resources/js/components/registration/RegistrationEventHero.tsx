@@ -36,6 +36,9 @@ type Props = {
   cardStyle?: CSSProperties
   hasCustomBackground?: boolean
   children?: ReactNode
+  /** When set, venue pills are buttons that filter the agenda. */
+  selectedVenueId?: string | null
+  onSelectVenue?: (venueId: string) => void
 }
 
 function EventMediaPreview({
@@ -86,24 +89,56 @@ function EventVenueSchedule({
   startAt,
   endAt,
   timeZone,
+  selectedVenueId = null,
+  onSelectVenue,
 }: {
   locale: 'en' | 'ar'
   venues: RegistrationHeroVenue[]
   startAt?: string | null
   endAt?: string | null
   timeZone?: string | null
+  selectedVenueId?: string | null
+  onSelectVenue?: (venueId: string) => void
 }) {
   const rtl = locale === 'ar'
   const zone = timeZone || undefined
+  const interactive = typeof onSelectVenue === 'function'
 
   if (venues.length > 0) {
     return (
-      <div className="registration-event-venues" aria-label={rtl ? 'أماكن الفعالية' : 'Event venues'}>
-        {venues.map((venue) => (
-          <p key={venue.id} className="registration-event-venue-pill">
-            {formatVenuePillLabel(venue, locale, zone)}
-          </p>
-        ))}
+      <div
+        className="registration-event-venues"
+        role={interactive ? 'tablist' : undefined}
+        aria-label={rtl ? 'أماكن الفعالية' : 'Event venues'}
+      >
+        {venues.map((venue) => {
+          const label = formatVenuePillLabel(venue, locale, zone)
+          const active = selectedVenueId === venue.id
+
+          if (!interactive) {
+            return (
+              <p
+                key={venue.id}
+                className={`registration-event-venue-pill${active ? ' registration-event-venue-pill--active' : ''}`}
+              >
+                {label}
+              </p>
+            )
+          }
+
+          return (
+            <button
+              key={venue.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              className={`registration-event-venue-pill registration-event-venue-pill--button${active ? ' registration-event-venue-pill--active' : ''}`}
+              onClick={() => onSelectVenue(venue.id)}
+            >
+              {label}
+            </button>
+          )
+        })}
       </div>
     )
   }
@@ -128,6 +163,8 @@ export default function RegistrationEventHero({
   cardStyle,
   hasCustomBackground = false,
   children,
+  selectedVenueId = null,
+  onSelectVenue,
 }: Props) {
   const rtl = locale === 'ar'
 
@@ -165,6 +202,8 @@ export default function RegistrationEventHero({
               startAt={event.start_at}
               endAt={event.end_at}
               timeZone={event.timezone}
+              selectedVenueId={selectedVenueId}
+              onSelectVenue={onSelectVenue}
             />
           </header>
         ) : null}

@@ -236,6 +236,9 @@ Route::prefix('{locale}')
                 Route::get('/{event_id}/edit', [EventDashboardController::class, 'edit'])->where('event_id', '[0-9]+')->name('tenant.events.edit');
                 Route::get('/{event_id}/registration-form', [EventDashboardController::class, 'registrationForm'])->name('tenant.registration.builder');
                 Route::get('/{event_id}/agenda', [EventDashboardController::class, 'agenda'])->where('event_id', '[0-9]+')->name('tenant.events.agenda');
+                Route::get('/{event_id}/venues/create', [EventDashboardController::class, 'createVenue'])->where('event_id', '[0-9]+')->name('tenant.events.venues.create');
+                Route::get('/{event_id}/venues/{venue_id}/edit', [EventDashboardController::class, 'editVenue'])->where(['event_id' => '[0-9]+', 'venue_id' => '[0-9]+'])->name('tenant.events.venues.edit');
+                Route::get('/{event_id}/venues', [EventDashboardController::class, 'venues'])->where('event_id', '[0-9]+')->name('tenant.events.venues');
                 Route::get('/{event_id}/categories', [EventDashboardController::class, 'categories'])->where('event_id', '[0-9]+')->name('tenant.events.categories');
                 Route::get('/{event_id}/identity', [EventDashboardController::class, 'identityRequirements'])->name('tenant.identity.requirements');
                 Route::get('/{event_id}/identity/review', [EventDashboardController::class, 'identityReview'])->name('tenant.identity.review');

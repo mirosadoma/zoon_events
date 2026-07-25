@@ -2,7 +2,6 @@ import { router } from '@inertiajs/react'
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useMemo, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
-import EventVenuesPanel, { type EventVenueRow } from '@/components/events/EventVenuesPanel'
 import EventSectionGrid from '@/components/events/EventSectionGrid'
 import PublishReadinessList from '@/components/events/PublishReadinessList'
 import EventNextSteps from '@/components/events/EventNextSteps'
@@ -15,6 +14,7 @@ import ConfirmModal from '@/components/modals/ConfirmModal'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
+import { formatDateOnly } from '@/lib/formatters'
 import { splitPublishReadiness, type PublishReadinessContext } from '@/lib/publishReadinessCatalog'
 
 type EventRow = {
@@ -43,13 +43,10 @@ type Props = {
   operationsTabs: EventSectionTab[]
   tenantId: string
   eventCapabilities?: EventCapabilities
-  venues?: EventVenueRow[]
-  countries?: Array<{
-    id: string
-    code: string
-    name_en: string
-    name_ar: string
-    cities: Array<{ id: string; name_en: string; name_ar: string }>
+  agendaSchedule?: Array<{
+    venue_id: string
+    name: { en: string; ar: string }
+    dates: string[]
   }>
 }
 
@@ -59,15 +56,16 @@ export default function EventDetail({
   operationsTabs,
   tenantId,
   eventCapabilities,
-  venues = [],
-  countries = [],
+  agendaSchedule = [],
 }: Props) {
-  const { locale, t } = useLocale()
+  const { locale, t, localizedPath } = useLocale()
   const { toast } = useToast()
   const [publishOpen, setPublishOpen] = useState(false)
   const [unpublishOpen, setUnpublishOpen] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [republishOpen, setRepublishOpen] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewVenueId, setPreviewVenueId] = useState('')
   const [cancelReason, setCancelReason] = useState('')
   const [submitting, setSubmitting] = useState<'publish' | 'unpublish' | 'cancel' | 'republish' | null>(null)
   const [apiPublishMissing, setApiPublishMissing] = useState<string[] | null>(null)
@@ -116,6 +114,7 @@ export default function EventDetail({
   )
   const canPublishNow = canPublish && requirements.length === 0 && statusBlockers.length === 0
   const setupProgress: EventSetupProgress = event.setup_progress ?? {
+    venues: !effectiveReadiness.includes('event_venues'),
     registration_form: !effectiveReadiness.includes('active_form_version_id'),
     ticket_types: !effectiveReadiness.includes('active_ticket_type'),
     price_tiers: false,
@@ -199,6 +198,49 @@ export default function EventDetail({
     setPublishOpen(true)
   }
 
+  function openPreviewModal() {
+    if (agendaSchedule.length === 0) {
+      toast(t('eventAgendaPreviewEmpty'), 'error')
+      return
+    }
+
+    setPreviewVenueId(agendaSchedule[0].venue_id)
+    setPreviewOpen(true)
+  }
+
+  function openAgendaPreview() {
+    if (!previewVenueId) {
+      toast(t('eventAgendaPreviewRequired'), 'error')
+      return
+    }
+
+    const url = localizedPath(
+      `/tenant/events/${event.id}/agenda-preview?venue_id=${encodeURIComponent(previewVenueId)}`,
+    )
+    window.open(url, '_blank', 'noopener,noreferrer')
+    setPreviewOpen(false)
+  }
+
+  function venuePreviewLabel(row: { venue_id: string; name: { en: string; ar: string }; dates: string[] }): string {
+    const name = locale === 'ar' ? (row.name.ar || row.name.en) : (row.name.en || row.name.ar)
+    const start = row.dates[0]
+      ? formatDateOnly(`${row.dates[0]}T12:00:00`, locale, event.timezone)
+      : null
+    const end = row.dates[row.dates.length - 1]
+      ? formatDateOnly(`${row.dates[row.dates.length - 1]}T12:00:00`, locale, event.timezone)
+      : null
+
+    if (start && end) {
+      return `${name} (${start} – ${end})`
+    }
+
+    if (start) {
+      return `${name} (${start})`
+    }
+
+    return name
+  }
+
   const publishButtonLabel = t('publish')
 
   return (
@@ -219,9 +261,9 @@ export default function EventDetail({
                 onClick={() => void copyRegistrationLink(event.registration_url!)}
               />
             ) : null}
-            <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/agenda-preview`} target="_blank" rel="noreferrer">
+            <button type="button" className="button-secondary" onClick={openPreviewModal}>
               {t('preview')}
-            </LocalizedLink>
+            </button>
             <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/edit`}>{t('edit')}</LocalizedLink>
             <PermissionGate permission="event.publish">
               {canPublishNow ? (
@@ -294,13 +336,6 @@ export default function EventDetail({
             context={readinessContext}
           />
         ) : null}
-
-        <EventVenuesPanel
-          eventId={event.id}
-          tenantId={tenantId}
-          venues={venues}
-          countries={countries}
-        />
 
         <EventNextSteps
           eventId={event.id}
@@ -426,6 +461,31 @@ export default function EventDetail({
             placeholder={t('eventDetailCancelReasonPlaceholder')}
             required
           />
+        </label>
+      </ConfirmModal>
+      <ConfirmModal
+        open={previewOpen}
+        title={t('eventAgendaPreviewTitle')}
+        message={t('eventAgendaPreviewMessage')}
+        confirmLabel={t('eventAgendaPreviewOpen')}
+        cancelLabel={t('close')}
+        confirmDisabled={!previewVenueId}
+        onConfirm={openAgendaPreview}
+        onCancel={() => setPreviewOpen(false)}
+      >
+        <label className="grid gap-1.5 text-sm">
+          <span className="font-medium text-[var(--ink)]">{t('eventAgendaPreviewVenue')}</span>
+          <select
+            className="control w-full"
+            value={previewVenueId}
+            onChange={(event) => setPreviewVenueId(event.target.value)}
+          >
+            {agendaSchedule.map((row) => (
+              <option key={row.venue_id} value={row.venue_id}>
+                {venuePreviewLabel(row)}
+              </option>
+            ))}
+          </select>
         </label>
       </ConfirmModal>
     </DashboardLayout>

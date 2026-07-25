@@ -5,6 +5,7 @@ namespace App\Modules\Events\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Events\Application\Actions\ArchiveEvent;
 use App\Modules\Events\Application\Actions\CancelEvent;
+use App\Modules\Events\Application\Actions\CloneEvent;
 use App\Modules\Events\Application\Actions\CreateEvent;
 use App\Modules\Events\Application\Actions\PublishEvent;
 use App\Modules\Events\Application\Actions\ReopenEvent;
@@ -91,6 +92,23 @@ final class OrganizerEventController extends Controller
         $event = $action->execute($this->contexts->current(), $this->event($eventId), $validated['reason']);
 
         return $this->success((new EventResource($event))->resolve());
+    }
+
+    public function copy(Request $request, string $eventId, CloneEvent $action)
+    {
+        $validated = $request->validate([
+            'name.en' => ['required', 'string', 'max:160'],
+            'name.ar' => ['required', 'string', 'max:160'],
+        ]);
+
+        $event = $action->execute(
+            $this->contexts->current(),
+            $this->event($eventId),
+            $validated['name']['en'],
+            $validated['name']['ar'],
+        );
+
+        return $this->success((new EventResource($event))->resolve(), 201);
     }
 
     private function event(string $id): Event

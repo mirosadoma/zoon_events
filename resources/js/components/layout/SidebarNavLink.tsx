@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useShellLayout } from '@/contexts/ShellLayoutContext'
 import {
   Activity,
@@ -51,6 +51,7 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   featureFlags: Flag,
   configuration: Settings,
   'event-detail': LayoutDashboard,
+  'event-venues': Building2,
   agenda: CalendarDays,
   'registration-form': ClipboardList,
   'ticket-types': Ticket,
@@ -105,8 +106,16 @@ export default function SidebarNavLink({
   const { closeMobileSidebar } = useShellLayout()
   const linkRef = useRef<HTMLAnchorElement>(null)
   const href = localizedPath(locale, item.href)
-  const active = isNavItemActive(url, item.href)
+  const [hash, setHash] = useState(() => (typeof window !== 'undefined' ? window.location.hash : ''))
+  const active = isNavItemActive(url, item.href, hash)
   const Icon = NAV_ICONS[item.icon ?? item.key] ?? LayoutDashboard
+
+  useEffect(() => {
+    const syncHash = () => setHash(window.location.hash)
+    syncHash()
+    window.addEventListener('hashchange', syncHash)
+    return () => window.removeEventListener('hashchange', syncHash)
+  }, [url])
 
   useEffect(() => {
     if (!active || !linkRef.current) {
@@ -120,7 +129,18 @@ export default function SidebarNavLink({
     <Link
       ref={linkRef}
       href={href}
-      onClick={closeMobileSidebar}
+      onClick={() => {
+        closeMobileSidebar()
+        const sectionId = item.href.includes('#') ? item.href.split('#')[1] : null
+        if (!sectionId) {
+          return
+        }
+
+        window.requestAnimationFrame(() => {
+          document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          setHash(`#${sectionId}`)
+        })
+      }}
       className={clsx(
         'ta-nav-link',
         active && 'ta-nav-link-active',

@@ -4,12 +4,14 @@ import { stripLocalePrefix } from '@/lib/localePath'
 export type { NavigationGroup }
 
 export function normalizeNavPath(path: string): string {
-  return stripLocalePrefix(path.split('?')[0] ?? path)
+  return stripLocalePrefix(path.split('?')[0]?.split('#')[0] ?? path)
 }
 
-export function isNavItemActive(currentPath: string, itemHref: string): boolean {
+export function isNavItemActive(currentPath: string, itemHref: string, currentHash = ''): boolean {
   const path = normalizeNavPath(currentPath)
-  const itemPath = normalizeNavPath(itemHref)
+  const [rawItemPath] = itemHref.split('#')
+  const itemPath = normalizeNavPath(rawItemPath)
+  void currentHash
 
   if (path === itemPath) {
     return true

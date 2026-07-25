@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Modules\AdminConsole\Application\SessionContextBuilder;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Events\Concerns\ResolvesTenantEventFromRoute;
+use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
 use App\Modules\AdminConsole\ViewModels\Events\EventDashboardViewModel;
 use App\Modules\AdminConsole\ViewModels\Events\EventSetupReferenceData;
 use App\Modules\AdminConsole\ViewModels\Events\EventSetupViewModel;
@@ -34,6 +35,7 @@ use App\Modules\Ticketing\Application\Queries\PublicTicketTypeCatalog;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\PriceTier;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketInventory;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketType;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -64,7 +66,10 @@ final class EventDashboardController extends Controller
             ->limit(100)
             ->get();
 
-        return Inertia::render('tenant/events/List', $this->events->index($events));
+        return Inertia::render('tenant/events/List', [
+            ...$this->events->index($events),
+            'tenantId' => (string) $context->tenant->id,
+        ]);
     }
 
     public function create(): Response
@@ -119,30 +124,10 @@ final class EventDashboardController extends Controller
         $context = $this->authorizeTenant('event.view');
         $event = $this->event($context, $eventId);
 
-        $venues = $event->venues()
-            ->orderBy('sort_order')
-            ->with(['country', 'city'])
-            ->get()
-            ->map(fn ($venue): array => [
-                'id' => (string) $venue->id,
-                'country_id' => (string) $venue->country_id,
-                'city_id' => (string) $venue->city_id,
-                'name' => ['en' => $venue->name_en, 'ar' => $venue->name_ar],
-                'location_address' => $venue->location_address,
-                'latitude' => $venue->latitude !== null ? (string) $venue->latitude : null,
-                'longitude' => $venue->longitude !== null ? (string) $venue->longitude : null,
-                'start_at' => $venue->start_at?->toIso8601String(),
-                'end_at' => $venue->end_at?->toIso8601String(),
-                'registration_opens_at' => $venue->registration_opens_at?->toIso8601String(),
-                'registration_closes_at' => $venue->registration_closes_at?->toIso8601String(),
-            ])
-            ->values()
-            ->all();
-
         return Inertia::render('tenant/events/Detail', [
             ...$this->events->detail($event),
             'tenantId' => (string) $context->tenant->id,
-            'venues' => $venues,
+            'agendaSchedule' => $this->agendaScheduleForEvent($event),
             ...$this->references->toArray(),
         ]);
     }
@@ -190,6 +175,62 @@ final class EventDashboardController extends Controller
             ],
             'tenantId' => (string) $context->tenant->id,
             ...$formState,
+        ]);
+    }
+
+    public function venues(string $eventId): Response
+    {
+        $context = $this->authorizeTenant('event.manage');
+        $event = $this->event($context, $eventId);
+
+        return Inertia::render('tenant/events/Venues', [
+            'event' => $this->events->detail($event)['event'],
+            'tenantId' => (string) $context->tenant->id,
+            'venues' => $this->mapEventVenues($event),
+            ...$this->references->toArray(),
+        ]);
+    }
+
+    public function createVenue(string $eventId): Response
+    {
+        $context = $this->authorizeTenant('event.manage');
+        $event = $this->event($context, $eventId);
+
+        return Inertia::render('tenant/events/VenueForm', [
+            'event' => $this->events->detail($event)['event'],
+            'tenantId' => (string) $context->tenant->id,
+            'venues' => $this->mapEventVenues($event),
+            'venue' => null,
+            'mode' => 'create',
+            ...$this->references->toArray(),
+        ]);
+    }
+
+    public function editVenue(string $eventId): Response
+    {
+        $context = $this->authorizeTenant('event.manage');
+        $event = $this->event($context, $eventId);
+        $venueId = $this->routeParam('venue_id');
+
+        $venueModel = EventVenue::query()
+            ->where('tenant_id', $context->tenant->id)
+            ->where('event_id', $event->id)
+            ->whereKey($venueId)
+            ->first();
+
+        abort_unless($venueModel instanceof EventVenue, 404);
+
+        $venues = $this->mapEventVenues($event);
+        $venue = collect($venues)->firstWhere('id', (string) $venueModel->id);
+        abort_unless(is_array($venue), 404);
+
+        return Inertia::render('tenant/events/VenueForm', [
+            'event' => $this->events->detail($event)['event'],
+            'tenantId' => (string) $context->tenant->id,
+            'venues' => $venues,
+            'venue' => $venue,
+            'mode' => 'edit',
+            ...$this->references->toArray(),
         ]);
     }
 
@@ -505,28 +546,201 @@ final class EventDashboardController extends Controller
         ]);
     }
 
-    public function agendaPreview(string $eventId): Response
+    public function agendaPreview(Request $request, string $eventId): Response
     {
         $context = $this->authorizeTenant('event.view');
         $event = $this->event($context, $eventId);
-        $event->loadMissing('agendaItems');
+        $event->loadMissing(['agendaItems.venue', 'venues']);
         $locale = app()->getLocale() === 'ar' ? 'ar' : 'en';
+
+        $venueId = $request->query('venue_id');
+        $date = $request->query('date');
+        $fallbackVenueId = $event->venues->count() === 1
+            ? (int) $event->venues->first()->id
+            : null;
+
+        $items = $event->agendaItems
+            ->filter(function (EventAgendaItem $item) use ($venueId, $date, $fallbackVenueId): bool {
+                $itemVenueId = $item->event_venue_id !== null
+                    ? (int) $item->event_venue_id
+                    : $fallbackVenueId;
+                $itemDate = $item->agenda_date?->toDateString()
+                    ?? $item->start_at?->toDateString();
+
+                if (is_string($venueId) && $venueId !== '' && (string) $itemVenueId !== $venueId) {
+                    return false;
+                }
+
+                if (is_string($date) && $date !== '' && $itemDate !== $date) {
+                    return false;
+                }
+
+                return true;
+            })
+            ->sortBy([
+                ['sort_order', 'asc'],
+                ['start_at', 'asc'],
+            ])
+            ->values();
+
+        $heroEvent = $this->eventPages->heroEvent($event);
+        $selectedVenueId = is_string($venueId) && $venueId !== '' ? $venueId : null;
+
+        if ($selectedVenueId !== null) {
+            $heroEvent['venues'] = array_values(array_filter(
+                $heroEvent['venues'] ?? [],
+                static fn (array $venue): bool => (string) ($venue['id'] ?? '') === $selectedVenueId,
+            ));
+        }
 
         return Inertia::render('public/registration/Agenda', [
             'locale' => $locale,
             'isPreview' => true,
-            'event' => $this->eventPages->heroEvent($event),
-            'items' => $event->agendaItems
-                ->map(fn (EventAgendaItem $item): array => [
-                    'id' => (string) $item->id,
-                    'title' => ['en' => $item->title_en, 'ar' => $item->title_ar],
-                    'start_at' => EventWallClockDateTime::toIso8601($item->start_at, $event->timezone),
-                    'end_at' => EventWallClockDateTime::toIso8601($item->end_at, $event->timezone),
-                ])
-                ->values()
-                ->all(),
+            'event' => $heroEvent,
+            'items' => $this->mapPublicAgendaItems($event, $items),
+            'selectedVenueId' => $selectedVenueId,
+            'selectedDate' => is_string($date) && $date !== '' ? $date : null,
             'registerUrl' => "/tenant/events/{$event->id}/registration-preview",
         ]);
+    }
+
+    /**
+     * Venues that already have at least one agenda item (and their dates).
+     * Preview only needs one such venue — not every event venue.
+     *
+     * @return list<array{venue_id:string,name:array{en:string,ar:string},dates:list<string>}>
+     */
+    private function agendaScheduleForEvent(Event $event): array
+    {
+        $event->loadMissing(['venues', 'agendaItems']);
+
+        if ($event->venues->isEmpty() || $event->agendaItems->isEmpty()) {
+            return [];
+        }
+
+        $venuesById = $event->venues->keyBy(fn ($venue): int => (int) $venue->id);
+
+        /** @var array<int, array<string, true>> $grouped */
+        $grouped = [];
+
+        foreach ($event->agendaItems as $item) {
+            $date = $item->agenda_date?->toDateString();
+            if ($date === null && $item->start_at !== null) {
+                $date = $item->start_at->toDateString();
+            }
+
+            if ($date === null) {
+                continue;
+            }
+
+            $venueId = $item->event_venue_id !== null ? (int) $item->event_venue_id : null;
+
+            if ($venueId === null || ! $venuesById->has($venueId)) {
+                $venueId = $this->resolveAgendaItemVenueId($event, $date);
+            }
+
+            if ($venueId === null || ! $venuesById->has($venueId)) {
+                continue;
+            }
+
+            $grouped[$venueId][$date] = true;
+        }
+
+        $schedule = [];
+
+        foreach ($grouped as $venueId => $dates) {
+            $venue = $venuesById->get($venueId);
+            if ($venue === null) {
+                continue;
+            }
+
+            $sortedDates = array_keys($dates);
+            sort($sortedDates);
+
+            $schedule[] = [
+                'venue_id' => (string) $venueId,
+                'name' => ['en' => (string) $venue->name_en, 'ar' => (string) $venue->name_ar],
+                'dates' => array_values($sortedDates),
+            ];
+        }
+
+        return $schedule;
+    }
+
+    /**
+     * @return list<array{
+     *   id:string,
+     *   country_id:string,
+     *   city_id:string,
+     *   name:array{en:string,ar:string},
+     *   location_address:?string,
+     *   latitude:?string,
+     *   longitude:?string,
+     *   start_at:?string,
+     *   end_at:?string,
+     *   registration_opens_at:?string,
+     *   registration_closes_at:?string
+     * }>
+     */
+    private function mapEventVenues(Event $event): array
+    {
+        return $event->venues()
+            ->orderBy('sort_order')
+            ->with(['country', 'city'])
+            ->get()
+            ->map(fn ($venue): array => [
+                'id' => (string) $venue->id,
+                'country_id' => (string) $venue->country_id,
+                'city_id' => (string) $venue->city_id,
+                'name' => ['en' => $venue->name_en, 'ar' => $venue->name_ar],
+                'location_address' => $venue->location_address,
+                'latitude' => $venue->latitude !== null ? (string) $venue->latitude : null,
+                'longitude' => $venue->longitude !== null ? (string) $venue->longitude : null,
+                'start_at' => $venue->start_at?->toIso8601String(),
+                'end_at' => $venue->end_at?->toIso8601String(),
+                'registration_opens_at' => $venue->registration_opens_at?->toIso8601String(),
+                'registration_closes_at' => $venue->registration_closes_at?->toIso8601String(),
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function resolveAgendaItemVenueId(Event $event, string $date): ?int
+    {
+        foreach ($event->venues as $venue) {
+            $start = $venue->start_at?->toDateString();
+            $end = $venue->end_at?->toDateString();
+
+            if ($start !== null && $end !== null && $date >= $start && $date <= $end) {
+                return (int) $venue->id;
+            }
+        }
+
+        $first = $event->venues->first();
+
+        return $first !== null ? (int) $first->id : null;
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, EventAgendaItem>  $items
+     * @return list<array<string, mixed>>
+     */
+    private function mapPublicAgendaItems(Event $event, $items): array
+    {
+        return $items
+            ->map(fn (EventAgendaItem $item): array => [
+                'id' => (string) $item->id,
+                'title' => ['en' => $item->title_en, 'ar' => $item->title_ar],
+                'start_at' => EventWallClockDateTime::toIso8601($item->start_at, $event->timezone),
+                'end_at' => EventWallClockDateTime::toIso8601($item->end_at, $event->timezone),
+                'agenda_date' => $item->agenda_date?->toDateString(),
+                'event_venue_id' => $item->event_venue_id !== null ? (string) $item->event_venue_id : null,
+                'venue_name' => $item->venue
+                    ? ['en' => (string) $item->venue->name_en, 'ar' => (string) $item->venue->name_ar]
+                    : null,
+            ])
+            ->values()
+            ->all();
     }
 
     public function ticketTypes(string $eventId): Response

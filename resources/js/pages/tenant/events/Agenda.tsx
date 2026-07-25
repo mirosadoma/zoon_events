@@ -204,30 +204,51 @@ export default function EventAgenda({ event, tenantId, venues, items: initialIte
     [venues, locale],
   )
 
+  const usedVenueIds = useMemo(
+    () => new Set(venueGroups.map((group) => group.venue_id)),
+    [venueGroups],
+  )
+
+  const canAddVenue = venues.some((venue) => !usedVenueIds.has(venue.id))
+
+  function venueOptionsForGroup(groupIndex: number) {
+    const currentVenueId = venueGroups[groupIndex]?.venue_id
+
+    return venueOptions.filter(
+      (option) => option.value === currentVenueId || !usedVenueIds.has(option.value),
+    )
+  }
+
   function getAvailableDates(venueId: string): string[] {
     const venue = venues.find((v) => v.id === venueId)
     return generateDates(venue?.start_at || null, venue?.end_at || null)
   }
 
   function addVenueGroup() {
-    if (venues.length === 0) {
-      toast(locale === 'ar' ? 'أضف موقعاً واحداً على الأقل للفعالية أولاً' : 'Add at least one venue to the event first', 'error')
+    const nextVenue = venues.find((venue) => !usedVenueIds.has(venue.id))
+
+    if (!nextVenue) {
+      toast(
+        locale === 'ar'
+          ? 'تمت إضافة كل المواقع المتاحة.'
+          : 'All available venues have already been added.',
+        'error',
+      )
       return
     }
 
-    const firstVenue = venues[0]
-    const firstDate = firstVenue.start_at?.split('T')[0] || new Date().toISOString().split('T')[0]
+    const firstDate = nextVenue.start_at?.split('T')[0] || new Date().toISOString().split('T')[0]
 
     setVenueGroups((current) => [
       ...current,
       {
         key: crypto.randomUUID(),
-        venue_id: firstVenue.id,
+        venue_id: nextVenue.id,
         dates: [
           {
             key: crypto.randomUUID(),
             date: firstDate,
-            items: [emptyAgendaItem(firstVenue.id, firstDate)],
+            items: [emptyAgendaItem(nextVenue.id, firstDate)],
           },
         ],
       },
@@ -445,13 +466,13 @@ export default function EventAgenda({ event, tenantId, venues, items: initialIte
         />
         <PageContent>
           <div className="state-panel p-6 text-center">
-            <p className="text-slate-600">
+            <p className="text-[var(--muted)]">
               {locale === 'ar'
                 ? 'أضف موقعاً واحداً على الأقل للفعالية قبل إنشاء الأجندة.'
                 : 'Add at least one venue to the event before creating the agenda.'}
             </p>
-            <LocalizedLink className="button-primary mt-4 inline-block" href={`/tenant/events/${event.id}`}>
-              {locale === 'ar' ? 'العودة لتفاصيل الفعالية' : 'Back to event details'}
+            <LocalizedLink className="button-primary mt-4 inline-block" href={`/tenant/events/${event.id}/venues`}>
+              {locale === 'ar' ? 'إدارة مواقع الفعالية' : 'Manage event venues'}
             </LocalizedLink>
           </div>
         </PageContent>
@@ -477,145 +498,163 @@ export default function EventAgenda({ event, tenantId, venues, items: initialIte
         )}
       />
       <PageContent>
-        <form className="state-panel relative space-y-6" onSubmit={(submitEvent) => void handleSubmit(submitEvent)}>
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted">
+        <form className="ta-card relative space-y-6" onSubmit={(submitEvent) => void handleSubmit(submitEvent)}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <p className="max-w-3xl text-sm text-[var(--muted)]">
               {locale === 'ar'
                 ? 'قم بإنشاء الأجندة حسب الموقع والتاريخ. كل موقع يمكن أن يحتوي على عدة تواريخ وكل تاريخ يمكن أن يحتوي على عدة عناصر.'
                 : 'Build your agenda by venue and date. Each venue can have multiple dates, and each date can have multiple items.'}
             </p>
-            <button type="button" className="button-primary" onClick={addVenueGroup}>
-              {locale === 'ar' ? 'إضافة موقع' : 'Add venue'}
-            </button>
+            {canAddVenue ? (
+              <button type="button" className="button-primary shrink-0" onClick={addVenueGroup}>
+                {locale === 'ar' ? 'إضافة موقع' : 'Add venue'}
+              </button>
+            ) : null}
           </div>
 
-          {venueGroups.map((group, groupIndex) => {
-            const venue = venues.find((v) => v.id === group.venue_id)
-            const availableDates = getAvailableDates(group.venue_id)
+          <div className="grid items-start gap-4 lg:grid-cols-2">
+            {venueGroups.map((group, groupIndex) => {
+              const availableDates = getAvailableDates(group.venue_id)
 
-            return (
-              <section key={group.key} className="space-y-4 rounded-xl border-2 border-blue-200 bg-blue-50/30 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-3">
-                    <h2 className="font-semibold text-blue-900">
-                      {locale === 'ar' ? `موقع ${groupIndex + 1}` : `Venue ${groupIndex + 1}`}
-                    </h2>
-                    <div className="min-w-[200px]">
-                      <SelectInput
-                        name={`venue_${groupIndex}`}
-                        value={group.venue_id}
-                        onChange={(e) => updateVenueGroupVenue(groupIndex, e.target.value)}
-                        options={venueOptions}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button type="button" className="button-secondary" onClick={() => addDateToVenue(groupIndex)}>
-                      {locale === 'ar' ? 'إضافة تاريخ' : 'Add date'}
-                    </button>
-                    <button type="button" className="button-secondary text-red-600" onClick={() => removeVenueGroup(groupIndex)}>
-                      {locale === 'ar' ? 'حذف الموقع' : 'Remove venue'}
-                    </button>
-                  </div>
-                </div>
-
-                {group.dates.map((dateGroup, dateIndex) => (
-                  <article key={dateGroup.key} className="space-y-3 rounded-lg border border-green-200 bg-white p-4">
+              return (
+                <section
+                  key={group.key}
+                  className="space-y-4 rounded-xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--brand-soft)_45%,var(--surface-elevated))] p-4"
+                >
+                  <div className="flex flex-col gap-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-medium text-green-900">
-                          {locale === 'ar' ? `تاريخ ${dateIndex + 1}` : `Date ${dateIndex + 1}`}
-                        </h3>
-                        <div className="min-w-[160px]">
-                          <SelectInput
-                            name={`date_${groupIndex}_${dateIndex}`}
-                            value={dateGroup.date}
-                            onChange={(e) => updateDateInVenue(groupIndex, dateIndex, e.target.value)}
-                            options={availableDates.map((d) => ({ value: d, label: d }))}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button type="button" className="button-secondary text-sm" onClick={() => addItemToDate(groupIndex, dateIndex)}>
-                          {locale === 'ar' ? 'إضافة عنصر' : 'Add item'}
+                      <h2 className="font-semibold text-[var(--ink)]">
+                        {locale === 'ar' ? `موقع ${groupIndex + 1}` : `Venue ${groupIndex + 1}`}
+                      </h2>
+                      <div className="flex flex-wrap gap-2">
+                        <button type="button" className="button-secondary" onClick={() => addDateToVenue(groupIndex)}>
+                          {locale === 'ar' ? 'إضافة تاريخ' : 'Add date'}
                         </button>
                         <button
                           type="button"
-                          className="button-secondary text-sm text-red-600"
-                          onClick={() => removeDateFromVenue(groupIndex, dateIndex)}
+                          className="button-secondary text-[var(--danger)]"
+                          onClick={() => removeVenueGroup(groupIndex)}
                         >
-                          {locale === 'ar' ? 'حذف التاريخ' : 'Remove date'}
+                          {locale === 'ar' ? 'حذف الموقع' : 'Remove venue'}
                         </button>
                       </div>
                     </div>
+                    <SelectInput
+                      name={`venue_${groupIndex}`}
+                      value={group.venue_id}
+                      onChange={(e) => updateVenueGroupVenue(groupIndex, e.target.value)}
+                      options={venueOptionsForGroup(groupIndex)}
+                    />
+                  </div>
 
-                    {dateGroup.items.map((item, itemIndex) => (
-                      <div key={item.key} className="space-y-3 rounded border border-slate-200 bg-slate-50 p-3">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-medium">
-                            {locale === 'ar' ? `عنصر ${itemIndex + 1}` : `Item ${itemIndex + 1}`}
-                          </h4>
-                          <button
-                            type="button"
-                            className="text-sm text-red-600"
-                            onClick={() => removeItemFromDate(groupIndex, dateIndex, itemIndex)}
-                          >
-                            {locale === 'ar' ? 'حذف' : 'Remove'}
-                          </button>
+                  {group.dates.map((dateGroup, dateIndex) => (
+                    <article
+                      key={dateGroup.key}
+                      className="space-y-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-4"
+                    >
+                      <div className="flex flex-col gap-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <h3 className="font-medium text-[var(--ink)]">
+                            {locale === 'ar' ? `تاريخ ${dateIndex + 1}` : `Date ${dateIndex + 1}`}
+                          </h3>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              className="button-secondary text-sm"
+                              onClick={() => addItemToDate(groupIndex, dateIndex)}
+                            >
+                              {locale === 'ar' ? 'إضافة عنصر' : 'Add item'}
+                            </button>
+                            <button
+                              type="button"
+                              className="button-secondary text-sm text-[var(--danger)]"
+                              onClick={() => removeDateFromVenue(groupIndex, dateIndex)}
+                            >
+                              {locale === 'ar' ? 'حذف التاريخ' : 'Remove date'}
+                            </button>
+                          </div>
                         </div>
-
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <TextInput
-                            label={t('eventAgendaTitleEn')}
-                            name={`title_en_${groupIndex}_${dateIndex}_${itemIndex}`}
-                            value={item.title_en}
-                            onChange={(e) => updateItem(groupIndex, dateIndex, itemIndex, { title_en: e.target.value })}
-                            required
-                          />
-                          <TextInput
-                            label={t('eventAgendaTitleAr')}
-                            name={`title_ar_${groupIndex}_${dateIndex}_${itemIndex}`}
-                            value={item.title_ar}
-                            onChange={(e) => updateItem(groupIndex, dateIndex, itemIndex, { title_ar: e.target.value })}
-                            required
-                          />
-                          <TextareaInput
-                            label={locale === 'ar' ? 'الوصف (إنجليزي)' : 'Description (English)'}
-                            name={`description_en_${groupIndex}_${dateIndex}_${itemIndex}`}
-                            value={item.description_en}
-                            onChange={(e) => updateItem(groupIndex, dateIndex, itemIndex, { description_en: e.target.value })}
-                            rows={2}
-                          />
-                          <TextareaInput
-                            label={locale === 'ar' ? 'الوصف (عربي)' : 'Description (Arabic)'}
-                            name={`description_ar_${groupIndex}_${dateIndex}_${itemIndex}`}
-                            value={item.description_ar}
-                            onChange={(e) => updateItem(groupIndex, dateIndex, itemIndex, { description_ar: e.target.value })}
-                            rows={2}
-                          />
-                          <TimeInput
-                            label={t('eventAgendaStartsAt')}
-                            name={`start_at_${groupIndex}_${dateIndex}_${itemIndex}`}
-                            value={item.start_at}
-                            onChange={(e) => updateItem(groupIndex, dateIndex, itemIndex, { start_at: e.target.value })}
-                            required
-                          />
-                          <TimeInput
-                            label={t('eventAgendaEndsAt')}
-                            name={`end_at_${groupIndex}_${dateIndex}_${itemIndex}`}
-                            value={item.end_at}
-                            onChange={(e) => updateItem(groupIndex, dateIndex, itemIndex, { end_at: e.target.value })}
-                          />
-                        </div>
+                        <SelectInput
+                          name={`date_${groupIndex}_${dateIndex}`}
+                          value={dateGroup.date}
+                          onChange={(e) => updateDateInVenue(groupIndex, dateIndex, e.target.value)}
+                          options={availableDates.map((d) => ({ value: d, label: d }))}
+                        />
                       </div>
-                    ))}
-                  </article>
-                ))}
-              </section>
-            )
-          })}
 
-          {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
+                      <div className="grid items-start gap-3 sm:grid-cols-2">
+                        {dateGroup.items.map((item, itemIndex) => (
+                          <div
+                            key={item.key}
+                            className="space-y-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <h4 className="text-sm font-medium text-[var(--ink)]">
+                                {locale === 'ar' ? `عنصر ${itemIndex + 1}` : `Item ${itemIndex + 1}`}
+                              </h4>
+                              <button
+                                type="button"
+                                className="text-sm text-[var(--danger)] hover:underline"
+                                onClick={() => removeItemFromDate(groupIndex, dateIndex, itemIndex)}
+                              >
+                                {locale === 'ar' ? 'حذف' : 'Remove'}
+                              </button>
+                            </div>
+
+                            <div className="grid gap-3">
+                              <TextInput
+                                label={t('eventAgendaTitleEn')}
+                                name={`title_en_${groupIndex}_${dateIndex}_${itemIndex}`}
+                                value={item.title_en}
+                                onChange={(e) => updateItem(groupIndex, dateIndex, itemIndex, { title_en: e.target.value })}
+                                required
+                              />
+                              <TextInput
+                                label={t('eventAgendaTitleAr')}
+                                name={`title_ar_${groupIndex}_${dateIndex}_${itemIndex}`}
+                                value={item.title_ar}
+                                onChange={(e) => updateItem(groupIndex, dateIndex, itemIndex, { title_ar: e.target.value })}
+                                required
+                              />
+                              <TextareaInput
+                                label={locale === 'ar' ? 'الوصف (إنجليزي)' : 'Description (English)'}
+                                name={`description_en_${groupIndex}_${dateIndex}_${itemIndex}`}
+                                value={item.description_en}
+                                onChange={(e) => updateItem(groupIndex, dateIndex, itemIndex, { description_en: e.target.value })}
+                                rows={2}
+                              />
+                              <TextareaInput
+                                label={locale === 'ar' ? 'الوصف (عربي)' : 'Description (Arabic)'}
+                                name={`description_ar_${groupIndex}_${dateIndex}_${itemIndex}`}
+                                value={item.description_ar}
+                                onChange={(e) => updateItem(groupIndex, dateIndex, itemIndex, { description_ar: e.target.value })}
+                                rows={2}
+                              />
+                              <TimeInput
+                                label={t('eventAgendaStartsAt')}
+                                name={`start_at_${groupIndex}_${dateIndex}_${itemIndex}`}
+                                value={item.start_at}
+                                onChange={(e) => updateItem(groupIndex, dateIndex, itemIndex, { start_at: e.target.value })}
+                                required
+                              />
+                              <TimeInput
+                                label={t('eventAgendaEndsAt')}
+                                name={`end_at_${groupIndex}_${dateIndex}_${itemIndex}`}
+                                value={item.end_at}
+                                onChange={(e) => updateItem(groupIndex, dateIndex, itemIndex, { end_at: e.target.value })}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </article>
+                  ))}
+                </section>
+              )
+            })}
+          </div>
+
+          {error ? <p role="alert" className="text-sm text-[var(--danger)]">{error}</p> : null}
 
           <SubmitButtonWithLoader
             loading={submitting}

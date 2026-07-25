@@ -149,7 +149,7 @@ describe('events manage flow', () => {
       />,
     )
 
-    expect(screen.getByRole('link', { name: 'Preview' })).toHaveAttribute('href', '/en/tenant/events/evt_1/agenda-preview')
+    expect(screen.getByRole('button', { name: 'Preview' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Publish' }))
     fireEvent.click(screen.getAllByRole('button', { name: 'Publish' }).at(-1)!)
 

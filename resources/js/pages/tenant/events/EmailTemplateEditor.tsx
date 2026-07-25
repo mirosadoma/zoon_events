@@ -1,4 +1,4 @@
-import { useState, FormEvent, useCallback } from 'react'
+import { useState, FormEvent, useCallback, useEffect } from 'react'
 import { router } from '@inertiajs/react'
 import { Trash2, ArrowLeft } from 'lucide-react'
 import DashboardLayout from '@/layouts/DashboardLayout'
@@ -37,19 +37,26 @@ const PLACEHOLDERS_BY_TYPE: Record<string, string[]> = {
 }
 
 export default function EmailTemplateEditor({ event, type, template, tenantId }: Props & { tenantId?: string }) {
-  const { locale, direction, t } = useLocale()
+  const { locale, direction, t, localizedPath } = useLocale()
   const { toast } = useToast()
 
   const [subjectEn, setSubjectEn] = useState(template?.subject_en ?? '')
   const [subjectAr, setSubjectAr] = useState(template?.subject_ar ?? '')
   const [bodyEn, setBodyEn] = useState(template?.html_body_en ?? '')
   const [bodyAr, setBodyAr] = useState(template?.html_body_ar ?? '')
-  const [activeLang, setActiveLang] = useState<'en' | 'ar'>(locale)
+  /** Content-editing language only — must never change the app UI locale. */
+  const [activeLang, setActiveLang] = useState<'en' | 'ar'>('en')
   const [submitting, setSubmitting] = useState(false)
 
   const placeholders = PLACEHOLDERS_BY_TYPE[type] ?? PLACEHOLDERS_BY_TYPE.confirmation
   const typeLabel = locale === 'ar' ? TYPE_LABELS[type]?.ar : TYPE_LABELS[type]?.en
   const eventName = locale === 'ar' ? (event.name.ar || event.name.en) : (event.name.en || event.name.ar)
+
+  // Keep document lang/dir locked to the UI locale while content tabs change.
+  useEffect(() => {
+    document.documentElement.lang = locale
+    document.documentElement.dir = direction
+  }, [locale, direction, activeLang])
 
   const handleUploadImage = useCallback(async (file: File): Promise<string> => {
     try {
@@ -91,6 +98,7 @@ export default function EmailTemplateEditor({ event, type, template, tenantId }:
       })
 
       toast(t('emailTemplateSaved'), 'success')
+      router.reload({ only: ['template'], preserveScroll: true, preserveUrl: true })
     } catch (caught) {
       const msg = caught instanceof ApiFetchError ? caught.message : t('requestFailed')
       toast(msg, 'error')
@@ -114,7 +122,7 @@ export default function EmailTemplateEditor({ event, type, template, tenantId }:
       })
 
       toast(t('emailTemplateDeleted'), 'success')
-      router.visit(`/tenant/events/${event.id}/email-templates`)
+      router.visit(localizedPath(`/tenant/events/${event.id}/email-templates`))
     } catch (caught) {
       const msg = caught instanceof ApiFetchError ? caught.message : t('requestFailed')
       toast(msg, 'error')

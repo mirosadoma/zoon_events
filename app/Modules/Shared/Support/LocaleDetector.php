@@ -15,6 +15,25 @@ final class LocaleDetector
         return in_array($first, ['en', 'ar'], true) ? $first : null;
     }
 
+    public static function fromReferer(Request $request): ?string
+    {
+        $referer = $request->headers->get('Referer');
+
+        if (! is_string($referer) || $referer === '') {
+            return null;
+        }
+
+        $path = parse_url($referer, PHP_URL_PATH);
+
+        if (! is_string($path) || $path === '') {
+            return null;
+        }
+
+        $first = explode('/', trim($path, '/'))[0] ?? '';
+
+        return in_array($first, ['en', 'ar'], true) ? $first : null;
+    }
+
     public static function detect(Request $request): string
     {
         $routeLocale = $request->route('locale');
@@ -27,6 +46,12 @@ final class LocaleDetector
 
         if ($pathLocale !== null) {
             return $pathLocale;
+        }
+
+        $refererLocale = self::fromReferer($request);
+
+        if ($refererLocale !== null) {
+            return $refererLocale;
         }
 
         $cookie = $request->cookie('locale');

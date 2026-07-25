@@ -14,6 +14,7 @@ import {
 } from '@/lib/eventSetupProgress'
 import { publishBlockedMessage, type PublishReadinessContext } from '@/lib/publishReadinessCatalog'
 import {
+  Building2,
   BadgeCheck,
   CalendarDays,
   ClipboardList,
@@ -110,6 +111,13 @@ export default function EventNextSteps({
   }
 
   const steps: NextStep[] = [
+    {
+      key: 'venues',
+      title: t('eventNextVenues'),
+      description: t('eventNextVenuesDescription'),
+      href: `${base}/venues`,
+      icon: Building2,
+    },
     {
       key: 'agenda',
       title: t('eventNextAgenda'),

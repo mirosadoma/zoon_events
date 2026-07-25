@@ -173,6 +173,7 @@ final readonly class EventDashboardViewModel
      * @param  list<string>  $missing
      * @param  array{requires_ticketing:bool,requires_price_tiers:bool}  $capabilities
      * @return array{
+     *   venues:bool,
      *   registration_form:bool,
      *   ticket_types:bool,
      *   price_tiers:bool,
@@ -195,6 +196,7 @@ final readonly class EventDashboardViewModel
         int $emailTemplatesRequired,
     ): array {
         return [
+            'venues' => ! in_array('event_venues', $missing, true),
             'registration_form' => ! in_array('active_form_version_id', $missing, true),
             'ticket_types' => ! $capabilities['requires_ticketing'] || ! in_array('active_ticket_type', $missing, true),
             'price_tiers' => ! $capabilities['requires_price_tiers']
@@ -224,6 +226,7 @@ final readonly class EventDashboardViewModel
     /**
      * @param  array{requires_ticketing:bool,requires_price_tiers:bool}  $capabilities
      * @param  array{
+     *   venues:bool,
      *   registration_form:bool,
      *   ticket_types:bool,
      *   price_tiers:bool,
@@ -246,6 +249,7 @@ final readonly class EventDashboardViewModel
     {
         $base = "/tenant/events/{$event->id}";
         $setupTabs = [
+            ['label' => 'Venues', 'href' => "{$base}/venues", 'key' => 'venues', 'completed' => $setupProgress['venues']],
             ['label' => 'Agenda', 'href' => "{$base}/agenda", 'key' => 'agenda', 'completed' => $setupProgress['agenda']],
             ['label' => 'Registration form', 'href' => "{$base}/registration-form", 'key' => 'registration_form', 'completed' => $setupProgress['registration_form']],
         ];

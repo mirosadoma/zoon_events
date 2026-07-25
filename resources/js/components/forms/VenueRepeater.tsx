@@ -181,7 +181,7 @@ export default function VenueRepeater({ venues, countries, onChange, errors }: V
                 />
               </div>
               <div className="@md:col-span-2">
-                <Suspense fallback={<div className="h-56 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-700" />}>
+                <Suspense fallback={<div className="min-h-[30rem] animate-pulse rounded-lg bg-slate-200 dark:bg-slate-700" />}>
                   <MapPicker
                     label={t('venueRepeaterMapLocation')}
                     latitude={venue.latitude}

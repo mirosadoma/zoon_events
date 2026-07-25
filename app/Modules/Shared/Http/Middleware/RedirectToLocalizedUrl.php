@@ -19,6 +19,7 @@ final class RedirectToLocalizedUrl
         'health',
         'sanctum',
         '_ignition',
+        '_test',
     ];
 
     public function handle(Request $request, Closure $next): Response
@@ -36,10 +37,23 @@ final class RedirectToLocalizedUrl
             }
         }
 
+        $locale = $this->localeForRedirect($request);
+
         if ($path === '') {
-            return redirect('/'.LocaleDetector::detect($request));
+            return redirect('/'.$locale);
         }
 
-        return redirect('/'.LocaleDetector::detect($request).'/'.$path);
+        return redirect('/'.$locale.'/'.$path);
+    }
+
+    private function localeForRedirect(Request $request): string
+    {
+        $refererLocale = LocaleDetector::fromReferer($request);
+
+        if ($refererLocale !== null) {
+            return $refererLocale;
+        }
+
+        return LocaleDetector::detect($request);
     }
 }

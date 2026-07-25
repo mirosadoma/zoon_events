@@ -1,6 +1,7 @@
 import type { EventCapabilities } from '@/lib/eventOptions'
 
 export type EventSetupProgress = {
+  venues: boolean
   registration_form: boolean
   ticket_types: boolean
   price_tiers: boolean
@@ -31,6 +32,8 @@ export function isNextStepComplete(
   progress: EventSetupProgress,
 ): boolean {
   switch (stepKey) {
+    case 'venues':
+      return progress.venues
     case 'agenda':
       return progress.agenda
     case 'registration-form':
@@ -55,7 +58,7 @@ export function isNextStepComplete(
 }
 
 export function getApplicableSetupKeys(capabilities?: EventCapabilities): Array<keyof EventSetupProgress> {
-  const keys: Array<keyof EventSetupProgress> = ['agenda', 'registration_form']
+  const keys: Array<keyof EventSetupProgress> = ['venues', 'agenda', 'registration_form']
 
   if (capabilities?.requires_ticketing) {
     keys.push('ticket_types')

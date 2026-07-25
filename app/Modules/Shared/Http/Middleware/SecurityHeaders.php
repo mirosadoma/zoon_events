@@ -15,10 +15,21 @@ final class SecurityHeaders
         $isDev = app()->environment('local');
         $isEmbeddable = $this->isEmbeddableRoute($request);
 
-        $scriptSrc = ["'self'"];
-        $styleSrc = ["'self'", "'unsafe-inline'"];
-        $connectSrc = ["'self'"];
-        $imgSrc = ["'self'", 'data:', 'blob:', 'https://*.tile.openstreetmap.org'];
+        $scriptSrc = ["'self'", 'https://maps.googleapis.com', 'https://maps.gstatic.com'];
+        $styleSrc = ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'];
+        $connectSrc = ["'self'", 'https://maps.googleapis.com', 'https://maps.gstatic.com', 'https://*.googleapis.com'];
+        $imgSrc = [
+            "'self'",
+            'data:',
+            'blob:',
+            'https://*.tile.openstreetmap.org',
+            'https://maps.gstatic.com',
+            'https://maps.googleapis.com',
+            'https://*.googleapis.com',
+            'https://*.ggpht.com',
+        ];
+        $fontSrc = ["'self'", 'https://fonts.gstatic.com'];
+        $workerSrc = ["'self'", 'blob:'];
 
         if ($isDev) {
             $scriptSrc[] = "'unsafe-inline'";
@@ -34,11 +45,13 @@ final class SecurityHeaders
         $frameAncestors = $isEmbeddable ? '*' : "'none'";
 
         $csp = sprintf(
-            "default-src 'self'; img-src %s; style-src %s; script-src %s; connect-src %s; frame-ancestors %s; base-uri 'self'; form-action 'self'",
+            "default-src 'self'; img-src %s; style-src %s; script-src %s; connect-src %s; font-src %s; worker-src %s; frame-ancestors %s; base-uri 'self'; form-action 'self'",
             implode(' ', $imgSrc),
             implode(' ', $styleSrc),
             implode(' ', $scriptSrc),
             implode(' ', $connectSrc),
+            implode(' ', $fontSrc),
+            implode(' ', $workerSrc),
             $frameAncestors,
         );
 

@@ -62,7 +62,7 @@ export const publishReadinessLabels: Record<string, ReadinessEntry> = {
   event_venues: {
     en: 'At least one venue with schedule',
     ar: 'موقع واحد على الأقل مع جدول زمني',
-    href: (eventId) => `/tenant/events/${eventId}#venues`,
+    href: (eventId) => `/tenant/events/${eventId}/venues`,
   },
   published_agenda: {
     en: 'Published agenda',

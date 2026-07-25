@@ -1,11 +1,16 @@
+import { router, usePage } from '@inertiajs/react'
+import { useState } from 'react'
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import PublishReadinessBadge from '@/components/events/PublishReadinessBadge'
 import { PageContent, PageHeader } from '@/components/layout'
+import ConfirmModal from '@/components/modals/ConfirmModal'
 import StatusBadge from '@/components/status/StatusBadge'
 import { DataTable } from '@/components/tables'
 import { useLocale } from '@/hooks/useLocale'
+import { useToast } from '@/hooks/useToast'
+import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
 import { labelForEventTier, requiresTicketing } from '@/lib/eventOptions'
 import type { PublishReadinessContext } from '@/lib/publishReadinessCatalog'
 
@@ -24,6 +29,7 @@ type EventRow = {
 
 type Props = {
   events: EventRow[]
+  tenantId?: string
 }
 
 function readinessContextFor(event: EventRow): PublishReadinessContext {
@@ -33,8 +39,64 @@ function readinessContextFor(event: EventRow): PublishReadinessContext {
   }
 }
 
-export default function EventList({ events }: Props) {
-  const { locale, t } = useLocale()
+export default function EventList({ events, tenantId: tenantIdProp }: Props) {
+  const { locale, t, localizedPath } = useLocale()
+  const { toast } = useToast()
+  const page = usePage().props as { session?: { tenant?: { id?: string | number } } }
+  const tenantId = String(tenantIdProp ?? page.session?.tenant?.id ?? '')
+  const [copying, setCopying] = useState<EventRow | null>(null)
+  const [copyNameEn, setCopyNameEn] = useState('')
+  const [copyNameAr, setCopyNameAr] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  function openCopyModal(event: EventRow) {
+    setCopying(event)
+    setCopyNameEn(event.name.en || '')
+    setCopyNameAr(event.name.ar || '')
+  }
+
+  function closeCopyModal() {
+    if (submitting) {
+      return
+    }
+    setCopying(null)
+    setCopyNameEn('')
+    setCopyNameAr('')
+  }
+
+  async function confirmCopy() {
+    if (!copying || copyNameEn.trim() === '' || copyNameAr.trim() === '') {
+      toast(t('eventListCopyNameRequired'), 'error')
+      return
+    }
+
+    setSubmitting(true)
+
+    try {
+      const cloned = await apiFetch<{ id: string }>(`/api/v1/tenant/events/${copying.id}/copy`, {
+        method: 'POST',
+        tenantId,
+        idempotency: true,
+        body: {
+          name: {
+            en: copyNameEn.trim(),
+            ar: copyNameAr.trim(),
+          },
+        },
+      })
+
+      toast(t('eventListCopied'), 'success')
+      setCopying(null)
+      setCopyNameEn('')
+      setCopyNameAr('')
+      router.visit(localizedPath(`/tenant/events/${cloned.id}`))
+    } catch (error) {
+      const message = error instanceof ApiFetchError ? error.message : t('eventListCopyFailed')
+      toast(message, 'error')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <DashboardLayout title={t('events')}>
@@ -106,6 +168,13 @@ export default function EventList({ events }: Props) {
                       <LocalizedLink href={`/tenant/events/${event.id}/edit`} className="ta-table-action">
                         {t('edit')}
                       </LocalizedLink>
+                      <button
+                        type="button"
+                        className="ta-table-action"
+                        onClick={() => openCopyModal(event)}
+                      >
+                        {t('eventListCopy')}
+                      </button>
                     </div>
                   )
                 },
@@ -114,6 +183,46 @@ export default function EventList({ events }: Props) {
           />
         )}
       </PageContent>
+
+      <ConfirmModal
+        open={copying !== null}
+        title={t('eventListCopyTitle')}
+        message={t('eventListCopyMessage')}
+        confirmLabel={t('eventListCopy')}
+        cancelLabel={t('cancel')}
+        loading={submitting}
+        loadingLabel={t('eventListCopying')}
+        confirmDisabled={copyNameEn.trim() === '' || copyNameAr.trim() === ''}
+        onConfirm={() => void confirmCopy()}
+        onCancel={closeCopyModal}
+      >
+        <div className="space-y-4">
+          <label className="block text-sm font-medium text-[var(--ink)]">
+            {t('eventListCopyNameEn')}
+            <input
+              type="text"
+              className="mt-2 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+              value={copyNameEn}
+              onChange={(event) => setCopyNameEn(event.target.value)}
+              maxLength={160}
+              autoFocus
+              disabled={submitting}
+            />
+          </label>
+          <label className="block text-sm font-medium text-[var(--ink)]">
+            {t('eventListCopyNameAr')}
+            <input
+              type="text"
+              className="mt-2 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+              value={copyNameAr}
+              onChange={(event) => setCopyNameAr(event.target.value)}
+              maxLength={160}
+              dir="rtl"
+              disabled={submitting}
+            />
+          </label>
+        </div>
+      </ConfirmModal>
     </DashboardLayout>
   )
 }

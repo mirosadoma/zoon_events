@@ -62,6 +62,16 @@ class ResolveLocale
             return Locale::English;
         }
 
+        $refererLocale = LocaleDetector::fromReferer($request);
+
+        if ($refererLocale === Locale::Arabic->value) {
+            return Locale::Arabic;
+        }
+
+        if ($refererLocale === Locale::English->value) {
+            return Locale::English;
+        }
+
         $cookie = $request->cookie('locale');
 
         if (is_string($cookie)) {
