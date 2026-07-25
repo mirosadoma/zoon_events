@@ -2,10 +2,8 @@
 
 namespace App\Modules\Events\Http\Controllers;
 
-use App\Exceptions\FoundationException;
 use App\Http\Controllers\Controller;
 use App\Modules\Events\Application\Actions\SyncEventCategoryAssignments;
-use App\Modules\Events\Domain\CategoryLockStatus;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventCategory;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventCategoryPrivilege;
@@ -79,13 +77,6 @@ class EventCategoryController extends Controller
     public function destroy(string $event_id, string $category_id)
     {
         $event = $this->event($event_id);
-
-        if (CategoryLockStatus::locksCategories((string) $event->status)) {
-            throw FoundationException::conflict(
-                'event_categories_locked',
-                'Categories cannot be changed while the event is published or live.',
-            );
-        }
 
         $category = EventCategory::query()
             ->where('event_id', $event->id)

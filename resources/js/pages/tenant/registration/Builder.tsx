@@ -1,18 +1,16 @@
-import { useState, useMemo, useCallback, useId } from 'react'
+import { useState, useMemo, useCallback, useId, type CSSProperties } from 'react'
 import { router } from '@inertiajs/react'
 import {
   DndContext,
-  DragOverlay,
   closestCenter,
   useSensor,
   useSensors,
   PointerSensor,
-  type DragStartEvent,
   type DragEndEvent,
 } from '@dnd-kit/core'
 import {
   SortableContext,
-  verticalListSortingStrategy,
+  rectSortingStrategy,
   useSortable,
   arrayMove,
 } from '@dnd-kit/sortable'
@@ -29,9 +27,10 @@ import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
 import {
-  REGISTRATION_SYSTEM_FIELDS,
-  splitRegistrationFields,
+  isRegistrationSystemFieldKey,
+  mergeRegistrationFieldsWithSystemOrder,
 } from '@/lib/registrationSystemFields'
+import { registrationFontFamily, REGISTRATION_FONT_OPTIONS } from '@/lib/registrationThemeBackground'
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -52,19 +51,50 @@ type FormField = {
   system?: boolean
   options?: FieldOptionRow[]
   content?: string
+  choice_style?: string | null
+  choice_color?: string | null
+}
+
+type BackgroundGradient = {
+  type: 'linear'
+  angle: number
+  stops: Array<{ color: string; position: number }>
 }
 
 type ThemeConfig = {
   primary_color: string
   accent_color: string
   background_color: string
+  background_mode: 'solid' | 'gradient' | 'image'
+  background_gradient: BackgroundGradient | null
+  background_image_path: string | null
+  background_image_url?: string | null
   font_family: string
 }
 
 type EventRow = { id: string; name: { en: string; ar: string }; slug?: string }
 
+type EventPreview = {
+  name?: { en: string; ar: string }
+  description?: { en: string; ar: string }
+  timezone?: string | null
+  start_at?: string | null
+  end_at?: string | null
+  main_image?: string | null
+  images?: string[]
+  venues?: Array<{
+    id: string
+    name: { en: string; ar: string }
+    city?: { en: string; ar: string }
+    start_at?: string | null
+    end_at?: string | null
+  }>
+  categories?: Array<{ id: string; name: { en: string; ar: string } }>
+}
+
 type Props = {
   event: EventRow
+  eventPreview?: EventPreview | null
   tenantId: string
   formName: string
   privacyNoticeVersion: string
@@ -74,9 +104,15 @@ type Props = {
     required: boolean; system?: boolean; options?: FieldOptionRow[]
     placeholder_en?: string; placeholder_ar?: string; width?: string
     content?: string
+    choice_style?: string | null
+    choice_color?: string | null
   }>
   hasUnpublishedChanges?: boolean
-  theme?: ThemeConfig | null
+  theme?: (Partial<ThemeConfig> & {
+    background_gradient?: BackgroundGradient | null
+    background_image_path?: string | null
+    background_image_url?: string | null
+  }) | null
 }
 
 /* ------------------------------------------------------------------ */
@@ -88,14 +124,27 @@ const FIELD_TYPE_ICONS: Record<string, typeof Type> = {
   select: List, multi_select: CheckSquare, radio: CircleDot,
   checkbox: ToggleLeft, consent: ToggleLeft, hidden: EyeOff,
   heading: Heading1, divider: Minus, paragraph: AlignLeft,
+  event_logo: Type, event_name: Type, event_venue: Type, event_dates: Calendar, event_description: AlignLeft,
+  event_categories: List, event_venue_select: Calendar,
 }
 
 const PALETTE_CATEGORIES = [
   {
+    label: 'Event Info',
+    types: [
+      'event_logo',
+      'event_name',
+      'event_venue',
+      'event_dates',
+      'event_description',
+      'event_categories',
+      'event_venue_select',
+    ],
+  },
+  {
     label: 'Input Fields',
     types: ['text', 'number', 'date', 'select', 'multi_select', 'radio', 'checkbox'],
   },
-  { label: 'Special', types: ['consent', 'hidden'] },
   { label: 'Layout', types: ['heading', 'divider', 'paragraph'] },
 ]
 
@@ -114,12 +163,152 @@ const TYPE_LABELS: Record<string, { en: string; ar: string }> = {
   heading: { en: 'Heading', ar: 'عنوان' },
   divider: { en: 'Divider', ar: 'فاصل' },
   paragraph: { en: 'Paragraph', ar: 'فقرة' },
+  event_logo: { en: 'Event Logo', ar: 'شعار الفعالية' },
+  event_name: { en: 'Event Name', ar: 'اسم الفعالية' },
+  event_venue: { en: 'Event Venue', ar: 'مكان الفعالية' },
+  event_dates: { en: 'Event Dates', ar: 'تواريخ الفعالية' },
+  event_description: { en: 'Event Description', ar: 'وصف الفعالية' },
+  event_categories: { en: 'Event Categories', ar: 'أقسام الفعالية' },
+  event_venue_select: { en: 'Venue / Date Select', ar: 'اختيار المكان / التاريخ' },
 }
-
-const FONT_OPTIONS = ['Inter', 'Cairo', 'Tajawal', 'system-ui']
 
 const CHOICE_TYPES = new Set(['select', 'multi_select', 'radio', 'checkbox'])
 const LAYOUT_TYPES = new Set(['heading', 'divider', 'paragraph'])
+const EVENT_DISPLAY_TYPES = new Set([
+  'event_logo',
+  'event_name',
+  'event_venue',
+  'event_dates',
+  'event_description',
+  'event_categories',
+  'event_venue_select',
+])
+const STYLED_CHOICE_TYPES = new Set(['checkbox', 'radio'])
+
+const CHECKBOX_STYLES = [
+  { value: 'square', labelKey: 'registrationBuilderChoiceStyleSquare' as const },
+  { value: 'toggle', labelKey: 'registrationBuilderChoiceStyleToggle' as const },
+  { value: 'pill', labelKey: 'registrationBuilderChoiceStylePill' as const },
+  { value: 'card', labelKey: 'registrationBuilderChoiceStyleCard' as const },
+]
+
+const RADIO_STYLES = [
+  { value: 'circle', labelKey: 'registrationBuilderChoiceStyleCircle' as const },
+  { value: 'toggle', labelKey: 'registrationBuilderChoiceStyleToggle' as const },
+  { value: 'pill', labelKey: 'registrationBuilderChoiceStylePill' as const },
+  { value: 'card', labelKey: 'registrationBuilderChoiceStyleCard' as const },
+  { value: 'button', labelKey: 'registrationBuilderChoiceStyleButton' as const },
+]
+
+const CHOICE_COLOR_PRESETS = ['#2563EB', '#0F766E', '#C2410C', '#7C3AED', '#BE123C', '#111827']
+
+function defaultChoiceStyle(type: string): string {
+  return type === 'radio' ? 'circle' : 'square'
+}
+
+function ChoiceStylePreview({
+  style,
+  color,
+  fieldType,
+}: {
+  style: string
+  color: string
+  fieldType: string
+}) {
+  const accent = color || '#2563EB'
+  const isRadio = fieldType === 'radio'
+
+  if (style === 'toggle') {
+    return (
+      <span className="flex w-full items-center justify-center gap-2 py-0.5" aria-hidden="true">
+        <span
+          className="relative inline-flex h-4 w-8 shrink-0 items-center rounded-full"
+          style={{ backgroundColor: accent }}
+        >
+          <span className="absolute end-0.5 h-3 w-3 rounded-full bg-white shadow-sm" />
+        </span>
+        <span className="h-1.5 w-8 rounded-full bg-[var(--border)]" />
+      </span>
+    )
+  }
+
+  if (style === 'pill') {
+    return (
+      <span className="flex w-full flex-wrap items-center justify-center gap-1 py-0.5" aria-hidden="true">
+        <span
+          className="rounded-full px-2 py-0.5 text-[9px] font-semibold text-white"
+          style={{ backgroundColor: accent }}
+        >
+          A
+        </span>
+        <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-2 py-0.5 text-[9px] text-[var(--muted)]">
+          B
+        </span>
+      </span>
+    )
+  }
+
+  if (style === 'card') {
+    return (
+      <span className="flex w-full items-center justify-center gap-1 py-0.5" aria-hidden="true">
+        <span
+          className="flex flex-1 items-center gap-1 rounded-md border px-1.5 py-1"
+          style={{ borderColor: accent, backgroundColor: `${accent}18` }}
+        >
+          <span
+            className={`inline-block h-2.5 w-2.5 shrink-0 ${isRadio ? 'rounded-full' : 'rounded-[2px]'}`}
+            style={{ backgroundColor: accent }}
+          />
+          <span className="h-1 w-full rounded-full" style={{ backgroundColor: accent, opacity: 0.45 }} />
+        </span>
+        <span className="flex flex-1 items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--surface)] px-1.5 py-1">
+          <span className={`inline-block h-2.5 w-2.5 shrink-0 border border-[var(--border)] ${isRadio ? 'rounded-full' : 'rounded-[2px]'}`} />
+          <span className="h-1 w-full rounded-full bg-[var(--border)]" />
+        </span>
+      </span>
+    )
+  }
+
+  if (style === 'button') {
+    return (
+      <span className="flex w-full items-center justify-center gap-1 py-0.5" aria-hidden="true">
+        <span
+          className="flex-1 rounded-md py-1 text-center text-[9px] font-semibold text-white"
+          style={{ backgroundColor: accent }}
+        >
+          A
+        </span>
+        <span className="flex-1 rounded-md border border-[var(--border)] bg-[var(--surface)] py-1 text-center text-[9px] text-[var(--muted)]">
+          B
+        </span>
+      </span>
+    )
+  }
+
+  // square / circle
+  const isCircle = style === 'circle'
+  return (
+    <span className="flex w-full items-center justify-center gap-3 py-0.5" aria-hidden="true">
+      <span className="flex items-center gap-1">
+        <span
+          className={`inline-grid h-3.5 w-3.5 place-items-center ${isCircle ? 'rounded-full' : 'rounded-[3px]'}`}
+          style={{ backgroundColor: accent }}
+        >
+          {isCircle ? (
+            <span className="h-1.5 w-1.5 rounded-full bg-white" />
+          ) : (
+            <span className="h-1.5 w-1 border-b-2 border-e-2 border-white rotate-45 -translate-y-px" />
+          )}
+        </span>
+        <span className="h-1 w-6 rounded-full bg-[var(--border)]" />
+      </span>
+      <span className="flex items-center gap-1 opacity-60">
+        <span className={`inline-block h-3.5 w-3.5 border border-[var(--border)] ${isCircle ? 'rounded-full' : 'rounded-[3px]'} bg-[var(--surface)]`} />
+        <span className="h-1 w-6 rounded-full bg-[var(--border)]" />
+      </span>
+    </span>
+  )
+}
 
 let fieldIdCounter = 0
 const nextFieldId = () => `f_${Date.now()}_${++fieldIdCounter}`
@@ -129,46 +318,107 @@ function slugify(label: string): string {
   return base.length >= 2 ? base : `field_${Date.now()}`
 }
 
+const DEFAULT_EVENT_IMAGE = 'data:image/svg+xml,' + encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#334155"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="360" fill="url(#g)"/>
+  <rect x="40" y="40" width="560" height="280" rx="24" fill="#0f172a" opacity="0.35"/>
+  <circle cx="320" cy="150" r="42" fill="#94a3b8" opacity="0.55"/>
+  <path d="M220 250c28-48 72-72 100-72s72 24 100 72" fill="#94a3b8" opacity="0.45"/>
+  <text x="320" y="300" text-anchor="middle" fill="#e2e8f0" font-family="system-ui,sans-serif" font-size="22" font-weight="600">Event image</text>
+</svg>
+`.trim())
+
+function localizedPreview(
+  value: { en?: string; ar?: string } | undefined,
+  locale: 'en' | 'ar',
+  fallback: string,
+): string {
+  if (!value) return fallback
+  const text = locale === 'ar' ? (value.ar || value.en) : (value.en || value.ar)
+  return text && text.trim() !== '' ? text : fallback
+}
+
+function formatPreviewDate(value?: string | null, locale: 'en' | 'ar' = 'en'): string | null {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return date.toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
 /* ------------------------------------------------------------------ */
 /*  Sortable Field Card                                                */
 /* ------------------------------------------------------------------ */
 
 function SortableFieldCard({
-  field, selected, onSelect, locale,
+  field, selected, onSelect, locale, eventPreview,
 }: {
-  field: FormField; selected: boolean; onSelect: () => void; locale: 'en' | 'ar'
+  field: FormField
+  selected: boolean
+  onSelect: () => void
+  locale: 'en' | 'ar'
+  eventPreview?: EventPreview | null
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id })
-  const style = {
-    transform: CSS.Transform.toString(transform),
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
     transition,
-    opacity: isDragging ? 0.4 : 1,
+    isDragging,
+  } = useSortable({ id: field.id })
+
+  const style: CSSProperties = {
+    transform: CSS.Translate.toString(transform),
+    transition: isDragging ? undefined : transition,
+    zIndex: isDragging ? 40 : undefined,
+    position: isDragging ? 'relative' : undefined,
+    opacity: isDragging ? 0.92 : 1,
   }
 
   const Icon = FIELD_TYPE_ICONS[field.type] ?? Type
   const widthClass = field.width === 'half' ? 'w-1/2' : field.width === 'third' ? 'w-1/3' : 'w-full'
+  const gallery = eventPreview?.images ?? []
+  const mainImage = eventPreview?.main_image || gallery[0] || DEFAULT_EVENT_IMAGE
+  const venues = eventPreview?.venues ?? []
+  const categories = eventPreview?.categories ?? []
+  const startLabel = formatPreviewDate(eventPreview?.start_at, locale)
+    ?? formatPreviewDate(venues[0]?.start_at, locale)
+  const endLabel = formatPreviewDate(eventPreview?.end_at, locale)
+    ?? formatPreviewDate(venues[0]?.end_at, locale)
 
   return (
     <div ref={setNodeRef} style={style} className={`${widthClass} p-1`}>
       <div
         onClick={onSelect}
-        className={`group relative rounded-xl border p-3 transition-all cursor-pointer ${
-          selected
-            ? 'border-[var(--brand)] ring-2 ring-[var(--brand)]/15 bg-[var(--brand-soft)]'
-            : 'border-[var(--border)] hover:border-[var(--brand)]/30 bg-[var(--surface-elevated)]'
-        } ${field.system ? 'opacity-75' : ''}`}
+        className={`group relative rounded-xl border p-3 transition-colors cursor-pointer ${
+          isDragging
+            ? 'border-[var(--brand)] bg-[var(--surface-elevated)] shadow-xl ring-2 ring-[var(--brand)]/20'
+            : selected
+              ? 'border-[var(--brand)] ring-2 ring-[var(--brand)]/20 bg-[color-mix(in_srgb,var(--brand)_12%,var(--surface-elevated))]'
+              : 'border-[var(--border)] hover:border-[color-mix(in_srgb,var(--brand)_40%,var(--border))] bg-[var(--surface-elevated)]'
+        }`}
       >
         <div className="flex items-center gap-2">
-          {!field.system && (
-            <button
-              type="button"
-              className="cursor-grab text-[var(--muted)] opacity-40 hover:opacity-100 active:cursor-grabbing"
-              {...attributes}
-              {...listeners}
-            >
-              <GripVertical size={14} />
-            </button>
-          )}
+          <button
+            type="button"
+            ref={setActivatorNodeRef}
+            className="cursor-grab touch-none text-[var(--muted)] opacity-50 hover:opacity-100 active:cursor-grabbing"
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical size={14} />
+          </button>
           <Icon size={14} className="text-[var(--muted)] shrink-0" />
           <span className="text-sm font-medium text-[var(--ink)] truncate flex-1">
             {locale === 'ar' ? field.label_ar : field.label_en}
@@ -178,8 +428,8 @@ function SortableFieldCard({
               System
             </span>
           )}
-          {field.required && !field.system && (
-            <span className="text-[var(--danger,#ef4444)] text-xs font-bold">*</span>
+          {field.required && (
+            <span className="text-[var(--danger)] text-xs font-bold">*</span>
           )}
         </div>
 
@@ -192,6 +442,67 @@ function SortableFieldCard({
           <hr className="mt-3 border-[var(--border)]" />
         ) : field.type === 'paragraph' ? (
           <p className="mt-2 text-xs text-[var(--muted)]">{field.content || 'Paragraph text...'}</p>
+        ) : field.type === 'event_logo' ? (
+          <div className="mt-2 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]">
+            <img
+              src={mainImage}
+              alt=""
+              className="h-28 w-full object-cover"
+            />
+          </div>
+        ) : field.type === 'event_name' ? (
+          <div className="mt-2 text-sm font-semibold text-[var(--ink)]">
+            {localizedPreview(eventPreview?.name, locale, locale === 'ar' ? 'اسم الفعالية التجريبي' : 'Sample Event Name')}
+          </div>
+        ) : field.type === 'event_venue' ? (
+          <div className="mt-2 text-xs text-[var(--muted)]">
+            {venues.length > 0
+              ? venues.map((venue) => localizedPreview(venue.name, locale, 'Venue')).join(', ')
+              : (locale === 'ar' ? 'قاعة رئيسية — الرياض' : 'Main Hall — Riyadh')}
+          </div>
+        ) : field.type === 'event_dates' ? (
+          <div className="mt-2 text-xs text-[var(--muted)]">
+            {startLabel || endLabel
+              ? [startLabel, endLabel].filter(Boolean).join(' — ')
+              : (locale === 'ar' ? '١٥ أغسطس ٢٠٢٦ — ١٧ أغسطس ٢٠٢٦' : 'Aug 15, 2026 — Aug 17, 2026')}
+          </div>
+        ) : field.type === 'event_description' ? (
+          <div className="mt-2 text-xs text-[var(--muted)] line-clamp-3">
+            {localizedPreview(
+              eventPreview?.description,
+              locale,
+              locale === 'ar'
+                ? 'وصف تجريبي للفعالية يظهر هنا حتى يتمكن المنظم من معاينة التخطيط.'
+                : 'Sample event description appears here so organizers can preview the layout.',
+            )}
+          </div>
+        ) : field.type === 'event_categories' ? (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {(categories.length > 0
+              ? categories
+              : [
+                  { id: 'sample-1', name: { en: 'VIP', ar: 'كبار الشخصيات' } },
+                  { id: 'sample-2', name: { en: 'General', ar: 'عام' } },
+                ]
+            ).map((category) => (
+              <span
+                key={category.id}
+                className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-2 py-0.5 text-[10px] text-[var(--ink)]"
+              >
+                {localizedPreview(category.name, locale, 'Category')}
+              </span>
+            ))}
+          </div>
+        ) : field.type === 'event_venue_select' ? (
+          <div className="mt-2">
+            <div className="h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 flex items-center">
+              <span className="text-xs text-[var(--muted)] truncate">
+                {venues.length > 0
+                  ? localizedPreview(venues[0].name, locale, 'Venue')
+                  : (locale === 'ar' ? 'اختر المكان / التاريخ' : 'Select venue / date')}
+              </span>
+            </div>
+          </div>
         ) : field.type !== 'hidden' && field.type !== 'consent' ? (
           <div className="mt-2">
             <div className="h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 flex items-center">
@@ -212,6 +523,7 @@ function SortableFieldCard({
 
 export default function RegistrationBuilder({
   event,
+  eventPreview = null,
   tenantId,
   formName: initialFormName,
   privacyNoticeVersion: initialPrivacy,
@@ -229,44 +541,65 @@ export default function RegistrationBuilder({
   const [termsVersion] = useState(initialTerms)
   const [submitting, setSubmitting] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [activeDragId, setActiveDragId] = useState<string | null>(null)
 
-  const [theme, setTheme] = useState<ThemeConfig>(initialTheme ?? {
-    primary_color: '#3b82f6',
-    accent_color: '#8b5cf6',
-    background_color: '#ffffff',
-    font_family: 'Inter',
-  })
+  const [theme, setTheme] = useState<ThemeConfig>(() => ({
+    primary_color: initialTheme?.primary_color || '#3b82f6',
+    accent_color: initialTheme?.accent_color || '#8b5cf6',
+    background_color: initialTheme?.background_color || '#ffffff',
+    background_mode: initialTheme?.background_mode
+      ?? (initialTheme?.background_image_path ? 'image' : 'solid'),
+    background_gradient: initialTheme?.background_gradient ?? {
+      type: 'linear',
+      angle: 160,
+      stops: [
+        { color: initialTheme?.background_color || '#ffffff', position: 0 },
+        { color: initialTheme?.accent_color || '#e2e8f0', position: 100 },
+      ],
+    },
+    background_image_path: initialTheme?.background_image_path ?? null,
+    background_image_url: initialTheme?.background_image_url ?? null,
+    font_family: initialTheme?.font_family || 'Inter',
+  }))
   const [showThemePanel, setShowThemePanel] = useState(false)
   const [showEmbedModal, setShowEmbedModal] = useState(false)
+  const [uploadingBackground, setUploadingBackground] = useState(false)
 
   const [fields, setFields] = useState<FormField[]>(() => {
-    const all = initialFields.map((f, i) => ({
-      id: `field_${i}_${f.key}`,
-      key: f.key,
-      type: f.type,
-      label_en: f.label_en,
-      label_ar: f.label_ar,
-      placeholder_en: f.placeholder_en ?? '',
-      placeholder_ar: f.placeholder_ar ?? '',
-      required: f.required,
-      width: (f.width as 'full' | 'half' | 'third') ?? 'full',
-      system: f.system,
-      options: f.options,
-      content: f.content ?? '',
+    const merged = mergeRegistrationFieldsWithSystemOrder(
+      initialFields.map((f, i) => ({
+        id: `field_${i}_${f.key}`,
+        key: f.key,
+        type: f.type,
+        label_en: f.label_en,
+        label_ar: f.label_ar,
+        placeholder_en: f.placeholder_en ?? '',
+        placeholder_ar: f.placeholder_ar ?? '',
+        required: f.required,
+        width: (f.width as 'full' | 'half' | 'third') ?? 'full',
+        system: f.system,
+        options: f.options,
+        content: f.content ?? '',
+        choice_style: f.choice_style ?? (STYLED_CHOICE_TYPES.has(f.type) ? defaultChoiceStyle(f.type) : null),
+        choice_color: f.choice_color ?? null,
+      })),
+    )
+
+    return merged.map((field, index) => ({
+      id: field.id ?? `field_${index}_${field.key}`,
+      key: field.key,
+      type: field.type,
+      label_en: field.label_en,
+      label_ar: field.label_ar,
+      placeholder_en: field.placeholder_en ?? '',
+      placeholder_ar: field.placeholder_ar ?? '',
+      required: Boolean(field.required),
+      width: (field.width as 'full' | 'half' | 'third') ?? 'full',
+      system: Boolean(field.system) || isRegistrationSystemFieldKey(field.key),
+      options: field.options as FieldOptionRow[] | undefined,
+      content: field.content ?? '',
+      choice_style: field.choice_style ?? (STYLED_CHOICE_TYPES.has(field.type) ? defaultChoiceStyle(field.type) : null),
+      choice_color: field.choice_color ?? null,
     }))
-    const { customFields } = splitRegistrationFields(all)
-    const systemFields: FormField[] = REGISTRATION_SYSTEM_FIELDS.map((sf, i) => ({
-      id: `sys_${i}_${sf.key}`,
-      key: sf.key,
-      type: sf.type,
-      label_en: sf.label_en,
-      label_ar: sf.label_ar,
-      required: true,
-      width: 'full' as const,
-      system: true,
-    }))
-    return [...systemFields, ...customFields]
   })
 
   const selected = fields.find((f) => f.id === selectedId) ?? null
@@ -275,21 +608,39 @@ export default function RegistrationBuilder({
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   )
 
+  const pageBackgroundStyle = useMemo((): CSSProperties => {
+    if (theme.background_mode === 'image' && theme.background_image_url) {
+      return {
+        backgroundImage: `url(${theme.background_image_url})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }
+    }
+    if (theme.background_mode === 'gradient' && theme.background_gradient) {
+      const stops = [...theme.background_gradient.stops]
+        .sort((a, b) => a.position - b.position)
+        .map((stop) => `${stop.color} ${stop.position}%`)
+        .join(', ')
+      return {
+        backgroundImage: `linear-gradient(${theme.background_gradient.angle}deg, ${stops})`,
+      }
+    }
+    return {
+      backgroundColor: theme.background_color || 'var(--surface)',
+    }
+  }, [theme])
+
   const canvasStyle = useMemo(() => ({
-    backgroundColor: theme.background_color || '#ffffff',
-    fontFamily: theme.font_family || 'Inter',
-    '--reg-primary': theme.primary_color || '#3b82f6',
-    '--reg-accent': theme.accent_color || '#8b5cf6',
-  } as React.CSSProperties), [theme])
+    fontFamily: registrationFontFamily(theme.font_family) || 'Inter, system-ui, sans-serif',
+    '--reg-font': registrationFontFamily(theme.font_family) || 'Inter, system-ui, sans-serif',
+    '--reg-primary': theme.primary_color || 'var(--brand)',
+    '--reg-accent': theme.accent_color || 'var(--brand)',
+  } as CSSProperties), [theme])
 
   /* ---- DnD handlers ---- */
 
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    setActiveDragId(String(event.active.id))
-  }, [])
-
   const handleDragEnd = useCallback((event: DragEndEvent) => {
-    setActiveDragId(null)
     const { active, over } = event
     if (!over || active.id === over.id) return
 
@@ -297,18 +648,29 @@ export default function RegistrationBuilder({
       const oldIndex = prev.findIndex((f) => f.id === active.id)
       const newIndex = prev.findIndex((f) => f.id === over.id)
       if (oldIndex === -1 || newIndex === -1) return prev
-      const systemCount = prev.filter((f) => f.system).length
-      if (oldIndex < systemCount || newIndex < systemCount) return prev
       return arrayMove(prev, oldIndex, newIndex)
     })
   }, [])
 
   /* ---- Field CRUD ---- */
 
+  const usedEventInfoTypes = useMemo(
+    () => new Set(fields.filter((f) => EVENT_DISPLAY_TYPES.has(f.type)).map((f) => f.type)),
+    [fields],
+  )
+
   const addField = (type: string) => {
+    if (EVENT_DISPLAY_TYPES.has(type) && usedEventInfoTypes.has(type)) {
+      return
+    }
+
     const labelEn = TYPE_LABELS[type]?.en ?? type
     const labelAr = TYPE_LABELS[type]?.ar ?? type
-    const key = LAYOUT_TYPES.has(type) ? `${type}_${Date.now()}` : slugify(labelEn)
+    const key = EVENT_DISPLAY_TYPES.has(type)
+      ? type
+      : LAYOUT_TYPES.has(type)
+        ? `${type}_${Date.now()}_${++fieldIdCounter}`
+        : slugify(labelEn)
     const newField: FormField = {
       id: nextFieldId(),
       key,
@@ -322,6 +684,8 @@ export default function RegistrationBuilder({
         { id: 'opt_2', label_en: 'Option 2', label_ar: 'خيار 2' },
       ] : undefined,
       content: '',
+      choice_style: STYLED_CHOICE_TYPES.has(type) ? defaultChoiceStyle(type) : null,
+      choice_color: STYLED_CHOICE_TYPES.has(type) ? '#2563EB' : null,
     }
     setFields((prev) => [...prev, newField])
     setSelectedId(newField.id)
@@ -348,13 +712,18 @@ export default function RegistrationBuilder({
           type: f.type,
           label_en: f.label_en,
           label_ar: f.label_ar,
-          required: f.required,
+          required: f.system ? true : f.required,
           width: f.width,
           visibility: f.type === 'hidden' ? 'internal' : 'public',
+          system: Boolean(f.system),
         }
         if (f.placeholder_en) row.placeholder_en = f.placeholder_en
         if (f.placeholder_ar) row.placeholder_ar = f.placeholder_ar
         if (f.content) row.content = f.content
+        if (STYLED_CHOICE_TYPES.has(f.type)) {
+          row.choice_style = f.choice_style || defaultChoiceStyle(f.type)
+          row.choice_color = f.choice_color || '#2563EB'
+        }
         if (CHOICE_TYPES.has(f.type) && f.options) {
           row.options = f.options.map((o) => ({
             value: o.id, label_en: o.label_en, label_ar: o.label_ar,
@@ -364,7 +733,15 @@ export default function RegistrationBuilder({
       }),
       privacy_notice_version: privacyNoticeVersion,
       terms_version: termsVersion,
-      theme,
+      theme: {
+        primary_color: theme.primary_color,
+        accent_color: theme.accent_color,
+        background_color: theme.background_color,
+        background_mode: theme.background_mode,
+        background_gradient: theme.background_mode === 'gradient' ? theme.background_gradient : null,
+        background_image_path: theme.background_image_path,
+        font_family: theme.font_family,
+      },
     }
 
     try {
@@ -373,7 +750,18 @@ export default function RegistrationBuilder({
       })
       await apiFetch(`/api/v1/tenant/events/${event.id}/branding`, {
         method: 'PUT', tenantId, idempotency: true,
-        body: { theme_config: theme },
+        body: {
+          theme_config: {
+            primary_color: theme.primary_color,
+            accent_color: theme.accent_color,
+            background_color: theme.background_color,
+            background_mode: theme.background_mode,
+            background_gradient: theme.background_mode === 'gradient' ? theme.background_gradient : null,
+            background_image_path: theme.background_image_path,
+            clear_background_image: theme.background_mode !== 'image' || !theme.background_image_path,
+            font_family: theme.font_family,
+          },
+        },
       })
       toast(t('registrationBuilderSavedPublished'), 'success')
       router.reload()
@@ -382,6 +770,31 @@ export default function RegistrationBuilder({
       toast(msg, 'error')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleBackgroundUpload = async (file: File | null) => {
+    if (!file) return
+    setUploadingBackground(true)
+    try {
+      const body = new FormData()
+      body.append('background_image', file)
+      const result = await apiFetch<{ theme_config: ThemeConfig }>(
+        `/api/v1/tenant/events/${event.id}/branding/background`,
+        { method: 'POST', tenantId, idempotency: true, body },
+      )
+      const next = result.theme_config
+      setTheme((current) => ({
+        ...current,
+        background_mode: 'image',
+        background_image_path: next.background_image_path ?? current.background_image_path,
+        background_image_url: next.background_image_url ?? current.background_image_url,
+      }))
+      toast(t('saved'), 'success')
+    } catch (caught) {
+      toast(caught instanceof ApiFetchError ? caught.message : t('requestFailed'), 'error')
+    } finally {
+      setUploadingBackground(false)
     }
   }
 
@@ -406,11 +819,11 @@ export default function RegistrationBuilder({
       />
       <div className="-mx-4 sm:-mx-6 lg:-mx-8 mb-[-1rem] sm:mb-[-1.5rem] lg:mb-[-2rem] flex h-[calc(100vh-12rem)] flex-col overflow-hidden sm:h-[calc(100vh-13rem)]">
         {/* Top Toolbar */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border,#e2e8f0)] bg-[var(--surface-elevated,#ffffff)] px-3 py-2 sm:px-4">
+        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 sm:px-4">
           <input
             value={formName}
             onChange={(e) => setFormName(e.target.value)}
-            className="w-44 sm:w-52 rounded-lg border border-[var(--border,#e2e8f0)] bg-[var(--surface,#f8fafc)] px-2.5 py-1.5 text-sm font-medium text-[var(--ink,#1e293b)] focus:border-[var(--brand,#3b82f6)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]/20"
+            className="w-44 sm:w-52 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-sm font-medium text-[var(--ink)] focus:border-[var(--brand)] focus:outline-none focus:ring-1 focus:ring-[var(--brand)]/20"
             placeholder={t('registrationBuilderFormName')}
           />
           <div className="flex-1" />
@@ -418,7 +831,7 @@ export default function RegistrationBuilder({
           <button
             type="button"
             onClick={() => setShowThemePanel(true)}
-            className="hidden sm:flex items-center gap-1.5 rounded-lg border border-[var(--border,#e2e8f0)] px-3 py-1.5 text-sm text-[var(--muted,#64748b)] transition hover:border-[var(--brand,#3b82f6)]/30 hover:bg-[var(--brand-soft,#eff6ff)] hover:text-[var(--brand,#3b82f6)]"
+            className="hidden sm:flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-[var(--muted)] transition hover:border-[var(--brand)]/40 hover:bg-[color-mix(in_srgb,var(--brand)_10%,transparent)] hover:text-[var(--brand)]"
           >
             <Palette size={14} />
             {t('registrationBuilderTheme')}
@@ -427,17 +840,17 @@ export default function RegistrationBuilder({
           <button
             type="button"
             onClick={() => setShowEmbedModal(true)}
-            className="hidden sm:flex items-center gap-1.5 rounded-lg border border-[var(--border,#e2e8f0)] px-3 py-1.5 text-sm text-[var(--muted,#64748b)] transition hover:border-[var(--brand,#3b82f6)]/30 hover:bg-[var(--brand-soft,#eff6ff)] hover:text-[var(--brand,#3b82f6)]"
+            className="hidden sm:flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-[var(--muted)] transition hover:border-[var(--brand)]/40 hover:bg-[color-mix(in_srgb,var(--brand)_10%,transparent)] hover:text-[var(--brand)]"
           >
             <Code size={14} />
             {t('registrationBuilderEmbed')}
           </button>
 
           <a
-            href={`/${locale}/events/${event.slug || event.id}/register`}
+            href={`/${locale}/tenant/events/${event.id}/registration-preview`}
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden sm:flex items-center gap-1.5 rounded-lg border border-[var(--border,#e2e8f0)] px-3 py-1.5 text-sm text-[var(--muted,#64748b)] transition hover:border-[var(--brand,#3b82f6)]/30 hover:bg-[var(--brand-soft,#eff6ff)] hover:text-[var(--brand,#3b82f6)]"
+            className="hidden sm:flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-[var(--muted)] transition hover:border-[var(--brand)]/40 hover:bg-[color-mix(in_srgb,var(--brand)_10%,transparent)] hover:text-[var(--brand)]"
           >
             <Eye size={14} />
             {t('registrationBuilderPreview')}
@@ -447,7 +860,7 @@ export default function RegistrationBuilder({
             type="button"
             onClick={handleSave}
             disabled={submitting}
-            className="flex items-center gap-1.5 rounded-lg bg-[var(--brand,#3b82f6)] px-4 py-1.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg bg-[var(--brand)] px-4 py-1.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
           >
             <Save size={14} />
             {submitting ? t('registrationBuilderSaving') : t('registrationBuilderSavePublish')}
@@ -473,16 +886,24 @@ export default function RegistrationBuilder({
                 <div className="space-y-0.5">
                   {cat.types.map((type) => {
                     const Icon = FIELD_TYPE_ICONS[type] ?? Type
+                    const alreadyAdded = EVENT_DISPLAY_TYPES.has(type) && usedEventInfoTypes.has(type)
                     return (
                       <button
                         key={type}
                         type="button"
+                        disabled={alreadyAdded}
                         onClick={() => addField(type)}
-                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-[var(--ink)] transition hover:bg-[var(--surface-elevated)] hover:shadow-sm"
+                        className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition ${
+                          alreadyAdded
+                            ? 'cursor-not-allowed text-[var(--muted)] opacity-50'
+                            : 'text-[var(--ink)] hover:bg-[var(--surface-elevated)] hover:shadow-sm'
+                        }`}
                       >
                         <Icon size={14} className="text-[var(--muted)] shrink-0" />
                         <span className="truncate">{locale === 'ar' ? TYPE_LABELS[type]?.ar : TYPE_LABELS[type]?.en}</span>
-                        <Plus size={12} className="ms-auto text-[var(--muted)] opacity-50" />
+                        {!alreadyAdded && (
+                          <Plus size={12} className="ms-auto text-[var(--muted)] opacity-50" />
+                        )}
                       </button>
                     )
                   })}
@@ -492,29 +913,24 @@ export default function RegistrationBuilder({
           </aside>
 
           {/* CENTER: Canvas */}
-          <div className="flex-1 overflow-y-auto bg-[var(--surface)] p-4 lg:p-6">
+          <div className="flex-1 overflow-y-auto p-4 lg:p-6">
             <div
-              className="mx-auto max-w-2xl rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-5 lg:p-6 shadow-sm"
-              style={canvasStyle}
+              className="registration-builder-canvas mx-auto max-w-2xl rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)]/95 p-5 lg:p-6 shadow-lg backdrop-blur-sm"
+              style={{
+                ...canvasStyle,
+                ...(pageBackgroundStyle || {}),
+              }}
             >
-              {/* Form header preview */}
-              <div className="mb-6 text-center">
-                <h2 className="text-xl font-bold text-[var(--ink)]" style={{ color: theme.primary_color }}>
-                  {locale === 'ar' ? event.name.ar : event.name.en}
-                </h2>
-                <p className="mt-1 text-sm text-[var(--muted)]">{formName}</p>
-              </div>
 
               <DndContext
                 id={dndId}
                 sensors={sensors}
                 collisionDetection={closestCenter}
-                onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
               >
                 <SortableContext
                   items={fields.map((f) => f.id)}
-                  strategy={verticalListSortingStrategy}
+                  strategy={rectSortingStrategy}
                 >
                   <div className="flex flex-wrap -m-1">
                     {fields.map((field) => (
@@ -524,23 +940,14 @@ export default function RegistrationBuilder({
                         selected={field.id === selectedId}
                         onSelect={() => setSelectedId(field.id)}
                         locale={locale}
+                        eventPreview={eventPreview}
                       />
                     ))}
                   </div>
                 </SortableContext>
-
-                <DragOverlay>
-                  {activeDragId ? (
-                    <div className="rounded-lg border border-[var(--brand)]/30 bg-[var(--brand-soft)] p-3 shadow-lg opacity-90">
-                      <span className="text-sm font-medium text-[var(--brand)]">
-                        {fields.find((f) => f.id === activeDragId)?.label_en ?? ''}
-                      </span>
-                    </div>
-                  ) : null}
-                </DragOverlay>
               </DndContext>
 
-              {fields.filter((f) => !f.system).length === 0 && (
+              {fields.length === 0 && (
                 <div className="mt-4 rounded-xl border-2 border-dashed border-[var(--border)] p-8 text-center">
                   <Plus size={24} className="mx-auto mb-2 text-[var(--muted)] opacity-40" />
                   <p className="text-sm text-[var(--muted)]">
@@ -552,7 +959,7 @@ export default function RegistrationBuilder({
           </div>
 
           {/* RIGHT: Property Inspector */}
-          <aside className={`${selected ? 'w-72' : 'w-0 lg:w-72'} flex-shrink-0 overflow-y-auto overflow-x-hidden border-s border-[var(--border)] bg-[var(--surface-elevated)] transition-all duration-200`}>
+          <aside className={`flex-shrink-0 overflow-y-auto overflow-x-hidden border-s border-[var(--border)] bg-[var(--surface-elevated)] transition-all duration-200`}>
             <div className="p-4 min-w-[288px]">
             {selected ? (
               <div className="space-y-4">
@@ -566,9 +973,32 @@ export default function RegistrationBuilder({
                 </div>
 
                 {selected.system ? (
-                  <p className="rounded-lg bg-[var(--surface)] p-3 text-xs text-[var(--muted)]">
-                    {t('registrationBuilderSystemField')}
-                  </p>
+                  <div className="space-y-4">
+                    <p className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 text-xs text-[var(--muted)]">
+                      {t('registrationBuilderSystemField')}
+                    </p>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-[var(--muted)]">
+                        {t('registrationBuilderWidth')}
+                      </label>
+                      <div className="flex gap-1">
+                        {(['full', 'half', 'third'] as const).map((w) => (
+                          <button
+                            key={w}
+                            type="button"
+                            onClick={() => updateField(selected.id, { width: w })}
+                            className={`flex-1 rounded-lg border px-2 py-1.5 text-xs font-medium capitalize transition ${
+                              selected.width === w
+                                ? 'border-[var(--brand)] bg-[color-mix(in_srgb,var(--brand)_12%,transparent)] text-[var(--brand)]'
+                                : 'border-[var(--border)] text-[var(--muted)] hover:border-[var(--brand)]/40'
+                            }`}
+                          >
+                            {w}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                   <>
                     {/* Label EN */}
@@ -593,7 +1023,7 @@ export default function RegistrationBuilder({
                     </div>
 
                     {/* Placeholder */}
-                    {!LAYOUT_TYPES.has(selected.type) && selected.type !== 'consent' && (
+                    {!LAYOUT_TYPES.has(selected.type) && !EVENT_DISPLAY_TYPES.has(selected.type) && selected.type !== 'consent' && (
                       <>
                         <div>
                           <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Placeholder (EN)</label>
@@ -629,7 +1059,7 @@ export default function RegistrationBuilder({
                     )}
 
                     {/* Required toggle */}
-                    {!LAYOUT_TYPES.has(selected.type) && (
+                    {!LAYOUT_TYPES.has(selected.type) && !EVENT_DISPLAY_TYPES.has(selected.type) && (
                       <label className="flex items-center gap-2.5 cursor-pointer">
                         <input
                           type="checkbox"
@@ -665,6 +1095,79 @@ export default function RegistrationBuilder({
                         ))}
                       </div>
                     </div>
+
+                    {/* Choice style + color (checkbox / radio) */}
+                    {STYLED_CHOICE_TYPES.has(selected.type) && (
+                      <>
+                        <div>
+                          <label className="mb-1.5 block text-xs font-medium text-[var(--muted)]">
+                            {t('registrationBuilderChoiceStyle')}
+                          </label>
+                          <div className="grid grid-cols-1 gap-1.5">
+                            {(selected.type === 'radio' ? RADIO_STYLES : CHECKBOX_STYLES).map((style) => {
+                              const active = (selected.choice_style || defaultChoiceStyle(selected.type)) === style.value
+                              return (
+                                <button
+                                  key={style.value}
+                                  type="button"
+                                  onClick={() => updateField(selected.id, { choice_style: style.value })}
+                                  className={`rounded-xl px-2.5 py-2 text-start transition ${
+                                    active
+                                      ? 'border-2 border-[var(--brand)] bg-[var(--brand)]/5 shadow-sm'
+                                      : 'border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--brand)]/40'
+                                  }`}
+                                >
+                                  <span className="mb-1.5 block text-[11px] font-semibold text-[var(--ink)]">
+                                    {t(style.labelKey)}
+                                  </span>
+                                  <ChoiceStylePreview
+                                    style={style.value}
+                                    color={selected.choice_color || '#2563EB'}
+                                    fieldType={selected.type}
+                                  />
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="mb-1.5 block text-xs font-medium text-[var(--muted)]">
+                            {t('registrationBuilderChoiceColor')}
+                          </label>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {CHOICE_COLOR_PRESETS.map((color) => {
+                              const active = (selected.choice_color || '').toUpperCase() === color
+                              return (
+                                <button
+                                  key={color}
+                                  type="button"
+                                  title={color}
+                                  onClick={() => updateField(selected.id, { choice_color: color })}
+                                  className={`h-7 w-7 rounded-full border-2 transition ${
+                                    active ? 'border-[var(--ink)] scale-110' : 'border-transparent'
+                                  }`}
+                                  style={{ backgroundColor: color }}
+                                />
+                              )
+                            })}
+                            <label className="relative h-7 w-7 overflow-hidden rounded-full border border-[var(--border)] cursor-pointer">
+                              <span className="sr-only">{t('registrationBuilderChoiceColorCustom')}</span>
+                              <input
+                                type="color"
+                                value={selected.choice_color || '#2563EB'}
+                                onChange={(e) => updateField(selected.id, { choice_color: e.target.value.toUpperCase() })}
+                                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                              />
+                              <span
+                                className="block h-full w-full"
+                                style={{ backgroundColor: selected.choice_color || '#2563EB' }}
+                              />
+                            </label>
+                          </div>
+                        </div>
+                      </>
+                    )}
 
                     {/* Options (for choice fields) */}
                     {CHOICE_TYPES.has(selected.type) && (
@@ -752,8 +1255,8 @@ export default function RegistrationBuilder({
       {/* Brand Theme Slide-over */}
       {showThemePanel && (
         <div className="fixed inset-0 z-50 flex">
-          <div className="flex-1 bg-black/20 backdrop-blur-sm" onClick={() => setShowThemePanel(false)} />
-          <div className="w-80 bg-[var(--surface-elevated)] shadow-2xl p-5 overflow-y-auto border-s border-[var(--border)]">
+          <div className="flex-1 bg-black/40 backdrop-blur-sm" onClick={() => setShowThemePanel(false)} />
+          <div className="w-80 sm:w-96 bg-[var(--surface-elevated)] shadow-2xl p-5 mt-16 overflow-y-auto border-s border-[var(--border)]">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-base font-semibold text-[var(--ink)]">
                 {t('registrationBuilderBrandTheme')}
@@ -772,12 +1275,12 @@ export default function RegistrationBuilder({
                   <input
                     type="color"
                     value={theme.primary_color}
-                    onChange={(e) => setTheme((t) => ({ ...t, primary_color: e.target.value }))}
-                    className="h-9 w-9 cursor-pointer rounded-lg border border-[var(--border)] p-0.5"
+                    onChange={(e) => setTheme((current) => ({ ...current, primary_color: e.target.value }))}
+                    className="h-9 w-9 cursor-pointer rounded-lg border border-[var(--border)] bg-transparent p-0.5"
                   />
                   <input
                     value={theme.primary_color}
-                    onChange={(e) => setTheme((t) => ({ ...t, primary_color: e.target.value }))}
+                    onChange={(e) => setTheme((current) => ({ ...current, primary_color: e.target.value }))}
                     className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-sm text-[var(--ink)] focus:border-[var(--brand)] focus:outline-none"
                   />
                 </div>
@@ -791,12 +1294,12 @@ export default function RegistrationBuilder({
                   <input
                     type="color"
                     value={theme.accent_color}
-                    onChange={(e) => setTheme((t) => ({ ...t, accent_color: e.target.value }))}
-                    className="h-9 w-9 cursor-pointer rounded-lg border border-[var(--border)] p-0.5"
+                    onChange={(e) => setTheme((current) => ({ ...current, accent_color: e.target.value }))}
+                    className="h-9 w-9 cursor-pointer rounded-lg border border-[var(--border)] bg-transparent p-0.5"
                   />
                   <input
                     value={theme.accent_color}
-                    onChange={(e) => setTheme((t) => ({ ...t, accent_color: e.target.value }))}
+                    onChange={(e) => setTheme((current) => ({ ...current, accent_color: e.target.value }))}
                     className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-sm text-[var(--ink)] focus:border-[var(--brand)] focus:outline-none"
                   />
                 </div>
@@ -804,21 +1307,151 @@ export default function RegistrationBuilder({
 
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-[var(--muted)]">
-                  {t('registrationBuilderBackgroundColor')}
+                  {t('registrationBuilderPageBackground')}
                 </label>
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="color"
-                    value={theme.background_color}
-                    onChange={(e) => setTheme((t) => ({ ...t, background_color: e.target.value }))}
-                    className="h-9 w-9 cursor-pointer rounded-lg border border-[var(--border)] p-0.5"
-                  />
-                  <input
-                    value={theme.background_color}
-                    onChange={(e) => setTheme((t) => ({ ...t, background_color: e.target.value }))}
-                    className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-sm text-[var(--ink)] focus:border-[var(--brand)] focus:outline-none"
-                  />
+                <div className="mb-3 flex gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1">
+                  {([
+                    { id: 'solid', label: t('registrationBuilderBgSolid') },
+                    { id: 'gradient', label: t('registrationBuilderBgGradient') },
+                    { id: 'image', label: t('registrationBuilderBgImage') },
+                  ] as const).map((mode) => (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      onClick={() => setTheme((current) => ({ ...current, background_mode: mode.id }))}
+                      className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition ${
+                        theme.background_mode === mode.id
+                          ? 'bg-[var(--surface-elevated)] text-[var(--ink)] shadow-sm'
+                          : 'text-[var(--muted)] hover:text-[var(--ink)]'
+                      }`}
+                    >
+                      {mode.label}
+                    </button>
+                  ))}
                 </div>
+
+                {theme.background_mode === 'solid' ? (
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="color"
+                      value={theme.background_color}
+                      onChange={(e) => setTheme((current) => ({ ...current, background_color: e.target.value }))}
+                      className="h-9 w-9 cursor-pointer rounded-lg border border-[var(--border)] bg-transparent p-0.5"
+                    />
+                    <input
+                      value={theme.background_color}
+                      onChange={(e) => setTheme((current) => ({ ...current, background_color: e.target.value }))}
+                      className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-sm text-[var(--ink)] focus:border-[var(--brand)] focus:outline-none"
+                    />
+                  </div>
+                ) : null}
+
+                {theme.background_mode === 'gradient' && theme.background_gradient ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs text-[var(--muted)]">{t('registrationBuilderBgFrom')}</span>
+                      <input
+                        type="color"
+                        value={theme.background_gradient.stops[0]?.color ?? theme.background_color}
+                        onChange={(e) => setTheme((current) => ({
+                          ...current,
+                          background_gradient: {
+                            type: 'linear',
+                            angle: current.background_gradient?.angle ?? 160,
+                            stops: [
+                              { color: e.target.value, position: 0 },
+                              current.background_gradient?.stops[1] ?? { color: '#e2e8f0', position: 100 },
+                            ],
+                          },
+                        }))}
+                        className="h-8 w-12 cursor-pointer rounded border border-[var(--border)] bg-transparent"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs text-[var(--muted)]">{t('registrationBuilderBgTo')}</span>
+                      <input
+                        type="color"
+                        value={theme.background_gradient.stops[1]?.color ?? '#e2e8f0'}
+                        onChange={(e) => setTheme((current) => ({
+                          ...current,
+                          background_gradient: {
+                            type: 'linear',
+                            angle: current.background_gradient?.angle ?? 160,
+                            stops: [
+                              current.background_gradient?.stops[0] ?? { color: current.background_color, position: 0 },
+                              { color: e.target.value, position: 100 },
+                            ],
+                          },
+                        }))}
+                        className="h-8 w-12 cursor-pointer rounded border border-[var(--border)] bg-transparent"
+                      />
+                    </div>
+                    <label className="flex items-center justify-between gap-3 text-xs text-[var(--muted)]">
+                      <span>{t('registrationBuilderBgAngle')}</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={360}
+                        value={Math.round(theme.background_gradient.angle)}
+                        onChange={(e) => setTheme((current) => ({
+                          ...current,
+                          background_gradient: {
+                            ...(current.background_gradient ?? {
+                              type: 'linear',
+                              angle: 160,
+                              stops: [
+                                { color: current.background_color, position: 0 },
+                                { color: '#e2e8f0', position: 100 },
+                              ],
+                            }),
+                            angle: Number(e.target.value) || 0,
+                          },
+                        }))}
+                        className="w-20 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-sm text-[var(--ink)]"
+                      />
+                    </label>
+                    <div className="h-10 w-full rounded-lg border border-[var(--border)]" style={pageBackgroundStyle} />
+                  </div>
+                ) : null}
+
+                {theme.background_mode === 'image' ? (
+                  <div className="space-y-3">
+                    {theme.background_image_url ? (
+                      <div
+                        className="h-24 w-full rounded-lg border border-[var(--border)] bg-cover bg-center"
+                        style={{ backgroundImage: `url(${theme.background_image_url})` }}
+                      />
+                    ) : (
+                      <div className="flex h-24 items-center justify-center rounded-lg border border-dashed border-[var(--border)] text-xs text-[var(--muted)]">
+                        {t('registrationBuilderNoBackgroundImage')}
+                      </div>
+                    )}
+                    <label className="flex cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-medium text-[var(--ink)] transition hover:border-[var(--brand)]/40">
+                      {uploadingBackground ? t('registrationBuilderUploading') : t('registrationBuilderUploadBackground')}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={uploadingBackground}
+                        onChange={(e) => void handleBackgroundUpload(e.target.files?.[0] ?? null)}
+                      />
+                    </label>
+                    {theme.background_image_path ? (
+                      <button
+                        type="button"
+                        className="w-full rounded-lg border border-[var(--danger)]/20 px-3 py-2 text-xs font-medium text-[var(--danger)]"
+                        onClick={() => setTheme((current) => ({
+                          ...current,
+                          background_mode: 'solid',
+                          background_image_path: null,
+                          background_image_url: null,
+                        }))}
+                      >
+                        {t('registrationBuilderClearBackground')}
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
 
               <div>
@@ -827,13 +1460,22 @@ export default function RegistrationBuilder({
                 </label>
                 <select
                   value={theme.font_family}
-                  onChange={(e) => setTheme((t) => ({ ...t, font_family: e.target.value }))}
+                  onChange={(e) => setTheme((current) => ({ ...current, font_family: e.target.value }))}
                   className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-2 text-sm text-[var(--ink)] focus:border-[var(--brand)] focus:outline-none"
+                  style={{ fontFamily: registrationFontFamily(theme.font_family) }}
                 >
-                  {FONT_OPTIONS.map((f) => (
-                    <option key={f} value={f}>{f}</option>
+                  {REGISTRATION_FONT_OPTIONS.map((font) => (
+                    <option key={font} value={font} style={{ fontFamily: registrationFontFamily(font) }}>
+                      {font}
+                    </option>
                   ))}
                 </select>
+                <p
+                  className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-2 text-sm text-[var(--ink)]"
+                  style={{ fontFamily: registrationFontFamily(theme.font_family) }}
+                >
+                  {t('registrationBuilderFontPreview')}
+                </p>
               </div>
             </div>
 

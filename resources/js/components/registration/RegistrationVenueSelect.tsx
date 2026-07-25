@@ -22,9 +22,12 @@ export default function RegistrationVenueSelect({ locale, venues, value, onChang
 
   return (
     <div className="registration-venue-select">
-      <label className="registration-venue-select-label" htmlFor="event_venue_id">
-        {rtl ? 'الموقع - التاريخ' : 'Location - Date'}
-      </label>
+      <div className="registration-venue-select-label">
+        <label htmlFor="event_venue_id">
+          {rtl ? 'الموقع - التاريخ' : 'Location - Date'}
+        </label>
+        <span className="registration-field-required" aria-hidden="true">*</span>
+      </div>
       <select
         id="event_venue_id"
         name="event_venue_id"
@@ -35,6 +38,7 @@ export default function RegistrationVenueSelect({ locale, venues, value, onChang
         disabled={disabled}
         data-form-field="event_venue_id"
         aria-invalid={error ? 'true' : undefined}
+        aria-required={!disabled}
       >
         <option value="">
           {rtl ? 'اختر تاريخ الفعالية' : 'Select Event Date'}

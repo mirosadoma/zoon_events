@@ -23,6 +23,8 @@ export interface BadgeTemplate {
   orientation?: string
   background_color?: string | null
   background_gradient?: BadgeBackgroundGradient | null
+  background_image_path?: string | null
+  background_image_url?: string | null
   canvas_width?: number | null
   canvas_height?: number | null
   status: 'draft' | 'active' | 'inactive'
@@ -40,6 +42,8 @@ export interface BadgePrintJob {
 
 export const BADGE_TEMPLATE_ALLOWED_FIELDS = [
   'attendee_name',
+  'email',
+  'phone',
   'company',
   'job_title',
   'qr',

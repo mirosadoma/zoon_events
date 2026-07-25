@@ -29,6 +29,14 @@ type VenueBlock = {
   days: DayRow[]
 }
 
+type CategoryPrivilege = {
+  id: string
+  key: string
+  label: string
+  label_ar: string
+  effect: string
+}
+
 type CategoryRow = {
   id: string
   name: string
@@ -36,10 +44,12 @@ type CategoryRow = {
   slug: string
   color: string | null
   enabled: boolean
+  is_complete: boolean
   is_paid: boolean
   price: string
   currency: string
   venues: VenueBlock[]
+  privileges: CategoryPrivilege[]
 }
 
 type Props = {
@@ -56,9 +66,11 @@ type Props = {
     slug: string
     color: string | null
     enabled: boolean
+    is_complete?: boolean
     is_paid: boolean
     price_minor?: number
     currency?: string
+    privileges?: CategoryPrivilege[]
     venues: Array<{
       event_venue_id: string
       days: Array<{ date: string; capacity: string }>
@@ -83,19 +95,8 @@ function toRows(
   categories: Props['categories'],
   eventDates: string[],
 ): CategoryRow[] {
-  return categories.map((category) => ({
-    id: category.id,
-    name: category.name,
-    name_ar: category.name_ar,
-    slug: category.slug,
-    color: category.color,
-    enabled: category.enabled,
-    is_paid: category.is_paid,
-    price: category.is_paid && (category.price_minor ?? 0) > 0
-      ? String(((category.price_minor ?? 0) / 100).toFixed(2)).replace(/\.00$/, '')
-      : '',
-    currency: category.currency || 'SAR',
-    venues: category.venues.map((venue, index) => ({
+  return categories.map((category) => {
+    const venues = category.venues.map((venue, index) => ({
       key: `${category.id}-${venue.event_venue_id}-${index}`,
       event_venue_id: venue.event_venue_id,
       days: eventDates.map((date) => {
@@ -106,8 +107,29 @@ function toRows(
           capacity: existing?.capacity ?? '',
         }
       }),
-    })),
-  }))
+    }))
+
+    const isComplete = category.enabled && venues.some(
+      (venue) => venue.event_venue_id !== '' && venue.days.length > 0,
+    )
+
+    return {
+      id: category.id,
+      name: category.name,
+      name_ar: category.name_ar,
+      slug: category.slug,
+      color: category.color,
+      enabled: category.enabled,
+      is_complete: Boolean(category.is_complete ?? isComplete),
+      is_paid: category.is_paid,
+      price: category.is_paid && (category.price_minor ?? 0) > 0
+        ? String(((category.price_minor ?? 0) / 100).toFixed(2)).replace(/\.00$/, '')
+        : '',
+      currency: category.currency || 'SAR',
+      privileges: category.privileges ?? [],
+      venues,
+    }
+  })
 }
 
 function emptyVenueBlock(eventDates: string[]): VenueBlock {
@@ -147,6 +169,8 @@ export default function CategoryAssignment({
     [locale, venues],
   )
 
+  const hasIncompleteEnabled = rows.some((row) => row.enabled && !row.is_complete)
+
   function toggleCategory(categoryId: string) {
     if (readOnly) {
       return
@@ -158,12 +182,13 @@ export default function CategoryAssignment({
       }
 
       if (row.enabled) {
-        return { ...row, enabled: false, is_paid: false, venues: [] }
+        return { ...row, enabled: false, is_complete: false, is_paid: false, venues: [] }
       }
 
       return {
         ...row,
         enabled: true,
+        is_complete: false,
         venues: row.venues.length > 0 ? row.venues : [emptyVenueBlock(eventDates)],
       }
     }))
@@ -310,6 +335,7 @@ export default function CategoryAssignment({
         body: payload,
       })
       toast(t('categoryAssignmentSaved'), 'success')
+      window.location.reload()
     } catch (caught) {
       setError(caught instanceof ApiFetchError ? caught.message : t('categoryCouldNotSave'))
     } finally {
@@ -362,6 +388,11 @@ export default function CategoryAssignment({
                 {t('categoryAssignmentLocked')}
               </div>
             ) : null}
+            {hasIncompleteEnabled ? (
+              <div className="rounded-[var(--radius-control)] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+                {t('categoryAssignmentIncompleteHint')}
+              </div>
+            ) : null}
             {error ? (
               <div className="rounded-[var(--radius-control)] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
                 {error}
@@ -402,19 +433,45 @@ export default function CategoryAssignment({
                           </span>
                         </span>
                       </span>
-                      <span className={clsx(
-                        'rounded-full px-2.5 py-1 text-xs font-medium',
-                        row.enabled
-                          ? 'bg-[var(--brand-soft)] text-[var(--brand)]'
-                          : 'bg-[var(--surface)] text-[var(--muted)]',
-                      )}
-                      >
-                        {row.enabled ? t('enabled') : t('disabled')}
+                      <span className="flex items-center gap-2">
+                        {row.enabled && !row.is_complete ? (
+                          <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                            {t('categoryAssignmentIncompleteBadge')}
+                          </span>
+                        ) : null}
+                        <span className={clsx(
+                          'rounded-full px-2.5 py-1 text-xs font-medium',
+                          row.enabled
+                            ? 'bg-[var(--brand-soft)] text-[var(--brand)]'
+                            : 'bg-[var(--surface)] text-[var(--muted)]',
+                        )}
+                        >
+                          {row.enabled ? t('enabled') : t('disabled')}
+                        </span>
                       </span>
                     </button>
 
                     {row.enabled ? (
                       <div className="space-y-4 border-t border-[var(--border)] px-4 py-4">
+                        <div className="rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] p-3">
+                          <p className="text-sm font-medium text-[var(--ink)]">{t('categoryAssignmentPrivileges')}</p>
+                          {row.privileges.length > 0 ? (
+                            <ul className="mt-2 flex flex-wrap gap-2">
+                              {row.privileges.map((privilege) => (
+                                <li
+                                  key={privilege.id}
+                                  className="rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-2.5 py-1 text-xs text-[var(--ink)]"
+                                >
+                                  {locale === 'ar' ? (privilege.label_ar || privilege.label) : privilege.label}
+                                  <span className="ms-1 text-[var(--muted)]">({privilege.effect})</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="mt-1 text-xs text-[var(--muted)]">{t('categoryAssignmentNoPrivileges')}</p>
+                          )}
+                        </div>
+
                         <div className="rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface)] p-3">
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <label className="flex cursor-pointer items-start gap-3 text-sm text-[var(--ink)]">
@@ -439,14 +496,14 @@ export default function CategoryAssignment({
                             </label>
 
                             {row.is_paid ? (
-                              <div className="sm:w-52">
+                              <div className="sm:w-56">
                                 <label className="grid gap-1.5 text-sm" htmlFor={`price-${row.id}`}>
                                   <span className="font-medium text-[var(--ink)]">
                                     {t('categoryAssignmentPrice')}
                                     <span className="ms-1 text-red-600">*</span>
                                   </span>
-                                  <span className="relative">
-                                    <span className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-xs font-semibold text-[var(--muted)]">
+                                  <span className="flex min-h-10 overflow-hidden rounded-[var(--radius-control)] border border-[var(--border)] bg-[var(--surface-elevated)] focus-within:border-[var(--brand)] focus-within:ring-2 focus-within:ring-[var(--brand)]/20">
+                                    <span className="flex shrink-0 items-center border-e border-[var(--border)] bg-[var(--surface)] px-3 text-xs font-semibold text-[var(--muted)]">
                                       {row.currency || 'SAR'}
                                     </span>
                                     <input
@@ -460,7 +517,7 @@ export default function CategoryAssignment({
                                       required
                                       placeholder="0.00"
                                       className={clsx(
-                                        'control w-full ps-12 focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20',
+                                        'min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-[var(--ink)] outline-none placeholder:text-[var(--muted)]',
                                         readOnly && 'opacity-70',
                                       )}
                                       onChange={(e) => updateCategory(row.id, { price: e.target.value })}

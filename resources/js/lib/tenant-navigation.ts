@@ -12,6 +12,7 @@ export function eventNavigationGroups(eventId: string, capabilities?: EventCapab
     { key: 'event-detail', label: 'eventDetail', href: base, permission: 'event.view' },
     { key: 'agenda', label: 'agenda', href: `${base}/agenda`, permission: 'event.manage' },
     { key: 'categories', label: 'eventCategories', href: `${base}/categories`, permission: 'category.view' },
+    { key: 'email-templates', label: 'emailTemplates', href: `${base}/email-templates`, permission: 'event.manage' },
     { key: 'registration-form', label: 'registrationForm', href: `${base}/registration-form`, permission: 'registration.manage' },
   ]
 

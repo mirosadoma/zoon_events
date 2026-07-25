@@ -32,6 +32,7 @@ use App\Modules\Orders\Infrastructure\Persistence\Models\Order;
 use App\Modules\Registration\Application\Queries\ResolvePublishedRegistrationForm;
 use App\Modules\Registration\Application\Support\RegistrationFieldPresenter;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationOtp;
+use App\Modules\Events\Application\Support\SendRegistrationOtpMail;
 use App\Modules\Registration\Mail\RegistrationOtpMail;
 use App\Modules\Identity\Application\Actions\CreateOrLinkVisitorAccount;
 use App\Modules\Shared\Application\DataProtection\BlindIndex;
@@ -43,6 +44,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -129,6 +131,14 @@ final class PublicEventRegistrationController extends Controller
         $otp = $this->findActiveOtp($event, $token);
         $resolvedLocale = $locale === 'ar' ? 'ar' : 'en';
 
+        /** @var array<string, mixed> $payload */
+        $payload = $otp->payload;
+        $inviteCode = isset($payload['invite_code']) ? (string) $payload['invite_code'] : null;
+        $registerUrl = "/{$resolvedLocale}/events/{$event->slug}/register";
+        if ($inviteCode !== null) {
+            $registerUrl .= '?invite='.$inviteCode;
+        }
+
         return Inertia::render('public/registration/Otp', [
             'locale' => $resolvedLocale,
             'event' => [
@@ -139,8 +149,47 @@ final class PublicEventRegistrationController extends Controller
             'email' => $this->maskEmail((string) $otp->email),
             'token' => $otp->token,
             'submitUrl' => "/{$resolvedLocale}/events/{$event->slug}/register/otp/{$otp->token}",
-            'registerUrl' => "/{$resolvedLocale}/events/{$event->slug}/register",
+            'resendUrl' => "/{$resolvedLocale}/events/{$event->slug}/register/otp/{$otp->token}/resend",
+            'registerUrl' => $registerUrl,
         ]);
+    }
+
+    public function resendOtp(Request $request, string $locale, string $eventSlug, string $token): JsonResponse
+    {
+        $event = $this->shareableEvents->findBySlug($eventSlug);
+        $otp = $this->findActiveOtp($event, $token);
+        $resolvedLocale = $locale === 'ar' ? 'ar' : 'en';
+
+        $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $otp->forceFill([
+            'code_hash' => hash('sha256', $code),
+            'expires_at' => now()->addMinutes(15),
+            'attempts' => 0,
+        ])->save();
+
+        $eventName = $resolvedLocale === 'ar'
+            ? ($event->name_ar ?: $event->name_en)
+            : $event->name_en;
+
+        try {
+            app(SendRegistrationOtpMail::class)->execute($event, (string) $otp->email, $code, $resolvedLocale);
+        } catch (Throwable $exception) {
+            Log::warning('public_registration.otp_resend_failed', [
+                'event_id' => $event->id,
+                'token' => $token,
+                'reason' => $exception->getMessage(),
+            ]);
+        }
+
+        if (app()->environment('local')) {
+            Log::info('public_registration.otp_resend_code', [
+                'token' => $token,
+                'code' => $code,
+                'email' => $otp->email,
+            ]);
+        }
+
+        return $this->success(['message' => 'OTP resent successfully.']);
     }
 
     public function verifyOtp(Request $request, string $locale, string $eventSlug, string $token): JsonResponse
@@ -409,11 +458,18 @@ final class PublicEventRegistrationController extends Controller
         return Inertia::render('public/registration/Confirmation', [
             'locale' => $resolvedLocale,
             'reference' => $order->public_reference,
+            'eventSlug' => $event->slug,
             'eventName' => $resolvedLocale === 'ar' ? ($event->name_ar ?: $event->name_en) : $event->name_en,
             'attendeeName' => $this->resolveAttendeeName($attendee),
             'qrPayload' => $order->public_reference,
             'accessToken' => $accessToken !== '' ? $accessToken : null,
             'credentialStatus' => 'active',
+            'badgeDownloadPngUrl' => $accessToken !== ''
+                ? "/{$resolvedLocale}/events/{$event->slug}/register/badge/{$order->public_reference}/png?access_token=".urlencode($accessToken)
+                : null,
+            'badgeDownloadPdfUrl' => $accessToken !== ''
+                ? "/{$resolvedLocale}/events/{$event->slug}/register/badge/{$order->public_reference}/pdf?access_token=".urlencode($accessToken)
+                : null,
         ]);
     }
 
@@ -434,6 +490,32 @@ final class PublicEventRegistrationController extends Controller
         } catch (Throwable) {
             return 'Participant';
         }
+    }
+
+    /** @param  mixed  $theme */
+    private function presentRegistrationTheme(mixed $theme): ?array
+    {
+        if (! is_array($theme)) {
+            return null;
+        }
+
+        $path = is_string($theme['background_image_path'] ?? null) ? $theme['background_image_path'] : null;
+        if ($path !== null && $path !== '') {
+            $url = Storage::disk('public')->url($path);
+            $theme['background_image_url'] = str_starts_with($url, 'http://') || str_starts_with($url, 'https://')
+                ? $url
+                : url($url);
+        }
+
+        $logoPath = is_string($theme['logo_path'] ?? null) ? $theme['logo_path'] : null;
+        if ($logoPath !== null && $logoPath !== '') {
+            $logoUrl = Storage::disk('public')->url($logoPath);
+            $theme['logo_url'] = str_starts_with($logoUrl, 'http://') || str_starts_with($logoUrl, 'https://')
+                ? $logoUrl
+                : url($logoUrl);
+        }
+
+        return $theme;
     }
 
     private function renderRegistrationPage(string $locale, Event $event, ?EventRegistrationInvite $invite = null): Response
@@ -499,24 +581,37 @@ final class PublicEventRegistrationController extends Controller
                 'terms_version' => (string) ($formVersion->terms_version ?? 'v1'),
             ],
             'categories' => $invite !== null ? [] : $categoryPayload,
-            'requiresCategorySelection' => $invite === null,
+            'requiresCategorySelection' => $invite === null && $this->formHasType($formVersion->fields, 'event_categories'),
+            'requiresVenueSelection' => EventVenue::query()
+                ->where('tenant_id', $event->tenant_id)
+                ->where('event_id', $event->id)
+                ->exists(),
             'ticketTypes' => [],
             'requiresTicketSelection' => false,
             'isPreview' => false,
             'submitUrl' => $submitUrl,
-            'theme' => $branding?->theme_config,
+            'theme' => $this->presentRegistrationTheme($branding?->theme_config),
             'inviteCode' => $invite?->code,
             'lockedEmail' => $invite?->email,
+            'prefillName' => filled($invite?->name) ? (string) $invite->name : null,
         ]);
     }
 
     private function storeRegistrationDraft(Request $request, string $locale, Event $event, ?EventRegistrationInvite $invite = null): JsonResponse
     {
-        $categoryRequired = $invite === null;
+        $formVersion = $this->publishedForms->forEvent($event);
+        $categoryRequired = $invite === null && $this->formHasType($formVersion->fields, 'event_categories');
+        $hasVenues = EventVenue::query()
+            ->where('tenant_id', $event->tenant_id)
+            ->where('event_id', $event->id)
+            ->exists();
+        // Location - Date is always required when the event has venues.
+        $venueRequired = $hasVenues;
+
         $validated = $request->validate([
             'form_version_id' => ['required'],
             'event_category_id' => [$categoryRequired ? 'required' : 'nullable', 'integer', 'exists:event_categories,id'],
-            'event_venue_id' => ['nullable', 'string', 'max:64'],
+            'event_venue_id' => [$venueRequired ? 'required' : 'nullable', 'string', 'max:64'],
             'invite_code' => ['nullable', 'string', 'size:10'],
             'buyer' => ['required', 'array'],
             'buyer.first_name' => ['required', 'string', 'max:120'],
@@ -550,11 +645,7 @@ final class PublicEventRegistrationController extends Controller
             $this->categoryCapacity->assertCategoryAvailable($event, $category);
         }
 
-        if (EventVenue::query()
-            ->where('tenant_id', $event->tenant_id)
-            ->where('event_id', $event->id)
-            ->exists()
-            && (($validated['event_venue_id'] ?? '') === '')) {
+        if ($venueRequired && (($validated['event_venue_id'] ?? '') === '')) {
             throw ValidationException::withMessages([
                 'event_venue_id' => ['Please select a location and date.'],
             ]);
@@ -640,7 +731,7 @@ final class PublicEventRegistrationController extends Controller
             : $event->name_en;
 
         try {
-            Mail::to($attendee['email'])->send(new RegistrationOtpMail($code, $eventName, $resolvedLocale));
+            app(SendRegistrationOtpMail::class)->execute($event, (string) $attendee['email'], $code, $resolvedLocale);
         } catch (Throwable $exception) {
             Log::warning('public_registration.otp_mail_failed', [
                 'event_id' => $event->id,
@@ -888,6 +979,22 @@ final class PublicEventRegistrationController extends Controller
             'email' => mb_strtolower(trim((string) ($person['email'] ?? ''))),
             'phone' => isset($person['phone']) ? trim(strip_tags((string) $person['phone'])) : null,
         ], fn ($value) => $value !== null && $value !== '');
+    }
+
+    /** @param  mixed  $fields */
+    private function formHasType(mixed $fields, string $type): bool
+    {
+        if (! is_array($fields)) {
+            return false;
+        }
+
+        foreach ($fields as $field) {
+            if (is_array($field) && ($field['type'] ?? '') === $type) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function deliverPendingNotifications(string $tenantId, string $orderId): void

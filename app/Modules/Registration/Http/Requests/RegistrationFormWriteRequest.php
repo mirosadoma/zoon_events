@@ -20,6 +20,8 @@ final class RegistrationFormWriteRequest extends FormRequest
             'fields.*.required' => ['sometimes', 'boolean'],
             'fields.*.visibility' => ['sometimes', 'in:public,internal'],
             'fields.*.width' => ['sometimes', 'in:full,half,third'],
+            'fields.*.choice_style' => ['sometimes', 'nullable', 'string', 'in:square,circle,toggle,pill,card,button'],
+            'fields.*.choice_color' => ['sometimes', 'nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'fields.*.condition' => ['sometimes', 'array'],
             'fields.*.help_en' => ['sometimes', 'nullable', 'string', 'max:500'],
             'fields.*.help_ar' => ['sometimes', 'nullable', 'string', 'max:500'],
@@ -37,7 +39,10 @@ final class RegistrationFormWriteRequest extends FormRequest
             'theme.primary_color' => ['sometimes', 'nullable', 'string', 'max:7'],
             'theme.accent_color' => ['sometimes', 'nullable', 'string', 'max:7'],
             'theme.background_color' => ['sometimes', 'nullable', 'string', 'max:7'],
-            'theme.font_family' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'theme.background_mode' => ['sometimes', 'nullable', 'string', 'in:solid,gradient,image'],
+            'theme.background_gradient' => ['sometimes', 'nullable', 'array'],
+            'theme.background_image_path' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'theme.font_family' => ['sometimes', 'nullable', 'string', 'max:80'],
         ];
     }
 }

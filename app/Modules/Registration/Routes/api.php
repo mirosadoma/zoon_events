@@ -19,6 +19,7 @@ Route::prefix('tenant/events/{event_id}')
         Route::get('/embed-code', EmbedCodeController::class);
         Route::get('/branding', [EventBrandingController::class, 'show']);
         Route::put('/branding', [EventBrandingController::class, 'update'])->middleware('idempotency');
+        Route::post('/branding/background', [EventBrandingController::class, 'uploadBackground'])->middleware('idempotency');
     });
 
 Route::post('tenant/events/{event_id}/registration-preview', [PreviewRegistrationController::class, 'store'])

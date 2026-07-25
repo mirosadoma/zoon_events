@@ -49,7 +49,7 @@ export default function PublicEventAgenda({ locale, event, items, registerUrl, i
               {t('publicRegistrationPreviewBanner')}
             </div>
           ) : null}
-          <RegistrationEventHero locale={locale} event={event} />
+          <RegistrationEventHero locale={locale} event={event} showEventHeader />
 
           <section className="registration-agenda-panel" aria-labelledby="event-agenda-title">
             <h2 id="event-agenda-title" className="registration-agenda-title">

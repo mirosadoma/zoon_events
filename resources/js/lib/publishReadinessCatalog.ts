@@ -9,6 +9,8 @@ function msg(locale: AppLocale) {
 export type PublishReadinessContext = {
   status?: string
   requiresTicketing?: boolean
+  emailTemplatesConfigured?: number
+  emailTemplatesRequired?: number
 }
 
 type ReadinessEntry = {
@@ -57,6 +59,11 @@ export const publishReadinessLabels: Record<string, ReadinessEntry> = {
     ar: 'تاريخ ووقت إغلاق التسجيل',
     href: (eventId) => editSection(eventId, 'event-setup-schedule'),
   },
+  event_venues: {
+    en: 'At least one venue with schedule',
+    ar: 'موقع واحد على الأقل مع جدول زمني',
+    href: (eventId) => `/tenant/events/${eventId}#venues`,
+  },
   published_agenda: {
     en: 'Published agenda',
     ar: 'أجندة منشورة',
@@ -90,6 +97,11 @@ export const publishReadinessLabels: Record<string, ReadinessEntry> = {
     en: 'Active custom badge template',
     ar: 'قالب شارة مخصص نشط',
     href: (eventId) => `/tenant/events/${eventId}/badge-templates`,
+  },
+  email_templates: {
+    en: 'All email templates (invitation, OTP, confirmation)',
+    ar: 'كل قوالب البريد (دعوة، رمز تحقق، تأكيد)',
+    href: (eventId) => `/tenant/events/${eventId}/email-templates`,
   },
   valid_timezone: {
     en: 'Valid timezone identifier',
@@ -132,9 +144,9 @@ export const publishReadinessLabels: Record<string, ReadinessEntry> = {
     href: (eventId) => `/tenant/events/${eventId}/reports`,
   },
   status_cancelled: {
-    en: 'Event is cancelled — create a new event to publish again',
-    ar: 'الفعالية ملغاة — أنشئ فعالية جديدة للنشر مجدداً',
-    href: () => '/tenant/events/create',
+    en: 'Event is cancelled — use Republish to put it online again',
+    ar: 'الفعالية ملغاة — استخدم إعادة النشر لإعادتها أونلاين',
+    href: (eventId) => `/tenant/events/${eventId}`,
   },
   status_archived: {
     en: 'Event is archived',
@@ -188,6 +200,21 @@ export function publishReadinessLabel(
   context?: PublishReadinessContext,
 ): string {
   const resolved = resolvePublishReadinessKey(key, context)
+
+  if (resolved === 'email_templates') {
+    const done = context?.emailTemplatesConfigured
+    const total = context?.emailTemplatesRequired
+
+    if (typeof done === 'number' && typeof total === 'number' && total > 0) {
+      const remaining = Math.max(total - done, 0)
+
+      return msg(locale).emailTemplatesPublishRequirement
+        .replaceAll(':done', String(done))
+        .replaceAll(':total', String(total))
+        .replaceAll(':remaining', String(remaining))
+    }
+  }
+
   const entry = publishReadinessLabels[resolved]
 
   if (entry) {

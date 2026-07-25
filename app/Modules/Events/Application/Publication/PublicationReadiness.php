@@ -3,6 +3,7 @@
 namespace App\Modules\Events\Application\Publication;
 
 use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgeTemplate;
+use App\Modules\Events\Domain\EventEmailTemplateTypes;
 use App\Modules\Events\Domain\EventRegistrationProfile;
 use App\Modules\Events\Domain\EventStatus;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
@@ -17,7 +18,8 @@ final class PublicationReadiness
      *   name_en?:string,name_ar?:string,timezone?:string,start_at?:string,
      *   end_at?:string,registration_opens_at?:string,registration_closes_at?:string,
      *   agenda_items?:int,active_form_version_id?:string,active_ticket_types?:int,branding_active?:bool,
-     *   active_badge_template?:bool,tier?:string,registration_mode?:string,configured_categories?:int
+     *   active_badge_template?:bool,configured_email_templates?:int,tier?:string,registration_mode?:string,
+     *   configured_categories?:int,event_venues?:int
      * } $event
      * @return list<string>
      */
@@ -28,6 +30,10 @@ final class PublicationReadiness
             if (trim((string) ($event[$key] ?? '')) === '') {
                 $missing[] = $key;
             }
+        }
+
+        if (($event['event_venues'] ?? 0) < 1) {
+            $missing[] = 'event_venues';
         }
 
         if (($event['agenda_items'] ?? 0) < 1) {
@@ -55,6 +61,10 @@ final class PublicationReadiness
 
         if (($event['active_badge_template'] ?? false) !== true) {
             $missing[] = 'active_badge_template';
+        }
+
+        if (($event['configured_email_templates'] ?? 0) < EventEmailTemplateTypes::requiredCount()) {
+            $missing[] = 'email_templates';
         }
 
         if (isset($event['timezone']) && ! in_array($event['timezone'], DateTimeZone::listIdentifiers(), true)) {
@@ -87,6 +97,7 @@ final class PublicationReadiness
                 'registration_opens_at', 'registration_closes_at', 'active_form_version_id',
                 'tier', 'registration_mode',
             ]),
+            'event_venues' => $event->venues()->count(),
             'agenda_items' => $event->agendaItems()->count(),
             'active_ticket_types' => $activeTicketTypes,
             'branding_active' => $event->branding()->where('status', 'active')->exists(),
@@ -95,6 +106,10 @@ final class PublicationReadiness
                 ->where('event_id', $event->id)
                 ->where('status', 'active')
                 ->exists(),
+            'configured_email_templates' => EventEmailTemplateTypes::configuredCount(
+                (string) $event->tenant_id,
+                $event->id,
+            ),
             'configured_categories' => EventCategory::query()
                 ->where('event_id', $event->id)
                 ->whereHas('venues.days')

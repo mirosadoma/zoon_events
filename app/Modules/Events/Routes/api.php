@@ -1,10 +1,12 @@
 <?php
 
 use App\Modules\Events\Http\Controllers\CategoryTemplateController;
+use App\Modules\Events\Http\Controllers\EmailTemplateController;
 use App\Modules\Events\Http\Controllers\EventCategoryController;
 use App\Modules\Events\Http\Controllers\EventInviteController;
 use App\Modules\Events\Http\Controllers\OrganizerAgendaController;
 use App\Modules\Events\Http\Controllers\OrganizerEventController;
+use App\Modules\Events\Http\Controllers\OrganizerEventVenueController;
 use App\Modules\Events\Http\Controllers\PrivilegeController;
 use App\Modules\Events\Http\Controllers\Public\PublicEventController;
 use Illuminate\Support\Facades\Route;
@@ -22,6 +24,7 @@ Route::prefix('tenant/events')
         Route::post('/{event_id}/reopen', [OrganizerEventController::class, 'reopen'])->middleware(['permission:event.reopen,tenant', 'idempotency']);
         Route::post('/{event_id}/archive', [OrganizerEventController::class, 'archive'])->middleware(['permission:event.archive,tenant', 'idempotency']);
         Route::put('/{event_id}/agenda', [OrganizerAgendaController::class, 'sync'])->middleware(['permission:event.manage,tenant', 'idempotency']);
+        Route::put('/{event_id}/venues', [OrganizerEventVenueController::class, 'sync'])->middleware(['permission:event.manage,tenant', 'idempotency']);
 
         Route::get('/{event_id}/invites/template', [EventInviteController::class, 'template'])->middleware('permission:event.invite.manage,tenant');
         Route::post('/{event_id}/invites', [EventInviteController::class, 'send'])->middleware(['permission:event.invite.manage,tenant', 'idempotency']);
@@ -31,6 +34,12 @@ Route::prefix('tenant/events')
         Route::get('/{event_id}/categories', [EventCategoryController::class, 'index'])->middleware('permission:category.view,tenant');
         Route::put('/{event_id}/categories/assignments', [EventCategoryController::class, 'sync'])->middleware(['permission:category.manage,tenant', 'idempotency']);
         Route::delete('/{event_id}/categories/{category_id}', [EventCategoryController::class, 'destroy'])->middleware(['permission:category.manage,tenant', 'idempotency']);
+
+        // Email templates
+        Route::post('/{event_id}/email-templates/images', [EmailTemplateController::class, 'uploadImage'])->middleware(['permission:event.manage,tenant', 'idempotency']);
+        Route::get('/{event_id}/email-templates/{type}', [EmailTemplateController::class, 'show'])->middleware('permission:event.manage,tenant');
+        Route::put('/{event_id}/email-templates/{type}', [EmailTemplateController::class, 'update'])->middleware(['permission:event.manage,tenant', 'idempotency']);
+        Route::delete('/{event_id}/email-templates/{type}', [EmailTemplateController::class, 'destroy'])->middleware(['permission:event.manage,tenant', 'idempotency']);
     });
 
 // Privileges catalog (tenant-level)

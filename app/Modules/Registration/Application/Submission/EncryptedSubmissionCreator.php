@@ -34,9 +34,14 @@ final readonly class EncryptedSubmissionCreator implements SubmissionCreator
             ->where('status', 'published')
             ->findOrFail($formVersionId);
         $clientFields = collect($form->fields)->filter(
-            fn (array $field): bool => ($field['visibility'] ?? 'public') === 'public'
-                && ($field['type'] ?? '') !== FormFieldType::Hidden->value
-                && ($field['type'] ?? '') !== FormFieldType::Consent->value,
+            function (array $field): bool {
+                $type = FormFieldType::tryFrom((string) ($field['type'] ?? ''));
+                if ($type === null || $type->isDisplayOnly() || $type === FormFieldType::Hidden || $type === FormFieldType::Consent) {
+                    return false;
+                }
+
+                return ($field['visibility'] ?? 'public') === 'public';
+            },
         )->values();
         $answers = $this->validateAnswers($clientFields, $answers);
         $storedAnswers = [];
@@ -46,7 +51,11 @@ final readonly class EncryptedSubmissionCreator implements SubmissionCreator
             ->all();
         foreach ($form->fields as $field) {
             $key = $field['key'];
-            if (($field['type'] ?? '') === FormFieldType::Consent->value) {
+            $type = FormFieldType::tryFrom((string) ($field['type'] ?? ''));
+            if ($type?->isDisplayOnly()) {
+                continue;
+            }
+            if ($type === FormFieldType::Consent) {
                 $storedAnswers[$key] = true;
                 continue;
             }
@@ -158,6 +167,10 @@ final readonly class EncryptedSubmissionCreator implements SubmissionCreator
             }
         }
 
+        if ($type->isDisplayOnly()) {
+            return 'is invalid.';
+        }
+
         $valid = match ($type) {
             FormFieldType::Text => is_string($value),
             FormFieldType::Email => is_string($value) && filter_var($value, FILTER_VALIDATE_EMAIL) !== false,
@@ -175,6 +188,7 @@ final readonly class EncryptedSubmissionCreator implements SubmissionCreator
             ) === [],
             FormFieldType::Consent => is_bool($value),
             FormFieldType::Hidden => false,
+            default => false,
         };
 
         if (! $valid) {

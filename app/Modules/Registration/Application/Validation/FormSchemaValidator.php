@@ -31,10 +31,23 @@ final class FormSchemaValidator
             if (! preg_match('/^[a-z][a-z0-9_]{1,63}$/', $key) || in_array($key, self::RESERVED_KEYS, true) || isset($seen[$key])) {
                 throw new InvalidArgumentException('Registration form contains an invalid field key.');
             }
-            $type = FormFieldType::from((string) ($field['type'] ?? ''));
+
+            $type = FormFieldType::tryFrom((string) ($field['type'] ?? ''));
+            if ($type === null) {
+                throw new InvalidArgumentException('Registration form contains an invalid field type.');
+            }
+
             if (trim((string) ($field['label_en'] ?? '')) === '' || trim((string) ($field['label_ar'] ?? '')) === '') {
                 throw new InvalidArgumentException('Registration fields require Arabic and English labels.');
             }
+
+            // Display-only blocks are rendered from event data; skip input-oriented rules.
+            if ($type->isDisplayOnly()) {
+                $seen[$key] = $position;
+
+                continue;
+            }
+
             $visibility = (string) ($field['visibility'] ?? 'public');
             if (! in_array($visibility, ['public', 'internal'], true)) {
                 throw new InvalidArgumentException('Registration field visibility is invalid.');
@@ -76,13 +89,6 @@ final class FormSchemaValidator
             }
 
             $seen[$key] = $position;
-        }
-
-        foreach ($fields as $position => $field) {
-            $key = (string) ($field['key'] ?? '');
-            if ($position >= count(RegistrationSystemFields::KEYS) && RegistrationSystemFields::isSystemKey($key)) {
-                throw new InvalidArgumentException('Registration form contains an invalid field key.');
-            }
         }
 
         RegistrationSystemFields::assertPresent($fields);

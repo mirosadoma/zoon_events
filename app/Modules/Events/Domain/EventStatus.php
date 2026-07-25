@@ -24,7 +24,7 @@ enum EventStatus: string
             self::RegistrationClosed => [self::RegistrationOpen, self::Live, self::Cancelled, self::Configured],
             self::Live => [self::Completed, self::Cancelled],
             self::Completed => [self::Archived],
-            self::Cancelled => [self::Archived],
+            self::Cancelled => [self::Published, self::Archived],
             self::Archived => [],
         }, true);
     }

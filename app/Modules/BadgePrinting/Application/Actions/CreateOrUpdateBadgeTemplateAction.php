@@ -17,6 +17,9 @@ final readonly class CreateOrUpdateBadgeTemplateAction
     /**
      * @param  array<string, mixed>  $layout
      */
+    /**
+     * @param  list<string>  $extraAllowedFields
+     */
     public function execute(
         string $tenantId,
         string $eventId,
@@ -30,8 +33,11 @@ final readonly class CreateOrUpdateBadgeTemplateAction
         ?array $backgroundGradient = null,
         ?int $canvasWidth = null,
         ?int $canvasHeight = null,
+        ?string $backgroundImagePath = null,
+        bool $clearBackgroundImage = false,
+        array $extraAllowedFields = [],
     ): BadgeTemplate {
-        $this->layoutValidator->validate($layout);
+        $this->layoutValidator->validate($layout, $extraAllowedFields);
 
         $attributes = [
             'name' => $name,
@@ -44,6 +50,12 @@ final readonly class CreateOrUpdateBadgeTemplateAction
             'canvas_width' => $canvasWidth,
             'canvas_height' => $canvasHeight,
         ];
+
+        if ($clearBackgroundImage) {
+            $attributes['background_image_path'] = null;
+        } elseif ($backgroundImagePath !== null) {
+            $attributes['background_image_path'] = $backgroundImagePath;
+        }
 
         if ($existing === null) {
             $template = BadgeTemplate::create([

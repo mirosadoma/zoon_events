@@ -6,8 +6,10 @@ use App\Modules\Shared\Http\Problems\Phase3Problem;
 
 final readonly class BadgeLayoutValidator
 {
-    private const ALLOWED_FIELDS = [
+    public const CORE_FIELDS = [
         'attendee_name',
+        'email',
+        'phone',
         'company',
         'job_title',
         'qr',
@@ -21,10 +23,15 @@ final readonly class BadgeLayoutValidator
         'custom_text',
     ];
 
-    public function validate(array $layout): void
+    /**
+     * @param  list<string>  $extraAllowedFields  Registration form field keys allowed on the badge.
+     */
+    public function validate(array $layout, array $extraAllowedFields = []): void
     {
+        $allowed = array_values(array_unique([...self::CORE_FIELDS, ...$extraAllowedFields]));
+
         foreach ($this->fieldKeys($layout) as $key) {
-            if (! in_array($key, self::ALLOWED_FIELDS, true)) {
+            if (! in_array($key, $allowed, true)) {
                 throw Phase3Problem::make('badge_template_invalid_field');
             }
         }

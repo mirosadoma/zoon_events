@@ -7,6 +7,9 @@ export type EventSetupProgress = {
   agenda: boolean
   categories: boolean
   badge_templates: boolean
+  email_templates: boolean
+  email_templates_configured?: number
+  email_templates_required?: number
   kiosks: boolean
   identity: boolean
   published: boolean
@@ -17,6 +20,10 @@ export type EventSectionTab = {
   href: string
   key?: string
   completed?: boolean
+  progress?: {
+    done: number
+    total: number
+  }
 }
 
 export function isNextStepComplete(
@@ -36,6 +43,8 @@ export function isNextStepComplete(
       return progress.categories
     case 'badge-templates':
       return progress.badge_templates
+    case 'email-templates':
+      return progress.email_templates
     case 'kiosks':
       return progress.kiosks
     case 'publish':
@@ -57,7 +66,7 @@ export function getApplicableSetupKeys(capabilities?: EventCapabilities): Array<
   }
 
   // Kiosks are optional and intentionally excluded from publish completion %.
-  keys.push('categories', 'badge_templates')
+  keys.push('categories', 'email_templates', 'badge_templates')
 
   return keys
 }

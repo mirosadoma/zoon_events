@@ -20,7 +20,24 @@ final class RegistrationFieldPresenter
             'label_ar' => (string) ($field['label_ar'] ?? ''),
             'required' => (bool) ($field['required'] ?? false),
             'system' => RegistrationSystemFields::isSystemKey((string) ($field['key'] ?? '')),
+            'width' => in_array(($width = $field['width'] ?? 'full'), ['full', 'half', 'third'], true)
+                ? $width
+                : 'full',
         ];
+
+        if (isset($field['content']) && is_string($field['content'])) {
+            $mapped['content'] = $field['content'];
+        }
+
+        $choiceStyle = (string) ($field['choice_style'] ?? '');
+        if (in_array($choiceStyle, ['square', 'circle', 'toggle', 'pill', 'card', 'button'], true)) {
+            $mapped['choice_style'] = $choiceStyle;
+        }
+
+        $choiceColor = (string) ($field['choice_color'] ?? '');
+        if (preg_match('/^#[0-9A-Fa-f]{6}$/', $choiceColor) === 1) {
+            $mapped['choice_color'] = strtoupper($choiceColor);
+        }
 
         if (in_array($type, self::CHOICE_TYPES, true)) {
             $mapped['options'] = $this->publicOptions($field['options'] ?? []);
@@ -40,6 +57,12 @@ final class RegistrationFieldPresenter
             'label_ar' => (string) ($field['label_ar'] ?? ''),
             'required' => (bool) ($field['required'] ?? false),
             'system' => RegistrationSystemFields::isSystemKey((string) ($field['key'] ?? '')),
+            'width' => $field['width'] ?? 'full',
+            'placeholder_en' => $field['placeholder_en'] ?? '',
+            'placeholder_ar' => $field['placeholder_ar'] ?? '',
+            'content' => $field['content'] ?? '',
+            'choice_style' => $field['choice_style'] ?? null,
+            'choice_color' => $field['choice_color'] ?? null,
         ];
 
         if (in_array($type, self::CHOICE_TYPES, true)) {

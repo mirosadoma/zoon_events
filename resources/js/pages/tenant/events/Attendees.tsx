@@ -3,18 +3,22 @@ import { FormEvent, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
+import PermissionGate from '@/components/layout/PermissionGate'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import FiltersBar from '@/components/tables/FiltersBar'
 import Pagination from '@/components/tables/Pagination'
 import SearchInput from '@/components/tables/SearchInput'
 import SelectInput from '@/components/forms/SelectInput'
+import SendPrivateInviteModal from '@/components/events/SendPrivateInviteModal'
 import { useLocale } from '@/hooks/useLocale'
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
+import { Mail } from 'lucide-react'
 
 type EventRow = {
   id: string
   name: { en: string; ar: string }
+  tier?: string
 }
 
 type AttendeeRow = {
@@ -33,6 +37,7 @@ type AttendeeRow = {
 type Filters = {
   search: string
   status: string
+  registration_type?: string
 }
 
 type PaginationMeta = {
@@ -47,6 +52,8 @@ type Props = {
   attendees: AttendeeRow[]
   filters?: Filters
   pagination?: PaginationMeta
+  tenantId?: string
+  canSendPrivateInvites?: boolean
 }
 
 function displayValue(value: string | null | undefined, fallback: string): string {
@@ -56,18 +63,23 @@ function displayValue(value: string | null | undefined, fallback: string): strin
 export default function Attendees({
   event,
   attendees,
-  filters = { search: '', status: '' },
+  filters = { search: '', status: '', registration_type: 'public' },
   pagination = { page: 1, per_page: 25, total: 0, last_page: 1 },
+  tenantId = '',
+  canSendPrivateInvites = false,
 }: Props) {
   const { locale, t, localizedPath } = useLocale()
   const localizedRouter = useLocalizedRouter()
   const [search, setSearch] = useState(filters.search)
   const [statusFilter, setStatusFilter] = useState(filters.status)
+  const [registrationType, setRegistrationType] = useState(filters.registration_type ?? 'public')
+  const [inviteOpen, setInviteOpen] = useState(false)
   const notAvailable = t('notAvailable')
 
   function queryParams(overrides: Partial<Filters & { page?: number }> = {}): Record<string, string> {
     const nextSearch = overrides.search ?? search
     const nextStatus = overrides.status ?? statusFilter
+    const nextRegistrationType = overrides.registration_type ?? registrationType
     const nextPage = overrides.page ?? pagination.page
     const query: Record<string, string> = {}
 
@@ -76,6 +88,9 @@ export default function Attendees({
     }
     if (nextStatus !== '') {
       query.status = nextStatus
+    }
+    if (nextRegistrationType && nextRegistrationType !== 'public') {
+      query.registration_type = nextRegistrationType
     }
     if (nextPage > 1) {
       query.page = String(nextPage)
@@ -129,6 +144,54 @@ export default function Attendees({
         )}
       />
       <PageContent>
+        <div className="mb-4 border-b border-[var(--border)]">
+          <div className="flex gap-4">
+            <button
+              type="button"
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                registrationType === 'public'
+                  ? 'border-b-2 border-[var(--brand)] text-[var(--brand)]'
+                  : 'text-[var(--muted)] hover:text-[var(--ink)]'
+              }`}
+              onClick={() => {
+                setRegistrationType('public')
+                applyFilters({ registration_type: 'public', page: 1 })
+              }}
+            >
+              {t('attendeesPublicRegistration')}
+            </button>
+            <button
+              type="button"
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                registrationType === 'private'
+                  ? 'border-b-2 border-[var(--brand)] text-[var(--brand)]'
+                  : 'text-[var(--muted)] hover:text-[var(--ink)]'
+              }`}
+              onClick={() => {
+                setRegistrationType('private')
+                applyFilters({ registration_type: 'private', page: 1 })
+              }}
+            >
+              {t('attendeesPrivateRegistration')}
+            </button>
+          </div>
+        </div>
+
+        {registrationType === 'private' && canSendPrivateInvites ? (
+          <div className="mb-4">
+            <PermissionGate permission="event.invite.manage">
+              <button
+                type="button"
+                className="button-primary inline-flex items-center gap-2"
+                onClick={() => setInviteOpen(true)}
+              >
+                <Mail className="h-4 w-4" aria-hidden="true" />
+                {t('sendPrivateLink')}
+              </button>
+            </PermissionGate>
+          </div>
+        ) : null}
+
         <form onSubmit={submitFilters}>
           <FiltersBar>
             <SearchInput
@@ -168,7 +231,7 @@ export default function Attendees({
                   header: t('attendeeName'),
                   render: (row) => {
                     const attendee = row as unknown as AttendeeRow
-                    const name = displayValue(attendee.display_name, attendee.email ?? notAvailable)
+                    const name = displayValue(attendee.display_name, notAvailable)
 
                     if (attendee.row_type === 'invite' || String(attendee.id).startsWith('invite-')) {
                       return <span className="font-medium text-[var(--ink)]">{name}</span>
@@ -211,6 +274,25 @@ export default function Attendees({
                     return status ? <StatusBadge status={status} /> : '—'
                   },
                 },
+                {
+                  key: 'actions',
+                  header: t('actions'),
+                  render: (row) => {
+                    const attendee = row as unknown as AttendeeRow
+                    if (attendee.row_type === 'invite' || String(attendee.id).startsWith('invite-')) {
+                      return '—'
+                    }
+
+                    return (
+                      <LocalizedLink
+                        href={`/tenant/events/${event.id}/attendees/${attendee.id}`}
+                        className="button-secondary"
+                      >
+                        {t('showAttendeeDetails')}
+                      </LocalizedLink>
+                    )
+                  },
+                },
               ]}
             />
             <Pagination
@@ -224,6 +306,13 @@ export default function Attendees({
           </>
         )}
       </PageContent>
+
+      <SendPrivateInviteModal
+        open={inviteOpen}
+        eventId={event.id}
+        tenantId={tenantId}
+        onClose={() => setInviteOpen(false)}
+      />
     </DashboardLayout>
   )
 }

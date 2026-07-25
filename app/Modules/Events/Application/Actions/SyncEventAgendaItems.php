@@ -27,8 +27,12 @@ final class SyncEventAgendaItems
             $payload = [
                 'tenant_id' => $tenantId,
                 'event_id' => $event->id,
+                'event_venue_id' => ! empty($item['event_venue_id']) ? (int) $item['event_venue_id'] : null,
+                'agenda_date' => ! empty($item['agenda_date']) ? (string) $item['agenda_date'] : null,
                 'title_en' => trim((string) $item['title_en']),
                 'title_ar' => trim((string) $item['title_ar']),
+                'description_en' => ! empty($item['description_en']) ? trim((string) $item['description_en']) : null,
+                'description_ar' => ! empty($item['description_ar']) ? trim((string) $item['description_ar']) : null,
                 'start_at' => EventWallClockDateTime::parseToAppStorage(
                     isset($item['start_at']) ? (string) $item['start_at'] : null,
                     (string) $event->timezone,

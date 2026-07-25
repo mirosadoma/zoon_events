@@ -19,7 +19,7 @@ final class EventLifecycleTest extends TestCase
         self::assertTrue(EventStatus::Draft->canTransitionTo(EventStatus::Configured));
         self::assertTrue(EventStatus::RegistrationOpen->canTransitionTo(EventStatus::Cancelled));
         self::assertFalse(EventStatus::Published->canTransitionTo(EventStatus::Draft));
-        self::assertFalse(EventStatus::Cancelled->canTransitionTo(EventStatus::Published));
+        self::assertTrue(EventStatus::Cancelled->canTransitionTo(EventStatus::Published));
         self::assertFalse(EventStatus::Archived->canTransitionTo(EventStatus::Live));
     }
 
@@ -45,11 +45,13 @@ final class EventLifecycleTest extends TestCase
             'end_at' => '2027-01-10T18:00:00Z',
             'registration_opens_at' => '2027-01-01T00:00:00Z',
             'registration_closes_at' => '2027-01-10T11:00:00Z',
+            'event_venues' => 1,
             'agenda_items' => 1,
             'active_form_version_id' => '01TESTFORMVERSION0000000000',
             'active_ticket_types' => 0,
             'branding_active' => true,
             'active_badge_template' => true,
+            'configured_email_templates' => 3,
             'tier' => 'public',
             'registration_mode' => 'free_registration',
             'configured_categories' => 1,
@@ -57,11 +59,13 @@ final class EventLifecycleTest extends TestCase
 
         self::assertTrue($readiness->isReady($valid));
         self::assertEqualsCanonicalizing(
-            ['published_agenda', 'active_form_version_id', 'active_branding', 'active_badge_template'],
-            $readiness->missing([...$valid, 'agenda_items' => 0, 'active_form_version_id' => '', 'branding_active' => false, 'active_badge_template' => false]),
+            ['published_agenda', 'active_form_version_id', 'active_branding', 'active_badge_template', 'email_templates'],
+            $readiness->missing([...$valid, 'agenda_items' => 0, 'active_form_version_id' => '', 'branding_active' => false, 'active_badge_template' => false, 'configured_email_templates' => 0]),
         );
         self::assertContains('event_categories', $readiness->missing([...$valid, 'configured_categories' => 0]));
         self::assertNotContains('event_categories', $readiness->missing([...$valid, 'configured_categories' => 1]));
+        self::assertContains('email_templates', $readiness->missing([...$valid, 'configured_email_templates' => 2]));
+        self::assertNotContains('email_templates', $readiness->missing([...$valid, 'configured_email_templates' => 3]));
         self::assertNotContains('main_image', $readiness->missing($valid));
     }
 
@@ -76,11 +80,13 @@ final class EventLifecycleTest extends TestCase
             'end_at' => '2027-01-10T18:00:00Z',
             'registration_opens_at' => '2027-01-01T00:00:00Z',
             'registration_closes_at' => '2027-01-10T11:00:00Z',
+            'event_venues' => 1,
             'agenda_items' => 1,
             'active_form_version_id' => '01TESTFORMVERSION0000000000',
             'active_ticket_types' => 0,
             'branding_active' => true,
             'active_badge_template' => true,
+            'configured_email_templates' => 3,
             'tier' => 'private',
             'registration_mode' => 'free_registration',
             'configured_categories' => 1,

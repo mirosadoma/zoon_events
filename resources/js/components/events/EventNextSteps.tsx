@@ -18,6 +18,7 @@ import {
   CalendarDays,
   ClipboardList,
   Layers,
+  Mail,
   Monitor,
   Rocket,
   Tags,
@@ -92,6 +93,21 @@ export default function EventNextSteps({
   const tierLabel = labelForEventTier(tier, locale)
   const typeLabel = labelFor(EVENT_TYPES, eventType, locale)
   const modeLabel = labelFor(REGISTRATION_MODES, registrationMode, locale)
+  const emailDone = setupProgress.email_templates_configured ?? 0
+  const emailTotal = setupProgress.email_templates_required ?? 3
+  const emailRemaining = Math.max(emailTotal - emailDone, 0)
+
+  function emailTemplatesNextStepDescription(): string {
+    if (setupProgress.email_templates) {
+      return t('emailTemplatesComplete')
+    }
+
+    return t('emailTemplatesPublishRequirement', {
+      done: emailDone,
+      total: emailTotal,
+      remaining: emailRemaining,
+    })
+  }
 
   const steps: NextStep[] = [
     {
@@ -136,6 +152,14 @@ export default function EventNextSteps({
     description: t('eventNextCategoriesDescription'),
     href: `${base}/categories`,
     icon: Layers,
+  })
+
+  steps.push({
+    key: 'email-templates',
+    title: t('eventNextEmailTemplates'),
+    description: emailTemplatesNextStepDescription(),
+    href: `${base}/email-templates`,
+    icon: Mail,
   })
 
   steps.push({

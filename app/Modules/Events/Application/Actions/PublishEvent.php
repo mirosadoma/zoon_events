@@ -61,6 +61,7 @@ final readonly class PublishEvent
                 'status' => 'published',
                 'published_by_user_id' => $context->actor->id,
                 'published_at' => now(),
+                'cancelled_at' => null,
             ])->save();
             $this->audit->writeTenant('event.published', 'succeeded', $context, targetType: 'event', targetId: $event->id);
             event(new EventPublished($context->tenant->id, $event->id, $context->actor->id));

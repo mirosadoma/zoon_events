@@ -40,6 +40,8 @@ final readonly class RenderBadgePrintPayloadAction
         foreach ($this->fieldKeys($layout) as $fieldKey) {
             $fields[$fieldKey] = match ($fieldKey) {
                 'attendee_name' => $context['attendee_name'],
+                'email' => $context['email'],
+                'phone' => $context['phone'],
                 'qr' => $context['qr'],
                 'ticket_type' => $context['ticket_type'],
                 'attendee_type' => $context['attendee_type'],
@@ -51,7 +53,7 @@ final readonly class RenderBadgePrintPayloadAction
                 'organizer_logo_ref' => $context['organizer_logo_ref'],
                 'sponsor_logo_ref' => $context['sponsor_logo_ref'],
                 'custom_text' => null,
-                default => null,
+                default => $this->answer($context['answers'], [$fieldKey]),
             };
         }
 
@@ -66,6 +68,8 @@ final readonly class RenderBadgePrintPayloadAction
     /**
      * @return array{
      *   attendee_name:?string,
+     *   email:?string,
+     *   phone:?string,
      *   qr:?string,
      *   ticket_type:?string,
      *   attendee_type:?string,
@@ -96,6 +100,8 @@ final readonly class RenderBadgePrintPayloadAction
 
         return [
             'attendee_name' => $this->resolveAttendeeName($tenantId, $eventId, $attendee),
+            'email' => $this->resolveAttendeeEmail($tenantId, $eventId, $attendee),
+            'phone' => $this->resolveAttendeePhone($tenantId, $eventId, $attendee),
             'qr' => $this->resolveQrPayload($credential),
             'ticket_type' => $this->resolveTicketType($tenantId, $eventId, $attendee, $credential),
             'attendee_type' => $this->resolveAttendeeType($eventId, $attendee),
@@ -106,6 +112,24 @@ final readonly class RenderBadgePrintPayloadAction
             'organizer_logo_ref' => $this->publicUrl(is_string($theme['logo_path'] ?? null) ? $theme['logo_path'] : null),
             'sponsor_logo_ref' => $this->publicUrl(is_string($theme['sponsor_logo_path'] ?? null) ? $theme['sponsor_logo_path'] : null),
         ];
+    }
+
+    private function resolveAttendeePhone(string $tenantId, string $eventId, ?Attendee $attendee): ?string
+    {
+        if ($attendee === null || $attendee->phone_ciphertext === null) {
+            return null;
+        }
+
+        $scope = "{$tenantId}:{$eventId}:attendee";
+
+        try {
+            return trim($this->cipher->decrypt(
+                ['key_id' => $attendee->encryption_key_id, 'ciphertext' => $attendee->phone_ciphertext],
+                $scope,
+            ));
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

@@ -6,6 +6,7 @@ use App\Modules\Events\Application\Actions\UnpublishEvent;
 use App\Modules\Events\Application\Publication\PublicationReadiness;
 use App\Modules\Events\Application\Support\EventWallClockDateTime;
 use App\Modules\Events\Application\Support\PublicRegistrationUrlBuilder;
+use App\Modules\Events\Domain\EventEmailTemplateTypes;
 use App\Modules\Events\Domain\EventRegistrationProfile;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\IdentityVerification\Infrastructure\Persistence\Models\IdentityVerificationRequirement;
@@ -50,13 +51,17 @@ final readonly class EventDashboardViewModel
             $event,
             $this->tickets->countOrganizerTicketTypesForEvent($event->tenant_id, $event->id),
         );
-        $setupProgress = $this->setupProgress($event, $missing, $capabilities);
+        $emailTemplatesConfigured = EventEmailTemplateTypes::configuredCount((string) $event->tenant_id, $event->id);
+        $emailTemplatesRequired = EventEmailTemplateTypes::requiredCount();
+        $setupProgress = $this->setupProgress($event, $missing, $capabilities, $emailTemplatesConfigured, $emailTemplatesRequired);
         $tabs = $this->tabsFor($event, $capabilities, $setupProgress);
 
         return [
             'event' => [
                 ...$this->eventRow($event),
                 'setup_progress' => $setupProgress,
+                'email_templates_configured' => $emailTemplatesConfigured,
+                'email_templates_required' => $emailTemplatesRequired,
             ],
             'eventCapabilities' => $capabilities,
             'setupTabs' => $tabs['setupTabs'],
@@ -174,13 +179,21 @@ final readonly class EventDashboardViewModel
      *   agenda:bool,
      *   categories:bool,
      *   badge_templates:bool,
+     *   email_templates:bool,
+     *   email_templates_configured:int,
+     *   email_templates_required:int,
      *   kiosks:bool,
      *   identity:bool,
      *   published:bool
      * }
      */
-    private function setupProgress(Event $event, array $missing, array $capabilities): array
-    {
+    private function setupProgress(
+        Event $event,
+        array $missing,
+        array $capabilities,
+        int $emailTemplatesConfigured,
+        int $emailTemplatesRequired,
+    ): array {
         return [
             'registration_form' => ! in_array('active_form_version_id', $missing, true),
             'ticket_types' => ! $capabilities['requires_ticketing'] || ! in_array('active_ticket_type', $missing, true),
@@ -192,6 +205,9 @@ final readonly class EventDashboardViewModel
             'agenda' => ! in_array('published_agenda', $missing, true),
             'categories' => ! in_array('event_categories', $missing, true),
             'badge_templates' => ! in_array('active_badge_template', $missing, true),
+            'email_templates' => ! in_array('email_templates', $missing, true),
+            'email_templates_configured' => $emailTemplatesConfigured,
+            'email_templates_required' => $emailTemplatesRequired,
             'kiosks' => Kiosk::query()
                 ->where('tenant_id', $event->tenant_id)
                 ->where('event_id', $event->id)
@@ -214,12 +230,15 @@ final readonly class EventDashboardViewModel
      *   agenda:bool,
      *   categories:bool,
      *   badge_templates:bool,
+     *   email_templates:bool,
+     *   email_templates_configured:int,
+     *   email_templates_required:int,
      *   kiosks:bool,
      *   identity:bool,
      *   published:bool
      * }  $setupProgress
      * @return array{
-     *   setupTabs:list<array{label:string,href:string,key:string,completed:bool}>,
+     *   setupTabs:list<array{label:string,href:string,key:string,completed:bool,progress?:array{done:int,total:int}}>,
      *   operationsTabs:list<array{label:string,href:string,key:string,completed:bool}>
      * }
      */
@@ -240,6 +259,16 @@ final readonly class EventDashboardViewModel
         }
 
         $setupTabs[] = ['label' => 'Categories', 'href' => "{$base}/categories", 'key' => 'categories', 'completed' => $setupProgress['categories']];
+        $setupTabs[] = [
+            'label' => 'Email templates',
+            'href' => "{$base}/email-templates",
+            'key' => 'email_templates',
+            'completed' => $setupProgress['email_templates'],
+            'progress' => [
+                'done' => $setupProgress['email_templates_configured'],
+                'total' => $setupProgress['email_templates_required'],
+            ],
+        ];
         $setupTabs[] = ['label' => 'Badge templates', 'href' => "{$base}/badge-templates", 'key' => 'badge_templates', 'completed' => $setupProgress['badge_templates']];
         $setupTabs[] = ['label' => 'Kiosks', 'href' => "{$base}/kiosks", 'key' => 'kiosks', 'completed' => $setupProgress['kiosks']];
 

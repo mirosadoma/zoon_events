@@ -11,6 +11,7 @@ class EventRegistrationInvite extends Model
         'tenant_id',
         'event_id',
         'email',
+        'name',
         'code',
         'is_active',
         'invite_status',

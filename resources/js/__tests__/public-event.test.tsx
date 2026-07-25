@@ -137,4 +137,67 @@ describe('public event registration shell', () => {
     expect(screen.getByLabelText('Location - Date')).toBeRequired()
     expect(screen.getByRole('option', { name: /Khobar - AT LE MERIDIEN/i })).toBeInTheDocument()
   })
+
+  it('keeps venue select in form field order when the builder block is present', () => {
+    const { container } = render(
+      <PublicRegistrationEvent
+        locale="en"
+        event={{
+          ...event,
+          venues: [{
+            id: 'venue_1',
+            name: { en: 'At Le Meridien', ar: 'لو مريديان' },
+            city: { en: 'Khobar', ar: 'الخبر' },
+            country: { en: 'Saudi Arabia', ar: 'السعودية' },
+            start_at: '2026-07-20T09:30:00.000Z',
+          }],
+        }}
+        form={{
+          ...form,
+          version_id: 'form_v1',
+          fields: [
+            {
+              key: 'event_categories',
+              type: 'event_categories',
+              label_en: 'Event Categories',
+              label_ar: 'أقسام الفعالية',
+              required: false,
+              width: 'full',
+            },
+            {
+              key: 'event_venue_select',
+              type: 'event_venue_select',
+              label_en: 'Venue / Date Select',
+              label_ar: 'اختيار المكان / التاريخ',
+              required: true,
+              width: 'full',
+            },
+            {
+              key: 'full_name',
+              type: 'text',
+              label_en: 'Full name',
+              label_ar: 'الاسم الكامل',
+              required: true,
+              width: 'full',
+            },
+          ],
+        }}
+        categories={[{
+          id: 'cat_1',
+          name: { en: 'Normal', ar: 'عادي' },
+          is_paid: false,
+          price_minor: 0,
+          currency: 'SAR',
+        }]}
+      />,
+    )
+
+    const categoryHeading = screen.getByRole('heading', { name: 'Event Categories' })
+    const venueSelect = screen.getByLabelText('Location - Date')
+    const fullName = screen.getByRole('textbox', { name: /Full name/i })
+
+    expect(categoryHeading.compareDocumentPosition(venueSelect) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(venueSelect.compareDocumentPosition(fullName) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(container.querySelectorAll('[data-form-field="event_venue_id"]')).toHaveLength(1)
+  })
 })

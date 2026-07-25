@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { LocalizedEventContent, type LocalizedText } from '@/components/registration/LocalizedEventContent'
 import { formatVenuePillLabel } from '@/lib/venueLabels'
 import { formatDateTime } from '@/lib/formatters'
@@ -31,6 +31,10 @@ type Props = {
   locale: 'en' | 'ar'
   event: RegistrationHeroEvent
   isPreview?: boolean
+  /** When true, shows the classic event header (used by agenda). Registration form drives content from builder fields instead. */
+  showEventHeader?: boolean
+  cardStyle?: CSSProperties
+  hasCustomBackground?: boolean
   children?: ReactNode
 }
 
@@ -116,12 +120,23 @@ function EventVenueSchedule({
   )
 }
 
-export default function RegistrationEventHero({ locale, event, isPreview = false, children }: Props) {
+export default function RegistrationEventHero({
+  locale,
+  event,
+  isPreview = false,
+  showEventHeader = false,
+  cardStyle,
+  hasCustomBackground = false,
+  children,
+}: Props) {
   const rtl = locale === 'ar'
 
   return (
     <div className="registration-invite-hero">
-      <div className="registration-invite-card">
+      <div
+        className={`registration-invite-card${hasCustomBackground ? ' registration-invite-card--custom-bg' : ''}`}
+        style={cardStyle}
+      >
         {isPreview ? (
           <div className="registration-preview-banner" role="status">
             {rtl
@@ -129,30 +144,30 @@ export default function RegistrationEventHero({ locale, event, isPreview = false
               : 'Organizer preview — display only. Real registration uses the visitor link.'}
           </div>
         ) : null}
-        <header className="registration-invite-header">
-          <EventMediaPreview
-            locale={locale}
-            mainImage={event.main_image ?? null}
-            images={event.images ?? []}
-          />
-          {event.branding.brand_reference ? (
-            <p className="registration-invite-brand">{event.branding.brand_reference}</p>
-          ) : null}
-          <p className="registration-invite-kicker">
-            {isPreview
-              ? (rtl ? 'معاينة صفحة التسجيل' : 'Registration page preview')
-              : (rtl ? 'دعوة للتسجيل' : 'You are invited')}
-          </p>
-          <h1><LocalizedEventContent value={event.name} locale={locale} /></h1>
-          <p className="registration-invite-lead"><LocalizedEventContent value={event.description} locale={locale} /></p>
-          <EventVenueSchedule
-            locale={locale}
-            venues={event.venues ?? []}
-            startAt={event.start_at}
-            endAt={event.end_at}
-            timeZone={event.timezone}
-          />
-        </header>
+        {showEventHeader ? (
+          <header className="registration-invite-header">
+            <EventMediaPreview
+              locale={locale}
+              mainImage={event.main_image ?? null}
+              images={event.images ?? []}
+            />
+            {event.branding.brand_reference ? (
+              <p className="registration-invite-brand">{event.branding.brand_reference}</p>
+            ) : null}
+            <p className="registration-invite-kicker">
+              {rtl ? 'دعوة للتسجيل' : 'You are invited'}
+            </p>
+            <h1><LocalizedEventContent value={event.name} locale={locale} /></h1>
+            <p className="registration-invite-lead"><LocalizedEventContent value={event.description} locale={locale} /></p>
+            <EventVenueSchedule
+              locale={locale}
+              venues={event.venues ?? []}
+              startAt={event.start_at}
+              endAt={event.end_at}
+              timeZone={event.timezone}
+            />
+          </header>
+        ) : null}
         {children}
       </div>
     </div>

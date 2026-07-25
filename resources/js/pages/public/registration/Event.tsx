@@ -16,6 +16,13 @@ import {
   publicRegistrationFieldSelector,
   remapPublicRegistrationApiErrors,
 } from '@/lib/publicRegistrationValidation'
+import {
+  hasRegistrationCardBackground,
+  registrationCardBackgroundStyle,
+  registrationFontFamily,
+  registrationThemeCssVars,
+  type RegistrationThemeBackground,
+} from '@/lib/registrationThemeBackground'
 
 type TicketTypeOption = {
   id: string
@@ -37,14 +44,7 @@ type CategoryOption = {
   is_full?: boolean
 }
 
-type ThemeConfig = {
-  primary_color?: string
-  accent_color?: string
-  background_color?: string
-  font_family?: string
-  logo_path?: string
-  header_image_path?: string
-}
+type ThemeConfig = RegistrationThemeBackground
 
 type Props = {
   locale: 'en' | 'ar'
@@ -63,11 +63,93 @@ type Props = {
   }
   categories?: CategoryOption[]
   requiresCategorySelection?: boolean
+  requiresVenueSelection?: boolean
   ticketTypes?: TicketTypeOption[]
   requiresTicketSelection?: boolean
   theme?: ThemeConfig | null
   inviteCode?: string | null
   lockedEmail?: string | null
+  prefillName?: string | null
+}
+
+const NON_ANSWER_TYPES = new Set([
+  'heading',
+  'divider',
+  'paragraph',
+  'consent',
+  'hidden',
+  'event_logo',
+  'event_name',
+  'event_venue',
+  'event_dates',
+  'event_description',
+  'event_categories',
+  'event_venue_select',
+])
+
+function fieldSlotClass(width?: string): string {
+  if (width === 'half') return 'registration-form-slot registration-form-slot--half'
+  if (width === 'third') return 'registration-form-slot registration-form-slot--third'
+  return 'registration-form-slot registration-form-slot--full'
+}
+
+function EventLogoMedia({
+  mainImage,
+  images,
+  className,
+}: {
+  mainImage?: string | null
+  images?: string[]
+  className: string
+}) {
+  const gallery = images ?? []
+  const initialMain = mainImage || gallery[0] || null
+  const extraImages = mainImage ? gallery : gallery.slice(1)
+  const thumbnails = initialMain && extraImages.length > 0
+    ? [initialMain, ...extraImages.filter((url) => url !== initialMain)]
+    : []
+
+  const [activeUrl, setActiveUrl] = useState(initialMain)
+
+  if (!initialMain) {
+    return null
+  }
+
+  return (
+    <div className={`${className} registration-event-display-block`}>
+      <div className="registration-event-logo">
+        <img
+          src={activeUrl || initialMain}
+          alt=""
+          className="registration-event-logo-main"
+        />
+        {thumbnails.length > 0 ? (
+          <div className="registration-event-logo-gallery" role="list">
+            {thumbnails.map((url) => {
+              const isActive = (activeUrl || initialMain) === url
+              return (
+                <button
+                  key={url}
+                  type="button"
+                  role="listitem"
+                  className={`registration-event-logo-gallery-thumb${isActive ? ' is-active' : ''}`}
+                  aria-pressed={isActive}
+                  onClick={() => setActiveUrl(url)}
+                >
+                  <img
+                    src={url}
+                    alt=""
+                    className="registration-event-logo-gallery-image"
+                    loading="lazy"
+                  />
+                </button>
+              )
+            })}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
 }
 
 function splitName(value: string): { first_name: string; last_name: string } {
@@ -103,26 +185,46 @@ export default function PublicRegistrationEvent({
   form,
   categories = [],
   requiresCategorySelection = false,
+  requiresVenueSelection = false,
   ticketTypes = [],
-  requiresTicketSelection = true,
+  requiresTicketSelection = false,
   theme,
   inviteCode = null,
   lockedEmail = null,
+  prefillName = null,
 }: Props) {
   const { t } = useLocale()
   const direction = locale === 'ar' ? 'rtl' : 'ltr'
-  const themeStyle = useMemo(() => {
-    if (!theme) return undefined
-    const vars: Record<string, string> = {}
-    if (theme.primary_color) vars['--reg-primary'] = theme.primary_color
-    if (theme.accent_color) vars['--reg-accent'] = theme.accent_color
-    if (theme.background_color) vars['--reg-bg'] = theme.background_color
-    if (theme.font_family) vars['--reg-font'] = theme.font_family
-    return Object.keys(vars).length > 0 ? vars as React.CSSProperties : undefined
+  const themeVars = useMemo(() => registrationThemeCssVars(theme), [theme])
+  const cardBackgroundStyle = useMemo(() => {
+    const background = registrationCardBackgroundStyle(theme)
+    const fontFamily = registrationFontFamily(theme?.font_family)
+    if (!background && !fontFamily) return undefined
+    return {
+      ...(background ?? {}),
+      ...(fontFamily ? { fontFamily } : {}),
+    }
   }, [theme])
+  const hasCustomCardBackground = hasRegistrationCardBackground(theme)
   const registrationFields = useMemo(
-    () => form.fields.filter((field) => field.type !== 'consent'),
+    () => form.fields.filter((field) => field.type !== 'consent' && field.type !== 'hidden'),
     [form.fields],
+  )
+  const hasCategoriesBlock = useMemo(
+    () => registrationFields.some((field) => field.type === 'event_categories'),
+    [registrationFields],
+  )
+  const hasVenueSelectBlock = useMemo(
+    () => registrationFields.some((field) => field.type === 'event_venue_select'),
+    [registrationFields],
+  )
+  const venues = event.venues ?? []
+  const requireCategory = !inviteCode && (requiresCategorySelection || hasCategoriesBlock)
+  // Location - Date is always required whenever the event has venues.
+  const requireVenue = venues.length > 0 || requiresVenueSelection || hasVenueSelectBlock
+  const actualInputFields = useMemo(
+    () => registrationFields.filter((field) => !NON_ANSWER_TYPES.has(field.type)),
+    [registrationFields],
   )
   const fieldLabels = useMemo(
     () => ({
@@ -149,7 +251,6 @@ export default function PublicRegistrationEvent({
     remapErrors: remapPublicRegistrationApiErrors,
     selectorForKey: publicRegistrationFieldSelector,
   })
-  const venues = event.venues ?? []
   const formRef = useRef<HTMLFormElement>(null)
   const [formTarget, setFormTarget] = useState<HTMLElement | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -174,16 +275,9 @@ export default function PublicRegistrationEvent({
     setCategoryId(String(availableCategories[0]?.id ?? ''))
   }, [availableCategories, categoryId])
 
-  const canSubmit = requiresCategorySelection
+  const canSubmit = requireCategory
     ? availableCategories.length > 0
     : !requiresTicketSelection || ticketTypes.length > 0
-
-  // Private invite links skip category/ticket pickers entirely.
-  const showCategoryPicker = requiresCategorySelection
-  const showTicketPicker = !requiresCategorySelection && requiresTicketSelection
-  const showSelectionWarning = showCategoryPicker
-    ? categories.length === 0 || availableCategories.length === 0
-    : showTicketPicker && ticketTypes.length === 0
 
   async function handleSubmit(submitEvent: FormEvent<HTMLFormElement>) {
     submitEvent.preventDefault()
@@ -206,7 +300,7 @@ export default function PublicRegistrationEvent({
 
     const formData = new FormData(submitEvent.currentTarget)
     const answers: Record<string, string | boolean | string[]> = {}
-    registrationFields.forEach((field) => {
+    actualInputFields.forEach((field) => {
       if (field.type === 'multi_select' || field.type === 'checkbox') {
         const values = formData.getAll(field.key).map(String).filter(Boolean)
         if (values.length > 0) {
@@ -261,12 +355,12 @@ export default function PublicRegistrationEvent({
       })
     }
 
-    const clientErrors = collectPublicRegistrationClientErrors(registrationFields, answers, {
+    const clientErrors = collectPublicRegistrationClientErrors(actualInputFields, answers, {
       ticketTypeId,
       categoryId,
-      requireCategory: requiresCategorySelection,
+      requireCategory,
       requireTicket: requiresTicketSelection,
-      venueRequired: venues.length > 0,
+      venueRequired: requireVenue && venues.length > 0,
       venueId,
       acceptedTerms,
     })
@@ -296,9 +390,9 @@ export default function PublicRegistrationEvent({
         idempotency: true,
         body: {
           form_version_id: String(form.version_id),
-          event_category_id: requiresCategorySelection ? Number(categoryId) : undefined,
+          event_category_id: requireCategory ? Number(categoryId) : undefined,
           ticket_type_id: requiresTicketSelection ? String(ticketTypeId) : undefined,
-          event_venue_id: venues.length > 0 ? String(venueId) : null,
+          event_venue_id: requireVenue && venues.length > 0 ? String(venueId) : null,
           invite_code: inviteCode || undefined,
           buyer: person,
           attendee: person,
@@ -330,117 +424,19 @@ export default function PublicRegistrationEvent({
   return (
     <>
       <RegistrationPageControls locale={locale} />
-      <main className={`registration-invite${isPreview ? ' registration-invite-preview' : ''}`} lang={locale} dir={direction} style={themeStyle}>
-        <RegistrationEventHero locale={locale} event={event} isPreview={isPreview}>
-          {showCategoryPicker ? (
-            categories.length > 0 ? (
-              <section
-                className={`registration-ticket-picker${validation.fieldError('event_category_id') ? ' form-field-invalid' : ''}`}
-                aria-label={t('publicRegistrationCategorySelection')}
-                data-form-field="event_category_id"
-              >
-                <h2>{t('publicRegistrationChooseCategory')}</h2>
-                <div className="registration-ticket-options">
-                  {categories.map((category) => {
-                    const selected = category.id === categoryId
-                    const isFull = Boolean(category.is_full)
-                    const price = (category.price_minor / 100).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-US', {
-                      style: 'currency',
-                      currency: category.currency || 'SAR',
-                    })
-                    const remainingLabel = category.remaining !== null && category.remaining !== undefined
-                      ? t('publicRegistrationCategoryRemaining').replace(':count', String(category.remaining))
-                      : null
-
-                    return (
-                      <button
-                        key={category.id}
-                        type="button"
-                        className={[
-                          'registration-ticket-option',
-                          selected && !isFull ? 'registration-ticket-option-active' : '',
-                          isFull ? 'registration-ticket-option-full' : '',
-                        ].filter(Boolean).join(' ')}
-                        onClick={() => {
-                          if (!isFull) {
-                            setCategoryId(String(category.id))
-                          }
-                        }}
-                        disabled={isPreview || isFull}
-                        aria-disabled={isPreview || isFull}
-                      >
-                        <span className="registration-ticket-option-top">
-                          <span
-                            className="registration-ticket-code"
-                            style={category.color ? { color: category.color } : undefined}
-                          >
-                            {category.is_paid ? price : t('publicRegistrationFree')}
-                          </span>
-                          {isFull ? (
-                            <span className="registration-ticket-badge registration-ticket-badge-full">
-                              {t('publicRegistrationCategoryFull')}
-                            </span>
-                          ) : remainingLabel ? (
-                            <span className="registration-ticket-badge">
-                              {remainingLabel}
-                            </span>
-                          ) : null}
-                        </span>
-                        <span className="registration-ticket-name">
-                          <LocalizedEventContent value={category.name} locale={locale} />
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </section>
-            ) : (
-              <p className="registration-invite-warning">
-                {t('publicRegistrationNoCategories')}
-              </p>
-            )
-          ) : showTicketPicker && ticketTypes.length > 0 ? (
-            <section
-              className={`registration-ticket-picker${validation.fieldError('ticket_type') ? ' form-field-invalid' : ''}`}
-              aria-label={t('publicRegistrationTicketSelection')}
-              data-form-field="ticket_type"
-            >
-              <h2>{t('publicRegistrationChooseTicket')}</h2>
-              <div className="registration-ticket-options">
-                {ticketTypes.map((ticket) => {
-                  const selected = ticket.id === ticketTypeId
-                  const price = (ticket.price_minor / 100).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-US', {
-                    style: 'currency',
-                    currency: ticket.currency,
-                  })
-
-                  return (
-                    <button
-                      key={ticket.id}
-                      type="button"
-                      className={selected ? 'registration-ticket-option registration-ticket-option-active' : 'registration-ticket-option'}
-                      onClick={() => setTicketTypeId(String(ticket.id))}
-                      disabled={isPreview}
-                      aria-disabled={isPreview}
-                    >
-                      <span className="registration-ticket-code">{ticket.code}</span>
-                      <span className="registration-ticket-name"><LocalizedEventContent value={ticket.name} locale={locale} /></span>
-                      <span className="registration-ticket-price">{ticket.price_minor === 0 ? t('publicRegistrationFree') : price}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            </section>
-          ) : showSelectionWarning ? (
-            <p className="registration-invite-warning">
-              {showCategoryPicker
-                ? (categories.length > 0
-                  ? t('publicRegistrationAllCategoriesFull')
-                  : t('publicRegistrationNoCategories'))
-                : t('publicRegistrationNoTickets')}
-            </p>
-          ) : null}
-
+      <main
+        className={`registration-invite${isPreview ? ' registration-invite-preview' : ''}`}
+        lang={locale}
+        dir={direction}
+        style={themeVars}
+      >
+        <RegistrationEventHero
+          locale={locale}
+          event={event}
+          isPreview={isPreview}
+          cardStyle={cardBackgroundStyle}
+          hasCustomBackground={hasCustomCardBackground}
+        >
           <form
             ref={formRef}
             noValidate
@@ -450,35 +446,229 @@ export default function PublicRegistrationEvent({
           >
             <FormSavingOverlay active={submitting} target={formTarget} label={t('publicRegistrationRegistering')} />
 
-            <RegistrationVenueSelect
-              locale={locale}
-              venues={venues}
-              value={venueId}
-              onChange={(nextVenueId) => {
-                setVenueId(nextVenueId)
-                validation.clearField('event_venue_id')
-              }}
-              disabled={isPreview}
-              error={validation.fieldError('event_venue_id')}
-            />
-
             {registrationFields.map((field) => {
               const isLockedEmail = Boolean(lockedEmail) && (field.type === 'email' || field.key === 'email')
+              const isPrefillName = Boolean(prefillName) && (
+                field.key === 'full_name'
+                || field.type === 'full_name'
+                || field.key === 'name'
+              )
+              const slotClass = fieldSlotClass(field.width)
+
+              if (field.type === 'heading') {
+                return (
+                  <div key={field.key} className={`${slotClass} registration-event-display-block`}>
+                    <h2 className="text-lg font-semibold text-[var(--ink)]">
+                      {field.content || (locale === 'ar' ? field.label_ar : field.label_en)}
+                    </h2>
+                  </div>
+                )
+              }
+
+              if (field.type === 'divider') {
+                return <hr key={field.key} className={`${slotClass} registration-event-divider border-[var(--border)]`} />
+              }
+
+              if (field.type === 'paragraph') {
+                return (
+                  <p key={field.key} className={`${slotClass} registration-event-display-block text-sm text-[var(--muted)] whitespace-pre-wrap`}>
+                    {field.content || (locale === 'ar' ? field.label_ar : field.label_en)}
+                  </p>
+                )
+              }
+
+              if (field.type === 'event_logo') {
+                return (
+                  <EventLogoMedia
+                    key={field.key}
+                    mainImage={event.main_image}
+                    images={event.images}
+                    className={slotClass}
+                  />
+                )
+              }
+
+              if (field.type === 'event_name') {
+                return (
+                  <div key={field.key} className={`${slotClass} registration-event-display-block`}>
+                    <h1 className="text-2xl font-semibold text-[var(--ink)]">
+                      <LocalizedEventContent value={event.name} locale={locale} />
+                    </h1>
+                  </div>
+                )
+              }
+
+              if (field.type === 'event_venue') {
+                return venues.length > 0 ? (
+                  <div key={field.key} className={`${slotClass} registration-event-display-block`}>
+                    <p className="text-sm text-[var(--muted)]">
+                      {venues.map((v) => (locale === 'ar' ? (v.name.ar || v.name.en) : (v.name.en || v.name.ar))).join(', ')}
+                    </p>
+                  </div>
+                ) : null
+              }
+
+              if (field.type === 'event_dates') {
+                const startDate = event.start_at
+                  ? new Date(event.start_at).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US')
+                  : null
+                const endDate = event.end_at
+                  ? new Date(event.end_at).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US')
+                  : null
+                return (startDate || endDate) ? (
+                  <div key={field.key} className={`${slotClass} registration-event-display-block`}>
+                    <p className="text-sm text-[var(--muted)]">
+                      {startDate && endDate ? `${startDate} - ${endDate}` : startDate || endDate}
+                    </p>
+                  </div>
+                ) : null
+              }
+
+              if (field.type === 'event_description') {
+                const hasDescription = Boolean(event.description?.en || event.description?.ar)
+                return hasDescription ? (
+                  <div key={field.key} className={`${slotClass} registration-event-display-block`}>
+                    <p className="text-sm text-[var(--muted)] whitespace-pre-wrap">
+                      <LocalizedEventContent value={event.description} locale={locale} />
+                    </p>
+                  </div>
+                ) : null
+              }
+
+              if (field.type === 'event_categories') {
+                if (inviteCode) {
+                  return null
+                }
+
+                if (categories.length === 0) {
+                  return (
+                    <p key={field.key} className={`${slotClass} registration-invite-warning`}>
+                      {t('publicRegistrationNoCategories')}
+                    </p>
+                  )
+                }
+
+                return (
+                  <section
+                    key={field.key}
+                    className={`${slotClass} registration-ticket-picker${validation.fieldError('event_category_id') ? ' form-field-invalid' : ''}`}
+                    aria-label={t('publicRegistrationCategorySelection')}
+                    data-form-field="event_category_id"
+                  >
+                    <h2>{locale === 'ar' ? field.label_ar : field.label_en}</h2>
+                    <div className="registration-ticket-options">
+                      {categories.map((category) => {
+                        const selected = category.id === categoryId
+                        const isFull = Boolean(category.is_full)
+                        const price = (category.price_minor / 100).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-US', {
+                          style: 'currency',
+                          currency: category.currency || 'SAR',
+                        })
+                        const remainingLabel = category.remaining !== null && category.remaining !== undefined
+                          ? t('publicRegistrationCategoryRemaining').replace(':count', String(category.remaining))
+                          : null
+
+                        return (
+                          <button
+                            key={category.id}
+                            type="button"
+                            className={[
+                              'registration-ticket-option',
+                              selected && !isFull ? 'registration-ticket-option-active' : '',
+                              isFull ? 'registration-ticket-option-full' : '',
+                            ].filter(Boolean).join(' ')}
+                            onClick={() => {
+                              if (!isFull) {
+                                setCategoryId(String(category.id))
+                                validation.clearField('event_category_id')
+                              }
+                            }}
+                            disabled={isPreview || isFull}
+                            aria-disabled={isPreview || isFull}
+                          >
+                            <span className="registration-ticket-option-top">
+                              <span
+                                className="registration-ticket-code"
+                                style={category.color ? { color: category.color } : undefined}
+                              >
+                                {category.is_paid ? price : t('publicRegistrationFree')}
+                              </span>
+                              {isFull ? (
+                                <span className="registration-ticket-badge registration-ticket-badge-full">
+                                  {t('publicRegistrationCategoryFull')}
+                                </span>
+                              ) : remainingLabel ? (
+                                <span className="registration-ticket-badge">
+                                  {remainingLabel}
+                                </span>
+                              ) : null}
+                            </span>
+                            <span className="registration-ticket-name">
+                              <LocalizedEventContent value={category.name} locale={locale} />
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </section>
+                )
+              }
+
+              if (field.type === 'event_venue_select') {
+                if (venues.length === 0) {
+                  return null
+                }
+
+                return (
+                  <div key={field.key} className={slotClass}>
+                    <RegistrationVenueSelect
+                      locale={locale}
+                      venues={venues}
+                      value={venueId}
+                      onChange={(nextVenueId) => {
+                        setVenueId(nextVenueId)
+                        validation.clearField('event_venue_id')
+                      }}
+                      disabled={isPreview}
+                      error={validation.fieldError('event_venue_id')}
+                    />
+                  </div>
+                )
+              }
 
               return (
-                <RegistrationField
-                  key={field.key}
-                  field={field}
-                  locale={locale}
-                  disabled={isPreview}
-                  readOnly={isLockedEmail}
-                  value={isLockedEmail ? (lockedEmail ?? '') : undefined}
-                  error={validation.fieldError(field.key)}
-                  data-form-field={field.key}
-                />
+                <div key={field.key} className={slotClass}>
+                  <RegistrationField
+                    field={field}
+                    locale={locale}
+                    disabled={isPreview && field.type !== 'checkbox' && field.type !== 'radio'}
+                    readOnly={isLockedEmail}
+                    value={isLockedEmail ? (lockedEmail ?? '') : undefined}
+                    defaultValue={isPrefillName ? (prefillName ?? undefined) : undefined}
+                    error={validation.fieldError(field.key)}
+                    data-form-field={field.key}
+                  />
+                </div>
               )
             })}
 
+            {!hasVenueSelectBlock && venues.length > 0 ? (
+              <div className="registration-form-slot registration-form-slot--full">
+                <RegistrationVenueSelect
+                  locale={locale}
+                  venues={venues}
+                  value={venueId}
+                  onChange={(nextVenueId) => {
+                    setVenueId(nextVenueId)
+                    validation.clearField('event_venue_id')
+                  }}
+                  disabled={isPreview}
+                  error={validation.fieldError('event_venue_id')}
+                />
+              </div>
+            ) : null}
+
+            <div className="registration-form-slot registration-form-slot--full flex flex-col gap-4">
             <label className={`registration-consent${validation.fieldError('consent') ? ' form-field-invalid' : ''}`}>
               <input
                 type="checkbox"
@@ -507,6 +697,7 @@ export default function PublicRegistrationEvent({
                 {t('publicRegistrationPreviewFootnote')}
               </p>
             )}
+            </div>
           </form>
         </RegistrationEventHero>
         <ValidationHintPopover {...validation.hintProps} />

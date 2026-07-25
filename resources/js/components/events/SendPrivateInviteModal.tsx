@@ -17,6 +17,7 @@ export default function SendPrivateInviteModal({ open, eventId, tenantId, onClos
   const { locale, t } = useLocale()
   const { toast } = useToast()
   const [mode, setMode] = useState<'email' | 'file'>('email')
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -37,7 +38,7 @@ export default function SendPrivateInviteModal({ open, eventId, tenantId, onClos
           method: 'POST',
           tenantId,
           idempotency: true,
-          body: { email: email.trim(), locale },
+          body: { email: email.trim(), name: name.trim() || undefined, locale },
         })
         toast(
           (result.renewed ?? 0) > 0 ? t('inviteRenewed') : t('inviteSent'),
@@ -67,6 +68,7 @@ export default function SendPrivateInviteModal({ open, eventId, tenantId, onClos
         )
       }
 
+      setName('')
       setEmail('')
       setFile(null)
       onClose()
@@ -142,13 +144,21 @@ export default function SendPrivateInviteModal({ open, eventId, tenantId, onClos
           ) : null}
 
           {mode === 'email' ? (
-            <TextInput
-              label={t('inviteEmailLabel')}
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+            <>
+              <TextInput
+                label={t('inviteNameLabel')}
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+              <TextInput
+                label={t('inviteEmailLabel')}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </>
           ) : (
             <div className="space-y-3">
               <p className="text-sm text-[var(--muted)]">{t('inviteExcelHelp')}</p>

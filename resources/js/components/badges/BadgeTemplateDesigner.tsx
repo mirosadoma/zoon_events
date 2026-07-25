@@ -1,10 +1,12 @@
-import { useState, useRef, useCallback, useEffect, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import {
   Type, Building2, Briefcase, QrCode, Ticket, Layers, MapPin,
   Image, Palette, PenLine, Plus, Trash2, Save, GripVertical, UserCheck,
+  Mail, Phone, Eye, Upload, X,
 } from 'lucide-react'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
+import { formatDateOnly } from '@/lib/formatters'
 import { useToast } from '@/hooks/useToast'
 import { useLocale } from '@/hooks/useLocale'
 import type { BadgeBackgroundGradient, BadgeTemplate } from '@/types/phase3'
@@ -42,6 +44,8 @@ interface BadgeTemplateData {
   orientation: string
   background_color: string | null
   background_gradient: BadgeBackgroundGradient | null
+  background_image_path?: string | null
+  clear_background_image?: boolean
   canvas_width: number
   canvas_height: number
   layout: BadgeFieldLayout[]
@@ -58,12 +62,25 @@ interface BadgeTemplateDesignerProps {
     background_color?: string
     background_gradient?: BadgeBackgroundGradient | null
     background_image_path?: string
+    background_image_url?: string
     orientation?: string
     canvas_width?: number
     canvas_height?: number
   }
   eventId: string
   tenantId?: string
+  event?: {
+    id: string
+    name: { en: string; ar: string }
+    description?: { en: string; ar: string }
+    timezone?: string | null
+    start_at?: string | null
+    end_at?: string | null
+    main_image?: string | null
+    venues?: Array<{ id: string; name: { en: string; ar: string } }>
+    tier?: string
+  }
+  registrationFields?: Array<{ key: string; label_en: string; label_ar: string; type: string }>
   onSave?: (data: BadgeTemplateData) => void
   onSaved?: (template: BadgeTemplate) => void
   saving?: boolean
@@ -75,14 +92,53 @@ interface BadgeTemplateDesignerProps {
 
 const SNAP = 4
 
-const AVAILABLE_FIELDS = [
-  'attendee_name', 'company', 'job_title', 'qr', 'ticket_type', 'attendee_type',
-  'tier', 'zone', 'sponsor_logo_ref', 'organizer_logo_ref',
-  'color_code', 'custom_text',
+/** Badge-only fields that are never registration form inputs. */
+const BADGE_ONLY_FIELDS = [
+  'qr',
+  'sponsor_logo_ref',
+  'organizer_logo_ref',
+  'color_code',
+  'custom_text',
 ] as const
+
+/** Registration form display blocks — never allowed on badge layouts. */
+const REGISTRATION_DISPLAY_TYPES = new Set([
+  'hidden',
+  'heading',
+  'divider',
+  'paragraph',
+  'consent',
+  'event_logo',
+  'event_name',
+  'event_venue',
+  'event_dates',
+  'event_description',
+  'event_categories',
+  'event_venue_select',
+])
+
+const REGISTRATION_TO_BADGE_KEY: Record<string, string> = {
+  full_name: 'attendee_name',
+  attendee_name: 'attendee_name',
+}
+
+/** True for event-info / layout keys that the API rejects on badge templates. */
+function isDisallowedBadgeFieldKey(key: string): boolean {
+  return (
+    key === 'event_categories'
+    || key === 'event_venue_select'
+    || key.startsWith('event_logo')
+    || key.startsWith('event_name')
+    || key.startsWith('event_venue')
+    || key.startsWith('event_dates')
+    || key.startsWith('event_descript')
+  )
+}
 
 const FIELD_ICONS: Record<string, typeof Type> = {
   attendee_name: Type,
+  email: Mail,
+  phone: Phone,
   company: Building2,
   job_title: Briefcase,
   qr: QrCode,
@@ -97,7 +153,9 @@ const FIELD_ICONS: Record<string, typeof Type> = {
 }
 
 const FIELD_LABELS: Record<string, string> = {
-  attendee_name: 'Attendee Name',
+  attendee_name: 'Full name',
+  email: 'Email',
+  phone: 'Phone',
   company: 'Company',
   job_title: 'Job Title',
   qr: 'QR Code',
@@ -158,6 +216,75 @@ function clampFieldsToCanvas(fields: BadgeFieldLayout[], canvasW: number, canvas
       y: snap(Math.max(0, Math.min(canvasH - height, field.y))),
     }
   })
+}
+
+function pickLocalized(
+  value: { en?: string; ar?: string } | undefined,
+  locale: 'en' | 'ar',
+  fallback: string,
+): string {
+  if (!value) return fallback
+  const text = locale === 'ar' ? (value.ar || value.en) : (value.en || value.ar)
+  return text && text.trim() !== '' ? text : fallback
+}
+
+function formatBadgeEventDates(
+  event: BadgeTemplateDesignerProps['event'],
+  locale: 'en' | 'ar',
+): string {
+  const tz = event?.timezone || undefined
+  const start = event?.start_at ? formatDateOnly(event.start_at, locale, tz) : null
+  const end = event?.end_at ? formatDateOnly(event.end_at, locale, tz) : null
+  if (start && end) return `${start} – ${end}`
+  if (start) return start
+  return locale === 'ar' ? 'تواريخ الفعالية' : 'Event dates'
+}
+
+/** Sample / event values shown on the designer canvas (not field keys). */
+function buildCanvasPreviewValues(
+  event: BadgeTemplateDesignerProps['event'],
+  locale: 'en' | 'ar',
+  fieldKeys: string[],
+): Record<string, string> {
+  const eventName = pickLocalized(event?.name, locale, locale === 'ar' ? 'اسم الفعالية' : 'Sample Event')
+  const description = pickLocalized(
+    event?.description,
+    locale,
+    locale === 'ar' ? 'وصف الفعالية' : 'Event description',
+  )
+  const venueName = event?.venues?.length
+    ? event.venues.map((v) => pickLocalized(v.name, locale, '')).filter(Boolean).join(', ')
+    : (locale === 'ar' ? 'قاعة الفعالية' : 'Main Hall')
+  const dates = formatBadgeEventDates(event, locale)
+  const categories = locale === 'ar' ? 'الفئات' : 'Categories'
+
+  const samples: Record<string, string> = {
+    attendee_name: locale === 'ar' ? 'أحمد محمد' : 'Jane Doe',
+    email: 'jane@example.com',
+    phone: '+966 50 000 0000',
+    company: locale === 'ar' ? 'شركة أكمي' : 'Acme Corp',
+    job_title: locale === 'ar' ? 'مدير منتجات' : 'Product Manager',
+    ticket_type: 'VIP',
+    attendee_type: locale === 'ar' ? 'زائر' : 'Visitor',
+    tier: event?.tier || 'Gold',
+    zone: venueName,
+    custom_text: eventName,
+  }
+
+  const values: Record<string, string> = { ...samples }
+
+  for (const key of fieldKeys) {
+    if (values[key] || key === 'qr' || key === 'color_code') continue
+    if (key.startsWith('event_logo') || key === 'organizer_logo_ref' || key === 'sponsor_logo_ref') continue
+    if (key.startsWith('event_name')) values[key] = eventName
+    else if (key.startsWith('event_venue')) values[key] = venueName
+    else if (key.startsWith('event_dates')) values[key] = dates
+    else if (key.startsWith('event_descript')) values[key] = description
+    else if (key.startsWith('event_categor')) values[key] = categories
+    else values[key] = locale === 'ar' ? 'نص تجريبي' : 'Sample'
+  }
+
+  return values
 }
 
 const FONT_OPTIONS = ['Inter', 'Arial', 'Cairo', 'Tajawal', 'monospace']
@@ -238,13 +365,23 @@ function badgeCanvasBackgroundStyle(
   bgColor: string,
   bgMode: 'solid' | 'gradient',
   gradient: BadgeBackgroundGradient | null,
+  bgImageUrl?: string | null,
 ): CSSProperties {
-  if (bgMode === 'gradient' && gradient) {
+  const style: CSSProperties = {}
+  
+  if (bgImageUrl) {
+    style.backgroundImage = `url(${bgImageUrl})`
+    style.backgroundSize = 'cover'
+    style.backgroundPosition = 'center'
+    style.backgroundRepeat = 'no-repeat'
+  } else if (bgMode === 'gradient' && gradient) {
     const stops = gradient.stops.map((stop) => `${stop.color} ${stop.position}%`).join(', ')
-    return { background: `linear-gradient(${gradient.angle}deg, ${stops})` }
+    style.background = `linear-gradient(${gradient.angle}deg, ${stops})`
+  } else {
+    style.backgroundColor = bgColor
   }
 
-  return { backgroundColor: bgColor }
+  return style
 }
 
 function fieldAlignFlexStyle(item: BadgeFieldLayout): CSSProperties {
@@ -312,8 +449,24 @@ function defaultLayout(field: string, cx: number, cy: number): BadgeFieldLayout 
 /*  Sub-components                                                     */
 /* ------------------------------------------------------------------ */
 
-function FieldPreview({ item, canvasH }: { item: BadgeFieldLayout; canvasH: number }) {
+function FieldPreview({
+  item,
+  canvasH,
+  fieldLabels,
+  previewValues,
+  eventImageUrl,
+}: {
+  item: BadgeFieldLayout
+  canvasH: number
+  fieldLabels: Record<string, string>
+  previewValues: Record<string, string>
+  eventImageUrl?: string | null
+}) {
   const horizontal = resolveHorizontalAlign(item.textAlign)
+  const fieldKey = item.field
+  const isEventLogo = fieldKey === 'organizer_logo_ref'
+    || fieldKey === 'sponsor_logo_ref'
+    || fieldKey.startsWith('event_logo')
 
   if (item.field === 'qr') {
     return (
@@ -333,13 +486,28 @@ function FieldPreview({ item, canvasH }: { item: BadgeFieldLayout; canvasH: numb
     )
   }
 
-  if (item.field === 'sponsor_logo_ref' || item.field === 'organizer_logo_ref') {
+  if (isEventLogo) {
+    if (eventImageUrl) {
+      return (
+        <img
+          src={eventImageUrl}
+          alt=""
+          className="max-h-full max-w-full object-contain"
+          draggable={false}
+        />
+      )
+    }
+
     return (
       <div className="flex max-h-full max-w-full items-center justify-center border border-dashed border-gray-400 bg-gray-50 px-1 text-[10px] text-gray-400">
-        {FIELD_LABELS[item.field]}
+        {fieldLabels[item.field] ?? 'Logo'}
       </div>
     )
   }
+
+  const displayText = item.field === 'custom_text'
+    ? (item.text?.trim() || previewValues.custom_text || fieldLabels.custom_text)
+    : (previewValues[item.field] || fieldLabels[item.field] || item.field)
 
   return (
     <span
@@ -353,9 +521,7 @@ function FieldPreview({ item, canvasH }: { item: BadgeFieldLayout; canvasH: numb
         textAlign: horizontal,
       }}
     >
-      {item.field === 'custom_text'
-        ? (item.text?.trim() || FIELD_LABELS.custom_text)
-        : (FIELD_LABELS[item.field] ?? item.field)}
+      {displayText}
     </span>
   )
 }
@@ -368,11 +534,13 @@ export default function BadgeTemplateDesigner({
   template,
   eventId,
   tenantId,
+  event,
+  registrationFields,
   onSave,
   onSaved,
   saving = false,
 }: BadgeTemplateDesignerProps) {
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const { toast } = useToast()
   const [name, setName] = useState(template?.name ?? '')
   const [paperSize, setPaperSize] = useState(() => normalizePaperSize(template?.paper_size))
@@ -389,6 +557,14 @@ export default function BadgeTemplateDesigner({
   )
   const [bgPanelOpen, setBgPanelOpen] = useState(false)
   const bgPanelRef = useRef<HTMLDivElement>(null)
+  const [bgImagePath, setBgImagePath] = useState<string | null>(template?.background_image_path ?? null)
+  const [bgImageUrl, setBgImageUrl] = useState<string | null>(template?.background_image_url ?? null)
+  const [clearBgImage, setClearBgImage] = useState(false)
+  const [uploadingBg, setUploadingBg] = useState(false)
+  const [previewModalOpen, setPreviewModalOpen] = useState(false)
+  const [previewTestValues, setPreviewTestValues] = useState<Record<string, string>>({})
+  const [previewPngBase64, setPreviewPngBase64] = useState<string | null>(null)
+  const [generatingPreview, setGeneratingPreview] = useState(false)
   const [status, setStatus] = useState(template?.status ?? 'draft')
   const [templateId, setTemplateId] = useState(template?.id)
   const [savingInternal, setSavingInternal] = useState(false)
@@ -411,9 +587,46 @@ export default function BadgeTemplateDesigner({
         : null
     const { h } = resolveCanvasSize(paper, orient, custom)
 
-    return raw.map((item) => normalizeFieldFontSize(item, h))
+    return raw
+      .filter((item) => item.field && !isDisallowedBadgeFieldKey(item.field))
+      .map((item) => normalizeFieldFontSize(item, h))
   })
   const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  // Palette = registration form fields (mapped) + badge-only controls
+  const AVAILABLE_FIELDS: string[] = []
+  const dynamicFieldLabels = { ...FIELD_LABELS }
+  const dynamicFieldIcons = { ...FIELD_ICONS }
+  const seenKeys = new Set<string>()
+
+  const pushField = (key: string, label?: string, intoPalette = true) => {
+    if (isDisallowedBadgeFieldKey(key)) return
+    if (label) dynamicFieldLabels[key] = label
+    if (!dynamicFieldIcons[key]) dynamicFieldIcons[key] = Type
+    if (!intoPalette || seenKeys.has(key)) return
+    seenKeys.add(key)
+    AVAILABLE_FIELDS.push(key)
+  }
+
+  ;(registrationFields ?? []).forEach((regField) => {
+    if (REGISTRATION_DISPLAY_TYPES.has(regField.type)) return
+    const badgeKey = REGISTRATION_TO_BADGE_KEY[regField.key] ?? regField.key
+    if (isDisallowedBadgeFieldKey(badgeKey)) return
+    pushField(badgeKey, regField.label_en || FIELD_LABELS[badgeKey] || regField.key)
+  })
+
+  BADGE_ONLY_FIELDS.forEach((key) => pushField(key))
+
+  // Labels for already-placed fields (even if form no longer includes them)
+  fields.forEach((field) => {
+    pushField(field.field, dynamicFieldLabels[field.field] ?? FIELD_LABELS[field.field] ?? field.field, false)
+  })
+
+  const canvasPreviewValues = useMemo(
+    () => buildCanvasPreviewValues(event, locale, fields.map((f) => f.field)),
+    [event, locale, fields],
+  )
+  const eventImageUrl = event?.main_image ?? null
 
   const canvasRef = useRef<HTMLDivElement>(null)
   const interactionRef = useRef<{
@@ -456,9 +669,15 @@ export default function BadgeTemplateDesigner({
     bgColor,
     bgMode,
     bgMode === 'gradient' ? bgGradient : null,
+    bgImageUrl,
   )
 
-  const bgPreviewStyle = canvasBackgroundStyle
+  const bgPreviewStyle = badgeCanvasBackgroundStyle(
+    bgColor,
+    bgMode,
+    bgMode === 'gradient' ? bgGradient : null,
+    null, // Don't show image in preview
+  )
   const wrapRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
 
@@ -589,9 +808,11 @@ export default function BadgeTemplateDesigner({
       orientation,
       background_color: bgMode === 'gradient' ? (bgGradient.stops[0]?.color ?? bgColor) : (bgColor || null),
       background_gradient: bgMode === 'gradient' ? bgGradient : null,
+      background_image_path: bgImagePath,
+      clear_background_image: clearBgImage,
       canvas_width: canvasW,
       canvas_height: canvasH,
-      layout: fields,
+      layout: fields.filter((field) => !isDisallowedBadgeFieldKey(field.field)),
     }
 
     onSave?.(data)
@@ -607,7 +828,7 @@ export default function BadgeTemplateDesigner({
           method: isUpdate ? 'PATCH' : 'POST',
           tenantId,
           idempotency: true,
-          body: data,
+          body: data as unknown as Record<string, unknown>,
         },
       )
       setTemplateId(String(saved.id))
@@ -690,6 +911,106 @@ export default function BadgeTemplateDesigner({
       setFields((prev) => clampFieldsToCanvas(prev, nextSize.w, nextSize.h))
       return next
     })
+  }
+
+  const handleBackgroundUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.[0]) return
+    
+    if (!templateId) {
+      toast(t('badgeSaveBeforeBackground'), 'error')
+      e.target.value = ''
+      return
+    }
+
+    const file = e.target.files[0]
+    const formData = new FormData()
+    formData.append('background_image', file)
+
+    setUploadingBg(true)
+    try {
+      const response = await apiFetch<{ background_image_path: string; background_image_url: string }>(
+        `/api/v1/tenant/events/${eventId}/badge-templates/${templateId}/background`,
+        {
+          method: 'POST',
+          tenantId: tenantId!,
+          idempotency: true,
+          body: formData,
+          headers: {}, // Let browser set Content-Type for FormData
+        },
+      )
+      setBgImagePath(response.background_image_path)
+      setBgImageUrl(response.background_image_url)
+      setClearBgImage(false)
+      toast(t('saved'), 'success')
+    } catch (caught) {
+      toast(caught instanceof ApiFetchError ? caught.message : t('requestFailed'), 'error')
+    } finally {
+      setUploadingBg(false)
+      e.target.value = ''
+    }
+  }
+
+  const handleClearBackground = () => {
+    setBgImagePath(null)
+    setBgImageUrl(null)
+    setClearBgImage(true)
+  }
+
+  const handlePreviewClick = () => {
+    const canvasDefaults = buildCanvasPreviewValues(event, locale, fields.map((f) => f.field))
+
+    // Prefill from event/sample when possible; leave personal contact fields empty for typing.
+    const defaults: Record<string, string> = {}
+    fields.forEach((field) => {
+      if (['qr', 'sponsor_logo_ref', 'organizer_logo_ref', 'color_code'].includes(field.field)) {
+        return
+      }
+      if (field.field.startsWith('event_logo')) {
+        return
+      }
+      if (field.field === 'email' || field.field === 'phone') {
+        defaults[field.field] = previewTestValues[field.field] ?? ''
+        return
+      }
+      defaults[field.field] = previewTestValues[field.field] || canvasDefaults[field.field] || ''
+    })
+
+    setPreviewTestValues(defaults)
+    setPreviewModalOpen(true)
+    setPreviewPngBase64(null)
+  }
+
+  const handleGeneratePreview = async () => {
+    setGeneratingPreview(true)
+    try {
+      const response = await apiFetch<{ png_base64: string }>(
+        `/api/v1/tenant/events/${eventId}/badge-templates/preview-test`,
+        {
+          method: 'POST',
+          tenantId: tenantId!,
+          body: {
+            template_id: templateId != null ? String(templateId) : null,
+            name,
+            layout: fields.filter((field) => !isDisallowedBadgeFieldKey(field.field)),
+            paper_size: paperSize,
+            printer_type: printerType,
+            orientation,
+            background_color: bgMode === 'gradient' ? (bgGradient.stops[0]?.color ?? bgColor) : (bgColor || null),
+            background_gradient: bgMode === 'gradient' ? bgGradient : null,
+            background_image_path: bgImagePath,
+            canvas_width: canvasW,
+            canvas_height: canvasH,
+            field_values: previewTestValues,
+            qr_payload: 'PREVIEW-QR',
+          },
+        },
+      )
+      setPreviewPngBase64(response.png_base64)
+    } catch (caught) {
+      toast(caught instanceof ApiFetchError ? caught.message : t('requestFailed'), 'error')
+    } finally {
+      setGeneratingPreview(false)
+    }
   }
 
   const isSaving = saving || savingInternal
@@ -847,13 +1168,53 @@ export default function BadgeTemplateDesigner({
                   />
                   <div
                     className="h-10 w-full rounded border border-slate-600"
-                    style={badgeCanvasBackgroundStyle(bgColor, 'gradient', bgGradient)}
+                    style={badgeCanvasBackgroundStyle(bgColor, 'gradient', bgGradient, null)}
                   />
                 </div>
               )}
+
+              <div className="mt-4 space-y-2 border-t border-slate-600 pt-3">
+                <span className="block text-xs font-semibold text-slate-400">{t('badgeBackgroundImage')}</span>
+                {bgImageUrl ? (
+                  <div className="space-y-2">
+                    <div className="h-20 w-full overflow-hidden rounded border border-slate-600">
+                      <img src={bgImageUrl} alt="Background" className="h-full w-full object-cover" />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleClearBackground}
+                      className="flex w-full items-center justify-center gap-1.5 rounded bg-red-600/80 px-2 py-1.5 text-xs text-white transition hover:bg-red-600"
+                    >
+                      <X size={12} />
+                      {t('badgeClearBackground')}
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded bg-slate-700 px-2 py-2 text-xs text-slate-300 transition hover:bg-slate-600">
+                    <Upload size={12} />
+                    {uploadingBg ? 'Uploading…' : t('badgeUploadBackground')}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleBackgroundUpload}
+                      disabled={uploadingBg}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
             </div>
           )}
         </div>
+
+        <button
+          type="button"
+          onClick={handlePreviewClick}
+          className="flex items-center gap-1.5 rounded bg-slate-700 px-3 py-1 transition hover:bg-slate-600"
+        >
+          <Eye size={14} />
+          {t('badgePreviewTestData')}
+        </button>
 
         <div className="flex-1" />
 
@@ -898,7 +1259,7 @@ export default function BadgeTemplateDesigner({
           </div>
           <div className="flex-1 overflow-y-auto p-2">
             {AVAILABLE_FIELDS.map((field) => {
-              const Icon = FIELD_ICONS[field] ?? Type
+              const Icon = dynamicFieldIcons[field] ?? Type
               const used = fields.some((f) => f.field === field)
               return (
                 <div
@@ -908,7 +1269,7 @@ export default function BadgeTemplateDesigner({
                   }`}
                 >
                   <Icon size={14} className="mr-2 shrink-0 text-slate-400" />
-                  <span className="flex-1 truncate">{FIELD_LABELS[field]}</span>
+                  <span className="flex-1 truncate">{dynamicFieldLabels[field] ?? field}</span>
                   <button
                     type="button"
                     disabled={used}
@@ -983,7 +1344,13 @@ export default function BadgeTemplateDesigner({
                     }}
                   >
                     <div style={fieldAlignFlexStyle(item)}>
-                      <FieldPreview item={item} canvasH={canvasH} />
+                      <FieldPreview
+                        item={item}
+                        canvasH={canvasH}
+                        fieldLabels={dynamicFieldLabels}
+                        previewValues={canvasPreviewValues}
+                        eventImageUrl={eventImageUrl}
+                      />
                     </div>
 
                     {isSelected &&
@@ -1039,7 +1406,7 @@ export default function BadgeTemplateDesigner({
             <div className="flex-1 space-y-3 overflow-y-auto p-3">
               <div className="rounded bg-slate-700/60 px-2 py-1 text-xs font-medium text-blue-300">
                 <GripVertical size={12} className="mr-1 inline" />
-                {FIELD_LABELS[selected.field] ?? selected.field}
+                {dynamicFieldLabels[selected.field] ?? selected.field}
               </div>
 
               {/* Position */}
@@ -1210,6 +1577,91 @@ export default function BadgeTemplateDesigner({
           )}
         </aside>
       </div>
+
+      {/* Preview Modal */}
+      {previewModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-slate-800 text-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-700 px-4 py-3">
+              <div>
+                <h3 className="text-lg font-semibold">{t('badgePreviewTestData')}</h3>
+                <p className="text-xs text-slate-400">{t('badgePreviewTestDataHint')}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewModalOpen(false)}
+                className="rounded p-1 transition hover:bg-slate-700"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 lg:grid-cols-2">
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-slate-300">{t('badgePreviewFillFields')}</p>
+                {fields
+                  .filter((f) => !['qr', 'sponsor_logo_ref', 'organizer_logo_ref', 'color_code'].includes(f.field))
+                  .map((field) => (
+                    <label key={field.id} className="block">
+                      <span className="mb-1 block text-sm text-slate-300">
+                        {dynamicFieldLabels[field.field] ?? field.field}
+                      </span>
+                      <input
+                        type="text"
+                        value={previewTestValues[field.field] ?? ''}
+                        onChange={(e) =>
+                          setPreviewTestValues((prev) => ({ ...prev, [field.field]: e.target.value }))
+                        }
+                        placeholder={t('badgePreviewEnterValue').replace(
+                          ':field',
+                          dynamicFieldLabels[field.field] ?? field.field,
+                        )}
+                        className="w-full rounded bg-slate-700 px-3 py-2 text-white outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </label>
+                  ))}
+                {fields.filter((f) => !['qr', 'sponsor_logo_ref', 'organizer_logo_ref', 'color_code'].includes(f.field)).length === 0 ? (
+                  <p className="text-sm text-slate-400">{t('badgePreviewNoEditableFields')}</p>
+                ) : null}
+              </div>
+
+              <div className="flex flex-col">
+                <p className="mb-2 text-sm font-medium text-slate-300">{t('badgePreviewResult')}</p>
+                <div className="flex min-h-64 flex-1 items-center justify-center rounded border border-slate-600 bg-slate-900 p-4">
+                  {previewPngBase64 ? (
+                    <img
+                      src={`data:image/png;base64,${previewPngBase64}`}
+                      alt="Badge preview"
+                      className="max-h-96 max-w-full object-contain"
+                    />
+                  ) : (
+                    <p className="px-4 text-center text-sm text-slate-500">
+                      {generatingPreview ? t('badgePreviewGenerating') : t('badgePreviewEmpty')}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 border-t border-slate-700 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => void handleGeneratePreview()}
+                disabled={generatingPreview}
+                className="flex-1 rounded bg-blue-600 px-4 py-2 font-medium transition hover:bg-blue-500 disabled:opacity-50"
+              >
+                {generatingPreview ? t('badgePreviewGenerating') : t('badgePreviewGenerate')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewModalOpen(false)}
+                className="rounded bg-slate-700 px-4 py-2 transition hover:bg-slate-600"
+              >
+                {t('close')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

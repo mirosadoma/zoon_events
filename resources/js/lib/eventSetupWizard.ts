@@ -4,7 +4,7 @@ import { encodeEventTiers } from '@/lib/eventOptions'
 import en from '@/locales/en'
 import ar from '@/locales/ar'
 
-export type EventSetupWizardStep = 'type' | 'details' | 'schedule' | 'branding' | 'review'
+export type EventSetupWizardStep = 'type' | 'details' | 'branding' | 'review'
 
 export type EventSetupWizardForm = {
   slug: string
@@ -26,7 +26,6 @@ export function eventSetupWizardSteps(locale: AppLocale): Array<{ key: EventSetu
     return [
       { key: 'type', label: 'نوع الفعالية' },
       { key: 'details', label: 'التفاصيل' },
-      { key: 'schedule', label: 'الجدول' },
       { key: 'branding', label: 'الهوية' },
       { key: 'review', label: 'المراجعة' },
     ]
@@ -35,7 +34,6 @@ export function eventSetupWizardSteps(locale: AppLocale): Array<{ key: EventSetu
   return [
     { key: 'type', label: 'Event type' },
     { key: 'details', label: 'Details' },
-    { key: 'schedule', label: 'Schedule' },
     { key: 'branding', label: 'Branding' },
     { key: 'review', label: 'Review' },
   ]
@@ -55,14 +53,8 @@ export function eventSetupWizardStepCopy(
     details: {
       title_en: 'Name and details',
       title_ar: 'الاسم والتفاصيل',
-      description_en: 'Set how the event appears publicly.',
-      description_ar: 'حدد كيف تظهر الفعالية للجمهور.',
-    },
-    schedule: {
-      title_en: 'Schedule and venues',
-      title_ar: 'الجدول والمواقع',
-      description_en: 'Add where the event happens and when registration opens.',
-      description_ar: 'أضف مكان الفعالية ومواعيد فتح التسجيل.',
+      description_en: 'Set how the event appears publicly, including name, description, slug, and timezone.',
+      description_ar: 'حدد كيف تظهر الفعالية للجمهور بما في ذلك الاسم والوصف والرابط والمنطقة الزمنية.',
     },
     branding: {
       title_en: 'Branding and visuals',
@@ -73,8 +65,8 @@ export function eventSetupWizardStepCopy(
     review: {
       title_en: 'Review and create',
       title_ar: 'مراجعة وإنشاء',
-      description_en: 'Confirm the setup before creating the event workspace.',
-      description_ar: 'راجع الإعداد قبل إنشاء مساحة الفعالية.',
+      description_en: 'Confirm the setup before creating the event workspace. You can add venues later from the event details page.',
+      description_ar: 'راجع الإعداد قبل إنشاء مساحة الفعالية. يمكنك إضافة المواقع لاحقاً من صفحة تفاصيل الفعالية.',
     },
   }
 
@@ -107,17 +99,9 @@ export function validateEventSetupWizardStep(
     if (!form.slug.trim()) errors.slug = required
     if (!form.name_en.trim()) errors['name.en'] = required
     if (!form.name_ar.trim()) errors['name.ar'] = required
+    if (!form.timezone) errors.timezone = required
     if (options.requiresOrganizerSelection && !form.organizer_user_id) {
       errors.organizer_user_id = required
-    }
-  }
-
-  if (step === 'schedule') {
-    if (!form.timezone) errors.timezone = required
-    if (options.venueCount < 1) {
-      errors.venues = options.locale === 'ar'
-        ? 'أضف موقعاً واحداً على الأقل مع الجدول الزمني.'
-        : 'Add at least one venue with a schedule.'
     }
   }
 

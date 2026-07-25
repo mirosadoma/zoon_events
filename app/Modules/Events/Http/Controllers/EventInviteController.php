@@ -29,12 +29,13 @@ class EventInviteController extends Controller
         $event = $this->event($event_id);
         $validated = $request->validate([
             'email' => ['required', 'email', 'max:254'],
+            'name' => ['nullable', 'string', 'max:255'],
             'locale' => ['nullable', 'in:en,ar'],
         ]);
 
         $result = $this->sendInvites->execute(
             $event,
-            [$validated['email']],
+            [['email' => $validated['email'], 'name' => $validated['name'] ?? null]],
             $validated['locale'] ?? app()->getLocale(),
         );
 

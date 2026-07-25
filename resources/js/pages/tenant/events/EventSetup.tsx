@@ -210,7 +210,7 @@ export default function EventSetup({
   const currentWizardKey = wizardSteps[wizardStep]?.key as EventSetupWizardStep
   const [submitting, setSubmitting] = useState(false)
   const [venues, setVenues] = useState<VenueFormRow[]>(
-    () => venueRowsFromEvent(event.venues ?? []).length > 0 ? venueRowsFromEvent(event.venues ?? []) : [emptyVenueRow()],
+    () => venueRowsFromEvent(event.venues ?? []),
   )
   const [mainImageFile, setMainImageFile] = useState<File | null>(null)
   const [mainImagePreview, setMainImagePreview] = useState<string | null>(event.main_image?.url ?? null)
@@ -436,7 +436,7 @@ export default function EventSetup({
         primary_color: form.text_color,
         background_color: form.background_color,
       },
-      venues: buildVenuePayload(venues),
+      ...(!isCreateSubmit ? { venues: buildVenuePayload(venues) } : {}),
       ...(requiresOrganizerSelection ? { organizer_user_id: Number(form.organizer_user_id) } : {}),
     }
     const url = isCreateSubmit ? '/api/v1/tenant/events' : `/api/v1/tenant/events/${event.id}`
@@ -676,31 +676,24 @@ export default function EventSetup({
                       )}
                     </div>
                   </section>
+
+                  <section className="event-setup-details-section">
+                    <header className="event-setup-details-header">
+                      <h3 className="event-choice-section-title">{t('eventSetupTimezone')}</h3>
+                    </header>
+                    <SearchableSelect
+                      label={t('eventSetupTimezone')}
+                      value={form.timezone}
+                      onChange={(timezone) => setForm((current) => ({ ...current, timezone }))}
+                      options={timezoneOptions}
+                      placeholder={t('eventSetupSearchTimezone')}
+                      error={fieldError('timezone')}
+                      data-form-field="timezone"
+                    />
+                  </section>
                 </div>
               )}
 
-              {showStep('schedule') && (
-                <div className="space-y-4">
-                  <SearchableSelect
-                    label={t('eventSetupTimezone')}
-                    value={form.timezone}
-                    onChange={(timezone) => setForm((current) => ({ ...current, timezone }))}
-                    options={timezoneOptions}
-                    placeholder={t('eventSetupSearchTimezone')}
-                    error={fieldError('timezone')}
-                    data-form-field="timezone"
-                  />
-                  <VenueRepeater
-                    venues={venues}
-                    countries={countries}
-                    onChange={setVenues}
-                    errors={validation.fieldErrors}
-                  />
-                  {fieldError('venues') ? (
-                    <p className="text-sm text-red-600">{fieldError('venues')}</p>
-                  ) : null}
-                </div>
-              )}
 
               {showStep('branding') && (
                 <div className="space-y-6">
@@ -973,16 +966,6 @@ export default function EventSetup({
             </section>
           )}
 
-          {showStep('schedule') && (
-            <section id="event-setup-schedule" className="space-y-4 scroll-mt-24">
-              <VenueRepeater
-                venues={venues}
-                countries={countries}
-                onChange={setVenues}
-                errors={validation.fieldErrors}
-              />
-            </section>
-          )}
 
           {showStep('branding') && (
             <section id="event-setup-branding" className="space-y-6 scroll-mt-24">

@@ -4,7 +4,6 @@ namespace App\Modules\Events\Application\Actions;
 
 use App\Exceptions\FoundationException;
 use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
-use App\Modules\Events\Domain\CategoryLockStatus;
 use App\Modules\Events\Infrastructure\Persistence\Models\CategoryTemplate;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventCategory;
@@ -28,13 +27,6 @@ final readonly class SyncEventCategoryAssignments
      */
     public function execute(Event $event, array $categories): array
     {
-        if (CategoryLockStatus::locksCategories((string) $event->status)) {
-            throw FoundationException::conflict(
-                'event_categories_locked',
-                'Categories cannot be changed while the event is published or live.',
-            );
-        }
-
         $allowedDates = $this->eventDates($event);
         $venueIds = EventVenue::query()
             ->where('event_id', $event->id)

@@ -42,6 +42,59 @@ export function isRegistrationSystemFieldKey(key: string): key is RegistrationSy
   return REGISTRATION_SYSTEM_FIELD_KEYS.includes(key as RegistrationSystemFieldKey)
 }
 
+export function mergeRegistrationFieldsWithSystemOrder<T extends {
+  key: string
+  type: string
+  label_en: string
+  label_ar: string
+  required?: boolean
+  system?: boolean
+  placeholder_en?: string
+  placeholder_ar?: string
+  width?: string
+  options?: unknown
+  content?: string
+  choice_style?: string | null
+  choice_color?: string | null
+}>(fields: T[]): Array<T & { system: boolean }> {
+  const systemByKey = Object.fromEntries(
+    REGISTRATION_SYSTEM_FIELDS.map((field) => [field.key, field]),
+  ) as Record<RegistrationSystemFieldKey, RegistrationSystemFieldRow>
+
+  const seen = new Set<string>()
+  const result: Array<T & { system: boolean }> = []
+
+  fields.forEach((field, index) => {
+    if (isRegistrationSystemFieldKey(field.key)) {
+      if (seen.has(field.key)) return
+      seen.add(field.key)
+      const system = systemByKey[field.key]
+      result.push({
+        ...field,
+        id: (field as { id?: string }).id ?? `field_${index}_${field.key}`,
+        type: system.type,
+        label_en: system.label_en,
+        label_ar: system.label_ar,
+        required: true,
+        system: true,
+      } as T & { system: boolean })
+      return
+    }
+
+    result.push({ ...field, system: false })
+  })
+
+  REGISTRATION_SYSTEM_FIELDS.forEach((system) => {
+    if (seen.has(system.key)) return
+    result.push({
+      ...(system as unknown as T),
+      system: true,
+    })
+  })
+
+  return result
+}
+
 export function splitRegistrationFields<T extends { key: string }>(fields: T[]): {
   systemFields: RegistrationSystemFieldRow[]
   customFields: T[]

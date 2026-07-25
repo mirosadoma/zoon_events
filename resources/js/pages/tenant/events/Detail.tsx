@@ -2,11 +2,11 @@ import { router } from '@inertiajs/react'
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useMemo, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
+import EventVenuesPanel, { type EventVenueRow } from '@/components/events/EventVenuesPanel'
 import EventSectionGrid from '@/components/events/EventSectionGrid'
 import PublishReadinessList from '@/components/events/PublishReadinessList'
 import EventNextSteps from '@/components/events/EventNextSteps'
 import CopyRegistrationLinkButton from '@/components/events/CopyRegistrationLinkButton'
-import SendPrivateInviteModal from '@/components/events/SendPrivateInviteModal'
 import type { EventCapabilities } from '@/lib/eventOptions'
 import type { EventSectionTab, EventSetupProgress } from '@/lib/eventSetupProgress'
 import { PageContent, PageHeader } from '@/components/layout'
@@ -16,7 +16,6 @@ import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
 import { splitPublishReadiness, type PublishReadinessContext } from '@/lib/publishReadinessCatalog'
-import { Mail } from 'lucide-react'
 
 type EventRow = {
   id: string
@@ -33,6 +32,8 @@ type EventRow = {
   capabilities?: EventCapabilities,
   registration_url?: string | null
   setup_progress?: EventSetupProgress
+  email_templates_configured?: number
+  email_templates_required?: number
   can_unpublish?: boolean
 }
 
@@ -42,18 +43,34 @@ type Props = {
   operationsTabs: EventSectionTab[]
   tenantId: string
   eventCapabilities?: EventCapabilities
+  venues?: EventVenueRow[]
+  countries?: Array<{
+    id: string
+    code: string
+    name_en: string
+    name_ar: string
+    cities: Array<{ id: string; name_en: string; name_ar: string }>
+  }>
 }
 
-export default function EventDetail({ event, setupTabs, operationsTabs, tenantId, eventCapabilities }: Props) {
+export default function EventDetail({
+  event,
+  setupTabs,
+  operationsTabs,
+  tenantId,
+  eventCapabilities,
+  venues = [],
+  countries = [],
+}: Props) {
   const { locale, t } = useLocale()
   const { toast } = useToast()
   const [publishOpen, setPublishOpen] = useState(false)
   const [unpublishOpen, setUnpublishOpen] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
-  const [inviteOpen, setInviteOpen] = useState(false)
-  const [submitting, setSubmitting] = useState<'publish' | 'unpublish' | 'cancel' | null>(null)
+  const [republishOpen, setRepublishOpen] = useState(false)
+  const [cancelReason, setCancelReason] = useState('')
+  const [submitting, setSubmitting] = useState<'publish' | 'unpublish' | 'cancel' | 'republish' | null>(null)
   const [apiPublishMissing, setApiPublishMissing] = useState<string[] | null>(null)
-  const canSendPrivateInvites = event.tier === 'private' || event.tier === 'both'
 
   async function copyRegistrationLink(url: string) {
     try {
@@ -65,12 +82,29 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
   }
 
   const capabilities = eventCapabilities ?? event.capabilities
+  const emailTemplatesConfigured = event.setup_progress?.email_templates_configured
+    ?? event.email_templates_configured
+    ?? 0
+  const emailTemplatesRequired = event.setup_progress?.email_templates_required
+    ?? event.email_templates_required
+    ?? 3
   const readinessContext = useMemo<PublishReadinessContext>(() => ({
     status: event.status,
     requiresTicketing: capabilities?.requires_ticketing,
-  }), [event.status, capabilities?.requires_ticketing])
+    emailTemplatesConfigured,
+    emailTemplatesRequired,
+  }), [event.status, capabilities?.requires_ticketing, emailTemplatesConfigured, emailTemplatesRequired])
   const canPublish = event.status === 'draft' || event.status === 'configured'
   const canUnpublish = Boolean(event.can_unpublish)
+  const canCancel = [
+    'draft',
+    'configured',
+    'published',
+    'registration_open',
+    'registration_closed',
+    'live',
+  ].includes(event.status)
+  const canRepublish = event.status === 'cancelled'
   const isPrePublishStatus = canPublish
   const effectiveReadiness = useMemo(
     () => apiPublishMissing ?? (event.readiness ?? []),
@@ -88,42 +122,61 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
     agenda: !effectiveReadiness.includes('published_agenda'),
     categories: !effectiveReadiness.includes('event_categories'),
     badge_templates: !effectiveReadiness.includes('active_badge_template'),
+    email_templates: !effectiveReadiness.includes('email_templates'),
+    email_templates_configured: emailTemplatesConfigured,
+    email_templates_required: emailTemplatesRequired,
     kiosks: false,
     identity: false,
     published: !canPublish,
   }
 
-  async function runStatusAction(action: 'publish' | 'unpublish' | 'cancel') {
+  async function runStatusAction(action: 'publish' | 'unpublish' | 'cancel' | 'republish') {
+    if (action === 'cancel' && cancelReason.trim() === '') {
+      toast(t('reasonRequired'), 'error')
+      return
+    }
+
     setSubmitting(action)
 
+    const endpoint = action === 'republish' ? 'publish' : action
+
     try {
-      await apiFetch(`/api/v1/tenant/events/${event.id}/${action}`, {
+      await apiFetch(`/api/v1/tenant/events/${event.id}/${endpoint}`, {
         method: 'POST',
         tenantId,
         idempotency: true,
+        body: action === 'cancel' ? { reason: cancelReason.trim() } : undefined,
       })
       toast(
         action === 'publish'
           ? t('eventDetailPublished')
           : action === 'unpublish'
             ? t('eventDetailUnpublished')
-            : t('eventDetailCancelled'),
+            : action === 'republish'
+              ? t('eventDetailRepublished')
+              : t('eventDetailCancelled'),
         'success',
       )
       setPublishOpen(false)
       setUnpublishOpen(false)
       setCancelOpen(false)
+      setRepublishOpen(false)
+      setCancelReason('')
       setApiPublishMissing(null)
       router.reload({ only: ['event'] })
     } catch (error) {
-      if (action === 'publish' && error instanceof ApiFetchError) {
+      if ((action === 'publish' || action === 'republish') && error instanceof ApiFetchError) {
         if (error.missing.length > 0) {
           setApiPublishMissing(error.missing)
-          setPublishOpen(true)
+          if (action === 'publish') {
+            setPublishOpen(true)
+          } else {
+            setRepublishOpen(true)
+          }
         }
       }
 
-      const publishErrorMessage = action === 'publish' && error instanceof ApiFetchError && error.missing.length > 0
+      const publishErrorMessage = (action === 'publish' || action === 'republish') && error instanceof ApiFetchError && error.missing.length > 0
         ? t('eventDetailCannotPublish').replace(':count', String(error.missing.length))
         : error instanceof ApiFetchError
           ? error.message
@@ -131,7 +184,9 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
             ? t('eventDetailFailedToPublish')
             : action === 'unpublish'
               ? t('eventDetailFailedToUnpublish')
-              : t('eventDetailFailedToCancel')
+              : action === 'republish'
+                ? t('eventDetailFailedToRepublish')
+                : t('eventDetailFailedToCancel')
 
       toast(publishErrorMessage, 'error')
     } finally {
@@ -164,18 +219,6 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
                 onClick={() => void copyRegistrationLink(event.registration_url!)}
               />
             ) : null}
-            {canSendPrivateInvites ? (
-              <PermissionGate permission="event.invite.manage">
-                <button
-                  type="button"
-                  className="button-secondary inline-flex items-center gap-2"
-                  onClick={() => setInviteOpen(true)}
-                >
-                  <Mail className="h-4 w-4" aria-hidden="true" />
-                  {t('sendPrivateLink')}
-                </button>
-              </PermissionGate>
-            ) : null}
             <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/agenda-preview`} target="_blank" rel="noreferrer">
               {t('preview')}
             </LocalizedLink>
@@ -184,6 +227,16 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
               {canPublishNow ? (
                 <button type="button" className="button-primary" onClick={openPublishModal} disabled={submitting === 'publish'}>
                   {publishButtonLabel}
+                </button>
+              ) : null}
+              {canRepublish ? (
+                <button
+                  type="button"
+                  className="button-primary"
+                  onClick={() => setRepublishOpen(true)}
+                  disabled={submitting === 'republish'}
+                >
+                  {t('republish')}
                 </button>
               ) : null}
               {canUnpublish ? (
@@ -198,7 +251,9 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
               ) : null}
             </PermissionGate>
             <PermissionGate permission="event.cancel">
-              <button type="button" className="button-secondary" onClick={() => setCancelOpen(true)}>{t('cancel')}</button>
+              {canCancel ? (
+                <button type="button" className="button-secondary" onClick={() => setCancelOpen(true)}>{t('cancel')}</button>
+              ) : null}
             </PermissionGate>
           </div>
         )}
@@ -239,6 +294,13 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
             context={readinessContext}
           />
         ) : null}
+
+        <EventVenuesPanel
+          eventId={event.id}
+          tenantId={tenantId}
+          venues={venues}
+          countries={countries}
+        />
 
         <EventNextSteps
           eventId={event.id}
@@ -315,20 +377,57 @@ export default function EventDetail({ event, setupTabs, operationsTabs, tenantId
         onCancel={() => setUnpublishOpen(false)}
       />
       <ConfirmModal
+        open={republishOpen}
+        title={t('eventDetailRepublishEvent')}
+        message={
+          requirements.length === 0 && statusBlockers.filter((key) => key !== 'status_cancelled').length === 0
+            ? t('eventDetailRepublishMessage')
+            : t('eventDetailCannotPublishMessage')
+        }
+        confirmLabel={t('republish')}
+        cancelLabel={t('close')}
+        loading={submitting !== null}
+        confirmDisabled={requirements.length > 0}
+        onConfirm={() => void runStatusAction('republish')}
+        onCancel={() => setRepublishOpen(false)}
+      >
+        {requirements.length > 0 ? (
+          <PublishReadinessList
+            items={requirements}
+            eventId={event.id}
+            context={readinessContext}
+          />
+        ) : null}
+      </ConfirmModal>
+      <ConfirmModal
         open={cancelOpen}
         title={t('eventDetailCancelEvent')}
         message={t('eventDetailCancelMessage')}
         confirmLabel={t('eventDetailConfirmCancel')}
         loading={submitting !== null}
+        confirmDisabled={cancelReason.trim() === ''}
         onConfirm={() => void runStatusAction('cancel')}
-        onCancel={() => setCancelOpen(false)}
-      />
-      <SendPrivateInviteModal
-        open={inviteOpen}
-        eventId={event.id}
-        tenantId={tenantId}
-        onClose={() => setInviteOpen(false)}
-      />
+        onCancel={() => {
+          setCancelOpen(false)
+          setCancelReason('')
+        }}
+      >
+        <label className="grid gap-1.5 text-sm" htmlFor="event-cancel-reason">
+          <span className="font-medium text-[var(--ink)]">
+            {t('reason')}
+            <span className="ms-1 text-red-600">*</span>
+          </span>
+          <textarea
+            id="event-cancel-reason"
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            rows={3}
+            className="control w-full resize-y focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20"
+            placeholder={t('eventDetailCancelReasonPlaceholder')}
+            required
+          />
+        </label>
+      </ConfirmModal>
     </DashboardLayout>
   )
 }

@@ -40,14 +40,15 @@ final readonly class ListEventAttendeesQuery
         ?string $search,
         ?string $checkinStatus,
         int $page = 1,
-        int $perPage = self::PER_PAGE,
+        ?string $registrationType = null,
     ): array {
+        $perPage = self::PER_PAGE;
         $perPage = max(1, min(100, $perPage));
         $page = max(1, $page);
         $needle = trim((string) $search);
         $status = $this->normalizeStatus($checkinStatus);
 
-        $base = $this->baseQuery($tenantId, $eventId, $status);
+        $base = $this->baseQuery($tenantId, $eventId, $status, $registrationType);
 
         if ($needle === '') {
             $paginator = $base
@@ -131,12 +132,29 @@ final readonly class ListEventAttendeesQuery
     }
 
     /** @return Builder<Attendee> */
-    private function baseQuery(string $tenantId, string $eventId, ?string $status): Builder
+    private function baseQuery(string $tenantId, string $eventId, ?string $status, ?string $registrationType = null): Builder
     {
-        return Attendee::query()
+        $query = Attendee::query()
             ->where('tenant_id', $tenantId)
             ->where('event_id', $eventId)
-            ->when($status !== null, fn (Builder $query) => $query->where('invite_status', $status));
+            ->when($status !== null, fn (Builder $q) => $q->where('invite_status', $status));
+
+        // Filter by registration type: public = no invite used, private = invite used
+        if ($registrationType === 'public') {
+            $query->where(function (Builder $q) use ($eventId): void {
+                $q->whereNull('origin')
+                    ->orWhere('origin', '!=', 'invite')
+                    ->orWhereNotExists(function ($subquery) use ($eventId): void {
+                        $subquery->selectRaw('1')
+                            ->from('event_registration_invites')
+                            ->whereColumn('event_registration_invites.email', 'attendees.email_index')
+                            ->where('event_registration_invites.event_id', $eventId)
+                            ->whereIn('event_registration_invites.invite_status', ['registered', 'attended', 'not_attended']);
+                    });
+            });
+        }
+
+        return $query;
     }
 
     /** @param  Builder<Attendee>  $query */

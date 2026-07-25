@@ -113,7 +113,14 @@ final class EventOperationsController extends Controller
         $context = $this->authorizeTenant('attendee.view');
         $event = $this->event($context, $eventId);
         $filters = $this->attendeeFilters($request);
+        $registrationType = $filters['registration_type'] ?? 'public';
 
+        // Private tab: show invites
+        if ($registrationType === 'private') {
+            return $this->attendeesFromInvites($request, $event, $filters);
+        }
+
+        // Public tab: show public registrations (those NOT from invites)
         if ($filters['status'] === 'not_registered') {
             return $this->attendeesFromInvites($request, $event, $filters);
         }
@@ -124,6 +131,7 @@ final class EventOperationsController extends Controller
             $filters['search'] !== '' ? $filters['search'] : null,
             $filters['status'] !== '' ? $filters['status'] : null,
             (int) $request->integer('page', 1),
+            $registrationType === 'public' ? 'public' : null,
         );
         $credentialStatuses = $this->credentialStatusesForAttendees(
             $context,
@@ -144,48 +152,40 @@ final class EventOperationsController extends Controller
             ],
         );
 
-        if ($filters['status'] === '' && $filters['search'] === '') {
-            $pendingInvites = EventRegistrationInvite::query()
-                ->where('event_id', $event->id)
-                ->where('invite_status', 'not_registered')
-                ->orderByDesc('id')
-                ->limit(50)
-                ->get();
-
-            if ($pendingInvites->isNotEmpty()) {
-                $inviteRows = $pendingInvites->map(fn (EventRegistrationInvite $invite): array => [
-                    'id' => 'invite-'.$invite->id,
-                    'row_type' => 'invite',
-                    'status' => 'not_checked_in',
-                    'invite_status' => 'not_registered',
-                    'locale' => 'en',
-                    'credential_status' => null,
-                    'label' => $invite->email,
-                    'display_name' => null,
-                    'email' => $invite->email,
-                    'phone' => null,
-                ])->all();
-
-                $payload['attendees'] = [...$inviteRows, ...$payload['attendees']];
-            }
-        }
+        $canSendPrivateInvites = in_array($event->tier, ['private', 'both'], true);
+        $payload['tenantId'] = (string) $context->tenant->id;
+        $payload['canSendPrivateInvites'] = $canSendPrivateInvites;
 
         return Inertia::render('tenant/events/Attendees', $payload);
     }
 
     /**
-     * @param  array{search: string, status: string}  $filters
+     * @param  array{search: string, status: string, registration_type?: string}  $filters
      */
     private function attendeesFromInvites(Request $request, Event $event, array $filters): Response
     {
         $perPage = ListEventAttendeesQuery::PER_PAGE;
         $page = max(1, (int) $request->integer('page', 1));
         $search = mb_strtolower($filters['search']);
+        $statusFilter = $filters['status'] ?? '';
 
         $query = EventRegistrationInvite::query()
             ->where('event_id', $event->id)
-            ->where('invite_status', 'not_registered')
-            ->when($search !== '', fn ($builder) => $builder->where('email', 'like', '%'.$search.'%'))
+            ->when($statusFilter !== '', function ($builder) use ($statusFilter): void {
+                if ($statusFilter === 'not_registered') {
+                    $builder->where('invite_status', 'not_registered');
+                } elseif ($statusFilter === 'registered') {
+                    $builder->whereIn('invite_status', ['registered', 'attended', 'not_attended']);
+                } elseif (in_array($statusFilter, ['attended', 'not_attended'], true)) {
+                    $builder->where('invite_status', $statusFilter);
+                }
+            })
+            ->when($search !== '', function ($builder) use ($search): void {
+                $builder->where(function ($inner) use ($search): void {
+                    $inner->where('email', 'like', '%'.$search.'%')
+                        ->orWhere('name', 'like', '%'.$search.'%');
+                });
+            })
             ->orderByDesc('id');
 
         $paginator = $query->paginate($perPage, ['*'], 'page', $page);
@@ -193,20 +193,23 @@ final class EventOperationsController extends Controller
             'id' => 'invite-'.$invite->id,
             'row_type' => 'invite',
             'status' => 'not_checked_in',
-            'invite_status' => 'not_registered',
+            'invite_status' => $invite->invite_status ?? 'not_registered',
             'locale' => 'en',
             'credential_status' => null,
-            'label' => $invite->email,
-            'display_name' => null,
+            'label' => $invite->name ?: $invite->email,
+            'display_name' => $invite->name,
             'email' => $invite->email,
             'phone' => null,
         ])->values()->all();
+
+        $canSendPrivateInvites = in_array($event->tier, ['private', 'both'], true);
 
         return Inertia::render('tenant/events/Attendees', [
             'event' => [
                 'id' => (string) $event->id,
                 'name' => ['en' => $event->name_en, 'ar' => $event->name_ar],
                 'status' => $event->status,
+                'tier' => $event->tier,
             ],
             'attendees' => $rows,
             'filters' => $filters,
@@ -216,6 +219,8 @@ final class EventOperationsController extends Controller
                 'total' => $paginator->total(),
                 'last_page' => max(1, $paginator->lastPage()),
             ],
+            'tenantId' => (string) $event->tenant_id,
+            'canSendPrivateInvites' => $canSendPrivateInvites,
         ]);
     }
 
@@ -381,7 +386,7 @@ final class EventOperationsController extends Controller
     }
 
     /**
-     * @return array{search: string, status: string}
+     * @return array{search: string, status: string, registration_type: string}
      */
     private function attendeeFilters(Request $request): array
     {
@@ -397,9 +402,15 @@ final class EventOperationsController extends Controller
             $status = '';
         }
 
+        $registrationType = trim((string) $request->query('registration_type', 'public'));
+        if (! in_array($registrationType, ['public', 'private'], true)) {
+            $registrationType = 'public';
+        }
+
         return [
             'search' => trim((string) $request->query('search', '')),
             'status' => $status,
+            'registration_type' => $registrationType,
         ];
     }
 

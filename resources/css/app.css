@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Almarai:wght@400;700&family=Amiri:wght@400;700&family=Cairo:wght@400;500;600;700&family=Changa:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&family=El+Messiri:wght@400;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Lateef&family=Manrope:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;500;600;700&family=Nunito:wght@400;600;700&family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=Readex+Pro:wght@400;500;600;700&family=Rubik:wght@400;500;600;700&family=Sora:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap");
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -1144,6 +1144,10 @@ html:not(.dark) .event-detail-metric {
   @apply font-medium text-[var(--ink)];
 }
 
+.event-section-tile-progress {
+  @apply text-xs text-[var(--muted)];
+}
+
 .event-section-tile-arrow {
   @apply shrink-0 text-[var(--muted)] transition-all duration-200;
 }
@@ -1547,7 +1551,7 @@ html:not(.dark) .event-detail-metric {
     margin-block-start: 2rem;
   }
 
-  .registration-field input {
+  .registration-field input:not([type='checkbox']):not([type='radio']) {
     border: 1px solid currentColor;
     border-radius: 0.375rem;
     min-height: 2.75rem;
@@ -3046,12 +3050,26 @@ html:not(.dark) .event-detail-metric {
   background: color-mix(in srgb, var(--warning) 14%, transparent);
 }
 
+.registration-builder-canvas,
+.registration-builder-canvas * {
+  font-family: inherit;
+}
+
 .registration-invite {
   min-height: 100vh;
+  font-family: var(--reg-font, inherit);
   background:
     radial-gradient(circle at top, color-mix(in srgb, var(--brand) 18%, transparent), transparent 55%),
     linear-gradient(180deg, color-mix(in srgb, var(--surface) 92%, #0f172a) 0%, var(--surface) 100%);
   padding: 2rem 1rem 3rem;
+}
+
+.registration-invite--custom-bg {
+  background: var(--reg-bg, var(--surface));
+}
+
+.dark .registration-invite--custom-bg {
+  background: var(--reg-bg, var(--surface));
 }
 
 .registration-page-controls {
@@ -3109,6 +3127,12 @@ html:not(.dark) .event-detail-metric {
   opacity: 0.75;
 }
 
+.registration-invite-preview .registration-choice-option input[type='checkbox']:disabled,
+.registration-invite-preview .registration-choice-option input[type='radio']:disabled {
+  opacity: 0;
+  cursor: pointer;
+}
+
 .registration-invite-hero,
 .registration-invite-success {
   display: flex;
@@ -3125,6 +3149,13 @@ html:not(.dark) .event-detail-metric {
   background: var(--surface-elevated);
   box-shadow: 0 24px 60px color-mix(in srgb, #0f172a 12%, transparent);
   padding: 2rem;
+  overflow: hidden;
+  background-clip: padding-box;
+  font-family: var(--reg-font, inherit);
+}
+
+.registration-invite-card--custom-bg {
+  background-color: transparent;
 }
 
 .registration-invite-inactive {
@@ -3302,8 +3333,127 @@ html:not(.dark) .event-detail-metric {
 
 .registration-invite-form {
   display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 1rem;
   margin-top: 2rem;
+  align-items: start;
+}
+
+.registration-form-slot {
+  min-width: 0;
+}
+
+.registration-form-slot--full {
+  grid-column: span 6;
+}
+
+.registration-form-slot--half {
+  grid-column: span 3;
+}
+
+.registration-form-slot--third {
+  grid-column: span 2;
+}
+
+@media (max-width: 640px) {
+  .registration-form-slot--half,
+  .registration-form-slot--third {
+    grid-column: span 6;
+  }
+}
+
+.registration-event-display-block {
+  min-width: 0;
+}
+
+.registration-event-logo {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 10rem;
+  padding: 0.75rem 0;
+}
+
+.registration-form-slot--full .registration-event-logo {
+  min-height: 0;
+  padding: 0;
+}
+
+.registration-form-slot--half .registration-event-logo {
+  min-height: 11rem;
+}
+
+.registration-form-slot--third .registration-event-logo {
+  min-height: 8.5rem;
+}
+
+.registration-event-logo-main {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 16rem;
+  object-fit: contain;
+  object-position: center;
+}
+
+.registration-form-slot--full .registration-event-logo-main {
+  width: 100%;
+  height: clamp(14rem, 42vw, 22rem);
+  max-height: none;
+  object-fit: cover;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+}
+
+.registration-form-slot--half .registration-event-logo-main,
+.registration-form-slot--third .registration-event-logo-main {
+  height: 100%;
+  max-height: 14rem;
+  object-fit: contain;
+}
+
+.registration-event-logo-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.registration-event-logo-gallery-thumb {
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 0.85rem;
+  background: transparent;
+  cursor: pointer;
+  line-height: 0;
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.registration-event-logo-gallery-thumb:hover {
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--border));
+}
+
+.registration-event-logo-gallery-thumb.is-active {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 35%, transparent);
+}
+
+.registration-event-logo-gallery-image {
+  width: 5.5rem;
+  height: 5.5rem;
+  object-fit: cover;
+  border-radius: 0.7rem;
+  border: 1px solid var(--border);
+  display: block;
+}
+
+.registration-form-slot--half .registration-event-logo-gallery-image,
+.registration-form-slot--third .registration-event-logo-gallery-image {
+  width: 4.25rem;
+  height: 4.25rem;
 }
 
 .registration-invite-form .registration-field-select-panel, .registration-invite-form .registration-choice-options {
@@ -3319,7 +3469,23 @@ html:not(.dark) .event-detail-metric {
   gap: 0.5rem;
 }
 
+.registration-venue-select-label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.15rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.registration-field-label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.15rem;
+}
+
 .registration-venue-select-label,
+.registration-field-label,
 .registration-field > span,
 .registration-field-choice legend {
   font-size: 0.875rem;
@@ -3393,6 +3559,7 @@ html:not(.dark) .event-detail-metric {
 }
 
 .registration-field-choice {
+  --choice-accent: var(--brand, #2563eb);
   padding: 1rem;
 }
 
@@ -3406,6 +3573,7 @@ html:not(.dark) .event-detail-metric {
 }
 
 .registration-choice-option {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 0.65rem;
@@ -3414,11 +3582,230 @@ html:not(.dark) .event-detail-metric {
   border-radius: 0.75rem;
   background: var(--surface);
   font-size: 0.875rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.registration-choice-option input {
-  width: auto;
-  margin-top: 0.15rem;
+.registration-choice-option input[type='checkbox'],
+.registration-choice-option input[type='radio'] {
+  position: absolute;
+  inset-inline-start: 0.9rem;
+  top: 0.9rem;
+  z-index: 1;
+  margin: 0;
+  opacity: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  cursor: pointer;
+}
+
+.registration-choice-control {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-top: 0.1rem;
+  border: 1.5px solid color-mix(in srgb, var(--choice-accent) 55%, var(--border));
+  background: var(--surface-elevated);
+  pointer-events: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.registration-choice-label {
+  min-width: 0;
+  line-height: 1.4;
+}
+
+.registration-choice--square .registration-choice-control,
+.registration-choice--circle .registration-choice-control {
+  display: inline-grid;
+  place-items: center;
+}
+
+.registration-choice--square .registration-choice-control {
+  border-radius: 0.3rem;
+}
+
+.registration-choice--circle .registration-choice-control {
+  border-radius: 999px;
+}
+
+.registration-choice--square .registration-choice-option input:checked + .registration-choice-control,
+.registration-choice--circle .registration-choice-option input:checked + .registration-choice-control {
+  background: var(--choice-accent);
+  border-color: var(--choice-accent);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 88%, transparent);
+}
+
+.registration-choice--square .registration-choice-option input:checked + .registration-choice-control::after {
+  content: '';
+  width: 0.35rem;
+  height: 0.6rem;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translateY(-1px);
+}
+
+.registration-choice--circle .registration-choice-option input:checked + .registration-choice-control::after {
+  content: '';
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.registration-choice--toggle .registration-choice-option {
+  align-items: center;
+}
+
+.registration-choice--toggle .registration-choice-option input[type='checkbox'],
+.registration-choice--toggle .registration-choice-option input[type='radio'] {
+  width: 2.6rem;
+  height: 1.45rem;
+}
+
+.registration-choice--pill .registration-choice-option input[type='checkbox'],
+.registration-choice--pill .registration-choice-option input[type='radio'],
+.registration-choice--button .registration-choice-option input[type='checkbox'],
+.registration-choice--button .registration-choice-option input[type='radio'] {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.registration-choice--toggle .registration-choice-control {
+  width: 2.6rem;
+  height: 1.45rem;
+  margin-top: 0;
+  border-radius: 999px;
+  border-color: color-mix(in srgb, var(--choice-accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--muted) 22%, var(--surface-elevated));
+  position: relative;
+}
+
+.registration-choice--toggle .registration-choice-control::after {
+  content: '';
+  position: absolute;
+  inset-block: 0.15rem;
+  inset-inline-start: 0.15rem;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.25);
+  transition: inset-inline-start 0.18s ease, background-color 0.18s ease;
+}
+
+.registration-choice--toggle .registration-choice-option input:checked + .registration-choice-control {
+  background: var(--choice-accent);
+  border-color: var(--choice-accent);
+}
+
+.registration-choice--toggle .registration-choice-option input:checked + .registration-choice-control::after {
+  inset-inline-start: calc(100% - 1.2rem);
+}
+
+/* Pill */
+.registration-choice-options--pill {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.registration-choice--pill .registration-choice-option {
+  align-items: center;
+  padding: 0.55rem 0.95rem;
+  border-radius: 999px;
+  gap: 0.5rem;
+}
+
+.registration-choice--pill .registration-choice-control {
+  display: none;
+}
+
+.registration-choice--pill .registration-choice-option:has(input:checked) {
+  background: color-mix(in srgb, var(--choice-accent) 16%, var(--surface));
+  border-color: var(--choice-accent);
+  color: var(--choice-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--choice-accent) 35%, transparent);
+}
+
+/* Card */
+.registration-choice--card .registration-choice-option {
+  align-items: center;
+  padding: 1rem 1.1rem;
+  border-radius: 1rem;
+  gap: 0.75rem;
+}
+
+.registration-choice--card .registration-choice-control {
+  width: 1.25rem;
+  height: 1.25rem;
+  display: inline-grid;
+  place-items: center;
+}
+
+.registration-choice--card:has(input[type="checkbox"]) .registration-choice-control {
+  border-radius: 0.35rem;
+}
+
+.registration-choice--card:has(input[type="radio"]) .registration-choice-control {
+  border-radius: 999px;
+}
+
+.registration-choice--card .registration-choice-option:has(input:checked) {
+  background: color-mix(in srgb, var(--choice-accent) 12%, var(--surface));
+  border-color: var(--choice-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--choice-accent) 40%, transparent);
+}
+
+.registration-choice--card .registration-choice-option input:checked + .registration-choice-control {
+  background: var(--choice-accent);
+  border-color: var(--choice-accent);
+}
+
+.registration-choice--card:has(input[type="checkbox"]) .registration-choice-option input:checked + .registration-choice-control::after {
+  content: '';
+  width: 0.35rem;
+  height: 0.6rem;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translateY(-1px);
+}
+
+.registration-choice--card:has(input[type="radio"]) .registration-choice-option input:checked + .registration-choice-control::after {
+  content: '';
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: #fff;
+}
+
+/* Segmented button (radio) */
+.registration-choice-options--button {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+  gap: 0.4rem;
+}
+
+.registration-choice--button .registration-choice-option {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.75rem;
+  gap: 0;
+}
+
+.registration-choice--button .registration-choice-control {
+  display: none;
+}
+
+.registration-choice--button .registration-choice-option:has(input:checked) {
+  background: var(--choice-accent);
+  border-color: var(--choice-accent);
+  color: #fff;
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--choice-accent) 28%, transparent);
 }
 
 .registration-field-required {
@@ -4653,4 +5040,59 @@ html:not(.dark) .event-detail-metric {
   font-size: 0.9rem;
   color: var(--muted);
   line-height: 1.45;
+}
+
+/* Email builder: visual cue for placeholders (class has no effect in sent emails). */
+[data-email-editor] .email-placeholder {
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  outline: 1px dashed color-mix(in srgb, var(--brand) 45%, transparent);
+  outline-offset: 1px;
+  cursor: default;
+}
+
+[data-email-editor] .email-template-image {
+  cursor: pointer;
+  max-width: 100%;
+}
+
+[data-email-editor] .email-template-image.is-selected {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+[data-email-editor] table.email-image-block,
+[data-email-editor] table.email-image-row {
+  margin: 12px 0;
+  border-collapse: collapse;
+}
+
+[data-email-editor] table.email-image-block {
+  width: 100%;
+  table-layout: auto;
+}
+
+[data-email-editor] table.email-image-row {
+  width: auto;
+  max-width: 100%;
+  table-layout: auto;
+}
+
+[data-email-editor] table.email-image-row td {
+  vertical-align: top;
+  padding: 0 6px;
+}
+
+[data-email-editor] table.email-image-block td {
+  padding: 0;
+}
+
+[data-email-editor] table.email-image-block.is-dragging,
+[data-email-editor] table.email-image-row.is-dragging {
+  opacity: 0.35;
+}
+
+[data-email-editor] .email-template-image.is-drop-beside-target {
+  outline: 2px dashed var(--brand);
+  outline-offset: 3px;
 }

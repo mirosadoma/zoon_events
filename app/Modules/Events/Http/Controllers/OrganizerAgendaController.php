@@ -52,7 +52,10 @@ final class OrganizerAgendaController extends Controller
     {
         return [
             'id' => (string) $item->id,
+            'event_venue_id' => $item->event_venue_id ? (string) $item->event_venue_id : null,
+            'agenda_date' => $item->agenda_date?->toDateString(),
             'title' => ['en' => $item->title_en, 'ar' => $item->title_ar],
+            'description' => ['en' => $item->description_en ?? '', 'ar' => $item->description_ar ?? ''],
             'start_at' => EventWallClockDateTime::toInput($item->start_at, $timezone),
             'end_at' => EventWallClockDateTime::toInput($item->end_at, $timezone),
             'sort_order' => $item->sort_order,

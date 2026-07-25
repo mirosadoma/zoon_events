@@ -9,9 +9,9 @@ final class InviteEmailTemplateExport
 {
     public function download(): StreamedResponse
     {
-        $binary = $this->buildXlsx(['email'], [
-            ['guest@example.com'],
-            ['colleague@example.com'],
+        $binary = $this->buildXlsx(['Name', 'Email'], [
+            ['John Doe', 'guest@example.com'],
+            ['Jane Smith', 'colleague@example.com'],
         ]);
 
         return response()->streamDownload(function () use ($binary): void {

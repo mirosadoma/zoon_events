@@ -71,6 +71,46 @@ final class RegistrationFormSchemaTest extends TestCase
         self::assertCount(11, $fields);
     }
 
+    public function test_display_blocks_and_reordered_system_fields_are_accepted(): void
+    {
+        (new FormSchemaValidator)->validate([
+            ['key' => 'event_logo_1', 'type' => 'event_logo', 'label_en' => 'Event Logo', 'label_ar' => 'شعار الفعالية'],
+            ['key' => 'event_categories_1', 'type' => 'event_categories', 'label_en' => 'Event Categories', 'label_ar' => 'أقسام الفعالية'],
+            ['key' => 'event_venue_select_1', 'type' => 'event_venue_select', 'label_en' => 'Venue Select', 'label_ar' => 'اختيار المكان'],
+            ['key' => 'event_name_1', 'type' => 'event_name', 'label_en' => 'Event Name', 'label_ar' => 'اسم الفعالية'],
+            ['key' => 'heading_1', 'type' => 'heading', 'label_en' => 'Heading', 'label_ar' => 'عنوان', 'content' => 'Welcome'],
+            [
+                'key' => 'email',
+                'type' => 'email',
+                'label_en' => 'Email',
+                'label_ar' => 'البريد الإلكتروني',
+                'required' => true,
+                'visibility' => 'public',
+                'system' => true,
+            ],
+            [
+                'key' => 'full_name',
+                'type' => 'text',
+                'label_en' => 'Full name',
+                'label_ar' => 'الاسم الكامل',
+                'required' => true,
+                'visibility' => 'public',
+                'system' => true,
+            ],
+            [
+                'key' => 'phone',
+                'type' => 'phone',
+                'label_en' => 'Phone number',
+                'label_ar' => 'رقم الجوال',
+                'required' => true,
+                'visibility' => 'public',
+                'system' => true,
+            ],
+        ]);
+
+        self::assertTrue(true);
+    }
+
     /** @return list<array<string,mixed>> */
     private function fields(): array
     {

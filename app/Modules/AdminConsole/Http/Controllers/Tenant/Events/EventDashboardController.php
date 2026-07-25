@@ -14,7 +14,6 @@ use App\Modules\Events\Application\Support\EventMediaPresenter;
 use App\Modules\Events\Application\Support\EventWallClockDateTime;
 use App\Modules\Events\Application\Support\PublicRegistrationEventPresenter;
 use App\Modules\Events\Application\Support\ResolvesEventOrganizer;
-use App\Modules\Events\Domain\CategoryLockStatus;
 use App\Modules\Events\Domain\EventRegistrationProfile;
 use App\Modules\Events\Infrastructure\Persistence\Models\CategoryTemplate;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
@@ -118,10 +117,33 @@ final class EventDashboardController extends Controller
     public function show(string $eventId): Response
     {
         $context = $this->authorizeTenant('event.view');
+        $event = $this->event($context, $eventId);
+
+        $venues = $event->venues()
+            ->orderBy('sort_order')
+            ->with(['country', 'city'])
+            ->get()
+            ->map(fn ($venue): array => [
+                'id' => (string) $venue->id,
+                'country_id' => (string) $venue->country_id,
+                'city_id' => (string) $venue->city_id,
+                'name' => ['en' => $venue->name_en, 'ar' => $venue->name_ar],
+                'location_address' => $venue->location_address,
+                'latitude' => $venue->latitude !== null ? (string) $venue->latitude : null,
+                'longitude' => $venue->longitude !== null ? (string) $venue->longitude : null,
+                'start_at' => $venue->start_at?->toIso8601String(),
+                'end_at' => $venue->end_at?->toIso8601String(),
+                'registration_opens_at' => $venue->registration_opens_at?->toIso8601String(),
+                'registration_closes_at' => $venue->registration_closes_at?->toIso8601String(),
+            ])
+            ->values()
+            ->all();
 
         return Inertia::render('tenant/events/Detail', [
-            ...$this->events->detail($this->event($context, $eventId)),
+            ...$this->events->detail($event),
             'tenantId' => (string) $context->tenant->id,
+            'venues' => $venues,
+            ...$this->references->toArray(),
         ]);
     }
 
@@ -150,6 +172,22 @@ final class EventDashboardController extends Controller
 
         return Inertia::render('tenant/registration/Builder', [
             'event' => $this->events->detail($event)['event'],
+            'eventPreview' => [
+                ...$this->eventPages->heroEvent($event, true),
+                'categories' => EventCategory::query()
+                    ->where('event_id', $event->id)
+                    ->orderBy('sort_order')
+                    ->get()
+                    ->map(fn (EventCategory $category): array => [
+                        'id' => (string) $category->id,
+                        'name' => [
+                            'en' => $category->name,
+                            'ar' => $category->name_ar ?: $category->name,
+                        ],
+                    ])
+                    ->values()
+                    ->all(),
+            ],
             'tenantId' => (string) $context->tenant->id,
             ...$formState,
         ]);
@@ -167,10 +205,28 @@ final class EventDashboardController extends Controller
             ->get()
             ->map(fn (EventAgendaItem $item): array => [
                 'id' => (string) $item->id,
+                'event_venue_id' => $item->event_venue_id ? (string) $item->event_venue_id : null,
+                'agenda_date' => $item->agenda_date?->toDateString(),
                 'title_en' => $item->title_en,
                 'title_ar' => $item->title_ar,
+                'description_en' => $item->description_en ?? '',
+                'description_ar' => $item->description_ar ?? '',
                 'start_at' => EventWallClockDateTime::toInput($item->start_at, $event->timezone),
                 'end_at' => EventWallClockDateTime::toInput($item->end_at, $event->timezone),
+            ])
+            ->values()
+            ->all();
+
+        $venues = \App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue::query()
+            ->where('tenant_id', $context->tenant->id)
+            ->where('event_id', $event->id)
+            ->orderBy('sort_order')
+            ->get()
+            ->map(fn ($venue): array => [
+                'id' => (string) $venue->id,
+                'name' => ['en' => $venue->name_en, 'ar' => $venue->name_ar],
+                'start_at' => $venue->start_at?->toDateString(),
+                'end_at' => $venue->end_at?->toDateString(),
             ])
             ->values()
             ->all();
@@ -179,6 +235,7 @@ final class EventDashboardController extends Controller
             'event' => $this->events->detail($event)['event'],
             'tenantId' => (string) $context->tenant->id,
             'items' => $items,
+            'venues' => $venues,
         ]);
     }
 
@@ -189,7 +246,7 @@ final class EventDashboardController extends Controller
 
         $templates = CategoryTemplate::query()
             ->where('tenant_id', $context->tenant->id)
-            ->with('privileges')
+            ->with('privileges.privilege')
             ->orderBy('sort_order')
             ->get();
 
@@ -205,6 +262,8 @@ final class EventDashboardController extends Controller
             ->map(fn ($venue): array => [
                 'id' => (string) $venue->id,
                 'name' => ['en' => $venue->name_en, 'ar' => $venue->name_ar],
+                'start_at' => $venue->start_at?->toIso8601String(),
+                'end_at' => $venue->end_at?->toIso8601String(),
             ])
             ->values()
             ->all();
@@ -216,11 +275,34 @@ final class EventDashboardController extends Controller
             for ($cursor = $start; $cursor->lessThanOrEqualTo($end); $cursor = $cursor->addDay()) {
                 $dates[] = $cursor->toDateString();
             }
+        } elseif ($venues !== []) {
+            $venueModels = $event->venues()->whereNotNull('start_at')->whereNotNull('end_at')->get(['start_at', 'end_at']);
+            if ($venueModels->isNotEmpty()) {
+                $start = $venueModels->min('start_at')->timezone($event->timezone)->startOfDay();
+                $end = $venueModels->max('end_at')->timezone($event->timezone)->startOfDay();
+                for ($cursor = $start; $cursor->lessThanOrEqualTo($end); $cursor = $cursor->addDay()) {
+                    $dates[] = $cursor->toDateString();
+                }
+            }
         }
 
         $categories = $templates->map(function (CategoryTemplate $template) use ($assignments): array {
             /** @var EventCategory|null $assignment */
             $assignment = $assignments->get($template->id);
+            $assignmentVenues = $assignment === null
+                ? []
+                : $assignment->venues->map(fn ($venue): array => [
+                    'event_venue_id' => (string) $venue->event_venue_id,
+                    'days' => $venue->days->map(fn ($day): array => [
+                        'date' => $day->date?->toDateString(),
+                        'capacity' => $day->capacity !== null ? (string) $day->capacity : '',
+                    ])->values()->all(),
+                ])->values()->all();
+
+            $isComplete = $assignment !== null
+                && collect($assignmentVenues)->contains(
+                    fn (array $venue): bool => $venue['event_venue_id'] !== '' && ($venue['days'] ?? []) !== []
+                );
 
             return [
                 'id' => (string) $template->id,
@@ -229,18 +311,20 @@ final class EventDashboardController extends Controller
                 'slug' => $template->slug,
                 'color' => $template->color,
                 'enabled' => $assignment !== null,
+                'is_complete' => $isComplete,
                 'is_paid' => (bool) ($assignment?->is_paid ?? false),
                 'price_minor' => (int) ($assignment?->price_minor ?? 0),
                 'currency' => (string) ($assignment?->currency ?: 'SAR'),
                 'assignment_id' => $assignment !== null ? (string) $assignment->id : null,
-                'venues' => $assignment === null
-                    ? []
-                    : $assignment->venues->map(fn ($venue): array => [
-                        'event_venue_id' => (string) $venue->event_venue_id,
-                        'days' => $venue->days->map(fn ($day): array => [
-                            'date' => $day->date?->toDateString(),
-                            'capacity' => $day->capacity !== null ? (string) $day->capacity : '',
-                        ])->values()->all(),
+                'venues' => $assignmentVenues,
+                'privileges' => $template->privileges
+                    ->filter(fn ($link): bool => $link->privilege !== null)
+                    ->map(fn ($link): array => [
+                        'id' => (string) $link->id,
+                        'key' => (string) $link->privilege->key,
+                        'label' => (string) $link->privilege->label,
+                        'label_ar' => (string) ($link->privilege->label_ar ?: $link->privilege->label),
+                        'effect' => (string) ($link->effect ?: $link->privilege->effect ?: 'allow'),
                     ])->values()->all(),
             ];
         })->values()->all();
@@ -256,7 +340,7 @@ final class EventDashboardController extends Controller
             'categories' => $categories,
             'venues' => $venues,
             'eventDates' => $dates,
-            'locked' => CategoryLockStatus::locksCategories((string) $event->status),
+            'locked' => false,
             'canManage' => $this->permissions->hasTenantPermission($context, 'category.manage'),
         ]);
     }
@@ -412,10 +496,12 @@ final class EventDashboardController extends Controller
                 'terms_version' => $formState['termsVersion'],
             ],
             'categories' => $categories,
-            'requiresCategorySelection' => true,
+            'requiresCategorySelection' => $this->formHasType($rawFields, 'event_categories'),
+            'requiresVenueSelection' => $this->formHasType($rawFields, 'event_venue_select'),
             'ticketTypes' => $ticketTypes,
             'requiresTicketSelection' => false,
             'isPreview' => true,
+            'theme' => $formState['theme'] ?? null,
         ]);
     }
 
@@ -556,13 +642,48 @@ final class EventDashboardController extends Controller
             ->where('event_id', $event->id)
             ->first();
 
+        $theme = is_array($branding?->theme_config) ? $branding->theme_config : null;
+        if (is_array($theme)) {
+            $path = is_string($theme['background_image_path'] ?? null) ? $theme['background_image_path'] : null;
+            if ($path !== null && $path !== '') {
+                $url = \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+                $theme['background_image_url'] = str_starts_with($url, 'http://') || str_starts_with($url, 'https://')
+                    ? $url
+                    : url($url);
+            }
+
+            $logoPath = is_string($theme['logo_path'] ?? null) ? $theme['logo_path'] : null;
+            if ($logoPath !== null && $logoPath !== '') {
+                $logoUrl = \Illuminate\Support\Facades\Storage::disk('public')->url($logoPath);
+                $theme['logo_url'] = str_starts_with($logoUrl, 'http://') || str_starts_with($logoUrl, 'https://')
+                    ? $logoUrl
+                    : url($logoUrl);
+            }
+        }
+
         return [
             'formName' => $form?->name ?? 'Registration form',
             'privacyNoticeVersion' => (string) ($version?->privacy_notice_version ?? 'v1'),
             'termsVersion' => (string) ($version?->terms_version ?? 'v1'),
             'fields' => $fields,
             'hasUnpublishedChanges' => $hasUnpublishedChanges,
-            'theme' => $branding?->theme_config,
+            'theme' => $theme,
         ];
+    }
+
+    /** @param  mixed  $fields */
+    private function formHasType(mixed $fields, string $type): bool
+    {
+        if (! is_array($fields)) {
+            return false;
+        }
+
+        foreach ($fields as $field) {
+            if (is_array($field) && ($field['type'] ?? '') === $type) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

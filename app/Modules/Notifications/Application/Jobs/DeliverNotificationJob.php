@@ -5,7 +5,9 @@ namespace App\Modules\Notifications\Application\Jobs;
 use App\Modules\AdminConsole\Application\SiteSettingsRepository;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
+use App\Modules\Events\Application\Actions\SendCustomConfirmationEmail;
 use App\Modules\Events\Contracts\ConfirmationEventReader;
+use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Notifications\Application\NotificationAdapterRegistry;
 use App\Modules\Notifications\Application\Rendering\ConfirmationRenderer;
 use App\Modules\Notifications\Domain\Events\NotificationTerminalStateReached;
@@ -44,6 +46,7 @@ final class DeliverNotificationJob implements ShouldQueue
         ConfirmationEventReader $events,
         ConfirmationOrderReader $orders,
         SiteSettingsRepository $siteSettings,
+        SendCustomConfirmationEmail $customConfirmation,
     ): void {
         $notification = DB::transaction(function (): ?Notification {
             $row = Notification::query()->lockForUpdate()->find($this->notificationId);
@@ -88,38 +91,84 @@ final class DeliverNotificationJob implements ShouldQueue
                     now()->addDays(90),
                     ['locale' => $locale, 'public_reference' => $order->publicReference],
                 );
-
-                $rendered = $renderer->render($locale, [
-                    'event_name' => $event->name($locale),
-                    'order_reference' => $order->publicReference,
-                    'credential_url' => $credentialUrl,
-                    'qr_payload' => $qrPayload,
-                    'attendee_name' => $attendeeName,
-                    'app_name' => $locale === 'ar'
-                        ? (string) ($settings['app_name_ar'] ?? config('zonetec.name', 'Zonetec'))
-                        : (string) ($settings['app_name_en'] ?? config('zonetec.name', 'Zonetec')),
-                    'support_email' => (string) ($settings['support_email'] ?? config('mail.from.address')),
-                ]);
                 $destination = $cipher->decrypt([
                     'key_id' => $notification->encryption_key_id,
                     'ciphertext' => $notification->destination_ciphertext,
                 ], "{$notification->tenant_id}:{$notification->event_id}:notification");
                 $channel = NotificationChannel::from($notification->channel);
-                $result = $adapters->get($notification->adapter_key)->send(new NotificationRequest(
-                    $notification->tenant_id,
-                    $notification->id,
-                    $channel,
-                    $destination,
-                    $channel === NotificationChannel::Email
-                        ? (string) config('mail.from.address')
-                        : (string) config('notifications.unifonic.sender_id'),
-                    $rendered['subject'],
-                    $rendered['body'],
-                    $notification->locale,
-                    $notification->id,
-                    $notification->id,
-                    $rendered['embedded_images'],
-                ));
+
+                if ($channel === NotificationChannel::Email) {
+                    $eventModel = Event::query()
+                        ->where('tenant_id', $notification->tenant_id)
+                        ->whereKey($notification->event_id)
+                        ->first();
+
+                    if ($eventModel !== null && $customConfirmation->hasTemplate($eventModel)) {
+                        $sent = $customConfirmation->execute(
+                            $eventModel,
+                            $destination,
+                            $locale,
+                            $attendeeName,
+                            '',
+                            $credentialUrl,
+                            $qrPayload,
+                        );
+
+                        $result = $sent
+                            ? new NotificationResult(NotificationStatus::Sent, 'custom-confirmation-'.$notification->id)
+                            : new NotificationResult(NotificationStatus::TemporaryFailure, reasonCode: 'custom_confirmation_failed');
+                    } else {
+                        $rendered = $renderer->render($locale, [
+                            'event_name' => $event->name($locale),
+                            'order_reference' => $order->publicReference,
+                            'credential_url' => $credentialUrl,
+                            'qr_payload' => $qrPayload,
+                            'attendee_name' => $attendeeName,
+                            'app_name' => $locale === 'ar'
+                                ? (string) ($settings['app_name_ar'] ?? config('zonetec.name', 'Zonetec'))
+                                : (string) ($settings['app_name_en'] ?? config('zonetec.name', 'Zonetec')),
+                            'support_email' => (string) ($settings['support_email'] ?? config('mail.from.address')),
+                        ]);
+                        $result = $adapters->get($notification->adapter_key)->send(new NotificationRequest(
+                            $notification->tenant_id,
+                            $notification->id,
+                            $channel,
+                            $destination,
+                            (string) config('mail.from.address'),
+                            $rendered['subject'],
+                            $rendered['body'],
+                            $notification->locale,
+                            $notification->id,
+                            $notification->id,
+                            $rendered['embedded_images'],
+                        ));
+                    }
+                } else {
+                    $rendered = $renderer->render($locale, [
+                        'event_name' => $event->name($locale),
+                        'order_reference' => $order->publicReference,
+                        'credential_url' => $credentialUrl,
+                        'qr_payload' => $qrPayload,
+                        'attendee_name' => $attendeeName,
+                        'app_name' => $locale === 'ar'
+                            ? (string) ($settings['app_name_ar'] ?? config('zonetec.name', 'Zonetec'))
+                            : (string) ($settings['app_name_en'] ?? config('zonetec.name', 'Zonetec')),
+                        'support_email' => (string) ($settings['support_email'] ?? config('mail.from.address')),
+                    ]);
+                    $result = $adapters->get($notification->adapter_key)->send(new NotificationRequest(
+                        $notification->tenant_id,
+                        $notification->id,
+                        $channel,
+                        $destination,
+                        (string) config('notifications.unifonic.sender_id'),
+                        $rendered['subject'],
+                        $rendered['body'],
+                        $notification->locale,
+                        $notification->id,
+                        $notification->id,
+                        $rendered['embedded_images'],
+                    ));
+                }
             }
         } catch (Throwable) {
             $result = new NotificationResult(NotificationStatus::TemporaryFailure, reasonCode: 'delivery_exception');

@@ -13,6 +13,10 @@ use App\Modules\Notifications\Application\Rendering\QrCodeImageDataUri;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
+/**
+ * Sends the printable badge email when no custom confirmation template is configured.
+ * Custom confirmation emails are delivered by DeliverNotificationJob via SendCustomConfirmationEmail.
+ */
 final readonly class SendRegistrationBadgeEmail
 {
     public const QR_CONTENT_ID = 'badge-qr';
@@ -25,6 +29,7 @@ final readonly class SendRegistrationBadgeEmail
         private RenderBadgeEmailHtmlAction $badgeHtml,
         private PrepareBadgeEmailEmbeddedImages $embeddedImages,
         private QrCodeImageDataUri $qrImages,
+        private SendCustomConfirmationEmail $customConfirmation,
     ) {}
 
     public function execute(
@@ -34,6 +39,15 @@ final readonly class SendRegistrationBadgeEmail
         string $email,
         string $locale = 'en',
     ): void {
+        if ($this->customConfirmation->hasTemplate($event)) {
+            Log::info('public_registration.badge_mail_skipped_custom_confirmation', [
+                'event_id' => $event->id,
+                'attendee_id' => $attendeeId,
+            ]);
+
+            return;
+        }
+
         $template = BadgeTemplate::query()
             ->where('tenant_id', $event->tenant_id)
             ->where('event_id', $event->id)

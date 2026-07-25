@@ -14,6 +14,8 @@ export default function Confirmation({
   applePassUrl: applePassUrlProp,
   googleSaveUrl: googleSaveUrlProp,
   credentialStatus = 'active',
+  badgeDownloadPngUrl,
+  badgeDownloadPdfUrl,
 }: {
   locale: 'en' | 'ar'
   reference: string
@@ -24,6 +26,8 @@ export default function Confirmation({
   applePassUrl?: string | null
   googleSaveUrl?: string | null
   credentialStatus?: string
+  badgeDownloadPngUrl?: string | null
+  badgeDownloadPdfUrl?: string | null
 }) {
   const { t, direction } = useLocale()
   const applePassUrl = applePassUrlProp
@@ -64,6 +68,21 @@ export default function Confirmation({
                 <QRCodeSVG value={qrPayload} size={240} level="M" includeMargin />
               </div>
               <p className="registration-confirmation-qr-hint">{t('publicRegistrationKeepQr')}</p>
+            </div>
+          ) : null}
+
+          {(badgeDownloadPngUrl || badgeDownloadPdfUrl) ? (
+            <div className="registration-success-meta flex flex-wrap gap-3">
+              {badgeDownloadPngUrl ? (
+                <a className="button-primary" href={badgeDownloadPngUrl} download>
+                  {t('downloadBadgeImage')}
+                </a>
+              ) : null}
+              {badgeDownloadPdfUrl ? (
+                <a className="button-secondary" href={badgeDownloadPdfUrl} download>
+                  {t('downloadBadgePdf')}
+                </a>
+              ) : null}
             </div>
           ) : null}
 

@@ -19,10 +19,10 @@ final readonly class SendPrivateEventInvites
     ) {}
 
     /**
-     * @param  list<string>  $emails
-     * @return array{sent:int,renewed:int,invites:list<array{id:string,email:string,code:string}>}
+     * @param  list<array{email: string, name?: string, phone?: string}>  $invitees
+     * @return array{sent:int,renewed:int,invites:list<array{id:string,email:string,name:?string,code:string}>}
      */
-    public function execute(Event $event, array $emails, string $locale = 'en'): array
+    public function execute(Event $event, array $invitees, string $locale = 'en'): array
     {
         if (! in_array($event->tier, [EventTier::Private->value, EventTier::Both->value], true)) {
             throw FoundationException::validation(
@@ -38,10 +38,20 @@ final readonly class SendPrivateEventInvites
             );
         }
 
-        $normalized = collect($emails)
-            ->map(fn (string $email): string => strtolower(trim($email)))
-            ->filter(fn (string $email): bool => filter_var($email, FILTER_VALIDATE_EMAIL) !== false)
-            ->unique()
+        $normalized = collect($invitees)
+            ->map(function ($invitee): array {
+                $email = is_array($invitee) ? ($invitee['email'] ?? '') : (string) $invitee;
+                $name = is_array($invitee) ? ($invitee['name'] ?? null) : null;
+                $phone = is_array($invitee) ? ($invitee['phone'] ?? null) : null;
+
+                return [
+                    'email' => strtolower(trim($email)),
+                    'name' => $name !== null && $name !== '' ? trim($name) : null,
+                    'phone' => $phone !== null && trim((string) $phone) !== '' ? trim((string) $phone) : '',
+                ];
+            })
+            ->filter(fn (array $invitee): bool => filter_var($invitee['email'], FILTER_VALIDATE_EMAIL) !== false)
+            ->unique('email')
             ->values();
 
         $sent = 0;
@@ -52,7 +62,11 @@ final readonly class SendPrivateEventInvites
             ? ($event->name_ar ?: $event->name_en)
             : $event->name_en;
 
-        foreach ($normalized as $email) {
+        foreach ($normalized as $invitee) {
+            $email = $invitee['email'];
+            $name = $invitee['name'];
+            $phone = $invitee['phone'];
+
             $existing = EventRegistrationInvite::query()
                 ->where('event_id', $event->id)
                 ->where('email', $email)
@@ -68,6 +82,7 @@ final readonly class SendPrivateEventInvites
                     ->update(['is_active' => false]);
 
                 $existing->forceFill([
+                    'name' => $name,
                     'code' => $this->codes->generateUnique($event->id),
                     'is_active' => true,
                     'used_at' => null,
@@ -84,6 +99,7 @@ final readonly class SendPrivateEventInvites
                     'tenant_id' => $event->tenant_id,
                     'event_id' => $event->id,
                     'email' => $email,
+                    'name' => $name,
                     'code' => $this->codes->generateUnique($event->id),
                     'is_active' => true,
                     'invite_status' => 'not_registered',
@@ -95,7 +111,29 @@ final readonly class SendPrivateEventInvites
             $url = $this->urls->forInvite($event, $invite, $resolvedLocale);
 
             try {
-                Mail::to($email)->send(new PrivateEventInviteMail($eventName, $url, $resolvedLocale));
+                $custom = app(\App\Modules\Events\Application\Support\ResolveEventEmailTemplate::class)->render(
+                    $event,
+                    \App\Modules\Events\Application\Support\ResolveEventEmailTemplate::TYPE_INVITATION,
+                    $resolvedLocale,
+                    [
+                        'name' => $name ?? '',
+                        'email' => $email,
+                        'phone' => $phone,
+                        'event' => $eventName,
+                        'registration_url' => $url,
+                        'qr' => '',
+                    ],
+                );
+
+                if ($custom !== null) {
+                    Mail::to($email)->send(new \App\Modules\Events\Mail\CustomEventEmailMail(
+                        $custom['subject'],
+                        $custom['html'],
+                        $resolvedLocale,
+                    ));
+                } else {
+                    Mail::to($email)->send(new PrivateEventInviteMail($eventName, $url, $resolvedLocale));
+                }
             } catch (\Throwable $exception) {
                 report($exception);
 
@@ -110,6 +148,7 @@ final readonly class SendPrivateEventInvites
             $invites[] = [
                 'id' => (string) $invite->id,
                 'email' => $invite->email,
+                'name' => $invite->name,
                 'code' => $invite->code,
             ];
         }

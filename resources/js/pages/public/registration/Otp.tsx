@@ -16,6 +16,7 @@ type Props = {
   email: string
   token: string
   submitUrl: string
+  resendUrl: string
   registerUrl: string
 }
 
@@ -24,12 +25,15 @@ export default function PublicRegistrationOtp({
   event,
   email,
   submitUrl,
+  resendUrl,
   registerUrl,
 }: Props) {
   const { t } = useLocale()
   const direction = locale === 'ar' ? 'rtl' : 'ltr'
   const [digits, setDigits] = useState(() => Array.from({ length: OTP_LENGTH }, () => ''))
   const [submitting, setSubmitting] = useState(false)
+  const [resending, setResending] = useState(false)
+  const [resendSuccess, setResendSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const inputs = useRef<Array<HTMLInputElement | null>>([])
 
@@ -132,6 +136,24 @@ export default function PublicRegistrationOtp({
     }
   }
 
+  async function handleResend() {
+    setResending(true)
+    setError(null)
+    setResendSuccess(false)
+
+    try {
+      await apiFetch(resendUrl, {
+        method: 'POST',
+      })
+      setResendSuccess(true)
+      setTimeout(() => setResendSuccess(false), 5000)
+    } catch (caught) {
+      setError(caught instanceof ApiFetchError ? caught.message : t('publicRegistrationOtpResendFailed'))
+    } finally {
+      setResending(false)
+    }
+  }
+
   return (
     <>
       <RegistrationPageControls locale={locale} />
@@ -173,16 +195,28 @@ export default function PublicRegistrationOtp({
             </div>
 
             {error ? <p role="alert" className="registration-invite-error">{error}</p> : null}
+            {resendSuccess ? <p role="status" className="rounded-[var(--radius-control)] border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-300">{t('publicRegistrationOtpResendSuccess')}</p> : null}
 
             <button type="submit" className="button-primary w-full" disabled={submitting}>
               {submitting ? t('publicRegistrationOtpVerifying') : t('publicRegistrationOtpVerify')}
             </button>
           </form>
 
-          <p className="mt-6 text-sm text-[var(--muted)]">{t('publicRegistrationOtpResendHint')}</p>
-          <a href={registerUrl} className="mt-3 inline-block text-sm text-[var(--brand)] underline">
-            {t('publicRegistrationPaymentFailedBack')}
-          </a>
+          <div className="mt-6 space-y-3">
+            <p className="text-sm text-[var(--muted)]">{t('publicRegistrationOtpResendHint')}</p>
+            <button
+              type="button"
+              className="text-sm text-[var(--brand)] underline hover:no-underline disabled:opacity-50"
+              onClick={() => void handleResend()}
+              disabled={resending}
+            >
+              {resending ? t('publicRegistrationOtpResending') : t('publicRegistrationOtpResend')}
+            </button>
+            <br />
+            <a href={registerUrl} className="inline-block text-sm text-[var(--brand)] underline">
+              {t('publicRegistrationPaymentFailedBack')}
+            </a>
+          </div>
         </div>
       </main>
     </>

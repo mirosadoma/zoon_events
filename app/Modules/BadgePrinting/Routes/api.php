@@ -21,7 +21,10 @@ Route::prefix('tenant/events/{event_id}')
             Route::get('/badge-templates', [BadgeTemplateController::class, 'index']);
             Route::post('/badge-templates', [BadgeTemplateController::class, 'store'])
                 ->middleware('idempotency');
+            Route::post('/badge-templates/preview-test', [BadgeTemplateController::class, 'previewTest']);
             Route::patch('/badge-templates/{template_id}', [BadgeTemplateController::class, 'update'])
+                ->middleware('idempotency');
+            Route::post('/badge-templates/{template_id}/background', [BadgeTemplateController::class, 'uploadBackground'])
                 ->middleware('idempotency');
             Route::post('/badge-templates/{template_id}/activate', [BadgeTemplateController::class, 'activate'])
                 ->middleware('idempotency');

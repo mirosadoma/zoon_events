@@ -44,6 +44,8 @@ final class BadgeLayoutValidatorTest extends TestCase
     {
         $this->validator->validate([
             'attendee_name' => [],
+            'email' => [],
+            'phone' => [],
             'company' => [],
             'job_title' => [],
             'qr' => [],

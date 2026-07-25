@@ -109,6 +109,11 @@ Route::prefix('{locale}')
             ->where('token', '[A-Za-z0-9]+')
             ->middleware('throttle:public-event')
             ->name('public.events.register.otp.verify');
+        Route::post('/events/{event_slug}/register/otp/{token}/resend', [PublicEventRegistrationController::class, 'resendOtp'])
+            ->where('event_slug', '[a-z0-9-]+')
+            ->where('token', '[A-Za-z0-9]+')
+            ->middleware('throttle:6,1')
+            ->name('public.events.register.otp.resend');
         Route::get('/events/{event_slug}/register/payment/{public_reference}', [PublicEventRegistrationController::class, 'showPayment'])
             ->where('event_slug', '[a-z0-9-]+')
             ->middleware('throttle:public-event')
@@ -125,6 +130,11 @@ Route::prefix('{locale}')
             ->where('event_slug', '[a-z0-9-]+')
             ->middleware('throttle:public-event')
             ->name('public.events.register.confirmation');
+        Route::get('/events/{event_slug}/register/badge/{public_reference}/{format}', [\App\Modules\BadgePrinting\Http\Controllers\PublicBadgeDownloadController::class, 'download'])
+            ->where('event_slug', '[a-z0-9-]+')
+            ->where('format', 'png|pdf|image')
+            ->middleware('throttle:public-event')
+            ->name('public.events.register.badge.download');
         Route::get('/notifications/unsubscribe', [UnsubscribePageController::class, 'show'])
             ->name('public.notifications.unsubscribe');
         Route::post('/notifications/unsubscribe', [UnsubscribePageController::class, 'store'])
@@ -249,6 +259,8 @@ Route::prefix('{locale}')
                 Route::get('/{event_id}/kiosks', [EventKioskController::class, 'index'])->name('tenant.kiosks.index');
                 Route::get('/{event_id}/kiosks/{kiosk_id}', [EventKioskController::class, 'show'])->name('tenant.kiosks.show');
                 Route::get('/{event_id}/badge-templates', [BadgePageController::class, 'templates'])->name('tenant.badge-templates.index');
+                Route::get('/{event_id}/email-templates', [\App\Modules\Events\Http\Controllers\EmailTemplateController::class, 'index'])->name('tenant.email-templates.index');
+                Route::get('/{event_id}/email-templates/{type}', [\App\Modules\Events\Http\Controllers\EmailTemplateController::class, 'edit'])->name('tenant.email-templates.edit');
                 Route::get('/{event_id}/badge-print-jobs', [BadgePageController::class, 'printJobs'])->name('tenant.badge-print-jobs.index');
                 Route::get('/{event_id}/manual-desk', [ManualDeskController::class, 'index'])->name('tenant.manual-desk.index');
                 Route::get('/{event_id}/manual-desk/walk-up', [ManualDeskController::class, 'walkUp'])->name('tenant.manual-desk.walk-up');

@@ -29,6 +29,8 @@ final class BadgeTemplateRequest extends FormRequest
             'background_gradient.stops' => ['required_with:background_gradient', 'array', 'min:2', 'max:5'],
             'background_gradient.stops.*.color' => ['required', 'string', 'regex:/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/'],
             'background_gradient.stops.*.position' => ['required', 'numeric', 'min:0', 'max:100'],
+            'background_image_path' => ['nullable', 'string', 'max:500'],
+            'clear_background_image' => ['sometimes', 'boolean'],
             'canvas_width' => ['nullable', 'integer', 'min:1', 'max:5000'],
             'canvas_height' => ['nullable', 'integer', 'min:1', 'max:5000'],
         ];

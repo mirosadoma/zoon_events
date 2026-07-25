@@ -8,7 +8,7 @@ use ZipArchive;
 final class InviteEmailFileParser
 {
     /**
-     * @return list<string>
+     * @return list<array{email: string, name?: string}>
      */
     public function parse(UploadedFile $file): array
     {
@@ -18,21 +18,29 @@ final class InviteEmailFileParser
             return [];
         }
 
-        $emails = match ($extension) {
+        $invitees = match ($extension) {
             'csv', 'txt' => $this->fromDelimited($path),
             'xlsx' => $this->fromXlsx($path),
             default => $this->fromDelimited($path),
         };
 
-        return collect($emails)
-            ->map(fn (string $email): string => strtolower(trim($email)))
-            ->filter(fn (string $email): bool => filter_var($email, FILTER_VALIDATE_EMAIL) !== false)
-            ->unique()
+        return collect($invitees)
+            ->map(function ($invitee): array {
+                $email = is_array($invitee) ? ($invitee['email'] ?? '') : (string) $invitee;
+                $name = is_array($invitee) ? ($invitee['name'] ?? null) : null;
+
+                return [
+                    'email' => strtolower(trim($email)),
+                    'name' => $name !== null && trim($name) !== '' ? trim($name) : null,
+                ];
+            })
+            ->filter(fn (array $invitee): bool => filter_var($invitee['email'], FILTER_VALIDATE_EMAIL) !== false)
+            ->unique('email')
             ->values()
             ->all();
     }
 
-    /** @return list<string> */
+    /** @return list<array{name?: string, email: string}> */
     private function fromDelimited(string $path): array
     {
         $handle = fopen($path, 'rb');
@@ -40,28 +48,35 @@ final class InviteEmailFileParser
             return [];
         }
 
-        $emails = [];
+        $invitees = [];
         $rowIndex = 0;
+        $hasHeader = false;
         while (($row = fgetcsv($handle)) !== false) {
             $rowIndex++;
-            $value = trim((string) ($row[0] ?? ''));
-            if ($value === '') {
+            $col0 = trim((string) ($row[0] ?? ''));
+            $col1 = trim((string) ($row[1] ?? ''));
+
+            // Detect header row
+            if ($rowIndex === 1 && (strcasecmp($col0, 'name') === 0 || strcasecmp($col0, 'email') === 0 || strcasecmp($col1, 'email') === 0)) {
+                $hasHeader = true;
                 continue;
             }
 
-            if ($rowIndex === 1 && strcasecmp($value, 'email') === 0) {
-                continue;
+            // If we have 2 columns, assume: Name, Email
+            if ($col1 !== '') {
+                $invitees[] = ['name' => $col0, 'email' => $col1];
+            } elseif ($col0 !== '') {
+                // Single column: treat as email only
+                $invitees[] = ['email' => $col0];
             }
-
-            $emails[] = $value;
         }
 
         fclose($handle);
 
-        return $emails;
+        return $invitees;
     }
 
-    /** @return list<string> */
+    /** @return list<array{name?: string, email: string}> */
     private function fromXlsx(string $path): array
     {
         $zip = new ZipArchive;
@@ -86,12 +101,13 @@ final class InviteEmailFileParser
             return [];
         }
 
-        $emails = [];
-
-        if (preg_match_all('/<c r="A(\d+)"[^>]*>(.*?)<\/c>/s', $sheetXml, $cells, PREG_SET_ORDER) > 0) {
+        // Parse column A (Name) and column B (Email)
+        $rows = [];
+        if (preg_match_all('/<c r="([AB])(\d+)"[^>]*>(.*?)<\/c>/s', $sheetXml, $cells, PREG_SET_ORDER) > 0) {
             foreach ($cells as $cell) {
-                $row = (int) $cell[1];
-                $inner = $cell[2];
+                $col = $cell[1];
+                $row = (int) $cell[2];
+                $inner = $cell[3];
                 $text = '';
 
                 if (preg_match('/t="inlineStr".*?<t[^>]*>(.*?)<\/t>/s', $inner, $inline) === 1) {
@@ -102,15 +118,37 @@ final class InviteEmailFileParser
                     $text = html_entity_decode((string) $value[1], ENT_QUOTES | ENT_XML1);
                 }
 
-                $text = trim($text);
-                if ($text === '' || ($row === 1 && strcasecmp($text, 'email') === 0)) {
-                    continue;
+                if (! isset($rows[$row])) {
+                    $rows[$row] = [];
                 }
-
-                $emails[] = $text;
+                $rows[$row][$col] = trim($text);
             }
         }
 
-        return $emails;
+        ksort($rows);
+        $hasHeader = isset($rows[1]) && (
+            (isset($rows[1]['A']) && strcasecmp($rows[1]['A'], 'name') === 0) ||
+            (isset($rows[1]['B']) && strcasecmp($rows[1]['B'], 'email') === 0)
+        );
+
+        $invitees = [];
+        foreach ($rows as $rowNum => $columns) {
+            if ($rowNum === 1 && $hasHeader) {
+                continue;
+            }
+
+            $colA = $columns['A'] ?? '';
+            $colB = $columns['B'] ?? '';
+
+            // If we have both columns: Name, Email
+            if ($colB !== '') {
+                $invitees[] = ['name' => $colA, 'email' => $colB];
+            } elseif ($colA !== '') {
+                // Single column: treat as email only
+                $invitees[] = ['email' => $colA];
+            }
+        }
+
+        return $invitees;
     }
 }

@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { ValidationError } from '@/components/forms/TextInput'
 import { FORM_FIELD_INVALID_CLASS } from '@/lib/formFieldStyles'
 import en from '@/locales/en'
@@ -16,6 +17,10 @@ export type PublicFormField = {
   label_ar: string
   required?: boolean
   options?: FieldOption[]
+  content?: string
+  width?: 'full' | 'half' | 'third' | string
+  choice_style?: string | null
+  choice_color?: string | null
 }
 
 const FIELD_CLASS = 'registration-field'
@@ -27,6 +32,25 @@ function optionLabel(option: FieldOption, locale: 'en' | 'ar'): string {
 
 function isSelectType(type: string): boolean {
   return type === 'select'
+}
+
+function resolveChoiceStyle(type: string, style?: string | null): string {
+  if (type === 'checkbox') {
+    if (style === 'toggle' || style === 'pill' || style === 'card') return style
+    return 'square'
+  }
+
+  if (type === 'radio') {
+    if (style === 'toggle' || style === 'pill' || style === 'card' || style === 'button') return style
+    return 'circle'
+  }
+
+  return 'square'
+}
+
+function choiceFieldStyle(color?: string | null): CSSProperties | undefined {
+  if (!color || !/^#[0-9A-Fa-f]{6}$/.test(color)) return undefined
+  return { ['--choice-accent' as string]: color }
 }
 
 export function RegistrationField({
@@ -53,7 +77,8 @@ export function RegistrationField({
   const messages = locale === 'ar' ? ar : en
   const options = field.options ?? []
   const locked = disabled || readOnly
-  const required = Boolean(field.required && !locked)
+  const showRequiredMark = Boolean(field.required)
+  const required = Boolean(field.required && !readOnly)
   const fieldError = error ? <ValidationError message={error} /> : null
   const invalidClass = error ? FORM_FIELD_INVALID_CLASS : ''
 
@@ -62,15 +87,21 @@ export function RegistrationField({
       return null
     }
 
+    const style = resolveChoiceStyle('radio', field.choice_style)
+
     return (
-      <fieldset className={`${FIELD_CLASS} registration-field-choice ${invalidClass}`} data-form-field={dataFormField}>
+      <fieldset
+        className={`${FIELD_CLASS} registration-field-choice registration-choice--${style} ${invalidClass}`}
+        style={choiceFieldStyle(field.choice_color)}
+        data-form-field={dataFormField}
+      >
         <legend>
           {label}
-          {required ? <span className="registration-field-required">*</span> : null}
+          {showRequiredMark ? <span className="registration-field-required" aria-hidden="true">*</span> : null}
         </legend>
-        <div className="registration-choice-options">
+        <div className={`registration-choice-options registration-choice-options--${style}`}>
           {options.map((option) => (
-            <label key={option.value} className="registration-choice-option">
+            <label key={option.value} className={`registration-choice-option registration-choice-option--${style}`}>
               <input
                 type="radio"
                 name={field.key}
@@ -79,7 +110,8 @@ export function RegistrationField({
                 aria-required={required}
                 disabled={disabled}
               />
-              <span>{optionLabel(option, locale)}</span>
+              <span className="registration-choice-control" aria-hidden="true" />
+              <span className="registration-choice-label">{optionLabel(option, locale)}</span>
             </label>
           ))}
         </div>
@@ -97,7 +129,7 @@ export function RegistrationField({
       <label className={`${SELECT_PANEL_CLASS} ${invalidClass}`}>
         <span>
           {label}
-          {required ? <span className="registration-field-required">*</span> : null}
+          {showRequiredMark ? <span className="registration-field-required" aria-hidden="true">*</span> : null}
         </span>
         <select
           name={field.key}
@@ -129,7 +161,7 @@ export function RegistrationField({
       <label className={`${SELECT_PANEL_CLASS} ${invalidClass}`}>
         <span>
           {label}
-          {required ? <span className="registration-field-required">*</span> : null}
+          {showRequiredMark ? <span className="registration-field-required" aria-hidden="true">*</span> : null}
         </span>
         <select
           name={field.key}
@@ -157,17 +189,24 @@ export function RegistrationField({
       return null
     }
 
+    const style = resolveChoiceStyle('checkbox', field.choice_style)
+
     return (
-      <fieldset className={`${FIELD_CLASS} registration-field-choice ${invalidClass}`} data-form-field={dataFormField}>
+      <fieldset
+        className={`${FIELD_CLASS} registration-field-choice registration-choice--${style} ${invalidClass}`}
+        style={choiceFieldStyle(field.choice_color)}
+        data-form-field={dataFormField}
+      >
         <legend>
           {label}
-          {required ? <span className="registration-field-required">*</span> : null}
+          {showRequiredMark ? <span className="registration-field-required" aria-hidden="true">*</span> : null}
         </legend>
-        <div className="registration-choice-options">
+        <div className={`registration-choice-options registration-choice-options--${style}`}>
           {options.map((option) => (
-            <label key={option.value} className="registration-choice-option">
+            <label key={option.value} className={`registration-choice-option registration-choice-option--${style}`}>
               <input type="checkbox" name={field.key} value={option.value} disabled={disabled} />
-              <span>{optionLabel(option, locale)}</span>
+              <span className="registration-choice-control" aria-hidden="true" />
+              <span className="registration-choice-label">{optionLabel(option, locale)}</span>
             </label>
           ))}
         </div>
@@ -191,7 +230,7 @@ export function RegistrationField({
         />
         <span>
           {label}
-          {required ? <span className="registration-field-required">*</span> : null}
+          {showRequiredMark ? <span className="registration-field-required" aria-hidden="true">*</span> : null}
         </span>
         {fieldError}
       </label>
@@ -208,18 +247,21 @@ export function RegistrationField({
           ? 'email'
           : 'text'
 
+  const inputId = `registration-field-${field.key}`
+
   return (
-    <label className={`${FIELD_CLASS} ${invalidClass}`}>
-      <span>
-        {label}
-        {required ? <span className="registration-field-required">*</span> : null}
-      </span>
+    <div className={`${FIELD_CLASS} ${invalidClass}`}>
+      <div className="registration-field-label">
+        <label htmlFor={inputId}>{label}</label>
+        {showRequiredMark ? <span className="registration-field-required" aria-hidden="true">*</span> : null}
+      </div>
       <input
+        id={inputId}
         name={field.key}
         type={inputType}
         className={invalidClass}
         required={required}
-        aria-required={required}
+        aria-required={required || showRequiredMark}
         disabled={disabled}
         readOnly={locked}
         {...(value !== undefined
@@ -229,6 +271,6 @@ export function RegistrationField({
         aria-invalid={error ? 'true' : undefined}
       />
       {fieldError}
-    </label>
+    </div>
   )
 }
