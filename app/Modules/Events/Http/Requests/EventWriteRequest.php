@@ -2,20 +2,32 @@
 
 namespace App\Modules\Events\Http\Requests;
 
+use App\Modules\Events\Application\Support\EventSlug;
 use App\Modules\Events\Application\Support\EventWallClockDateTime;
 use App\Modules\Events\Domain\EventTier;
 use App\Modules\Events\Domain\EventType;
 use App\Modules\Events\Domain\RegistrationMode;
+use App\Modules\Tenancy\Domain\Context\TenantContextStore;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 final class EventWriteRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        $nameEn = trim((string) data_get($this->all(), 'name.en', ''));
+        $nameAr = trim((string) data_get($this->all(), 'name.ar', ''));
+
+        $this->merge([
+            'slug' => EventSlug::fromNames($nameEn, $nameAr),
+        ]);
+    }
+
     public function rules(): array
     {
         return [
-            'slug' => ['required', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/', 'max:100'],
+            'slug' => ['required', 'regex:/^[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*$/u', 'max:100'],
             'name.en' => ['required', 'string', 'max:160'],
             'name.ar' => ['required', 'string', 'max:160'],
             'description.en' => ['nullable', 'string', 'max:5000'],
@@ -38,7 +50,7 @@ final class EventWriteRequest extends FormRequest
             'theme_config.text_color' => ['nullable', 'string', 'max:7'],
             'brand_logo' => ['nullable', 'file', 'mimes:png,jpg,jpeg,webp,svg', 'max:2048'],
             'sponsor_logo' => ['nullable', 'file', 'mimes:png,jpg,jpeg,webp,svg', 'max:2048'],
-            'venues' => ['required', 'array', 'min:1'],
+            'venues' => ['nullable', 'array'],
             'venues.*.id' => ['nullable', 'integer'],
             'venues.*.country_id' => ['nullable', 'integer', 'exists:countries,id'],
             'venues.*.city_id' => ['nullable', 'integer', 'exists:cities,id'],
@@ -105,6 +117,7 @@ final class EventWriteRequest extends FormRequest
     {
         $data = $this->validated();
         $timezone = (string) $data['timezone'];
+        $hasVenues = array_key_exists('venues', $data);
         $venues = collect($data['venues'] ?? [])->map(function (array $venue) use ($timezone): array {
             $opens = EventWallClockDateTime::parseToAppStorage(
                 isset($venue['registration_opens_at']) ? (string) $venue['registration_opens_at'] : null,
@@ -139,11 +152,17 @@ final class EventWriteRequest extends FormRequest
             ];
         })->all();
 
-        $schedule = self::scheduleFromVenues($venues);
         $tier = $data['tier'] ?? EventTier::Public->value;
+        $tenantId = app(TenantContextStore::class)->current()->tenant->id;
+        $ignoreEventId = $this->route('event_id') ?? $this->route('eventId');
+        $isCreate = $this->isMethod('POST');
 
-        return [
-            'slug' => $data['slug'],
+        $attributes = [
+            'slug' => EventSlug::uniqueForTenant(
+                $tenantId,
+                EventSlug::fromNames((string) $data['name']['en'], (string) $data['name']['ar']),
+                is_scalar($ignoreEventId) ? (string) $ignoreEventId : null,
+            ),
             'name_en' => $data['name']['en'],
             'name_ar' => $data['name']['ar'],
             'description_en' => $data['description']['en'] ?? null,
@@ -153,10 +172,6 @@ final class EventWriteRequest extends FormRequest
             'registration_mode' => RegistrationMode::FreeRegistration->value,
             'organizer_user_id' => isset($data['organizer_user_id']) ? (int) $data['organizer_user_id'] : null,
             'timezone' => $timezone,
-            'start_at' => $schedule['start_at'],
-            'end_at' => $schedule['end_at'],
-            'registration_opens_at' => $schedule['registration_opens_at'],
-            'registration_closes_at' => $schedule['registration_closes_at'],
             'capacity' => isset($data['capacity']) ? (int) $data['capacity'] : null,
             'location_name_en' => $data['location_name']['en'] ?? null,
             'location_name_ar' => $data['location_name']['ar'] ?? null,
@@ -165,8 +180,20 @@ final class EventWriteRequest extends FormRequest
             'brand_reference' => $data['brand_reference'] ?? null,
             'domain_reference' => $data['domain_reference'] ?? null,
             'theme_config' => $data['theme_config'] ?? null,
-            'venues' => $venues,
         ];
+
+        // Venues are managed on a dedicated page after create. Include schedule only
+        // when creating (nullable placeholders) or when venues are explicitly sent.
+        if ($isCreate || $hasVenues) {
+            $schedule = self::scheduleFromVenues($venues);
+            $attributes['start_at'] = $schedule['start_at'];
+            $attributes['end_at'] = $schedule['end_at'];
+            $attributes['registration_opens_at'] = $schedule['registration_opens_at'];
+            $attributes['registration_closes_at'] = $schedule['registration_closes_at'];
+            $attributes['venues'] = $venues;
+        }
+
+        return $attributes;
     }
 
     /**
@@ -175,10 +202,19 @@ final class EventWriteRequest extends FormRequest
      * from the earliest opening to the latest closing.
      *
      * @param  list<array<string,mixed>>  $venues
-     * @return array{start_at:string,end_at:string,registration_opens_at:string,registration_closes_at:string}
+     * @return array{start_at:?string,end_at:?string,registration_opens_at:?string,registration_closes_at:?string}
      */
     private static function scheduleFromVenues(array $venues): array
     {
+        if ($venues === []) {
+            return [
+                'start_at' => null,
+                'end_at' => null,
+                'registration_opens_at' => null,
+                'registration_closes_at' => null,
+            ];
+        }
+
         $starts = array_map(fn (array $venue): CarbonImmutable => CarbonImmutable::parse((string) $venue['start_at'], 'UTC'), $venues);
         $ends = array_map(fn (array $venue): CarbonImmutable => CarbonImmutable::parse((string) $venue['end_at'], 'UTC'), $venues);
         $opens = array_map(fn (array $venue): CarbonImmutable => CarbonImmutable::parse((string) $venue['registration_opens_at'], 'UTC'), $venues);

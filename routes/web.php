@@ -83,55 +83,55 @@ Route::prefix('{locale}')
             ->middleware('signed')
             ->name('public.order.wallet.google');
         Route::get('/events/{event_slug}/agenda/{invite_code}', [PublicEventAgendaController::class, 'show'])
-            ->where('event_slug', '[a-z0-9-]+')
+            ->where('event_slug', '[\p{L}\p{N}-]+')
             ->where('invite_code', '\d{10}')
             ->middleware('throttle:public-event')
             ->name('public.events.agenda.invite');
         Route::get('/events/{event_slug}/agenda', [PublicEventAgendaController::class, 'show'])
-            ->where('event_slug', '[a-z0-9-]+')
+            ->where('event_slug', '[\p{L}\p{N}-]+')
             ->middleware('throttle:public-event')
             ->name('public.events.agenda');
         Route::get('/events/{event_slug}/register', [PublicEventRegistrationController::class, 'show'])
-            ->where('event_slug', '[a-z0-9-]+')
+            ->where('event_slug', '[\p{L}\p{N}-]+')
             ->middleware('throttle:public-event')
             ->name('public.events.register');
         Route::post('/events/{event_slug}/register', [PublicEventRegistrationController::class, 'store'])
-            ->where('event_slug', '[a-z0-9-]+')
+            ->where('event_slug', '[\p{L}\p{N}-]+')
             ->middleware('throttle:public-event')
             ->name('public.events.register.store');
         Route::get('/events/{event_slug}/register/otp/{token}', [PublicEventRegistrationController::class, 'showOtp'])
-            ->where('event_slug', '[a-z0-9-]+')
+            ->where('event_slug', '[\p{L}\p{N}-]+')
             ->where('token', '[A-Za-z0-9]+')
             ->middleware('throttle:public-event')
             ->name('public.events.register.otp');
         Route::post('/events/{event_slug}/register/otp/{token}', [PublicEventRegistrationController::class, 'verifyOtp'])
-            ->where('event_slug', '[a-z0-9-]+')
+            ->where('event_slug', '[\p{L}\p{N}-]+')
             ->where('token', '[A-Za-z0-9]+')
             ->middleware('throttle:public-event')
             ->name('public.events.register.otp.verify');
         Route::post('/events/{event_slug}/register/otp/{token}/resend', [PublicEventRegistrationController::class, 'resendOtp'])
-            ->where('event_slug', '[a-z0-9-]+')
+            ->where('event_slug', '[\p{L}\p{N}-]+')
             ->where('token', '[A-Za-z0-9]+')
             ->middleware('throttle:6,1')
             ->name('public.events.register.otp.resend');
         Route::get('/events/{event_slug}/register/payment/{public_reference}', [PublicEventRegistrationController::class, 'showPayment'])
-            ->where('event_slug', '[a-z0-9-]+')
+            ->where('event_slug', '[\p{L}\p{N}-]+')
             ->middleware('throttle:public-event')
             ->name('public.events.register.payment');
         Route::post('/events/{event_slug}/register/payment/{public_reference}', [PublicEventRegistrationController::class, 'processPayment'])
-            ->where('event_slug', '[a-z0-9-]+')
+            ->where('event_slug', '[\p{L}\p{N}-]+')
             ->middleware('throttle:public-event')
             ->name('public.events.register.payment.store');
         Route::get('/events/{event_slug}/register/payment-failed', [PublicEventRegistrationController::class, 'showPaymentFailed'])
-            ->where('event_slug', '[a-z0-9-]+')
+            ->where('event_slug', '[\p{L}\p{N}-]+')
             ->middleware('throttle:public-event')
             ->name('public.events.register.payment-failed');
         Route::get('/events/{event_slug}/register/confirmation/{public_reference}', [PublicEventRegistrationController::class, 'showConfirmation'])
-            ->where('event_slug', '[a-z0-9-]+')
+            ->where('event_slug', '[\p{L}\p{N}-]+')
             ->middleware('throttle:public-event')
             ->name('public.events.register.confirmation');
         Route::get('/events/{event_slug}/register/badge/{public_reference}/{format}', [\App\Modules\BadgePrinting\Http\Controllers\PublicBadgeDownloadController::class, 'download'])
-            ->where('event_slug', '[a-z0-9-]+')
+            ->where('event_slug', '[\p{L}\p{N}-]+')
             ->where('format', 'png|pdf|image')
             ->middleware('throttle:public-event')
             ->name('public.events.register.badge.download');

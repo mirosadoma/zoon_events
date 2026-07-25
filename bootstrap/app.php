@@ -13,7 +13,6 @@ use App\Modules\Events\Http\Middleware\ClearPublicEventContext;
 use App\Modules\Events\Http\Middleware\ResolvePublicEventContext;
 use App\Modules\Kiosk\Http\Middleware\ClearKioskSession;
 use App\Modules\Kiosk\Http\Middleware\ResolveKioskSession;
-use App\Modules\Operations\Application\Telemetry\RecordRequestTelemetry;
 use App\Modules\Shared\Http\Middleware\AssignRequestContext;
 use App\Modules\Shared\Http\Middleware\RedirectToLocalizedUrl;
 use App\Modules\Shared\Http\Middleware\RequireIdempotencyKey;
@@ -73,7 +72,6 @@ return Application::configure(basePath: dirname(__DIR__))
             AssignRequestContext::class,
             ResolveLocale::class,
             SecurityHeaders::class,
-            RecordRequestTelemetry::class,
         ]);
         $middleware->web(append: [HandleInertiaRequests::class, EnsureSiteIsAvailable::class]);
         $middleware->api(

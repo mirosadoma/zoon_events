@@ -1868,7 +1868,7 @@ export default {
   eventSetupDetailsDescriptionTitle: 'الوصف',
   eventSetupDetailsDescriptionHint: 'ملخص اختياري للحاضرين باللغتين.',
   eventSetupDetailsUrlTitle: 'الرابط العام',
-  eventSetupDetailsUrlHint: 'المعرّف يصبح جزءاً من رابط الفعالية.',
+  eventSetupDetailsUrlHint: 'يُنشأ تلقائياً من عنوان الفعالية.',
   eventSetupTimezone: 'المنطقة الزمنية',
   eventSetupSearchTimezone: 'ابحث عن منطقة زمنية',
   eventSetupBrandReference: 'الهوية',

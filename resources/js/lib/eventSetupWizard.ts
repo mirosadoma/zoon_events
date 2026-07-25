@@ -53,8 +53,8 @@ export function eventSetupWizardStepCopy(
     details: {
       title_en: 'Name and details',
       title_ar: 'الاسم والتفاصيل',
-      description_en: 'Set how the event appears publicly, including name, description, slug, and timezone.',
-      description_ar: 'حدد كيف تظهر الفعالية للجمهور بما في ذلك الاسم والوصف والرابط والمنطقة الزمنية.',
+      description_en: 'Set how the event appears publicly, including name, description, and timezone.',
+      description_ar: 'حدد كيف تظهر الفعالية للجمهور بما في ذلك الاسم والوصف والمنطقة الزمنية.',
     },
     branding: {
       title_en: 'Branding and visuals',
@@ -96,7 +96,6 @@ export function validateEventSetupWizardStep(
   }
 
   if (step === 'details') {
-    if (!form.slug.trim()) errors.slug = required
     if (!form.name_en.trim()) errors['name.en'] = required
     if (!form.name_ar.trim()) errors['name.ar'] = required
     if (!form.timezone) errors.timezone = required

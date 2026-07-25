@@ -26,11 +26,29 @@ export default defineConfig({
   },
 
   build: {
-    chunkSizeWarningLimit: 1000, // 👈 عشان warning الـ 500kb
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
+        manualChunks(id) {
+          if (!id.includes('node_modules')) {
+            return
+          }
+
+          if (id.includes('leaflet') || id.includes('react-leaflet')) {
+            return 'map'
+          }
+
+          if (id.includes('lucide-react')) {
+            return 'icons'
+          }
+
+          if (id.includes('@inertiajs') || id.includes('/react/') || id.includes('\\react\\') || id.includes('react-dom')) {
+            return 'vendor'
+          }
+
+          if (id.includes('i18next') || id.includes('react-i18next')) {
+            return 'i18n'
+          }
         },
       },
     },

@@ -39,26 +39,6 @@ export const publishReadinessLabels: Record<string, ReadinessEntry> = {
     ar: 'المنطقة الزمنية للفعالية',
     href: (eventId) => editSection(eventId, 'event-setup-details'),
   },
-  start_at: {
-    en: 'Event start date and time',
-    ar: 'تاريخ ووقت بداية الفعالية',
-    href: (eventId) => editSection(eventId, 'event-setup-schedule'),
-  },
-  end_at: {
-    en: 'Event end date and time',
-    ar: 'تاريخ ووقت نهاية الفعالية',
-    href: (eventId) => editSection(eventId, 'event-setup-schedule'),
-  },
-  registration_opens_at: {
-    en: 'Registration open date and time',
-    ar: 'تاريخ ووقت فتح التسجيل',
-    href: (eventId) => editSection(eventId, 'event-setup-schedule'),
-  },
-  registration_closes_at: {
-    en: 'Registration close date and time',
-    ar: 'تاريخ ووقت إغلاق التسجيل',
-    href: (eventId) => editSection(eventId, 'event-setup-schedule'),
-  },
   event_venues: {
     en: 'At least one venue with schedule',
     ar: 'موقع واحد على الأقل مع جدول زمني',
@@ -107,11 +87,6 @@ export const publishReadinessLabels: Record<string, ReadinessEntry> = {
     en: 'Valid timezone identifier',
     ar: 'معرّف منطقة زمنية صالح',
     href: (eventId) => editSection(eventId, 'event-setup-details'),
-  },
-  valid_schedule: {
-    en: 'Valid schedule (registration opens before it closes, closes before event ends)',
-    ar: 'جدول زمني صالح (يفتح التسجيل قبل الإغلاق ويُغلق قبل نهاية الفعالية)',
-    href: (eventId) => editSection(eventId, 'event-setup-schedule'),
   },
   invalid_status: {
     en: 'Event status does not allow publishing',

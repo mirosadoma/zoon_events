@@ -8,15 +8,13 @@ use App\Modules\Events\Domain\EventRegistrationProfile;
 use App\Modules\Events\Domain\EventStatus;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventCategory;
-use Carbon\CarbonImmutable;
 use DateTimeZone;
 
 final class PublicationReadiness
 {
     /**
      * @param array{
-     *   name_en?:string,name_ar?:string,timezone?:string,start_at?:string,
-     *   end_at?:string,registration_opens_at?:string,registration_closes_at?:string,
+     *   name_en?:string,name_ar?:string,timezone?:string,
      *   agenda_items?:int,active_form_version_id?:string,active_ticket_types?:int,branding_active?:bool,
      *   active_badge_template?:bool,configured_email_templates?:int,tier?:string,registration_mode?:string,
      *   configured_categories?:int,event_venues?:int
@@ -26,7 +24,7 @@ final class PublicationReadiness
     public function missing(array $event): array
     {
         $missing = [];
-        foreach (['name_en', 'name_ar', 'timezone', 'start_at', 'end_at', 'registration_opens_at', 'registration_closes_at'] as $key) {
+        foreach (['name_en', 'name_ar', 'timezone'] as $key) {
             if (trim((string) ($event[$key] ?? '')) === '') {
                 $missing[] = $key;
             }
@@ -71,20 +69,6 @@ final class PublicationReadiness
             $missing[] = 'valid_timezone';
         }
 
-        try {
-            $start = CarbonImmutable::parse((string) ($event['start_at'] ?? ''));
-            $end = CarbonImmutable::parse((string) ($event['end_at'] ?? ''));
-            $opens = CarbonImmutable::parse((string) ($event['registration_opens_at'] ?? ''));
-            $closes = CarbonImmutable::parse((string) ($event['registration_closes_at'] ?? ''));
-            if (! ($opens->lessThanOrEqualTo($closes) && $closes->lessThanOrEqualTo($end) && $start->isBefore($end))) {
-                $missing[] = 'valid_schedule';
-            }
-        } catch (\Throwable) {
-            if (! in_array('valid_schedule', $missing, true)) {
-                $missing[] = 'valid_schedule';
-            }
-        }
-
         return array_values(array_unique($missing));
     }
 
@@ -93,11 +77,15 @@ final class PublicationReadiness
     {
         $missing = $this->missing([
             ...$event->only([
-                'name_en', 'name_ar', 'timezone', 'start_at', 'end_at',
-                'registration_opens_at', 'registration_closes_at', 'active_form_version_id',
+                'name_en', 'name_ar', 'timezone', 'active_form_version_id',
                 'tier', 'registration_mode',
             ]),
-            'event_venues' => $event->venues()->count(),
+            'event_venues' => $event->venues()
+                ->whereNotNull('start_at')
+                ->whereNotNull('end_at')
+                ->whereNotNull('registration_opens_at')
+                ->whereNotNull('registration_closes_at')
+                ->count(),
             'agenda_items' => $event->agendaItems()->count(),
             'active_ticket_types' => $activeTicketTypes,
             'branding_active' => $event->branding()->where('status', 'active')->exists(),

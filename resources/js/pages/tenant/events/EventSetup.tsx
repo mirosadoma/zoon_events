@@ -19,7 +19,6 @@ import TextareaInput from '@/components/forms/TextareaInput'
 import SearchableSelect from '@/components/forms/SearchableSelect'
 import SelectInput from '@/components/forms/SelectInput'
 import FileInput from '@/components/forms/FileInput'
-import VenueRepeater, { emptyVenueRow, venueRowsFromEvent, type VenueFormRow } from '@/components/forms/VenueRepeater'
 import ValidationHintPopover from '@/components/feedback/ValidationHintPopover'
 import PublishReadinessList from '@/components/events/PublishReadinessList'
 import StatusBadge from '@/components/status/StatusBadge'
@@ -44,6 +43,7 @@ import {
   validateEventSetupWizardStep,
   type EventSetupWizardStep,
 } from '@/lib/eventSetupWizard'
+import { eventSlugFromNames } from '@/lib/eventSlug'
 
 type TimezoneOption = {
   identifier: string
@@ -53,28 +53,6 @@ type TimezoneOption = {
   country_en: string
   country_ar: string
   utc_offset: string
-}
-
-type CountryOption = {
-  id: string
-  code: string
-  name_en: string
-  name_ar: string
-  cities: Array<{ id: string; name_en: string; name_ar: string }>
-}
-
-type EventVenuePayload = {
-  id?: string
-  country_id: string
-  city_id: string
-  name: { en: string; ar: string }
-  location_address: string
-  latitude: string
-  longitude: string
-  start_at: string | null
-  end_at: string | null
-  registration_opens_at: string | null
-  registration_closes_at: string | null
 }
 
 type OrganizerCandidate = {
@@ -93,7 +71,6 @@ type EventImageRow = {
 type EventSetupProps = {
   tenantId: string
   timezones?: TimezoneOption[]
-  countries?: CountryOption[]
   requiresOrganizerSelection?: boolean
   organizerCandidates?: OrganizerCandidate[]
   event: {
@@ -126,7 +103,6 @@ type EventSetupProps = {
     organizer?: OrganizerCandidate | null
     main_image?: { id: null; url: string; path: string } | null
     images?: EventImageRow[]
-    venues?: EventVenuePayload[]
     readiness: string[]
     capabilities?: {
       requires_ticketing?: boolean
@@ -138,8 +114,6 @@ type EventSetupProps = {
     publish: boolean
   }
 }
-
-type EventSetupErrors = Record<string, string>
 
 type EventFormState = {
   slug: string
@@ -156,29 +130,10 @@ type EventFormState = {
   organizer_user_id: string
 }
 
-function buildVenuePayload(venues: VenueFormRow[]) {
-  return venues
-    .filter((venue) => venue.name_en.trim() !== '' && venue.name_ar.trim() !== '')
-    .map((venue) => ({
-      id: venue.id ? Number(venue.id) : undefined,
-      country_id: venue.country_id ? Number(venue.country_id) : null,
-      city_id: venue.city_id ? Number(venue.city_id) : null,
-      name: { en: venue.name_en, ar: venue.name_ar },
-      location_address: venue.location_address || null,
-      latitude: venue.latitude === '' ? null : Number(venue.latitude),
-      longitude: venue.longitude === '' ? null : Number(venue.longitude),
-      start_at: venue.start_at || null,
-      end_at: venue.end_at || null,
-      registration_opens_at: venue.registration_opens_at || null,
-      registration_closes_at: venue.registration_closes_at || null,
-    }))
-}
-
 export default function EventSetup({
   tenantId,
   event,
   timezones = [],
-  countries = [],
   requiresOrganizerSelection = false,
   organizerCandidates = [],
   eventPermissions,
@@ -209,9 +164,6 @@ export default function EventSetup({
   const [wizardStep, setWizardStep] = useState(0)
   const currentWizardKey = wizardSteps[wizardStep]?.key as EventSetupWizardStep
   const [submitting, setSubmitting] = useState(false)
-  const [venues, setVenues] = useState<VenueFormRow[]>(
-    () => venueRowsFromEvent(event.venues ?? []),
-  )
   const [mainImageFile, setMainImageFile] = useState<File | null>(null)
   const [mainImagePreview, setMainImagePreview] = useState<string | null>(event.main_image?.url ?? null)
   const [brandLogoFile, setBrandLogoFile] = useState<File | null>(null)
@@ -245,7 +197,6 @@ export default function EventSetup({
     [locale],
   )
 
-  const validVenueCount = buildVenuePayload(venues).length
   const showStep = (step: EventSetupWizardStep) => !isCreate || currentWizardKey === step
 
   const wizardLabels = useMemo(() => ({
@@ -317,7 +268,7 @@ export default function EventSetup({
     const errors = validateEventSetupWizardStep(step, form, {
       locale,
       requiresOrganizerSelection,
-      venueCount: validVenueCount,
+      venueCount: 0,
     })
 
     if (Object.keys(errors).length > 0) {
@@ -424,7 +375,7 @@ export default function EventSetup({
     }
 
     const payload = {
-      slug: form.slug,
+      slug: eventSlugFromNames(form.name_en, form.name_ar),
       name: { en: form.name_en, ar: form.name_ar },
       description: { en: form.description_en || null, ar: form.description_ar || null },
       tier: encodeEventTiers(form.tiers),
@@ -436,7 +387,6 @@ export default function EventSetup({
         primary_color: form.text_color,
         background_color: form.background_color,
       },
-      ...(!isCreateSubmit ? { venues: buildVenuePayload(venues) } : {}),
       ...(requiresOrganizerSelection ? { organizer_user_id: Number(form.organizer_user_id) } : {}),
     }
     const url = isCreateSubmit ? '/api/v1/tenant/events' : `/api/v1/tenant/events/${event.id}`
@@ -462,7 +412,6 @@ export default function EventSetup({
         appendToFormData(formData, 'timezone', payload.timezone)
         appendToFormData(formData, 'domain_reference', payload.domain_reference)
         appendToFormData(formData, 'theme_config', payload.theme_config)
-        appendToFormData(formData, 'venues', payload.venues)
         if ('organizer_user_id' in payload) {
           appendToFormData(formData, 'organizer_user_id', payload.organizer_user_id)
         }
@@ -595,7 +544,14 @@ export default function EventSetup({
                         label={t('eventSetupNameEn')}
                         name="name_en"
                         value={form.name_en}
-                        onChange={(e) => setForm((current) => ({ ...current, name_en: e.target.value }))}
+                        onChange={(e) => {
+                          const name_en = e.target.value
+                          setForm((current) => ({
+                            ...current,
+                            name_en,
+                            slug: eventSlugFromNames(name_en, current.name_ar),
+                          }))
+                        }}
                         required
                         error={fieldError('name.en')}
                         {...formFieldProps('name.en')}
@@ -604,7 +560,14 @@ export default function EventSetup({
                         label={t('eventSetupNameAr')}
                         name="name_ar"
                         value={form.name_ar}
-                        onChange={(e) => setForm((current) => ({ ...current, name_ar: e.target.value }))}
+                        onChange={(e) => {
+                          const name_ar = e.target.value
+                          setForm((current) => ({
+                            ...current,
+                            name_ar,
+                            slug: eventSlugFromNames(current.name_en, name_ar),
+                          }))
+                        }}
                         required
                         error={fieldError('name.ar')}
                         {...formFieldProps('name.ar')}
@@ -639,43 +602,23 @@ export default function EventSetup({
                     </div>
                   </section>
 
-                  <section className="event-setup-details-section">
-                    <header className="event-setup-details-header">
-                      <h3 className="event-choice-section-title">{t('eventSetupDetailsUrlTitle')}</h3>
-                      <p className="event-setup-details-hint">{t('eventSetupDetailsUrlHint')}</p>
-                    </header>
-                    <div className="event-setup-details-grid">
-                      <TextInput
-                        label={t('eventSetupSlug')}
-                        name="slug"
-                        value={form.slug}
-                        onChange={(e) => setForm((current) => ({ ...current, slug: e.target.value }))}
+                  {requiresOrganizerSelection ? (
+                    <section className="event-setup-details-section">
+                      <header className="event-setup-details-header">
+                        <h3 className="event-choice-section-title">{t('eventSetupOrganizer')}</h3>
+                      </header>
+                      <SelectInput
+                        label={t('eventSetupOrganizer')}
+                        name="organizer_user_id"
+                        value={form.organizer_user_id}
+                        onChange={(e) => setForm((current) => ({ ...current, organizer_user_id: e.target.value }))}
+                        options={organizerOptions}
                         required
-                        error={fieldError('slug')}
-                        hint={t('eventSetupSlugHint')}
-                        {...formFieldProps('slug')}
+                        error={fieldError('organizer_user_id')}
+                        {...formFieldProps('organizer_user_id')}
                       />
-                      {requiresOrganizerSelection ? (
-                        <SelectInput
-                          label={t('eventSetupOrganizer')}
-                          name="organizer_user_id"
-                          value={form.organizer_user_id}
-                          onChange={(e) => setForm((current) => ({ ...current, organizer_user_id: e.target.value }))}
-                          options={organizerOptions}
-                          required
-                          error={fieldError('organizer_user_id')}
-                          {...formFieldProps('organizer_user_id')}
-                        />
-                      ) : (
-                        <div className="event-setup-details-slug-preview" aria-hidden={form.slug.trim() === ''}>
-                          <span className="event-setup-details-slug-label">{t('eventSetupDetailsUrlTitle')}</span>
-                          <code className="event-setup-details-slug-value">
-                            /events/{form.slug.trim() || 'your-event-slug'}
-                          </code>
-                        </div>
-                      )}
-                    </div>
-                  </section>
+                    </section>
+                  ) : null}
 
                   <section className="event-setup-details-section">
                     <header className="event-setup-details-header">
@@ -699,8 +642,8 @@ export default function EventSetup({
                 <div className="space-y-6">
                   <section className="space-y-4">
                     <h3 className="event-choice-section-title">{t('eventSetupBrandReference')}</h3>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <div className="space-y-3">
+                    <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+                      <div className="flex min-w-0 flex-col gap-3">
                         <FileInput
                           label={t('eventSetupBrandLogo')}
                           name="brand_logo"
@@ -709,10 +652,10 @@ export default function EventSetup({
                           onChange={(changeEvent) => handleBrandLogoChange(changeEvent.target.files)}
                         />
                         {brandLogoPreview ? (
-                          <img src={brandLogoPreview} alt="" className="h-16 w-auto rounded-lg border border-[var(--border)] bg-white object-contain p-2" />
+                          <img src={brandLogoPreview} alt="" className="h-16 w-auto max-w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] object-contain p-2" />
                         ) : null}
                       </div>
-                      <div className="space-y-3">
+                      <div className="flex min-w-0 flex-col gap-3">
                         <FileInput
                           label={t('eventSetupSponsorLogo')}
                           name="sponsor_logo"
@@ -721,10 +664,10 @@ export default function EventSetup({
                           onChange={(changeEvent) => handleSponsorLogoChange(changeEvent.target.files)}
                         />
                         {sponsorLogoPreview ? (
-                          <img src={sponsorLogoPreview} alt="" className="h-16 w-auto rounded-lg border border-[var(--border)] bg-white object-contain p-2" />
+                          <img src={sponsorLogoPreview} alt="" className="h-16 w-auto max-w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] object-contain p-2" />
                         ) : null}
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <label className="mb-1.5 block text-sm font-medium text-[var(--ink)]">
                           {t('eventSetupTextColor')}
                         </label>
@@ -734,7 +677,7 @@ export default function EventSetup({
                             name="text_color"
                             value={form.text_color}
                             onChange={(e) => setForm((current) => ({ ...current, text_color: e.target.value }))}
-                            className="h-10 w-10 cursor-pointer rounded-lg border border-[var(--border)] p-0.5"
+                            className="h-10 w-10 shrink-0 cursor-pointer rounded-lg border border-[var(--border)] p-0.5"
                           />
                           <TextInput
                             name="text_color_hex"
@@ -744,7 +687,7 @@ export default function EventSetup({
                           />
                         </div>
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <label className="mb-1.5 block text-sm font-medium text-[var(--ink)]">
                           {t('eventSetupBackgroundColor')}
                         </label>
@@ -754,7 +697,7 @@ export default function EventSetup({
                             name="background_color"
                             value={form.background_color}
                             onChange={(e) => setForm((current) => ({ ...current, background_color: e.target.value }))}
-                            className="h-10 w-10 cursor-pointer rounded-lg border border-[var(--border)] p-0.5"
+                            className="h-10 w-10 shrink-0 cursor-pointer rounded-lg border border-[var(--border)] p-0.5"
                           />
                           <TextInput
                             name="background_color_hex"
@@ -782,49 +725,53 @@ export default function EventSetup({
                     error={fieldError('domain_reference')}
                     {...formFieldProps('domain_reference')}
                   />
-                  <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_220px]">
-                    <FileInput
-                      label={t('eventSetupMainImage')}
-                      name="main_image"
-                      accept="image/png,image/jpeg,image/webp"
-                      error={fieldError('main_image')}
-                      {...formFieldProps('main_image')}
-                      onChange={(changeEvent) => handleMainImageChange(changeEvent.target.files)}
-                    />
-                    <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
-                      {mainImagePreview ? (
-                        <img src={mainImagePreview} alt="" className="h-full min-h-[220px] w-full object-cover" />
-                      ) : (
-                        <div className="flex min-h-[220px] items-center justify-center px-4 text-center text-sm text-slate-500">
-                          {t('eventSetupMainImagePreview')}
+                  <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2">
+                    <div className="flex min-w-0 flex-col gap-3">
+                      <FileInput
+                        label={t('eventSetupMainImage')}
+                        name="main_image"
+                        accept="image/png,image/jpeg,image/webp"
+                        error={fieldError('main_image')}
+                        {...formFieldProps('main_image')}
+                        onChange={(changeEvent) => handleMainImageChange(changeEvent.target.files)}
+                      />
+                      <div className="aspect-video overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+                        {mainImagePreview ? (
+                          <img src={mainImagePreview} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full min-h-[10rem] items-center justify-center px-4 text-center text-sm text-slate-500">
+                            {t('eventSetupMainImagePreview')}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex min-w-0 flex-col gap-3">
+                      <FileInput
+                        label={t('eventSetupGalleryImages')}
+                        name="images"
+                        accept="image/png,image/jpeg,image/webp"
+                        multiple
+                        hint={t('eventSetupGalleryHint')}
+                        onChange={(changeEvent) => handleGalleryChange(changeEvent.target.files)}
+                      />
+                      {newGalleryPreviews.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {newGalleryPreviews.map((preview, index) => (
+                            <div key={preview} className="relative h-20 w-20 shrink-0">
+                              <img src={preview} alt="" className="h-full w-full rounded-lg border border-[var(--border)] object-cover" />
+                              <button
+                                type="button"
+                                className="absolute -end-2 -top-2 rounded-full bg-red-600 px-2 py-0.5 text-xs text-white"
+                                onClick={() => removeNewGalleryImage(index)}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   </div>
-                  <FileInput
-                    label={t('eventSetupGalleryImages')}
-                    name="images"
-                    accept="image/png,image/jpeg,image/webp"
-                    multiple
-                    hint={t('eventSetupGalleryHint')}
-                    onChange={(changeEvent) => handleGalleryChange(changeEvent.target.files)}
-                  />
-                  {newGalleryPreviews.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {newGalleryPreviews.map((preview, index) => (
-                        <div key={preview} className="relative">
-                          <img src={preview} alt="" className="h-20 w-20 rounded-lg border border-[var(--border)] object-cover" />
-                          <button
-                            type="button"
-                            className="absolute -end-2 -top-2 rounded-full bg-red-600 px-2 py-0.5 text-xs text-white"
-                            onClick={() => removeNewGalleryImage(index)}
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
                 </div>
               )}
 
@@ -892,15 +839,12 @@ export default function EventSetup({
 
           {showStep('details') && (
             <section id="event-setup-details" className="grid grid-cols-1 gap-4 md:grid-cols-2 scroll-mt-24">
-              <TextInput
-                label="Slug"
-                name="slug"
-                value={form.slug}
-                onChange={(e) => setForm((current) => ({ ...current, slug: e.target.value }))}
-                required
-                error={fieldError('slug')}
-                {...formFieldProps('slug')}
-              />
+              <div className="event-setup-details-slug-preview md:col-span-2" aria-hidden={form.slug.trim() === ''}>
+                <span className="event-setup-details-slug-label">{t('eventSetupDetailsUrlTitle')}</span>
+                <code className="event-setup-details-slug-value">
+                  /events/{form.slug.trim() || 'your-event-slug'}
+                </code>
+              </div>
               <SearchableSelect
                 label={t('eventSetupTimezone')}
                 value={form.timezone}
@@ -933,7 +877,14 @@ export default function EventSetup({
                 label={t('eventSetupNameEn')}
                 name="name_en"
                 value={form.name_en}
-                onChange={(e) => setForm((current) => ({ ...current, name_en: e.target.value }))}
+                onChange={(e) => {
+                  const name_en = e.target.value
+                  setForm((current) => ({
+                    ...current,
+                    name_en,
+                    slug: eventSlugFromNames(name_en, current.name_ar),
+                  }))
+                }}
                 required
                 error={fieldError('name.en')}
                 {...formFieldProps('name.en')}
@@ -942,7 +893,14 @@ export default function EventSetup({
                 label={t('eventSetupNameAr')}
                 name="name_ar"
                 value={form.name_ar}
-                onChange={(e) => setForm((current) => ({ ...current, name_ar: e.target.value }))}
+                onChange={(e) => {
+                  const name_ar = e.target.value
+                  setForm((current) => ({
+                    ...current,
+                    name_ar,
+                    slug: eventSlugFromNames(current.name_en, name_ar),
+                  }))
+                }}
                 required
                 error={fieldError('name.ar')}
                 {...formFieldProps('name.ar')}
@@ -981,7 +939,7 @@ export default function EventSetup({
                       onChange={(changeEvent) => handleBrandLogoChange(changeEvent.target.files)}
                     />
                     {brandLogoPreview ? (
-                      <img src={brandLogoPreview} alt="" className="h-16 w-auto rounded-lg border border-[var(--border)] bg-white object-contain p-2" />
+                      <img src={brandLogoPreview} alt="" className="h-16 w-auto rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] object-contain p-2" />
                     ) : null}
                   </div>
                   <div className="space-y-3">
@@ -993,7 +951,7 @@ export default function EventSetup({
                       onChange={(changeEvent) => handleSponsorLogoChange(changeEvent.target.files)}
                     />
                     {sponsorLogoPreview ? (
-                      <img src={sponsorLogoPreview} alt="" className="h-16 w-auto rounded-lg border border-[var(--border)] bg-white object-contain p-2" />
+                      <img src={sponsorLogoPreview} alt="" className="h-16 w-auto rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] object-contain p-2" />
                     ) : null}
                   </div>
                   <div>
@@ -1042,61 +1000,65 @@ export default function EventSetup({
                 error={fieldError('domain_reference')}
                 {...formFieldProps('domain_reference')}
               />
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_220px]">
-                <FileInput
-                  label={t('eventSetupMainImage')}
-                  name="main_image"
-                  accept="image/png,image/jpeg,image/webp"
-                  error={fieldError('main_image')}
-                  {...formFieldProps('main_image')}
-                  onChange={(changeEvent) => handleMainImageChange(changeEvent.target.files)}
-                />
-                <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
-                  {mainImagePreview ? (
-                    <img src={mainImagePreview} alt="" className="h-full min-h-[220px] w-full object-cover" />
-                  ) : (
-                    <div className="flex min-h-[220px] items-center justify-center px-4 text-center text-sm text-slate-500">
-                      {t('eventSetupMainImagePreview')}
+              <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2">
+                <div className="flex min-w-0 flex-col gap-3">
+                  <FileInput
+                    label={t('eventSetupMainImage')}
+                    name="main_image"
+                    accept="image/png,image/jpeg,image/webp"
+                    error={fieldError('main_image')}
+                    {...formFieldProps('main_image')}
+                    onChange={(changeEvent) => handleMainImageChange(changeEvent.target.files)}
+                  />
+                  <div className="aspect-video overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+                    {mainImagePreview ? (
+                      <img src={mainImagePreview} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full min-h-[10rem] items-center justify-center px-4 text-center text-sm text-slate-500">
+                        {t('eventSetupMainImagePreview')}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex min-w-0 flex-col gap-3">
+                  <FileInput
+                    label={t('eventSetupGalleryImages')}
+                    name="images"
+                    accept="image/png,image/jpeg,image/webp"
+                    multiple
+                    hint={t('eventSetupGalleryHint')}
+                    onChange={(changeEvent) => handleGalleryChange(changeEvent.target.files)}
+                  />
+                  {(existingGallery.length > 0 || newGalleryPreviews.length > 0) ? (
+                    <div className="flex flex-wrap gap-2">
+                      {existingGallery.map((image) => (
+                        <div key={image.id} className="relative h-20 w-20 shrink-0">
+                          <img src={image.url} alt="" className="h-full w-full rounded-lg border border-[var(--border)] object-cover" />
+                          <button
+                            type="button"
+                            className="absolute -end-2 -top-2 rounded-full bg-red-600 px-2 py-0.5 text-xs text-white"
+                            onClick={() => removeExistingGalleryImage(image.id)}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                      {newGalleryPreviews.map((preview, index) => (
+                        <div key={preview} className="relative h-20 w-20 shrink-0">
+                          <img src={preview} alt="" className="h-full w-full rounded-lg border border-[var(--border)] object-cover" />
+                          <button
+                            type="button"
+                            className="absolute -end-2 -top-2 rounded-full bg-red-600 px-2 py-0.5 text-xs text-white"
+                            onClick={() => removeNewGalleryImage(index)}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
-              <FileInput
-                label={t('eventSetupGalleryImages')}
-                name="images"
-                accept="image/png,image/jpeg,image/webp"
-                multiple
-                hint={t('eventSetupGalleryHint')}
-                onChange={(changeEvent) => handleGalleryChange(changeEvent.target.files)}
-              />
-              {(existingGallery.length > 0 || newGalleryPreviews.length > 0) ? (
-                <div className="flex flex-wrap gap-2">
-                  {existingGallery.map((image) => (
-                    <div key={image.id} className="relative">
-                      <img src={image.url} alt="" className="h-20 w-20 rounded-lg border border-[var(--border)] object-cover" />
-                      <button
-                        type="button"
-                        className="absolute -end-2 -top-2 rounded-full bg-red-600 px-2 py-0.5 text-xs text-white"
-                        onClick={() => removeExistingGalleryImage(image.id)}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                  {newGalleryPreviews.map((preview, index) => (
-                    <div key={preview} className="relative">
-                      <img src={preview} alt="" className="h-20 w-20 rounded-lg border border-[var(--border)] object-cover" />
-                      <button
-                        type="button"
-                        className="absolute -end-2 -top-2 rounded-full bg-red-600 px-2 py-0.5 text-xs text-white"
-                        onClick={() => removeNewGalleryImage(index)}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
             </section>
           )}
 

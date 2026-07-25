@@ -5,6 +5,7 @@ namespace App\Modules\Events\Application\Actions;
 use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
 use App\Modules\Audit\Application\AuditWriter;
 use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgeTemplate;
+use App\Modules\Events\Application\Support\EventSlug;
 use App\Modules\Events\Application\Support\ResolvesEventOrganizer;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventAgendaItem;
@@ -17,7 +18,6 @@ use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationFormV
 use App\Modules\Tenancy\Domain\Context\TenantContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 final readonly class CloneEvent
 {
@@ -33,7 +33,7 @@ final readonly class CloneEvent
 
         return DB::transaction(function () use ($context, $source, $nameEn, $nameAr): Event {
             $tenantId = $context->tenant->id;
-            $slug = $this->uniqueSlug((string) $tenantId, $nameEn !== '' ? $nameEn : $nameAr);
+            $slug = EventSlug::uniqueForTenant($tenantId, EventSlug::fromNames($nameEn, $nameAr));
 
             $clone = Event::query()->create([
                 'tenant_id' => $tenantId,
@@ -92,20 +92,6 @@ final readonly class CloneEvent
 
             return $clone->refresh();
         });
-    }
-
-    private function uniqueSlug(string $tenantId, string $name): string
-    {
-        $base = Str::slug($name) ?: 'event';
-        $slug = $base;
-        $suffix = 2;
-
-        while (Event::query()->where('tenant_id', $tenantId)->where('slug', $slug)->exists()) {
-            $slug = $base.'-'.$suffix;
-            $suffix++;
-        }
-
-        return $slug;
     }
 
     private function cloneImages(Event $source, Event $clone): void

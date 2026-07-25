@@ -15,7 +15,7 @@ export default function FileInput({ label, error, hint, id, required, ...props }
   const hintId = `${inputId}-hint`
 
   return (
-    <label className="grid gap-2 text-sm" htmlFor={inputId}>
+    <label className="flex flex-col gap-2 text-sm" htmlFor={inputId}>
       <span className="font-medium text-[var(--ink)]">
         {label}
         {required ? <span className="ms-1 text-red-600">*</span> : null}
