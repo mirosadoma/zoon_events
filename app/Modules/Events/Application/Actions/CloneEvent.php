@@ -18,6 +18,7 @@ use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationFormV
 use App\Modules\Tenancy\Domain\Context\TenantContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 final readonly class CloneEvent
 {
