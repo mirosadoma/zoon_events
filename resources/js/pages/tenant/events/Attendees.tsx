@@ -10,15 +10,18 @@ import FiltersBar from '@/components/tables/FiltersBar'
 import Pagination from '@/components/tables/Pagination'
 import SearchInput from '@/components/tables/SearchInput'
 import SelectInput from '@/components/forms/SelectInput'
+import CopyRegistrationLinkButton from '@/components/events/CopyRegistrationLinkButton'
 import SendPrivateInviteModal from '@/components/events/SendPrivateInviteModal'
 import { useLocale } from '@/hooks/useLocale'
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
+import { useToast } from '@/hooks/useToast'
 import { Mail } from 'lucide-react'
 
 type EventRow = {
   id: string
   name: { en: string; ar: string }
   tier?: string
+  registration_url?: string | null
 }
 
 type AttendeeRow = {
@@ -30,6 +33,7 @@ type AttendeeRow = {
   status: string
   invite_status?: string
   row_type?: 'attendee' | 'invite'
+  attendee_id?: string | null
   locale: string
   credential_status?: string | null
 }
@@ -70,11 +74,21 @@ export default function Attendees({
 }: Props) {
   const { locale, t, localizedPath } = useLocale()
   const localizedRouter = useLocalizedRouter()
+  const { toast } = useToast()
   const [search, setSearch] = useState(filters.search)
   const [statusFilter, setStatusFilter] = useState(filters.status)
   const [registrationType, setRegistrationType] = useState(filters.registration_type ?? 'public')
   const [inviteOpen, setInviteOpen] = useState(false)
   const notAvailable = t('notAvailable')
+
+  async function copyRegistrationLink(url: string) {
+    try {
+      await navigator.clipboard.writeText(url)
+      toast(t('copied'), 'success')
+    } catch {
+      toast(t('eventDetailCouldNotCopyLink'), 'error')
+    }
+  }
 
   function queryParams(overrides: Partial<Filters & { page?: number }> = {}): Record<string, string> {
     const nextSearch = overrides.search ?? search
@@ -177,6 +191,15 @@ export default function Attendees({
           </div>
         </div>
 
+        {registrationType === 'public' && event.registration_url ? (
+          <div className="mb-4">
+            <CopyRegistrationLinkButton
+              className="button-secondary"
+              onClick={() => void copyRegistrationLink(event.registration_url!)}
+            />
+          </div>
+        ) : null}
+
         {registrationType === 'private' && canSendPrivateInvites ? (
           <div className="mb-4">
             <PermissionGate permission="event.invite.manage">
@@ -232,13 +255,17 @@ export default function Attendees({
                   render: (row) => {
                     const attendee = row as unknown as AttendeeRow
                     const name = displayValue(attendee.display_name, notAvailable)
+                    const detailId = attendee.attendee_id
+                      ?? (attendee.row_type === 'invite' || String(attendee.id).startsWith('invite-')
+                        ? null
+                        : attendee.id)
 
-                    if (attendee.row_type === 'invite' || String(attendee.id).startsWith('invite-')) {
+                    if (!detailId) {
                       return <span className="font-medium text-[var(--ink)]">{name}</span>
                     }
 
                     return (
-                      <LocalizedLink href={`/tenant/events/${event.id}/attendees/${attendee.id}`} className="font-medium text-sky-700 hover:underline">
+                      <LocalizedLink href={`/tenant/events/${event.id}/attendees/${detailId}`} className="font-medium text-sky-700 hover:underline">
                         {name}
                       </LocalizedLink>
                     )
@@ -279,13 +306,18 @@ export default function Attendees({
                   header: t('actions'),
                   render: (row) => {
                     const attendee = row as unknown as AttendeeRow
-                    if (attendee.row_type === 'invite' || String(attendee.id).startsWith('invite-')) {
+                    const detailId = attendee.attendee_id
+                      ?? (attendee.row_type === 'invite' || String(attendee.id).startsWith('invite-')
+                        ? null
+                        : attendee.id)
+
+                    if (!detailId) {
                       return '—'
                     }
 
                     return (
                       <LocalizedLink
-                        href={`/tenant/events/${event.id}/attendees/${attendee.id}`}
+                        href={`/tenant/events/${event.id}/attendees/${detailId}`}
                         className="button-secondary"
                       >
                         {t('showAttendeeDetails')}

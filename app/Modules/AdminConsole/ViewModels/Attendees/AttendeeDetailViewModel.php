@@ -5,22 +5,26 @@ namespace App\Modules\AdminConsole\ViewModels\Attendees;
 use App\Modules\AdminConsole\Application\PersonalDataReader;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
+use App\Modules\Events\Application\Support\PublicRegistrationUrlBuilder;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use Illuminate\Support\Collection;
 
 final readonly class AttendeeDetailViewModel
 {
-    public function __construct(private PersonalDataReader $personalData) {}
+    public function __construct(
+        private PersonalDataReader $personalData,
+        private PublicRegistrationUrlBuilder $registrationUrls,
+    ) {}
 
     /**
      * @param  Collection<int, Attendee>  $attendees
      * @param  array<string, string>  $credentialStatuses
-     * @param  array{search?: string|null, status?: string|null}  $filters
+     * @param  array{search?: string|null, status?: string|null, registration_type?: string|null}  $filters
      * @param  array{page: int, per_page: int, total: int, last_page: int}  $pagination
      * @return array{
      *     event: array<string, mixed>,
      *     attendees: list<array<string, mixed>>,
-     *     filters: array{search: string, status: string},
+     *     filters: array{search: string, status: string, registration_type: string},
      *     pagination: array{page: int, per_page: int, total: int, last_page: int}
      * }
      */
@@ -40,6 +44,7 @@ final readonly class AttendeeDetailViewModel
             'filters' => [
                 'search' => (string) ($filters['search'] ?? ''),
                 'status' => (string) ($filters['status'] ?? ''),
+                'registration_type' => (string) ($filters['registration_type'] ?? 'public'),
             ],
             'pagination' => [
                 'page' => (int) $pagination['page'],
@@ -83,6 +88,7 @@ final readonly class AttendeeDetailViewModel
             'id' => (string) $event->id,
             'name' => ['en' => $event->name_en, 'ar' => $event->name_ar],
             'status' => $event->status,
+            'registration_url' => $this->registrationUrls->forEvent($event),
         ];
     }
 

@@ -16,12 +16,14 @@ use App\Modules\AdminConsole\ViewModels\Orders\OrderDetailViewModel;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\Authorization\Application\PermissionEvaluator;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
+use App\Modules\Events\Application\Support\PublicRegistrationUrlBuilder;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventRegistrationInvite;
 use App\Modules\IdentityVerification\Application\Queries\IdentityGate;
 use App\Modules\Notifications\Infrastructure\Persistence\Models\Notification;
 use App\Modules\Orders\Infrastructure\Persistence\Models\Order;
 use App\Modules\Orders\Infrastructure\Persistence\Models\OrderItem;
+use App\Modules\Shared\Application\DataProtection\BlindIndex;
 use App\Modules\Tenancy\Domain\Context\TenantContext;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -41,6 +43,8 @@ final class EventOperationsController extends Controller
         private readonly CredentialDetailViewModel $credentials,
         private readonly ListEventAttendeesQuery $listAttendees,
         private readonly AttendeesExcelExport $attendeesExcelExport,
+        private readonly PublicRegistrationUrlBuilder $registrationUrls,
+        private readonly BlindIndex $indexes,
     ) {}
 
     public function orders(Request $request, string $eventId): Response
@@ -115,23 +119,19 @@ final class EventOperationsController extends Controller
         $filters = $this->attendeeFilters($request);
         $registrationType = $filters['registration_type'] ?? 'public';
 
-        // Private tab: show invites
+        // Private tab: show invites (pending + registered via private link).
         if ($registrationType === 'private') {
-            return $this->attendeesFromInvites($request, $event, $filters);
+            return $this->attendeesFromInvites($request, $context, $event, $filters);
         }
 
-        // Public tab: show public registrations (those NOT from invites)
-        if ($filters['status'] === 'not_registered') {
-            return $this->attendeesFromInvites($request, $event, $filters);
-        }
-
+        // Public tab: attendees who did not register via a private invite.
         $result = $this->listAttendees->paginate(
             (string) $context->tenant->id,
             (string) $event->id,
             $filters['search'] !== '' ? $filters['search'] : null,
             $filters['status'] !== '' ? $filters['status'] : null,
             (int) $request->integer('page', 1),
-            $registrationType === 'public' ? 'public' : null,
+            'public',
         );
         $credentialStatuses = $this->credentialStatusesForAttendees(
             $context,
@@ -162,7 +162,7 @@ final class EventOperationsController extends Controller
     /**
      * @param  array{search: string, status: string, registration_type?: string}  $filters
      */
-    private function attendeesFromInvites(Request $request, Event $event, array $filters): Response
+    private function attendeesFromInvites(Request $request, TenantContext $context, Event $event, array $filters): Response
     {
         $perPage = ListEventAttendeesQuery::PER_PAGE;
         $page = max(1, (int) $request->integer('page', 1));
@@ -189,18 +189,60 @@ final class EventOperationsController extends Controller
             ->orderByDesc('id');
 
         $paginator = $query->paginate($perPage, ['*'], 'page', $page);
-        $rows = $paginator->getCollection()->map(fn (EventRegistrationInvite $invite): array => [
-            'id' => 'invite-'.$invite->id,
-            'row_type' => 'invite',
-            'status' => 'not_checked_in',
-            'invite_status' => $invite->invite_status ?? 'not_registered',
-            'locale' => 'en',
-            'credential_status' => null,
-            'label' => $invite->name ?: $invite->email,
-            'display_name' => $invite->name,
-            'email' => $invite->email,
-            'phone' => null,
-        ])->values()->all();
+        $invites = $paginator->getCollection();
+
+        $emailIndexes = $invites
+            ->pluck('email')
+            ->filter(fn (mixed $email): bool => is_string($email) && trim($email) !== '')
+            ->map(fn (string $email): string => $this->indexes->email($email))
+            ->unique()
+            ->values()
+            ->all();
+
+        /** @var \Illuminate\Support\Collection<string, Attendee> $attendeesByEmailIndex */
+        $attendeesByEmailIndex = $emailIndexes === []
+            ? collect()
+            : Attendee::query()
+                ->where('tenant_id', $event->tenant_id)
+                ->where('event_id', $event->id)
+                ->whereIn('email_index', $emailIndexes)
+                ->get()
+                ->keyBy('email_index');
+
+        $credentialStatuses = $this->credentialStatusesForAttendees(
+            $context,
+            (string) $event->id,
+            $attendeesByEmailIndex->pluck('id')->all(),
+        );
+
+        $rows = $invites->map(function (EventRegistrationInvite $invite) use ($attendeesByEmailIndex, $credentialStatuses): array {
+            $email = is_string($invite->email) ? trim($invite->email) : '';
+            $attendee = $email !== ''
+                ? $attendeesByEmailIndex->get($this->indexes->email($email))
+                : null;
+            $attendeeId = $attendee instanceof Attendee ? (string) $attendee->id : null;
+            $displayName = $invite->name;
+            $phone = null;
+
+            if ($attendee instanceof Attendee) {
+                $displayName = $this->personalData->attendeeDisplayName($attendee) ?: $displayName;
+                $phone = $this->personalData->attendeePhone($attendee);
+            }
+
+            return [
+                'id' => 'invite-'.$invite->id,
+                'row_type' => 'invite',
+                'attendee_id' => $attendeeId,
+                'status' => $attendee?->checkin_status ?? 'not_checked_in',
+                'invite_status' => $invite->invite_status ?? 'not_registered',
+                'locale' => $attendee?->preferred_locale ?? 'en',
+                'credential_status' => $attendeeId !== null ? ($credentialStatuses[$attendeeId] ?? null) : null,
+                'label' => $displayName ?: $invite->email,
+                'display_name' => $displayName,
+                'email' => $invite->email,
+                'phone' => $phone,
+            ];
+        })->values()->all();
 
         $canSendPrivateInvites = in_array($event->tier, ['private', 'both'], true);
 
@@ -210,6 +252,7 @@ final class EventOperationsController extends Controller
                 'name' => ['en' => $event->name_en, 'ar' => $event->name_ar],
                 'status' => $event->status,
                 'tier' => $event->tier,
+                'registration_url' => $this->registrationUrls->forEvent($event),
             ],
             'attendees' => $rows,
             'filters' => $filters,

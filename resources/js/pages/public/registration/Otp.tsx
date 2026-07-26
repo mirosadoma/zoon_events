@@ -1,4 +1,5 @@
 import { ClipboardEvent, FormEvent, useMemo, useRef, useState } from 'react'
+import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
 import RegistrationPageControls from '@/components/registration/RegistrationPageControls'
 import { LocalizedEventContent, type LocalizedText } from '@/components/registration/LocalizedEventContent'
 import { useLocale } from '@/hooks/useLocale'
@@ -125,13 +126,13 @@ export default function PublicRegistrationOtp({
       }
 
       setError(t('publicRegistrationOtpInvalid'))
+      setSubmitting(false)
     } catch (caught) {
       if (caught instanceof ApiFetchError) {
         setError(caught.message || t('publicRegistrationOtpInvalid'))
       } else {
         setError(t('publicRegistrationOtpInvalid'))
       }
-    } finally {
       setSubmitting(false)
     }
   }
@@ -197,9 +198,13 @@ export default function PublicRegistrationOtp({
             {error ? <p role="alert" className="registration-invite-error">{error}</p> : null}
             {resendSuccess ? <p role="status" className="rounded-[var(--radius-control)] border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-300">{t('publicRegistrationOtpResendSuccess')}</p> : null}
 
-            <button type="submit" className="button-primary w-full" disabled={submitting}>
-              {submitting ? t('publicRegistrationOtpVerifying') : t('publicRegistrationOtpVerify')}
-            </button>
+            <div className="[&_button]:w-full [&_button]:justify-center">
+              <SubmitButtonWithLoader
+                label={submitting ? t('publicRegistrationOtpVerifying') : t('publicRegistrationOtpVerify')}
+                loading={submitting}
+                savingLabel={t('publicRegistrationOtpVerifying')}
+              />
+            </div>
           </form>
 
           <div className="mt-6 space-y-3">

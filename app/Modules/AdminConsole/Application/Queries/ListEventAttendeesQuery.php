@@ -4,6 +4,7 @@ namespace App\Modules\AdminConsole\Application\Queries;
 
 use App\Modules\AdminConsole\Application\PersonalDataReader;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventRegistrationInvite;
 use App\Modules\Shared\Application\DataProtection\BlindIndex;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -139,22 +140,32 @@ final readonly class ListEventAttendeesQuery
             ->where('event_id', $eventId)
             ->when($status !== null, fn (Builder $q) => $q->where('invite_status', $status));
 
-        // Filter by registration type: public = no invite used, private = invite used
+        // Public tab: exclude attendees who completed registration through a private invite.
         if ($registrationType === 'public') {
-            $query->where(function (Builder $q) use ($eventId): void {
-                $q->whereNull('origin')
-                    ->orWhere('origin', '!=', 'invite')
-                    ->orWhereNotExists(function ($subquery) use ($eventId): void {
-                        $subquery->selectRaw('1')
-                            ->from('event_registration_invites')
-                            ->whereColumn('event_registration_invites.email', 'attendees.email_index')
-                            ->where('event_registration_invites.event_id', $eventId)
-                            ->whereIn('event_registration_invites.invite_status', ['registered', 'attended', 'not_attended']);
-                    });
-            });
+            $privateEmailIndexes = $this->privateRegistrationEmailIndexes($eventId);
+
+            if ($privateEmailIndexes !== []) {
+                $query->whereNotIn('email_index', $privateEmailIndexes);
+            }
         }
 
         return $query;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function privateRegistrationEmailIndexes(string $eventId): array
+    {
+        return EventRegistrationInvite::query()
+            ->where('event_id', $eventId)
+            ->whereNotNull('used_at')
+            ->pluck('email')
+            ->filter(fn (mixed $email): bool => is_string($email) && trim($email) !== '')
+            ->map(fn (string $email): string => $this->indexes->email($email))
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /** @param  Builder<Attendee>  $query */

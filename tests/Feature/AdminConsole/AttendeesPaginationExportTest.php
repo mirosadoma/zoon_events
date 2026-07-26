@@ -34,6 +34,7 @@ class AttendeesPaginationExportTest extends TestCase
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->component('tenant/events/Attendees')
                 ->has('attendees')
+                ->has('event.registration_url')
                 ->where('filters.search', 'Ada')
                 ->where('filters.status', 'checked_in')
                 ->where('pagination.page', 1)
