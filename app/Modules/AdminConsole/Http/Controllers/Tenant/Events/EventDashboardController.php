@@ -12,17 +12,20 @@ use App\Modules\AdminConsole\ViewModels\Events\EventSetupReferenceData;
 use App\Modules\AdminConsole\ViewModels\Events\EventSetupViewModel;
 use App\Modules\Authorization\Application\PermissionEvaluator;
 use App\Modules\Events\Application\Support\EventMediaPresenter;
+use App\Modules\Events\Application\Support\EventVenueMapPresenter;
 use App\Modules\Events\Application\Support\EventWallClockDateTime;
 use App\Modules\Events\Application\Support\EventZonePresenter;
 use App\Modules\Events\Application\Support\PublicRegistrationEventPresenter;
 use App\Modules\Events\Application\Support\ResolvesEventOrganizer;
 use App\Modules\Events\Domain\EventRegistrationProfile;
+use App\Modules\Events\Domain\EventZoneShapeType;
 use App\Modules\Events\Domain\EventZoneType;
 use App\Modules\Events\Infrastructure\Persistence\Models\CategoryTemplate;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventAgendaItem;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventBranding;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventCategory;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventVenueMap;
 use App\Modules\IdentityVerification\Application\Actions\ViewIdentityDataAction;
 use App\Modules\IdentityVerification\Application\Queries\PendingReviewQueue;
 use App\Modules\IdentityVerification\Infrastructure\Persistence\Models\IdentityVerification;
@@ -235,6 +238,50 @@ final class EventDashboardController extends Controller
             'mode' => 'edit',
             'zoneTypes' => EventZoneType::values(),
             ...$this->references->toArray(),
+        ]);
+    }
+
+    public function venueMap(string $eventId): Response
+    {
+        $context = $this->authorizeTenant('event.manage');
+        $event = $this->event($context, $eventId);
+        $venueId = $this->routeParam('venue_id');
+
+        $venueModel = EventVenue::query()
+            ->where('tenant_id', $context->tenant->id)
+            ->where('event_id', $event->id)
+            ->whereKey($venueId)
+            ->with('zones')
+            ->first();
+
+        abort_unless($venueModel instanceof EventVenue, 404);
+
+        $map = EventVenueMap::query()
+            ->where('tenant_id', $context->tenant->id)
+            ->where('event_id', $event->id)
+            ->where('venue_id', $venueModel->id)
+            ->first();
+
+        return Inertia::render('tenant/events/VenueMap', [
+            'event' => [
+                ...$this->events->detail($event)['event'],
+                'slug' => (string) $event->slug,
+            ],
+            'tenantId' => (string) $context->tenant->id,
+            'venue' => [
+                'id' => (string) $venueModel->id,
+                'name' => ['en' => $venueModel->name_en, 'ar' => $venueModel->name_ar],
+                'latitude' => $venueModel->latitude !== null ? (float) $venueModel->latitude : null,
+                'longitude' => $venueModel->longitude !== null ? (float) $venueModel->longitude : null,
+            ],
+            'publicMapPath' => "/events/{$event->slug}/venues/{$venueModel->id}/map",
+            'map' => $map instanceof EventVenueMap ? EventVenueMapPresenter::toArray($map) : null,
+            'zones' => $venueModel->zones
+                ->map(fn ($zone): array => EventZonePresenter::toArray($zone))
+                ->values()
+                ->all(),
+            'zoneTypes' => EventZoneType::values(),
+            'shapeTypes' => EventZoneShapeType::values(),
         ]);
     }
 
@@ -770,7 +817,7 @@ final class EventDashboardController extends Controller
     {
         return $event->venues()
             ->orderBy('sort_order')
-            ->with(['country', 'city', 'zones'])
+            ->with(['country', 'city', 'zones', 'map'])
             ->get()
             ->map(fn ($venue): array => [
                 'id' => (string) $venue->id,
@@ -784,6 +831,7 @@ final class EventDashboardController extends Controller
                 'end_at' => $venue->end_at?->toIso8601String(),
                 'registration_opens_at' => $venue->registration_opens_at?->toIso8601String(),
                 'registration_closes_at' => $venue->registration_closes_at?->toIso8601String(),
+                'has_map' => $venue->map !== null,
                 'zones' => $venue->zones
                     ->map(fn ($zone): array => EventZonePresenter::toArray($zone))
                     ->values()

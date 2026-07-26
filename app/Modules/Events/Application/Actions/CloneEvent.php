@@ -14,6 +14,7 @@ use App\Modules\Events\Infrastructure\Persistence\Models\EventBranding;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventCategory;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventEmailTemplate;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventImage;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventVenueMap;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventZone;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationForm;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationFormVersion;
@@ -78,6 +79,7 @@ final readonly class CloneEvent
             $this->cloneImages($source, $clone);
             $this->cloneBranding($source, $clone, $nameEn, $nameAr);
             $venueIdMap = $this->cloneVenues($source, $clone);
+            $this->cloneVenueMaps($source, $clone, $venueIdMap);
             $zoneIdMap = $this->cloneZones($source, $clone, $venueIdMap);
             $this->cloneAgenda($source, $clone, $venueIdMap, $zoneIdMap);
             $this->cloneCategories($source, $clone, $venueIdMap);
@@ -193,6 +195,43 @@ final readonly class CloneEvent
 
     /**
      * @param  array<int, int>  $venueIdMap
+     */
+    private function cloneVenueMaps(Event $source, Event $clone, array $venueIdMap): void
+    {
+        $maps = EventVenueMap::query()
+            ->where('tenant_id', $source->tenant_id)
+            ->where('event_id', $source->id)
+            ->orderBy('id')
+            ->get();
+
+        foreach ($maps as $map) {
+            $mappedVenueId = $venueIdMap[(int) $map->venue_id] ?? null;
+            if ($mappedVenueId === null) {
+                continue;
+            }
+
+            $copied = $this->copyPublicFile(
+                (string) $map->image_path,
+                "tenants/{$clone->tenant_id}/events/{$clone->id}/venue-maps",
+            );
+
+            if ($copied === null) {
+                continue;
+            }
+
+            EventVenueMap::query()->create([
+                'tenant_id' => $clone->tenant_id,
+                'event_id' => $clone->id,
+                'venue_id' => $mappedVenueId,
+                'image_path' => $copied,
+                'width' => $map->width,
+                'height' => $map->height,
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<int, int>  $venueIdMap
      * @return array<int, int> source zone_id => cloned zone_id
      */
     private function cloneZones(Event $source, Event $clone, array $venueIdMap): array
@@ -215,6 +254,17 @@ final readonly class CloneEvent
                     ? $zone->type->value
                     : (string) $zone->type,
                 'capacity' => $zone->capacity,
+                'shape_type' => $zone->shape_type?->value ?? $zone->shape_type,
+                'polygon_coordinates' => $zone->polygon_coordinates,
+                'shape_radius' => $zone->shape_radius,
+                'label' => $zone->label,
+                'google_maps_url' => $zone->google_maps_url,
+                'lat' => $zone->lat,
+                'lng' => $zone->lng,
+                'fill_color' => $zone->fill_color,
+                'stroke_color' => $zone->stroke_color,
+                'opacity' => $zone->opacity,
+                'stroke_width' => $zone->stroke_width,
             ]);
 
             $map[(int) $zone->id] = (int) $created->id;
@@ -229,6 +279,7 @@ final readonly class CloneEvent
      */
     private function cloneAgenda(Event $source, Event $clone, array $venueIdMap, array $zoneIdMap): void
     {
+
         foreach ($source->agendaItems()->orderBy('sort_order')->orderBy('id')->get() as $item) {
             $sourceVenueId = $item->event_venue_id !== null ? (int) $item->event_venue_id : null;
             $sourceZoneId = $item->zone_id !== null ? (int) $item->zone_id : null;

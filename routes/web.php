@@ -15,6 +15,7 @@ use App\Modules\AdminConsole\Http\Controllers\PlatformPageController;
 use App\Modules\AdminConsole\Http\Controllers\PlatformSubscriptionsController;
 use App\Modules\AdminConsole\Http\Controllers\Public\PublicEventAgendaController;
 use App\Modules\AdminConsole\Http\Controllers\Public\PublicEventRegistrationController;
+use App\Modules\AdminConsole\Http\Controllers\Public\PublicEventVenueMapController;
 use App\Modules\AdminConsole\Http\Controllers\Public\PublicSubscribeController;
 use App\Modules\AdminConsole\Http\Controllers\SearchController;
 use App\Modules\AdminConsole\Http\Controllers\SiteSettingsController;
@@ -91,6 +92,17 @@ Route::prefix('{locale}')
             ->where('event_slug', '[\p{L}\p{N}-]+')
             ->middleware('throttle:public-event')
             ->name('public.events.agenda');
+        Route::get('/events/{event_slug}/venues/{venue_id}/map/{invite_code}', [PublicEventVenueMapController::class, 'show'])
+            ->where('event_slug', '[\p{L}\p{N}-]+')
+            ->where('venue_id', '[0-9]+')
+            ->where('invite_code', '\d{10}')
+            ->middleware('throttle:public-event')
+            ->name('public.events.venue-map.invite');
+        Route::get('/events/{event_slug}/venues/{venue_id}/map', [PublicEventVenueMapController::class, 'show'])
+            ->where('event_slug', '[\p{L}\p{N}-]+')
+            ->where('venue_id', '[0-9]+')
+            ->middleware('throttle:public-event')
+            ->name('public.events.venue-map');
         Route::get('/events/{event_slug}/register', [PublicEventRegistrationController::class, 'show'])
             ->where('event_slug', '[\p{L}\p{N}-]+')
             ->middleware('throttle:public-event')
@@ -239,6 +251,7 @@ Route::prefix('{locale}')
                 Route::get('/{event_id}/agenda/{item_id}/edit', [EventDashboardController::class, 'editAgenda'])->where(['event_id' => '[0-9]+', 'item_id' => '[0-9]+'])->name('tenant.events.agenda.edit');
                 Route::get('/{event_id}/agenda', [EventDashboardController::class, 'agenda'])->where('event_id', '[0-9]+')->name('tenant.events.agenda');
                 Route::get('/{event_id}/venues/create', [EventDashboardController::class, 'createVenue'])->where('event_id', '[0-9]+')->name('tenant.events.venues.create');
+                Route::get('/{event_id}/venues/{venue_id}/map', [EventDashboardController::class, 'venueMap'])->where(['event_id' => '[0-9]+', 'venue_id' => '[0-9]+'])->name('tenant.events.venues.map');
                 Route::get('/{event_id}/venues/{venue_id}/edit', [EventDashboardController::class, 'editVenue'])->where(['event_id' => '[0-9]+', 'venue_id' => '[0-9]+'])->name('tenant.events.venues.edit');
                 Route::get('/{event_id}/venues', [EventDashboardController::class, 'venues'])->where('event_id', '[0-9]+')->name('tenant.events.venues');
                 Route::get('/{event_id}/categories', [EventDashboardController::class, 'categories'])->where('event_id', '[0-9]+')->name('tenant.events.categories');

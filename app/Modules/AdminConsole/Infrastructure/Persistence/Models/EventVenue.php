@@ -4,10 +4,12 @@ namespace App\Modules\AdminConsole\Infrastructure\Persistence\Models;
 
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventAgendaItem;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventVenueMap;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventZone;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 final class EventVenue extends Model
 {
@@ -58,6 +60,11 @@ final class EventVenue extends Model
     public function zones(): HasMany
     {
         return $this->hasMany(EventZone::class, 'venue_id')->orderBy('id');
+    }
+
+    public function map(): HasOne
+    {
+        return $this->hasOne(EventVenueMap::class, 'venue_id');
     }
 
     public function agendaItems(): HasMany

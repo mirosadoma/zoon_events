@@ -2,15 +2,11 @@
 
 namespace App\Modules\Events\Domain;
 
-enum EventZoneType: string
+enum EventZoneShapeType: string
 {
-    case Hall = 'hall';
-    case Stage = 'stage';
-    case Room = 'room';
-    case Vip = 'vip';
-    case Parking = 'parking';
-    case Outdoor = 'outdoor';
-    case Other = 'other';
+    case Polygon = 'polygon';
+    case Rectangle = 'rectangle';
+    case Circle = 'circle';
 
     /** @return list<string> */
     public static function values(): array

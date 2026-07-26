@@ -14,6 +14,7 @@ final readonly class EventVenuePresenter
             ->with([
                 'city:id,country_id,name_en,name_ar',
                 'country:id,name_en,name_ar',
+                'map:id,venue_id',
             ])
             ->where('tenant_id', $event->tenant_id)
             ->where('event_id', $event->id)
@@ -34,6 +35,7 @@ final readonly class EventVenuePresenter
                 'location_address' => $venue->location_address ?? '',
                 'start_at' => EventWallClockDateTime::toIso8601($venue->start_at, $event->timezone),
                 'end_at' => EventWallClockDateTime::toIso8601($venue->end_at, $event->timezone),
+                'has_map' => $venue->map !== null,
             ])
             ->values()
             ->all();

@@ -236,9 +236,19 @@ export default function EventVenueFormPage({
           { label: pageTitle },
         ]}
         actions={(
-          <LocalizedLink className="button-secondary" href={listHref}>
-            {t('cancel')}
-          </LocalizedLink>
+          <div className="flex flex-wrap gap-2">
+            {mode === 'edit' && venue ? (
+              <LocalizedLink
+                className="button-secondary"
+                href={`/tenant/events/${event.id}/venues/${venue.id}/map`}
+              >
+                {t('venueMapTitle')}
+              </LocalizedLink>
+            ) : null}
+            <LocalizedLink className="button-secondary" href={listHref}>
+              {t('cancel')}
+            </LocalizedLink>
+          </div>
         )}
       />
 

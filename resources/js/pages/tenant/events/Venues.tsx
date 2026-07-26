@@ -23,6 +23,17 @@ export type EventZoneRow = {
   zone_name_ar?: string
   type: string
   capacity: number | null
+  shape_type?: string | null
+  polygon_coordinates?: Array<{ x: number; y: number }> | null
+  shape_radius?: number | null
+  label?: string | null
+  google_maps_url?: string | null
+  lat?: number | null
+  lng?: number | null
+  fill_color?: string | null
+  stroke_color?: string | null
+  opacity?: number | null
+  stroke_width?: number | null
 }
 
 export type EventVenueRow = {
@@ -37,6 +48,7 @@ export type EventVenueRow = {
   end_at?: string | null
   registration_opens_at?: string | null
   registration_closes_at?: string | null
+  has_map?: boolean
   zones?: EventZoneRow[]
 }
 
@@ -182,6 +194,12 @@ export default function EventVenuesPage({
                 header: t('actions'),
                 render: (row) => (
                   <div className="flex flex-wrap gap-2">
+                    <LocalizedLink
+                      className="ta-table-action"
+                      href={`/tenant/events/${event.id}/venues/${row.id}/map`}
+                    >
+                      {t('venueMapTitle')}
+                    </LocalizedLink>
                     <LocalizedLink
                       className="ta-table-action"
                       href={`/tenant/events/${event.id}/venues/${row.id}/edit`}

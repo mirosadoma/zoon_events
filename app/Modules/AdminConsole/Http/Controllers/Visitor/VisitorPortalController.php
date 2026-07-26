@@ -115,6 +115,7 @@ final class VisitorPortalController extends Controller
                         'location_address' => $venue->location_address ?? '',
                         'start_at' => EventWallClockDateTime::toIso8601($venue->start_at, $event->timezone),
                         'end_at' => EventWallClockDateTime::toIso8601($venue->end_at, $event->timezone),
+                        'has_map' => $venue->map()->exists(),
                     ];
                 }
             }

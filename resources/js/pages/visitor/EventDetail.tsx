@@ -1,4 +1,4 @@
-import { ArrowLeft, MapPin } from 'lucide-react'
+import { ArrowLeft, Map, MapPin } from 'lucide-react'
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import { LocalizedEventContent, type LocalizedText } from '@/components/registration/LocalizedEventContent'
 import VisitorShell, { VisitorPanel } from '@/layouts/VisitorShell'
@@ -13,6 +13,7 @@ type VenueInfo = {
   location_address?: string
   start_at?: string | null
   end_at?: string | null
+  has_map?: boolean
 }
 
 type Props = {
@@ -171,6 +172,15 @@ export default function VisitorEventDetail({ locale, event, registration }: Prop
                       : ''}
                   </p>
                 ) : null}
+                {registration.selected_venue.has_map ? (
+                  <LocalizedLink
+                    className="visitor-venue-map-link mt-3 inline-flex"
+                    href={`/events/${event.slug}/venues/${registration.selected_venue.id}/map`}
+                  >
+                    <Map className="h-4 w-4" aria-hidden />
+                    <span>{t('venueMapOpenPublic')}</span>
+                  </LocalizedLink>
+                ) : null}
               </div>
             </div>
           </VisitorPanel>
@@ -211,6 +221,15 @@ export default function VisitorEventDetail({ locale, event, registration }: Prop
                             ? ` – ${formatDateTime(venue.end_at, locale, event.timezone || undefined)}`
                             : ''}
                         </p>
+                      ) : null}
+                      {venue.has_map ? (
+                        <LocalizedLink
+                          className="visitor-venue-map-link mt-3 inline-flex"
+                          href={`/events/${event.slug}/venues/${venue.id}/map`}
+                        >
+                          <Map className="h-4 w-4" aria-hidden />
+                          <span>{t('venueMapOpenPublic')}</span>
+                        </LocalizedLink>
                       ) : null}
                     </div>
                   </li>

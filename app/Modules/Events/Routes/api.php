@@ -7,9 +7,11 @@ use App\Modules\Events\Http\Controllers\EventInviteController;
 use App\Modules\Events\Http\Controllers\OrganizerAgendaController;
 use App\Modules\Events\Http\Controllers\OrganizerEventController;
 use App\Modules\Events\Http\Controllers\OrganizerEventVenueController;
+use App\Modules\Events\Http\Controllers\OrganizerEventVenueMapController;
 use App\Modules\Events\Http\Controllers\OrganizerEventZoneController;
 use App\Modules\Events\Http\Controllers\PrivilegeController;
 use App\Modules\Events\Http\Controllers\Public\PublicEventController;
+use App\Modules\Events\Http\Controllers\Public\PublicEventVenueMapController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('tenant/events')
@@ -28,6 +30,10 @@ Route::prefix('tenant/events')
         Route::put('/{event_id}/agenda', [OrganizerAgendaController::class, 'sync'])->middleware(['permission:event.manage,tenant', 'idempotency']);
         Route::put('/{event_id}/venues', [OrganizerEventVenueController::class, 'sync'])->middleware(['permission:event.manage,tenant', 'idempotency']);
         Route::put('/{event_id}/zones', [OrganizerEventZoneController::class, 'sync'])->middleware(['permission:event.manage,tenant', 'idempotency']);
+        Route::get('/{event_id}/venues/{venue_id}/map', [OrganizerEventVenueMapController::class, 'show'])->middleware('permission:event.view,tenant');
+        Route::post('/{event_id}/venues/{venue_id}/map', [OrganizerEventVenueMapController::class, 'store'])->middleware('permission:event.manage,tenant');
+        Route::delete('/{event_id}/venues/{venue_id}/map', [OrganizerEventVenueMapController::class, 'destroy'])->middleware(['permission:event.manage,tenant', 'idempotency']);
+        Route::get('/{event_id}/venues/{venue_id}/zones', [OrganizerEventVenueMapController::class, 'zones'])->middleware('permission:event.view,tenant');
 
         Route::get('/{event_id}/invites/template', [EventInviteController::class, 'template'])->middleware('permission:event.invite.manage,tenant');
         Route::post('/{event_id}/invites', [EventInviteController::class, 'send'])->middleware(['permission:event.invite.manage,tenant', 'idempotency']);
@@ -73,4 +79,5 @@ Route::prefix('public/events/{event_slug}')
     ->group(function (): void {
         Route::get('/', [PublicEventController::class, 'show']);
         Route::get('/registration-form', [PublicEventController::class, 'form'])->middleware('throttle:public-registration');
+        Route::get('/venues/{venue_id}/map', [PublicEventVenueMapController::class, 'show']);
     });

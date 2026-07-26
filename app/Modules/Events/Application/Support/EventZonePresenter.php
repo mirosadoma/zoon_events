@@ -2,6 +2,7 @@
 
 namespace App\Modules\Events\Application\Support;
 
+use App\Modules\Events\Domain\EventZoneShapeType;
 use App\Modules\Events\Domain\EventZoneType;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventAgendaItem;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventZone;
@@ -16,12 +17,26 @@ final class EventZonePresenter
      *   zone_name_en: string,
      *   zone_name_ar: string,
      *   type: string,
-     *   capacity: ?int
+     *   capacity: ?int,
+     *   shape_type: ?string,
+     *   polygon_coordinates: ?list<array{x: float, y: float}>,
+     *   shape_radius: ?float,
+     *   label: ?string,
+     *   google_maps_url: ?string,
+     *   lat: ?float,
+     *   lng: ?float,
+     *   fill_color: ?string,
+     *   stroke_color: ?string,
+     *   opacity: ?int,
+     *   stroke_width: ?int
      * }
      */
     public static function toArray(EventZone $zone): array
     {
         $type = $zone->type instanceof EventZoneType ? $zone->type->value : (string) $zone->type;
+        $shapeType = $zone->shape_type instanceof EventZoneShapeType
+            ? $zone->shape_type->value
+            : ($zone->shape_type !== null ? (string) $zone->shape_type : null);
         $nameEn = (string) $zone->zone_name_en;
         $nameAr = (string) $zone->zone_name_ar;
 
@@ -33,7 +48,106 @@ final class EventZonePresenter
             'zone_name_ar' => $nameAr,
             'type' => $type,
             'capacity' => $zone->capacity !== null ? (int) $zone->capacity : null,
+            'shape_type' => $shapeType,
+            'polygon_coordinates' => self::normalizeCoordinates($zone->polygon_coordinates),
+            'shape_radius' => $zone->shape_radius !== null ? (float) $zone->shape_radius : null,
+            'label' => $zone->label !== null && $zone->label !== '' ? (string) $zone->label : null,
+            'google_maps_url' => $zone->google_maps_url !== null && $zone->google_maps_url !== ''
+                ? (string) $zone->google_maps_url
+                : null,
+            'lat' => $zone->lat !== null ? (float) $zone->lat : null,
+            'lng' => $zone->lng !== null ? (float) $zone->lng : null,
+            'fill_color' => $zone->fill_color,
+            'stroke_color' => $zone->stroke_color,
+            'opacity' => $zone->opacity !== null ? (int) $zone->opacity : null,
+            'stroke_width' => $zone->stroke_width !== null ? (int) $zone->stroke_width : null,
         ];
+    }
+
+    /**
+     * Public map payload with navigation target resolved to zone coords or venue fallback.
+     *
+     * @return array{
+     *   id: string,
+     *   name: array{en: string, ar: string},
+     *   type: string,
+     *   label: ?string,
+     *   shape_type: ?string,
+     *   polygon_coordinates: ?list<array{x: float, y: float}>,
+     *   shape_radius: ?float,
+     *   fill_color: ?string,
+     *   stroke_color: ?string,
+     *   opacity: ?int,
+     *   stroke_width: ?int,
+     *   navigate_url: ?string,
+     *   lat: ?float,
+     *   lng: ?float
+     * }
+     */
+    public static function toPublicMapArray(EventZone $zone, ?float $venueLat, ?float $venueLng): array
+    {
+        $base = self::toArray($zone);
+        $lat = $base['lat'] ?? $venueLat;
+        $lng = $base['lng'] ?? $venueLng;
+
+        $navigateUrl = $base['google_maps_url'];
+        if ($navigateUrl === null && $lat !== null && $lng !== null) {
+            // Directions from the visitor's current location to the zone/venue point.
+            $navigateUrl = 'https://www.google.com/maps/dir/?api=1&destination='.$lat.','.$lng;
+        }
+
+        return [
+            'id' => $base['id'],
+            'name' => $base['name'],
+            'type' => $base['type'],
+            'label' => $base['label'] ?? $base['name']['en'],
+            'shape_type' => $base['shape_type'],
+            'polygon_coordinates' => $base['polygon_coordinates'],
+            'shape_radius' => $base['shape_radius'],
+            'fill_color' => $base['fill_color'],
+            'stroke_color' => $base['stroke_color'],
+            'opacity' => $base['opacity'],
+            'stroke_width' => $base['stroke_width'],
+            'navigate_url' => $navigateUrl,
+            'lat' => $lat,
+            'lng' => $lng,
+        ];
+    }
+
+    /**
+     * @param  mixed  $coordinates
+     * @return list<array{x: float, y: float}>|null
+     */
+    public static function normalizeCoordinates(mixed $coordinates): ?array
+    {
+        if (! is_array($coordinates) || $coordinates === []) {
+            return null;
+        }
+
+        $points = [];
+        foreach ($coordinates as $point) {
+            if (! is_array($point)) {
+                continue;
+            }
+
+            if (! array_key_exists('x', $point) || ! array_key_exists('y', $point)) {
+                continue;
+            }
+
+            $x = (float) $point['x'];
+            $y = (float) $point['y'];
+
+            if ($x < 0.0 || $x > 1.0 || $y < 0.0 || $y > 1.0) {
+                continue;
+            }
+
+            $points[] = [
+                'x' => round($x, 6),
+                'y' => round($y, 6),
+            ];
+        }
+
+        return $points === [] ? null : $points;
     }
 
     /**
