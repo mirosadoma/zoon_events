@@ -82,7 +82,7 @@ final readonly class EventDashboardViewModel
             'eventCapabilities' => EventRegistrationProfile::capabilities($event),
             'tickets' => $tickets
                 ->reject(fn (TicketType $ticket): bool => $ticket->code === EventRegistrationProfile::SYSTEM_REGISTRATION_TICKET_CODE)
-                ->map(function (TicketType $ticket) use ($inventory): array {
+                ->map(function (TicketType $ticket) use ($event, $inventory): array {
                     $stock = $inventory->get($ticket->id);
 
                     return [
@@ -279,17 +279,24 @@ final readonly class EventDashboardViewModel
         return [
             'setupTabs' => $setupTabs,
             'operationsTabs' => [
-                ['label' => 'Identity requirements', 'href' => "{$base}/identity", 'key' => 'identity', 'completed' => false],
                 ['label' => 'Orders', 'href' => "{$base}/orders", 'key' => 'orders', 'completed' => false],
                 ['label' => 'Attendees', 'href' => "{$base}/attendees", 'key' => 'attendees', 'completed' => false],
                 ['label' => 'Credentials', 'href' => "{$base}/credentials", 'key' => 'credentials', 'completed' => false],
-                ['label' => 'Wallet passes', 'href' => "{$base}/wallet-passes", 'key' => 'wallet_passes', 'completed' => false],
-                ['label' => 'Check-in dashboard', 'href' => "{$base}/check-in-dashboard", 'key' => 'check_in_dashboard', 'completed' => false],
+                ['label' => 'Identity requirements', 'href' => "{$base}/identity", 'key' => 'identity', 'completed' => false],
+                ['label' => 'Identity review queue', 'href' => "{$base}/identity/review", 'key' => 'identity_review', 'completed' => false],
                 ['label' => 'Scanner', 'href' => "{$base}/scanner", 'key' => 'scanner', 'completed' => false],
+                ['label' => 'Check-in dashboard', 'href' => "{$base}/check-in-dashboard", 'key' => 'check_in_dashboard', 'completed' => false],
                 ['label' => 'Scan events', 'href' => "{$base}/scan-events", 'key' => 'scan_events', 'completed' => false],
+                ['label' => 'Wallet passes', 'href' => "{$base}/wallet-passes", 'key' => 'wallet_passes', 'completed' => false],
                 ['label' => 'Badge print jobs', 'href' => "{$base}/badge-print-jobs", 'key' => 'badge_print_jobs', 'completed' => false],
                 ['label' => 'Manual desk', 'href' => "{$base}/manual-desk", 'key' => 'manual_desk', 'completed' => false],
+                ['label' => 'Walk-up registration', 'href' => "{$base}/manual-desk/walk-up", 'key' => 'walk_up', 'completed' => false],
                 ['label' => 'ACS', 'href' => "{$base}/acs", 'key' => 'acs', 'completed' => false],
+                ['label' => 'ACS zones', 'href' => "{$base}/acs/zones", 'key' => 'acs_zones', 'completed' => false],
+                ['label' => 'ACS lanes', 'href' => "{$base}/acs/lanes", 'key' => 'acs_lanes', 'completed' => false],
+                ['label' => 'ACS rules', 'href' => "{$base}/acs/rules", 'key' => 'acs_rules', 'completed' => false],
+                ['label' => 'Access logs', 'href' => "{$base}/acs/access-logs", 'key' => 'acs_access_logs', 'completed' => false],
+                ['label' => 'Gate health', 'href' => "{$base}/acs/gate-health", 'key' => 'acs_gate_health', 'completed' => false],
                 ['label' => 'Reports', 'href' => "{$base}/reports", 'key' => 'reports', 'completed' => false],
             ],
         ];

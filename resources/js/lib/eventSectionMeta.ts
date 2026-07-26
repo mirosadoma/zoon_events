@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
 import {
+  Activity,
   BadgeCheck,
   BarChart3,
   CalendarDays,
@@ -7,10 +8,12 @@ import {
   DoorOpen,
   IdCard,
   Mail,
+  Map,
   Monitor,
   Printer,
   Radio,
   ScanLine,
+  Shield,
   ShieldCheck,
   ShoppingCart,
   Tags,
@@ -34,6 +37,7 @@ export const EVENT_SECTION_META: Record<string, EventSectionMeta> = {
   ticket_types: { icon: Ticket },
   price_tiers: { icon: Tags },
   identity: { icon: ShieldCheck },
+  identity_review: { icon: ShieldCheck },
   orders: { icon: ShoppingCart },
   attendees: { icon: Users },
   credentials: { icon: IdCard },
@@ -46,7 +50,13 @@ export const EVENT_SECTION_META: Record<string, EventSectionMeta> = {
   email_templates: { icon: Mail },
   badge_print_jobs: { icon: Printer },
   manual_desk: { icon: UserCheck },
+  walk_up: { icon: Users },
   acs: { icon: DoorOpen },
+  acs_zones: { icon: Map },
+  acs_lanes: { icon: Map },
+  acs_rules: { icon: Shield },
+  acs_access_logs: { icon: ClipboardList },
+  acs_gate_health: { icon: Activity },
   reports: { icon: BarChart3 },
 }
 
