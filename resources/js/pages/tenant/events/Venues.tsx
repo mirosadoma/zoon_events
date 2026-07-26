@@ -15,6 +15,16 @@ import { useToast } from '@/hooks/useToast'
 import { ApiFetchError, apiFetch } from '@/lib/apiFetch'
 import { buildVenuePayload } from '@/lib/venuePayload'
 
+export type EventZoneRow = {
+  id: string
+  venue_id: string
+  name: { en: string; ar: string }
+  zone_name_en?: string
+  zone_name_ar?: string
+  type: string
+  capacity: number | null
+}
+
 export type EventVenueRow = {
   id: string
   country_id: string
@@ -27,6 +37,7 @@ export type EventVenueRow = {
   end_at?: string | null
   registration_opens_at?: string | null
   registration_closes_at?: string | null
+  zones?: EventZoneRow[]
 }
 
 type Props = {
@@ -75,6 +86,7 @@ export default function EventVenuesPage({
     () => venues.map((venue) => ({
       id: venue.id,
       name: venue.name[locale] || venue.name.en || venue.name.ar,
+      zones_count: venue.zones?.length ?? 0,
       address: venue.location_address?.trim() || t('notAvailable'),
       start: venue.start_at
         ? new Date(venue.start_at).toLocaleString(locale === 'ar' ? 'ar' : 'en')
@@ -153,6 +165,15 @@ export default function EventVenuesPage({
             title={t('eventVenues')}
             columns={[
               { key: 'name', header: t('name') },
+              {
+                key: 'zones_count',
+                header: t('eventZonesTitle'),
+                render: (row) => (
+                  <span className="tabular-nums text-[var(--muted)]">
+                    {t('eventVenueZonesCount', { count: String(row.zones_count) })}
+                  </span>
+                ),
+              },
               { key: 'address', header: t('address') },
               { key: 'start', header: t('startAt') },
               { key: 'end', header: t('endAt') },

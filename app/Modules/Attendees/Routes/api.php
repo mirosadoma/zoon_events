@@ -9,4 +9,6 @@ Route::prefix('tenant/events/{event_id}/attendees')
         Route::get('/', [OrganizerAttendeeController::class, 'index'])->middleware('permission:attendee.view,tenant');
         Route::patch('/{attendee_id}', [OrganizerAttendeeController::class, 'update'])
             ->middleware(['permission:attendee.manage,tenant', 'idempotency']);
+        Route::delete('/{attendee_id}', [OrganizerAttendeeController::class, 'destroy'])
+            ->middleware(['permission:attendee.manage,tenant', 'idempotency']);
     });

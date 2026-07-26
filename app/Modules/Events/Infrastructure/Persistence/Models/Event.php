@@ -50,6 +50,11 @@ final class Event extends Model
         return $this->hasMany(EventVenue::class);
     }
 
+    public function zones(): HasMany
+    {
+        return $this->hasMany(EventZone::class);
+    }
+
     public function images(): HasMany
     {
         return $this->hasMany(EventImage::class)->orderBy('sort_order')->orderBy('id');

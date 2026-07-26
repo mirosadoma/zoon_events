@@ -138,6 +138,8 @@ final readonly class ListEventAttendeesQuery
         $query = Attendee::query()
             ->where('tenant_id', $tenantId)
             ->where('event_id', $eventId)
+            ->where('registration_status', '!=', 'cancelled')
+            ->where('registration_status', '!=', 'anonymized')
             ->when($status !== null, fn (Builder $q) => $q->where('invite_status', $status));
 
         // Public tab: exclude attendees who completed registration through a private invite.

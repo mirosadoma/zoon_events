@@ -235,6 +235,8 @@ Route::prefix('{locale}')
 
                 Route::get('/{event_id}/edit', [EventDashboardController::class, 'edit'])->where('event_id', '[0-9]+')->name('tenant.events.edit');
                 Route::get('/{event_id}/registration-form', [EventDashboardController::class, 'registrationForm'])->name('tenant.registration.builder');
+                Route::get('/{event_id}/agenda/create', [EventDashboardController::class, 'createAgenda'])->where('event_id', '[0-9]+')->name('tenant.events.agenda.create');
+                Route::get('/{event_id}/agenda/{item_id}/edit', [EventDashboardController::class, 'editAgenda'])->where(['event_id' => '[0-9]+', 'item_id' => '[0-9]+'])->name('tenant.events.agenda.edit');
                 Route::get('/{event_id}/agenda', [EventDashboardController::class, 'agenda'])->where('event_id', '[0-9]+')->name('tenant.events.agenda');
                 Route::get('/{event_id}/venues/create', [EventDashboardController::class, 'createVenue'])->where('event_id', '[0-9]+')->name('tenant.events.venues.create');
                 Route::get('/{event_id}/venues/{venue_id}/edit', [EventDashboardController::class, 'editVenue'])->where(['event_id' => '[0-9]+', 'venue_id' => '[0-9]+'])->name('tenant.events.venues.edit');

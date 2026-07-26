@@ -86,4 +86,34 @@ final class ListEventAttendeesQueryTest extends Phase1MySqlTestCase
         );
         self::assertSame(2, $all['total']);
     }
+
+    public function test_cancelled_attendees_are_excluded_from_list(): void
+    {
+        $fixture = $this->createRegistrationFixture();
+        $event = $fixture['event'];
+
+        $this->withHeader('Idempotency-Key', 'cancel-list-'.Str::lower((string) Str::ulid()))
+            ->postJson(
+                "http://register.example.test/api/v1/public/events/{$event->slug}/registrations",
+                $this->registrationPayload($fixture),
+            )->assertCreated();
+
+        $attendee = Attendee::query()->where('event_id', $event->id)->firstOrFail();
+        $attendee->forceFill([
+            'registration_status' => 'cancelled',
+            'cancelled_at' => now(),
+        ])->save();
+
+        $result = app(ListEventAttendeesQuery::class)->paginate(
+            (string) $fixture['tenant']->id,
+            (string) $event->id,
+            null,
+            null,
+            1,
+            'public',
+        );
+
+        self::assertSame(0, $result['total']);
+        self::assertCount(0, $result['attendees']);
+    }
 }

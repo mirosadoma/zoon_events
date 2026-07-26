@@ -13,9 +13,11 @@ use App\Modules\AdminConsole\ViewModels\Events\EventSetupViewModel;
 use App\Modules\Authorization\Application\PermissionEvaluator;
 use App\Modules\Events\Application\Support\EventMediaPresenter;
 use App\Modules\Events\Application\Support\EventWallClockDateTime;
+use App\Modules\Events\Application\Support\EventZonePresenter;
 use App\Modules\Events\Application\Support\PublicRegistrationEventPresenter;
 use App\Modules\Events\Application\Support\ResolvesEventOrganizer;
 use App\Modules\Events\Domain\EventRegistrationProfile;
+use App\Modules\Events\Domain\EventZoneType;
 use App\Modules\Events\Infrastructure\Persistence\Models\CategoryTemplate;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventAgendaItem;
@@ -202,6 +204,7 @@ final class EventDashboardController extends Controller
             'venues' => $this->mapEventVenues($event),
             'venue' => null,
             'mode' => 'create',
+            'zoneTypes' => EventZoneType::values(),
             ...$this->references->toArray(),
         ]);
     }
@@ -230,6 +233,7 @@ final class EventDashboardController extends Controller
             'venues' => $venues,
             'venue' => $venue,
             'mode' => 'edit',
+            'zoneTypes' => EventZoneType::values(),
             ...$this->references->toArray(),
         ]);
     }
@@ -241,34 +245,11 @@ final class EventDashboardController extends Controller
         $items = EventAgendaItem::query()
             ->where('tenant_id', $context->tenant->id)
             ->where('event_id', $event->id)
+            ->with(['venue', 'zone'])
             ->orderBy('sort_order')
             ->orderBy('start_at')
             ->get()
-            ->map(fn (EventAgendaItem $item): array => [
-                'id' => (string) $item->id,
-                'event_venue_id' => $item->event_venue_id ? (string) $item->event_venue_id : null,
-                'agenda_date' => $item->agenda_date?->toDateString(),
-                'title_en' => $item->title_en,
-                'title_ar' => $item->title_ar,
-                'description_en' => $item->description_en ?? '',
-                'description_ar' => $item->description_ar ?? '',
-                'start_at' => EventWallClockDateTime::toInput($item->start_at, $event->timezone),
-                'end_at' => EventWallClockDateTime::toInput($item->end_at, $event->timezone),
-            ])
-            ->values()
-            ->all();
-
-        $venues = \App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue::query()
-            ->where('tenant_id', $context->tenant->id)
-            ->where('event_id', $event->id)
-            ->orderBy('sort_order')
-            ->get()
-            ->map(fn ($venue): array => [
-                'id' => (string) $venue->id,
-                'name' => ['en' => $venue->name_en, 'ar' => $venue->name_ar],
-                'start_at' => $venue->start_at?->toDateString(),
-                'end_at' => $venue->end_at?->toDateString(),
-            ])
+            ->map(fn (EventAgendaItem $item): array => EventZonePresenter::agendaItemForTenant($item, (string) $event->timezone))
             ->values()
             ->all();
 
@@ -276,7 +257,48 @@ final class EventDashboardController extends Controller
             'event' => $this->events->detail($event)['event'],
             'tenantId' => (string) $context->tenant->id,
             'items' => $items,
+            'venues' => $this->mapAgendaVenues($event, $context->tenant->id),
+        ]);
+    }
+
+    public function createAgenda(string $eventId): Response
+    {
+        $context = $this->authorizeTenant('event.manage');
+        $event = $this->event($context, $eventId);
+        $venues = $this->mapAgendaVenues($event, $context->tenant->id);
+
+        return Inertia::render('tenant/events/AgendaForm', [
+            'event' => $this->events->detail($event)['event'],
+            'tenantId' => (string) $context->tenant->id,
             'venues' => $venues,
+            'item' => null,
+            'items' => $this->mapAgendaItemsForSync($event, $context->tenant->id),
+            'mode' => 'create',
+        ]);
+    }
+
+    public function editAgenda(string $eventId): Response
+    {
+        $context = $this->authorizeTenant('event.manage');
+        $event = $this->event($context, $eventId);
+        $itemId = $this->routeParam('item_id');
+
+        $itemModel = EventAgendaItem::query()
+            ->where('tenant_id', $context->tenant->id)
+            ->where('event_id', $event->id)
+            ->whereKey($itemId)
+            ->with(['venue', 'zone'])
+            ->first();
+
+        abort_unless($itemModel instanceof EventAgendaItem, 404);
+
+        return Inertia::render('tenant/events/AgendaForm', [
+            'event' => $this->events->detail($event)['event'],
+            'tenantId' => (string) $context->tenant->id,
+            'venues' => $this->mapAgendaVenues($event, $context->tenant->id),
+            'item' => EventZonePresenter::agendaItemForTenant($itemModel, (string) $event->timezone),
+            'items' => $this->mapAgendaItemsForSync($event, $context->tenant->id),
+            'mode' => 'edit',
         ]);
     }
 
@@ -550,17 +572,18 @@ final class EventDashboardController extends Controller
     {
         $context = $this->authorizeTenant('event.view');
         $event = $this->event($context, $eventId);
-        $event->loadMissing(['agendaItems.venue', 'venues']);
+        $event->loadMissing(['venues.zones', 'agendaItems.venue', 'agendaItems.zone']);
         $locale = app()->getLocale() === 'ar' ? 'ar' : 'en';
 
         $venueId = $request->query('venue_id');
+        $zoneId = $request->query('zone_id');
         $date = $request->query('date');
         $fallbackVenueId = $event->venues->count() === 1
             ? (int) $event->venues->first()->id
             : null;
 
         $items = $event->agendaItems
-            ->filter(function (EventAgendaItem $item) use ($venueId, $date, $fallbackVenueId): bool {
+            ->filter(function (EventAgendaItem $item) use ($venueId, $zoneId, $date, $fallbackVenueId): bool {
                 $itemVenueId = $item->event_venue_id !== null
                     ? (int) $item->event_venue_id
                     : $fallbackVenueId;
@@ -568,6 +591,10 @@ final class EventDashboardController extends Controller
                     ?? $item->start_at?->toDateString();
 
                 if (is_string($venueId) && $venueId !== '' && (string) $itemVenueId !== $venueId) {
+                    return false;
+                }
+
+                if (is_string($zoneId) && $zoneId !== '' && (string) $item->zone_id !== $zoneId) {
                     return false;
                 }
 
@@ -585,6 +612,7 @@ final class EventDashboardController extends Controller
 
         $heroEvent = $this->eventPages->heroEvent($event);
         $selectedVenueId = is_string($venueId) && $venueId !== '' ? $venueId : null;
+        $selectedZoneId = is_string($zoneId) && $zoneId !== '' ? $zoneId : null;
 
         if ($selectedVenueId !== null) {
             $heroEvent['venues'] = array_values(array_filter(
@@ -593,12 +621,21 @@ final class EventDashboardController extends Controller
             ));
         }
 
+        $zones = $event->venues
+            ->when($selectedVenueId !== null, fn ($venues) => $venues->where('id', (int) $selectedVenueId))
+            ->flatMap(fn ($venue) => $venue->zones)
+            ->map(fn ($zone): array => EventZonePresenter::toArray($zone))
+            ->values()
+            ->all();
+
         return Inertia::render('public/registration/Agenda', [
             'locale' => $locale,
             'isPreview' => true,
             'event' => $heroEvent,
             'items' => $this->mapPublicAgendaItems($event, $items),
+            'zones' => $zones,
             'selectedVenueId' => $selectedVenueId,
+            'selectedZoneId' => $selectedZoneId,
             'selectedDate' => is_string($date) && $date !== '' ? $date : null,
             'registerUrl' => "/tenant/events/{$event->id}/registration-preview",
         ]);
@@ -682,11 +719,58 @@ final class EventDashboardController extends Controller
      *   registration_closes_at:?string
      * }>
      */
+    /**
+     * @return list<array{
+     *   id: string,
+     *   name: array{en: string, ar: string},
+     *   start_at: ?string,
+     *   end_at: ?string,
+     *   zones: list<array<string, mixed>>
+     * }>
+     */
+    private function mapAgendaVenues(Event $event, int|string $tenantId): array
+    {
+        return EventVenue::query()
+            ->where('tenant_id', $tenantId)
+            ->where('event_id', $event->id)
+            ->with('zones')
+            ->orderBy('sort_order')
+            ->get()
+            ->map(fn ($venue): array => [
+                'id' => (string) $venue->id,
+                'name' => ['en' => $venue->name_en, 'ar' => $venue->name_ar],
+                'start_at' => $venue->start_at?->toDateString(),
+                'end_at' => $venue->end_at?->toDateString(),
+                'zones' => $venue->zones
+                    ->map(fn ($zone): array => EventZonePresenter::toArray($zone))
+                    ->values()
+                    ->all(),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function mapAgendaItemsForSync(Event $event, int|string $tenantId): array
+    {
+        return EventAgendaItem::query()
+            ->where('tenant_id', $tenantId)
+            ->where('event_id', $event->id)
+            ->orderBy('sort_order')
+            ->orderBy('start_at')
+            ->get()
+            ->map(fn (EventAgendaItem $item): array => EventZonePresenter::agendaItemForTenant($item, (string) $event->timezone))
+            ->values()
+            ->all();
+    }
+
     private function mapEventVenues(Event $event): array
     {
         return $event->venues()
             ->orderBy('sort_order')
-            ->with(['country', 'city'])
+            ->with(['country', 'city', 'zones'])
             ->get()
             ->map(fn ($venue): array => [
                 'id' => (string) $venue->id,
@@ -700,6 +784,10 @@ final class EventDashboardController extends Controller
                 'end_at' => $venue->end_at?->toIso8601String(),
                 'registration_opens_at' => $venue->registration_opens_at?->toIso8601String(),
                 'registration_closes_at' => $venue->registration_closes_at?->toIso8601String(),
+                'zones' => $venue->zones
+                    ->map(fn ($zone): array => EventZonePresenter::toArray($zone))
+                    ->values()
+                    ->all(),
             ])
             ->values()
             ->all();
@@ -728,17 +816,10 @@ final class EventDashboardController extends Controller
     private function mapPublicAgendaItems(Event $event, $items): array
     {
         return $items
-            ->map(fn (EventAgendaItem $item): array => [
-                'id' => (string) $item->id,
-                'title' => ['en' => $item->title_en, 'ar' => $item->title_ar],
-                'start_at' => EventWallClockDateTime::toIso8601($item->start_at, $event->timezone),
-                'end_at' => EventWallClockDateTime::toIso8601($item->end_at, $event->timezone),
-                'agenda_date' => $item->agenda_date?->toDateString(),
-                'event_venue_id' => $item->event_venue_id !== null ? (string) $item->event_venue_id : null,
-                'venue_name' => $item->venue
-                    ? ['en' => (string) $item->venue->name_en, 'ar' => (string) $item->venue->name_ar]
-                    : null,
-            ])
+            ->map(fn (EventAgendaItem $item): array => EventZonePresenter::agendaItemForPublic(
+                $item,
+                (string) $event->timezone,
+            ))
             ->values()
             ->all();
     }

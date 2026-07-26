@@ -1,8 +1,10 @@
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import { FormEvent, useState } from 'react'
+import { router } from '@inertiajs/react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, { SideDetailInfoGrid } from '@/components/layout/SideDetailPane'
 import PermissionGate from '@/components/layout/PermissionGate'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
@@ -10,12 +12,14 @@ import FiltersBar from '@/components/tables/FiltersBar'
 import Pagination from '@/components/tables/Pagination'
 import SearchInput from '@/components/tables/SearchInput'
 import SelectInput from '@/components/forms/SelectInput'
+import ConfirmModal from '@/components/modals/ConfirmModal'
 import CopyRegistrationLinkButton from '@/components/events/CopyRegistrationLinkButton'
 import SendPrivateInviteModal from '@/components/events/SendPrivateInviteModal'
 import { useLocale } from '@/hooks/useLocale'
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
 import { useToast } from '@/hooks/useToast'
-import { Mail } from 'lucide-react'
+import { ApiFetchError, apiFetch } from '@/lib/apiFetch'
+import { ArrowUpRight, Mail, UserRound } from 'lucide-react'
 
 type EventRow = {
   id: string
@@ -64,6 +68,36 @@ function displayValue(value: string | null | undefined, fallback: string): strin
   return value?.trim() ? value.trim() : fallback
 }
 
+function attendeeInitials(name: string): string {
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+
+  if (parts.length === 0) {
+    return '?'
+  }
+
+  return parts.map((part) => part.charAt(0).toUpperCase()).join('')
+}
+
+function resolveDetailId(attendee: AttendeeRow): string | null {
+  return attendee.attendee_id
+    ?? (attendee.row_type === 'invite' || String(attendee.id).startsWith('invite-')
+      ? null
+      : attendee.id)
+}
+
+function resolveInviteId(attendee: AttendeeRow): string | null {
+  if (attendee.row_type !== 'invite' && !String(attendee.id).startsWith('invite-')) {
+    return null
+  }
+
+  const raw = String(attendee.id).replace(/^invite-/, '')
+  return raw !== '' ? raw : null
+}
+
 export default function Attendees({
   event,
   attendees,
@@ -79,7 +113,14 @@ export default function Attendees({
   const [statusFilter, setStatusFilter] = useState(filters.status)
   const [registrationType, setRegistrationType] = useState(filters.registration_type ?? 'public')
   const [inviteOpen, setInviteOpen] = useState(false)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const notAvailable = t('notAvailable')
+
+  const selected = attendees.find((row) => row.id === selectedId) ?? null
+  const selectedDetailId = selected ? resolveDetailId(selected) : null
+  const selectedInviteId = selected ? resolveInviteId(selected) : null
 
   async function copyRegistrationLink(url: string) {
     try {
@@ -132,6 +173,65 @@ export default function Attendees({
     return localizedPath(`/tenant/events/${event.id}/attendees/export${query ? `?${query}` : ''}`)
   }
 
+  function openPane(row: AttendeeRow) {
+    setSelectedId(row.id)
+  }
+
+  function closePane() {
+    setSelectedId(null)
+    setDeleteOpen(false)
+  }
+
+  function goToEdit() {
+    if (!selectedDetailId) {
+      toast(t('attendeePaneEditUnavailable'), 'info')
+      return
+    }
+
+    router.visit(localizedPath(`/tenant/events/${event.id}/attendees/${selectedDetailId}`))
+  }
+
+  async function confirmDelete() {
+    if (!selected) return
+
+    setDeleting(true)
+    try {
+      if (selectedInviteId) {
+        if (selectedDetailId) {
+          await apiFetch(`/api/v1/tenant/events/${event.id}/attendees/${selectedDetailId}`, {
+            method: 'DELETE',
+            tenantId,
+            idempotency: true,
+          })
+        }
+
+        await apiFetch(`/api/v1/tenant/events/${event.id}/invites/${selectedInviteId}`, {
+          method: 'DELETE',
+          tenantId,
+          idempotency: true,
+        })
+      } else if (selectedDetailId) {
+        await apiFetch(`/api/v1/tenant/events/${event.id}/attendees/${selectedDetailId}`, {
+          method: 'DELETE',
+          tenantId,
+          idempotency: true,
+        })
+      } else {
+        toast(t('attendeePaneDeleteUnavailable'), 'error')
+        return
+      }
+
+      toast(t('attendeePaneDeleted'), 'success')
+      setDeleteOpen(false)
+      setSelectedId(null)
+      router.reload({ only: ['attendees', 'pagination'] })
+    } catch (caught) {
+      toast(caught instanceof ApiFetchError ? caught.message : t('requestFailed'), 'error')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const statusOptions = [
     { value: '', label: t('allStatuses') },
     { value: 'not_registered', label: t('inviteStatusNotRegistered') },
@@ -139,6 +239,10 @@ export default function Attendees({
     { value: 'attended', label: t('inviteStatusAttended') },
     { value: 'not_attended', label: t('inviteStatusNotAttended') },
   ]
+
+  const inviteStatus = selected
+    ? (selected.invite_status ?? (selected.status === 'checked_in' ? 'attended' : 'registered'))
+    : null
 
   return (
     <DashboardLayout title={t('attendees')}>
@@ -169,6 +273,7 @@ export default function Attendees({
               }`}
               onClick={() => {
                 setRegistrationType('public')
+                closePane()
                 applyFilters({ registration_type: 'public', page: 1 })
               }}
             >
@@ -183,6 +288,7 @@ export default function Attendees({
               }`}
               onClick={() => {
                 setRegistrationType('private')
+                closePane()
                 applyFilters({ registration_type: 'private', page: 1 })
               }}
             >
@@ -248,26 +354,18 @@ export default function Attendees({
             <DataTable
               rows={attendees as unknown as Record<string, unknown>[]}
               getRowKey={(row) => String(row.id)}
+              selectedRowKey={selectedId}
+              onRowClick={(row) => openPane(row as unknown as AttendeeRow)}
               columns={[
                 {
                   key: 'display_name',
                   header: t('attendeeName'),
                   render: (row) => {
                     const attendee = row as unknown as AttendeeRow
-                    const name = displayValue(attendee.display_name, notAvailable)
-                    const detailId = attendee.attendee_id
-                      ?? (attendee.row_type === 'invite' || String(attendee.id).startsWith('invite-')
-                        ? null
-                        : attendee.id)
-
-                    if (!detailId) {
-                      return <span className="font-medium text-[var(--ink)]">{name}</span>
-                    }
-
                     return (
-                      <LocalizedLink href={`/tenant/events/${event.id}/attendees/${detailId}`} className="font-medium text-sky-700 hover:underline">
-                        {name}
-                      </LocalizedLink>
+                      <span className="font-medium text-[var(--ink)]">
+                        {displayValue(attendee.display_name, notAvailable)}
+                      </span>
                     )
                   },
                 },
@@ -286,10 +384,10 @@ export default function Attendees({
                   header: t('inviteStatus'),
                   render: (row) => {
                     const attendee = row as unknown as AttendeeRow
-                    const inviteStatus = attendee.invite_status
+                    const status = attendee.invite_status
                       ?? (attendee.status === 'checked_in' ? 'attended' : 'registered')
 
-                    return <StatusBadge status={inviteStatus} />
+                    return <StatusBadge status={status} />
                   },
                 },
                 {
@@ -299,30 +397,6 @@ export default function Attendees({
                     const status = row.credential_status as string | null | undefined
 
                     return status ? <StatusBadge status={status} /> : '—'
-                  },
-                },
-                {
-                  key: 'actions',
-                  header: t('actions'),
-                  render: (row) => {
-                    const attendee = row as unknown as AttendeeRow
-                    const detailId = attendee.attendee_id
-                      ?? (attendee.row_type === 'invite' || String(attendee.id).startsWith('invite-')
-                        ? null
-                        : attendee.id)
-
-                    if (!detailId) {
-                      return '—'
-                    }
-
-                    return (
-                      <LocalizedLink
-                        href={`/tenant/events/${event.id}/attendees/${detailId}`}
-                        className="button-secondary"
-                      >
-                        {t('showAttendeeDetails')}
-                      </LocalizedLink>
-                    )
                   },
                 },
               ]}
@@ -338,6 +412,92 @@ export default function Attendees({
           </>
         )}
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? displayValue(selected.display_name, selected.label) : ''}
+        subtitle={selected?.email?.trim() || null}
+        onClose={closePane}
+        onEdit={goToEdit}
+        onDelete={selectedDetailId || selectedInviteId ? () => setDeleteOpen(true) : null}
+        hero={selected ? (
+          <div className="flex items-center gap-4">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[var(--brand-soft)] text-lg font-bold tracking-wide text-[var(--brand)] ring-1 ring-[color-mix(in_srgb,var(--brand)_18%,transparent)]">
+              {attendeeInitials(displayValue(selected.display_name, selected.label))}
+            </div>
+            <div className="min-w-0 flex-1 space-y-2">
+              <p className="truncate text-base font-semibold text-[var(--ink)]">
+                {displayValue(selected.display_name, selected.label)}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                {inviteStatus ? <StatusBadge status={inviteStatus} /> : null}
+                {selected.credential_status ? <StatusBadge status={selected.credential_status} /> : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
+        footer={selectedDetailId ? (
+          <LocalizedLink
+            href={`/tenant/events/${event.id}/attendees/${selectedDetailId}`}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2.5 text-sm font-semibold text-[var(--ink)] transition hover:border-[color-mix(in_srgb,var(--brand)_35%,var(--border))] hover:bg-[var(--brand-soft)] hover:text-[var(--brand)]"
+          >
+            {t('showAttendeeDetails')}
+            <ArrowUpRight className="h-4 w-4" aria-hidden />
+          </LocalizedLink>
+        ) : (
+          <div className="flex items-start gap-2 rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)]/60 px-3 py-3 text-sm text-[var(--muted)]">
+            <UserRound className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            <span>{t('attendeePaneEditUnavailable')}</span>
+          </div>
+        )}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            title={t('attendeePaneBasicInfo')}
+            items={[
+              {
+                label: t('attendeeName'),
+                value: displayValue(selected.display_name, notAvailable),
+              },
+              {
+                label: t('attendeeEmail'),
+                value: displayValue(selected.email, notAvailable),
+              },
+              {
+                label: t('attendeePhone'),
+                value: displayValue(selected.phone, notAvailable),
+              },
+              {
+                label: t('inviteStatus'),
+                value: inviteStatus ? <StatusBadge status={inviteStatus} /> : notAvailable,
+              },
+              {
+                label: t('attendeesCredential'),
+                value: selected.credential_status
+                  ? <StatusBadge status={selected.credential_status} />
+                  : notAvailable,
+              },
+              {
+                label: t('attendeeDetailLocale'),
+                value: (selected.locale || notAvailable).toUpperCase(),
+              },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
+
+      <ConfirmModal
+        open={deleteOpen}
+        title={t('attendeePaneDeleteTitle')}
+        message={t('attendeePaneDeleteMessage', {
+          name: selected ? displayValue(selected.display_name, selected.label) : '',
+        })}
+        confirmLabel={t('delete')}
+        cancelLabel={t('cancel')}
+        loading={deleting}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setDeleteOpen(false)}
+      />
 
       <SendPrivateInviteModal
         open={inviteOpen}

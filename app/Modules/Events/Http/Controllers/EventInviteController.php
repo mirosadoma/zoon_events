@@ -4,6 +4,7 @@ namespace App\Modules\Events\Http\Controllers;
 
 use App\Exceptions\FoundationException;
 use App\Http\Controllers\Controller;
+use App\Modules\Events\Application\Actions\DeactivateRegistrationInvite;
 use App\Modules\Events\Application\Actions\SendPrivateEventInvites;
 use App\Modules\Events\Application\Exports\InviteEmailTemplateExport;
 use App\Modules\Events\Application\Support\InviteEmailFileParser;
@@ -75,6 +76,17 @@ class EventInviteController extends Controller
         $this->event($event_id);
 
         return $this->templateExport->download();
+    }
+
+    public function destroy(string $event_id, string $invite_id, DeactivateRegistrationInvite $action)
+    {
+        $this->event($event_id);
+        $invite = $action->execute($this->contextStore->current(), $event_id, $invite_id);
+
+        return $this->success([
+            'id' => (string) $invite->id,
+            'is_active' => (bool) $invite->is_active,
+        ]);
     }
 
     private function event(string $eventId): Event

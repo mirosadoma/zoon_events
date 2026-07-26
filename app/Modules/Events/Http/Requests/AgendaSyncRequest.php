@@ -19,11 +19,13 @@ final class AgendaSyncRequest extends FormRequest
             'items' => ['required', 'array', 'max:200'],
             'items.*.id' => ['nullable', 'integer'],
             'items.*.event_venue_id' => ['nullable', 'integer', 'exists:event_venues,id'],
+            'items.*.zone_id' => ['nullable', 'integer', 'exists:event_zones,id'],
             'items.*.agenda_date' => ['nullable', 'date'],
             'items.*.title_en' => ['required', 'string', 'max:160'],
             'items.*.title_ar' => ['required', 'string', 'max:160'],
             'items.*.description_en' => ['nullable', 'string', 'max:5000'],
             'items.*.description_ar' => ['nullable', 'string', 'max:5000'],
+            'items.*.speaker' => ['nullable', 'string', 'max:160'],
             'items.*.start_at' => ['required', 'date'],
             'items.*.end_at' => ['nullable', 'date'],
         ];

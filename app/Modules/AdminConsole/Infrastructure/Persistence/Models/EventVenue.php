@@ -2,8 +2,12 @@
 
 namespace App\Modules\AdminConsole\Infrastructure\Persistence\Models;
 
+use App\Modules\Events\Infrastructure\Persistence\Models\Event;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventAgendaItem;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventZone;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 final class EventVenue extends Model
 {
@@ -36,6 +40,11 @@ final class EventVenue extends Model
         ];
     }
 
+    public function event(): BelongsTo
+    {
+        return $this->belongsTo(Event::class);
+    }
+
     public function country(): BelongsTo
     {
         return $this->belongsTo(Country::class);
@@ -44,5 +53,15 @@ final class EventVenue extends Model
     public function city(): BelongsTo
     {
         return $this->belongsTo(City::class);
+    }
+
+    public function zones(): HasMany
+    {
+        return $this->hasMany(EventZone::class, 'venue_id')->orderBy('id');
+    }
+
+    public function agendaItems(): HasMany
+    {
+        return $this->hasMany(EventAgendaItem::class, 'event_venue_id');
     }
 }

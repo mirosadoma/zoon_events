@@ -3,18 +3,18 @@
 namespace App\Modules\Events\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Modules\Events\Application\Actions\SyncEventAgendaItems;
+use App\Modules\Events\Application\Actions\SyncEventZones;
 use App\Modules\Events\Application\Support\EventZonePresenter;
 use App\Modules\Events\Contracts\EventScope;
-use App\Modules\Events\Http\Requests\AgendaSyncRequest;
+use App\Modules\Events\Http\Requests\ZoneSyncRequest;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
-use App\Modules\Events\Infrastructure\Persistence\Models\EventAgendaItem;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventZone;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
 use App\Modules\Tenancy\Domain\Context\TenantContextStore;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
-final class OrganizerAgendaController extends Controller
+final class OrganizerEventZoneController extends Controller
 {
     use RespondsWithApi;
 
@@ -23,7 +23,7 @@ final class OrganizerAgendaController extends Controller
         private readonly EventScope $events,
     ) {}
 
-    public function sync(AgendaSyncRequest $request, string $eventId, SyncEventAgendaItems $action)
+    public function sync(ZoneSyncRequest $request, string $eventId, SyncEventZones $action)
     {
         $tenantId = (string) $this->contexts->current()->tenant->id;
         abort_unless($this->events->exists($tenantId, $eventId), 404);
@@ -33,26 +33,29 @@ final class OrganizerAgendaController extends Controller
             ->whereKey($eventId)
             ->firstOrFail();
 
-        $items = $request->validated('items');
-
         try {
-            $action->execute($tenantId, $event, $items);
+            $action->execute(
+                $tenantId,
+                $event,
+                (int) $request->validated('venue_id'),
+                $request->validated('zones'),
+            );
         } catch (InvalidArgumentException $exception) {
             throw ValidationException::withMessages([
-                'items' => [$exception->getMessage()],
+                'zones' => [$exception->getMessage()],
             ]);
         }
 
-        $saved = EventAgendaItem::query()
+        $saved = EventZone::query()
             ->where('tenant_id', $tenantId)
             ->where('event_id', $event->id)
-            ->orderBy('sort_order')
-            ->orderBy('start_at')
+            ->where('venue_id', (int) $request->validated('venue_id'))
+            ->orderBy('id')
             ->get()
-            ->map(fn (EventAgendaItem $item): array => EventZonePresenter::agendaItemForApi($item, (string) $event->timezone))
+            ->map(fn (EventZone $zone): array => EventZonePresenter::toArray($zone))
             ->values()
             ->all();
 
-        return $this->success(['items' => $saved]);
+        return $this->success(['zones' => $saved]);
     }
 }

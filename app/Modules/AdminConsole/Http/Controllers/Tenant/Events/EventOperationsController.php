@@ -171,6 +171,7 @@ final class EventOperationsController extends Controller
 
         $query = EventRegistrationInvite::query()
             ->where('event_id', $event->id)
+            ->where('is_active', true)
             ->when($statusFilter !== '', function ($builder) use ($statusFilter): void {
                 if ($statusFilter === 'not_registered') {
                     $builder->where('invite_status', 'not_registered');

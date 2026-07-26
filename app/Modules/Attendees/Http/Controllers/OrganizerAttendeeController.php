@@ -4,10 +4,13 @@ namespace App\Modules\Attendees\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Attendees\Application\Actions\CorrectAttendee;
+use App\Modules\Attendees\Application\Actions\CancelAttendee;
 use App\Modules\Attendees\Application\Queries\OrganizerAttendeeQuery;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
 use App\Modules\Tenancy\Domain\Context\TenantContextStore;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 
 final class OrganizerAttendeeController extends Controller
 {
@@ -51,6 +54,23 @@ final class OrganizerAttendeeController extends Controller
             'id' => $attendee->id,
             'registration_status' => $attendee->registration_status,
             'preferred_locale' => $attendee->preferred_locale,
+        ]);
+    }
+
+    public function destroy(string $eventId, string $attendeeId, CancelAttendee $action)
+    {
+        try {
+            $attendee = $action->execute($this->contexts->current(), $eventId, $attendeeId);
+        } catch (InvalidArgumentException $exception) {
+            throw ValidationException::withMessages([
+                'attendee' => [$exception->getMessage()],
+            ]);
+        }
+
+        return $this->success([
+            'id' => $attendee->id,
+            'registration_status' => $attendee->registration_status,
+            'cancelled_at' => $attendee->cancelled_at?->toIso8601String(),
         ]);
     }
 }

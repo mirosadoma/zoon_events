@@ -13,7 +13,18 @@ type AgendaItem = {
   end_at?: string | null
   agenda_date?: string | null
   event_venue_id?: string | null
+  zone_id?: string | null
+  speaker?: string | null
   venue_name?: LocalizedText | null
+  zone_name?: LocalizedText | null
+}
+
+type ZoneOption = {
+  id: string
+  venue_id: string
+  name: LocalizedText
+  type: string
+  capacity: number | null
 }
 
 type Props = {
@@ -23,8 +34,10 @@ type Props = {
   registerUrl: string
   isPreview?: boolean
   availableDates?: string[]
+  zones?: ZoneOption[]
   selectedDate?: string | null
   selectedVenueId?: string | null
+  selectedZoneId?: string | null
 }
 
 function formatAgendaClock(iso: string, locale: 'en' | 'ar', timeZone?: string | null): string {
@@ -64,15 +77,17 @@ export default function PublicEventAgenda({
   registerUrl,
   isPreview = false,
   availableDates = [],
+  zones = [],
   selectedDate = null,
   selectedVenueId = null,
+  selectedZoneId = null,
 }: Props) {
   const { t, direction } = useLocale()
   const dates = availableDates.length > 0
     ? availableDates
     : Array.from(new Set(items.map((item) => item.agenda_date).filter(Boolean) as string[])).sort()
 
-  function visitAgenda(next: { date?: string | null; venueId?: string | null }) {
+  function visitAgenda(next: { date?: string | null; venueId?: string | null; zoneId?: string | null }) {
     if (isPreview) {
       return
     }
@@ -80,6 +95,7 @@ export default function PublicEventAgenda({
     const params = new URLSearchParams(window.location.search)
     const nextDate = next.date === undefined ? selectedDate : next.date
     const nextVenueId = next.venueId === undefined ? selectedVenueId : next.venueId
+    const nextZoneId = next.zoneId === undefined ? selectedZoneId : next.zoneId
 
     if (nextDate) {
       params.set('date', nextDate)
@@ -91,6 +107,12 @@ export default function PublicEventAgenda({
       params.set('venue_id', nextVenueId)
     } else {
       params.delete('venue_id')
+    }
+
+    if (nextZoneId) {
+      params.set('zone_id', nextZoneId)
+    } else {
+      params.delete('zone_id')
     }
 
     const query = params.toString()
@@ -114,7 +136,15 @@ export default function PublicEventAgenda({
       return
     }
 
-    visitAgenda({ venueId, date: null })
+    visitAgenda({ venueId, zoneId: null, date: null })
+  }
+
+  function selectZone(zoneId: string | null) {
+    if (zoneId === selectedZoneId) {
+      return
+    }
+
+    visitAgenda({ zoneId, date: null })
   }
 
   return (
@@ -139,6 +169,43 @@ export default function PublicEventAgenda({
             <h2 id="event-agenda-title" className="registration-agenda-title">
               {t('publicRegistrationAgendaLabel')}
             </h2>
+
+            {zones.length > 0 && !isPreview ? (
+              <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label={t('publicRegistrationAgendaZones')}>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={selectedZoneId === null}
+                  onClick={() => selectZone(null)}
+                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                    selectedZoneId === null
+                      ? 'bg-[var(--brand)] text-white'
+                      : 'bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--ink)]'
+                  }`}
+                >
+                  {t('publicRegistrationAgendaAllZones')}
+                </button>
+                {zones.map((zone) => {
+                  const active = zone.id === selectedZoneId
+                  return (
+                    <button
+                      key={zone.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => selectZone(zone.id)}
+                      className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                        active
+                          ? 'bg-[var(--brand)] text-white'
+                          : 'bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--ink)]'
+                      }`}
+                    >
+                      {zone.name ? <LocalizedEventContent value={zone.name} locale={locale} /> : null}
+                    </button>
+                  )
+                })}
+              </div>
+            ) : null}
 
             {dates.length > 1 && !isPreview ? (
               <div className="mb-5 flex flex-wrap gap-2" role="tablist" aria-label={t('publicRegistrationAgendaDays')}>
@@ -180,9 +247,26 @@ export default function PublicEventAgenda({
                       <span className="registration-agenda-label">
                         <LocalizedEventContent value={item.title} locale={locale} />
                       </span>
-                      {item.venue_name ? (
+                      {item.speaker ? (
                         <span className="mt-1 block text-xs text-[var(--muted)]">
-                          <LocalizedEventContent value={item.venue_name} locale={locale} />
+                          {item.speaker}
+                        </span>
+                      ) : null}
+                      {item.zone_name || item.venue_name ? (
+                        <span className="mt-1 block text-xs text-[var(--muted)]">
+                          {[
+                            item.zone_name ? (
+                              <LocalizedEventContent key="zone" value={item.zone_name} locale={locale} />
+                            ) : null,
+                            item.venue_name ? (
+                              <LocalizedEventContent key="venue" value={item.venue_name} locale={locale} />
+                            ) : null,
+                          ].filter(Boolean).map((part, index) => (
+                            <span key={index}>
+                              {index > 0 ? ' · ' : null}
+                              {part}
+                            </span>
+                          ))}
                         </span>
                       ) : null}
                     </div>

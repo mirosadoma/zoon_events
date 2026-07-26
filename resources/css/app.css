@@ -5114,3 +5114,36 @@ html:not(.dark) .event-detail-metric {
   outline: 2px dashed var(--brand);
   outline-offset: 3px;
 }
+
+@keyframes side-detail-pane-in {
+  from {
+    opacity: 0.4;
+    transform: translateX(1.25rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes side-detail-pane-in-rtl {
+  from {
+    opacity: 0.4;
+    transform: translateX(-1.25rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.side-detail-pane {
+  animation: side-detail-pane-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  border-inline-start: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+}
+
+[dir="rtl"] .side-detail-pane {
+  animation-name: side-detail-pane-in-rtl;
+}

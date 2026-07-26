@@ -5,6 +5,8 @@ namespace App\Modules\Events\Application\Actions;
 use App\Modules\Events\Application\Support\EventWallClockDateTime;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventAgendaItem;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventZone;
+use InvalidArgumentException;
 
 final class SyncEventAgendaItems
 {
@@ -14,6 +16,7 @@ final class SyncEventAgendaItems
     public function execute(string $tenantId, Event $event, array $items): void
     {
         $keepIds = [];
+        $zoneCache = [];
 
         foreach (array_values($items) as $index => $item) {
             if (trim((string) ($item['title_en'] ?? '')) === '' || trim((string) ($item['title_ar'] ?? '')) === '') {
@@ -24,15 +27,38 @@ final class SyncEventAgendaItems
                 continue;
             }
 
+            $zoneId = ! empty($item['zone_id']) ? (int) $item['zone_id'] : null;
+            $venueId = ! empty($item['event_venue_id']) ? (int) $item['event_venue_id'] : null;
+
+            if ($zoneId !== null) {
+                $zone = $zoneCache[$zoneId] ??= EventZone::query()
+                    ->where('tenant_id', $tenantId)
+                    ->where('event_id', $event->id)
+                    ->where('id', $zoneId)
+                    ->first();
+
+                if (! $zone instanceof EventZone) {
+                    throw new InvalidArgumentException('Zone must belong to this event.');
+                }
+
+                if ($venueId !== null && $venueId !== (int) $zone->venue_id) {
+                    throw new InvalidArgumentException('Agenda venue must match the selected zone venue.');
+                }
+
+                $venueId = (int) $zone->venue_id;
+            }
+
             $payload = [
                 'tenant_id' => $tenantId,
                 'event_id' => $event->id,
-                'event_venue_id' => ! empty($item['event_venue_id']) ? (int) $item['event_venue_id'] : null,
+                'event_venue_id' => $venueId,
+                'zone_id' => $zoneId,
                 'agenda_date' => ! empty($item['agenda_date']) ? (string) $item['agenda_date'] : null,
                 'title_en' => trim((string) $item['title_en']),
                 'title_ar' => trim((string) $item['title_ar']),
                 'description_en' => ! empty($item['description_en']) ? trim((string) $item['description_en']) : null,
                 'description_ar' => ! empty($item['description_ar']) ? trim((string) $item['description_ar']) : null,
+                'speaker' => ! empty($item['speaker']) ? trim((string) $item['speaker']) : null,
                 'start_at' => EventWallClockDateTime::parseToAppStorage(
                     isset($item['start_at']) ? (string) $item['start_at'] : null,
                     (string) $event->timezone,

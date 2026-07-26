@@ -6,10 +6,12 @@ use App\Modules\AdminConsole\Infrastructure\Persistence\Models\City;
 use App\Modules\AdminConsole\Infrastructure\Persistence\Models\Country;
 use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
 use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgeTemplate;
+use App\Modules\Events\Domain\EventZoneType;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventAgendaItem;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventCategory;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventEmailTemplate;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventZone;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationFormVersion;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\TenantMembership;
 use Database\Seeders\PermissionCatalogSeeder;
@@ -81,18 +83,56 @@ final class CloneEventTest extends Phase1MySqlTestCase
             'sort_order' => 0,
         ]);
 
+        $sourceZone = EventZone::query()->create([
+            'tenant_id' => $tenant->id,
+            'event_id' => $source->id,
+            'venue_id' => $sourceVenue->id,
+            'zone_name_en' => 'Hall A',
+            'zone_name_ar' => 'قاعة أ',
+            'type' => 'hall',
+            'capacity' => 250,
+        ]);
+
+        $sourceStage = EventZone::query()->create([
+            'tenant_id' => $tenant->id,
+            'event_id' => $source->id,
+            'venue_id' => $sourceVenue->id,
+            'zone_name_en' => 'Stage 1',
+            'zone_name_ar' => 'مسرح 1',
+            'type' => 'stage',
+            'capacity' => null,
+        ]);
+
         EventAgendaItem::query()->create([
             'tenant_id' => $tenant->id,
             'event_id' => $source->id,
             'event_venue_id' => $sourceVenue->id,
+            'zone_id' => $sourceZone->id,
             'agenda_date' => '2027-01-10',
             'title_en' => 'Opening',
             'title_ar' => 'الافتتاح',
             'description_en' => 'Welcome',
             'description_ar' => 'ترحيب',
+            'speaker' => 'Keynote Speaker',
             'start_at' => '2027-01-10 09:00:00',
             'end_at' => '2027-01-10 10:00:00',
             'sort_order' => 1,
+        ]);
+
+        EventAgendaItem::query()->create([
+            'tenant_id' => $tenant->id,
+            'event_id' => $source->id,
+            'event_venue_id' => $sourceVenue->id,
+            'zone_id' => $sourceStage->id,
+            'agenda_date' => '2027-01-10',
+            'title_en' => 'Workshop',
+            'title_ar' => 'ورشة',
+            'description_en' => 'Hands-on',
+            'description_ar' => 'تطبيقي',
+            'speaker' => 'Omar',
+            'start_at' => '2027-01-10 11:00:00',
+            'end_at' => '2027-01-10 12:00:00',
+            'sort_order' => 2,
         ]);
 
         $sourceCategory = EventCategory::query()->create([
@@ -179,9 +219,40 @@ final class CloneEventTest extends Phase1MySqlTestCase
         self::assertSame('Main Hall', $clonedVenue->name_en);
         self::assertNotSame((int) $sourceVenue->id, (int) $clonedVenue->id);
 
-        $agenda = EventAgendaItem::query()->where('event_id', $clone->id)->firstOrFail();
-        self::assertSame((int) $clonedVenue->id, (int) $agenda->event_venue_id);
-        self::assertSame('Opening', $agenda->title_en);
+        $clonedZones = EventZone::query()->where('event_id', $clone->id)->orderBy('id')->get();
+        self::assertCount(2, $clonedZones);
+
+        $clonedHall = $clonedZones->firstWhere('zone_name_en', 'Hall A');
+        $clonedStage = $clonedZones->firstWhere('zone_name_en', 'Stage 1');
+        self::assertNotNull($clonedHall);
+        self::assertNotNull($clonedStage);
+        self::assertSame('قاعة أ', $clonedHall->zone_name_ar);
+        self::assertSame(EventZoneType::Hall, $clonedHall->type);
+        self::assertSame(250, (int) $clonedHall->capacity);
+        self::assertSame((int) $clonedVenue->id, (int) $clonedHall->venue_id);
+        self::assertNotSame((int) $sourceZone->id, (int) $clonedHall->id);
+        self::assertSame(EventZoneType::Stage, $clonedStage->type);
+        self::assertNull($clonedStage->capacity);
+        self::assertNotSame((int) $sourceStage->id, (int) $clonedStage->id);
+
+        $agendaItems = EventAgendaItem::query()
+            ->where('event_id', $clone->id)
+            ->orderBy('sort_order')
+            ->get();
+        self::assertCount(2, $agendaItems);
+
+        $opening = $agendaItems->firstWhere('title_en', 'Opening');
+        $workshop = $agendaItems->firstWhere('title_en', 'Workshop');
+        self::assertNotNull($opening);
+        self::assertNotNull($workshop);
+        self::assertSame((int) $clonedVenue->id, (int) $opening->event_venue_id);
+        self::assertSame((int) $clonedHall->id, (int) $opening->zone_id);
+        self::assertSame('Keynote Speaker', $opening->speaker);
+        self::assertSame('Welcome', $opening->description_en);
+        self::assertSame('2027-01-10', $opening->agenda_date?->toDateString());
+        self::assertSame((int) $clonedVenue->id, (int) $workshop->event_venue_id);
+        self::assertSame((int) $clonedStage->id, (int) $workshop->zone_id);
+        self::assertSame('Omar', $workshop->speaker);
 
         $clonedCategory = EventCategory::query()->where('event_id', $clone->id)->firstOrFail();
         self::assertSame('VIP', $clonedCategory->name);

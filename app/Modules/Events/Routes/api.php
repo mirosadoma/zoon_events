@@ -7,6 +7,7 @@ use App\Modules\Events\Http\Controllers\EventInviteController;
 use App\Modules\Events\Http\Controllers\OrganizerAgendaController;
 use App\Modules\Events\Http\Controllers\OrganizerEventController;
 use App\Modules\Events\Http\Controllers\OrganizerEventVenueController;
+use App\Modules\Events\Http\Controllers\OrganizerEventZoneController;
 use App\Modules\Events\Http\Controllers\PrivilegeController;
 use App\Modules\Events\Http\Controllers\Public\PublicEventController;
 use Illuminate\Support\Facades\Route;
@@ -26,10 +27,12 @@ Route::prefix('tenant/events')
         Route::post('/{event_id}/copy', [OrganizerEventController::class, 'copy'])->middleware(['permission:event.manage,tenant', 'idempotency']);
         Route::put('/{event_id}/agenda', [OrganizerAgendaController::class, 'sync'])->middleware(['permission:event.manage,tenant', 'idempotency']);
         Route::put('/{event_id}/venues', [OrganizerEventVenueController::class, 'sync'])->middleware(['permission:event.manage,tenant', 'idempotency']);
+        Route::put('/{event_id}/zones', [OrganizerEventZoneController::class, 'sync'])->middleware(['permission:event.manage,tenant', 'idempotency']);
 
         Route::get('/{event_id}/invites/template', [EventInviteController::class, 'template'])->middleware('permission:event.invite.manage,tenant');
         Route::post('/{event_id}/invites', [EventInviteController::class, 'send'])->middleware(['permission:event.invite.manage,tenant', 'idempotency']);
         Route::post('/{event_id}/invites/bulk', [EventInviteController::class, 'sendBulk'])->middleware(['permission:event.invite.manage,tenant', 'idempotency']);
+        Route::delete('/{event_id}/invites/{invite_id}', [EventInviteController::class, 'destroy'])->middleware(['permission:event.invite.manage,tenant', 'idempotency']);
 
         // Event category assignments
         Route::get('/{event_id}/categories', [EventCategoryController::class, 'index'])->middleware('permission:category.view,tenant');

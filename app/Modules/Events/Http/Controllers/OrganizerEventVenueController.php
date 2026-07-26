@@ -5,6 +5,7 @@ namespace App\Modules\Events\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\AdminConsole\Application\Actions\SyncEventVenues;
 use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
+use App\Modules\Events\Application\Support\EventZonePresenter;
 use App\Modules\Events\Contracts\EventScope;
 use App\Modules\Events\Http\Requests\EventVenuesSyncRequest;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
@@ -46,7 +47,7 @@ final class OrganizerEventVenueController extends Controller
             ->where('tenant_id', $tenantId)
             ->where('event_id', $event->id)
             ->orderBy('sort_order')
-            ->with(['country', 'city'])
+            ->with(['country', 'city', 'zones'])
             ->get()
             ->map(fn (EventVenue $venue): array => $this->mapVenue($venue))
             ->values()
@@ -69,6 +70,10 @@ final class OrganizerEventVenueController extends Controller
             'end_at' => $venue->end_at?->toIso8601String(),
             'registration_opens_at' => $venue->registration_opens_at?->toIso8601String(),
             'registration_closes_at' => $venue->registration_closes_at?->toIso8601String(),
+            'zones' => $venue->zones
+                ->map(fn ($zone): array => EventZonePresenter::toArray($zone))
+                ->values()
+                ->all(),
         ];
     }
 }

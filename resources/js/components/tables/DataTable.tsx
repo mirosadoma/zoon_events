@@ -14,6 +14,8 @@ type DataTableProps<T extends Record<string, unknown>> = {
   getRowKey: (row: T) => string
   title?: string
   toolbar?: ReactNode
+  onRowClick?: (row: T) => void
+  selectedRowKey?: string | null
 }
 
 export default function DataTable<T extends Record<string, unknown>>({
@@ -23,6 +25,8 @@ export default function DataTable<T extends Record<string, unknown>>({
   getRowKey,
   title,
   toolbar,
+  onRowClick,
+  selectedRowKey = null,
 }: DataTableProps<T>) {
   const { t } = useLocale()
   const resolvedEmptyMessage = emptyMessage ?? t('noRecordsFound')
@@ -57,15 +61,28 @@ export default function DataTable<T extends Record<string, unknown>>({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr key={getRowKey(row)}>
-                {columns.map((column) => (
-                  <td key={column.key} className="text-start">
-                    {column.render ? column.render(row) : String(row[column.key] ?? '')}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {rows.map((row) => {
+              const rowKey = getRowKey(row)
+              const selected = selectedRowKey !== null && selectedRowKey === rowKey
+
+              return (
+                <tr
+                  key={rowKey}
+                  className={[
+                    onRowClick ? 'cursor-pointer transition-colors hover:bg-[color-mix(in_srgb,var(--brand-soft)_55%,transparent)]' : '',
+                    selected ? 'bg-[color-mix(in_srgb,var(--brand-soft)_70%,transparent)]' : '',
+                  ].filter(Boolean).join(' ')}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  aria-selected={onRowClick ? selected : undefined}
+                >
+                  {columns.map((column) => (
+                    <td key={column.key} className="text-start">
+                      {column.render ? column.render(row) : String(row[column.key] ?? '')}
+                    </td>
+                  ))}
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

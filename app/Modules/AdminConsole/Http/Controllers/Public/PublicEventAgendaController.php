@@ -6,7 +6,7 @@ use App\Exceptions\FoundationException;
 use App\Http\Controllers\Controller;
 use App\Modules\Events\Application\Support\EvaluateEventCategoryCapacity;
 use App\Modules\Events\Application\Support\EvaluatePublicRegistrationWindow;
-use App\Modules\Events\Application\Support\EventWallClockDateTime;
+use App\Modules\Events\Application\Support\EventZonePresenter;
 use App\Modules\Events\Application\Support\PublicRegistrationEventPresenter;
 use App\Modules\Events\Application\Support\RenderRegistrationInviteUnavailablePage;
 use App\Modules\Events\Application\Support\RenderRegistrationSoldOutPage;
@@ -58,47 +58,34 @@ final class PublicEventAgendaController extends Controller
             return $this->registrationSoldOutPages->execute($resolvedLocale, $event);
         }
 
-        $event->loadMissing(['agendaItems.venue']);
+        $event->loadMissing(['venues.zones', 'agendaItems.venue', 'agendaItems.zone']);
 
         $registerUrl = "/{$resolvedLocale}/events/{$event->slug}/register";
         if ($invite !== null) {
             $registerUrl .= '?invite='.$invite->code;
         }
 
-        $fallbackVenueId = $event->venues()->count() === 1
-            ? (string) $event->venues()->value('id')
+        $fallbackVenueId = $event->venues->count() === 1
+            ? (string) $event->venues->first()->id
             : null;
 
         $normalizedItems = $event->agendaItems
-            ->map(function (EventAgendaItem $item) use ($event, $fallbackVenueId): array {
-                $agendaDate = $item->agenda_date?->toDateString()
-                    ?? ($item->start_at?->toDateString());
-                $venueId = $item->event_venue_id !== null
-                    ? (string) $item->event_venue_id
-                    : $fallbackVenueId;
-
-                return [
-                    'id' => (string) $item->id,
-                    'title' => ['en' => $item->title_en, 'ar' => $item->title_ar],
-                    'start_at' => EventWallClockDateTime::toIso8601($item->start_at, $event->timezone),
-                    'end_at' => EventWallClockDateTime::toIso8601($item->end_at, $event->timezone),
-                    'agenda_date' => $agendaDate,
-                    'event_venue_id' => $venueId,
-                    'venue_name' => $item->venue
-                        ? ['en' => (string) $item->venue->name_en, 'ar' => (string) $item->venue->name_ar]
-                        : null,
-                    'sort_order' => (int) $item->sort_order,
-                ];
-            })
+            ->map(fn (EventAgendaItem $item): array => EventZonePresenter::agendaItemForPublic(
+                $item,
+                (string) $event->timezone,
+                $fallbackVenueId,
+            ))
             ->sortBy([
                 ['sort_order', 'asc'],
                 ['start_at', 'asc'],
             ])
             ->values();
 
-        $validVenueIds = $event->venues()
-            ->orderBy('sort_order')
-            ->orderBy('id')
+        $validVenueIds = $event->venues
+            ->sortBy([
+                ['sort_order', 'asc'],
+                ['id', 'asc'],
+            ])
             ->pluck('id')
             ->map(fn ($id): string => (string) $id)
             ->values()
@@ -116,7 +103,26 @@ final class PublicEventAgendaController extends Controller
                 fn (array $item): bool => ($item['event_venue_id'] ?? null) === $selectedVenueId,
             )->values();
 
-        $availableDates = $itemsForVenue
+        $zonesForVenue = $event->venues
+            ->when($selectedVenueId !== null, fn ($venues) => $venues->where('id', (int) $selectedVenueId))
+            ->flatMap(fn ($venue) => $venue->zones)
+            ->map(fn ($zone): array => EventZonePresenter::toArray($zone))
+            ->values()
+            ->all();
+
+        $validZoneIds = collect($zonesForVenue)->pluck('id')->all();
+        $requestedZoneId = $request->query('zone_id');
+        $selectedZoneId = is_string($requestedZoneId) && in_array($requestedZoneId, $validZoneIds, true)
+            ? $requestedZoneId
+            : null;
+
+        $itemsForZone = $selectedZoneId === null
+            ? $itemsForVenue
+            : $itemsForVenue->filter(
+                fn (array $item): bool => ($item['zone_id'] ?? null) === $selectedZoneId,
+            )->values();
+
+        $availableDates = $itemsForZone
             ->pluck('agenda_date')
             ->filter()
             ->unique()
@@ -129,7 +135,7 @@ final class PublicEventAgendaController extends Controller
             ? $requestedDate
             : ($availableDates[0] ?? null);
 
-        $items = $itemsForVenue
+        $items = $itemsForZone
             ->filter(function (array $item) use ($selectedDate): bool {
                 if ($selectedDate !== null && ($item['agenda_date'] ?? null) !== $selectedDate) {
                     return false;
@@ -144,7 +150,10 @@ final class PublicEventAgendaController extends Controller
                 'end_at' => $item['end_at'],
                 'agenda_date' => $item['agenda_date'],
                 'event_venue_id' => $item['event_venue_id'],
+                'zone_id' => $item['zone_id'],
+                'speaker' => $item['speaker'],
                 'venue_name' => $item['venue_name'],
+                'zone_name' => $item['zone_name'],
             ])
             ->values()
             ->all();
@@ -153,8 +162,10 @@ final class PublicEventAgendaController extends Controller
             'locale' => $resolvedLocale,
             'event' => $this->eventPages->heroEvent($event),
             'items' => $items,
+            'zones' => $zonesForVenue,
             'availableDates' => array_values($availableDates),
             'selectedVenueId' => $selectedVenueId,
+            'selectedZoneId' => $selectedZoneId,
             'selectedDate' => $selectedDate,
             'registerUrl' => $registerUrl,
             'inviteCode' => $invite?->code,
