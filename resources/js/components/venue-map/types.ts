@@ -3,7 +3,7 @@ export type RelativePoint = {
   y: number
 }
 
-export type ZoneShapeType = 'polygon' | 'rectangle' | 'circle' | 'triangle' | 'hexagon' | 'ellipse'
+export type ZoneShapeType = 'polygon' | 'rectangle' | 'circle' | 'triangle' | 'hexagon' | 'ellipse' | 'pillar' | 'person'
 
 export type MapZone = {
   key: string
@@ -47,6 +47,8 @@ export type EditorTool =
   | 'triangle'
   | 'hexagon'
   | 'ellipse'
+  | 'pillar'
+  | 'person'
   | 'delete'
 
 export const DEFAULT_ZONE_COLORS: Record<string, string> = {

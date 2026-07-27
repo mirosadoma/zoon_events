@@ -2,9 +2,11 @@ import { FormEvent, useMemo, useRef, useState } from 'react'
 import {
   Circle as CircleIcon,
   CircleEllipsis,
+  Columns3,
   Hexagon,
   MousePointer2,
   Pentagon,
+  PersonStanding,
   Redo2,
   RotateCcw,
   RotateCw,
@@ -243,6 +245,8 @@ export default function VenueMapEditor({
     { id: 'hexagon', icon: Hexagon, label: t('venueMapToolHexagon') },
     { id: 'circle', icon: CircleIcon, label: t('venueMapToolCircle') },
     { id: 'ellipse', icon: CircleEllipsis, label: t('venueMapToolEllipse') },
+    { id: 'pillar', icon: Columns3, label: t('venueMapToolPillar') },
+    { id: 'person', icon: PersonStanding, label: t('venueMapToolPerson') },
     { id: 'delete', icon: Trash2, label: t('venueMapToolDelete') },
   ]
 
@@ -324,6 +328,11 @@ export default function VenueMapEditor({
         {map?.image_url ? (
           <ResizableMapFrame
             storageKey={`venue-map-frame:${eventId}:${venueId}`}
+            aspectRatio={
+              map.width && map.height && map.height > 0
+                ? map.width / map.height
+                : null
+            }
             hint={t('venueMapResizeHint')}
           >
             <VenueMapCanvas
@@ -539,6 +548,7 @@ export default function VenueMapEditor({
             />
             <p className="text-xs text-[var(--muted)]">{t('venueMapNavHint')}</p>
             <p className="text-xs text-[var(--muted)]">{t('venueMapReplaceShapeHint')}</p>
+            <p className="text-xs text-[var(--muted)]">{t('venueMapVertexHint')}</p>
             {selected.shape_type ? (
               <div className="flex gap-2">
                 <button

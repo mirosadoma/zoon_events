@@ -7,30 +7,58 @@ type Props = {
   minWidth?: number
   minHeight?: number
   defaultHeight?: number
+  /** Image width / height — used to pick a sensible default frame size. */
+  aspectRatio?: number | null
   hint?: string
   children: ReactNode
 }
 
 type FrameSize = {
-  width: number | null
+  width: number
   height: number
 }
 
-function readStoredSize(storageKey: string, fallbackHeight: number): FrameSize {
-  if (typeof window === 'undefined') {
-    return { width: null, height: fallbackHeight }
-  }
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
+function readStoredSize(storageKey: string): FrameSize | null {
+  if (typeof window === 'undefined') return null
 
   try {
     const raw = window.localStorage.getItem(storageKey)
-    if (!raw) return { width: null, height: fallbackHeight }
+    if (!raw) return null
     const parsed = JSON.parse(raw) as { width?: number; height?: number }
+    if (typeof parsed.width !== 'number' || typeof parsed.height !== 'number') return null
     return {
-      width: typeof parsed.width === 'number' ? parsed.width : null,
-      height: typeof parsed.height === 'number' ? parsed.height : fallbackHeight,
+      width: parsed.width,
+      height: parsed.height,
     }
   } catch {
-    return { width: null, height: fallbackHeight }
+    return null
+  }
+}
+
+function sizeFromAspect(
+  parentWidth: number,
+  aspectRatio: number | null | undefined,
+  defaultHeight: number,
+  minWidth: number,
+  minHeight: number,
+): FrameSize {
+  const maxWidth = Math.max(minWidth, parentWidth)
+  const ratio = aspectRatio && aspectRatio > 0 ? aspectRatio : 16 / 10
+  let height = defaultHeight
+  let width = Math.round(height * ratio)
+
+  if (width > maxWidth) {
+    width = maxWidth
+    height = Math.round(width / ratio)
+  }
+
+  return {
+    width: clamp(width, minWidth, maxWidth),
+    height: Math.max(minHeight, height),
   }
 }
 
@@ -39,11 +67,34 @@ export default function ResizableMapFrame({
   minWidth = 320,
   minHeight = 280,
   defaultHeight = 520,
+  aspectRatio = null,
   hint,
   children,
 }: Props) {
+  const wrapRef = useRef<HTMLDivElement | null>(null)
   const frameRef = useRef<HTMLDivElement | null>(null)
-  const [size, setSize] = useState<FrameSize>(() => readStoredSize(storageKey, defaultHeight))
+  const [size, setSize] = useState<FrameSize>(() => {
+    const stored = readStoredSize(storageKey)
+    if (stored) return stored
+    return sizeFromAspect(960, aspectRatio, defaultHeight, minWidth, minHeight)
+  })
+
+  useEffect(() => {
+    const wrap = wrapRef.current
+    if (!wrap) return
+
+    const stored = readStoredSize(storageKey)
+    if (stored) {
+      const maxWidth = Math.max(minWidth, wrap.clientWidth)
+      setSize({
+        width: clamp(stored.width, minWidth, maxWidth),
+        height: Math.max(minHeight, stored.height),
+      })
+      return
+    }
+
+    setSize(sizeFromAspect(wrap.clientWidth, aspectRatio, defaultHeight, minWidth, minHeight))
+  }, [storageKey, aspectRatio, defaultHeight, minWidth, minHeight])
 
   useEffect(() => {
     window.localStorage.setItem(storageKey, JSON.stringify(size))
@@ -54,13 +105,14 @@ export default function ResizableMapFrame({
     event.stopPropagation()
 
     const frame = frameRef.current
-    if (!frame) return
+    const wrap = wrapRef.current
+    if (!frame || !wrap) return
 
     const startX = event.clientX
     const startY = event.clientY
     const startWidth = frame.offsetWidth
     const startHeight = frame.offsetHeight
-    const parentWidth = frame.parentElement?.clientWidth ?? startWidth
+    const parentWidth = wrap.clientWidth
 
     const handle = event.currentTarget
     handle.setPointerCapture(event.pointerId)
@@ -86,7 +138,7 @@ export default function ResizableMapFrame({
       }
 
       setSize({
-        width: Math.min(parentWidth, Math.max(minWidth, Math.round(nextWidth))),
+        width: clamp(Math.round(nextWidth), minWidth, parentWidth),
         height: Math.max(minHeight, Math.round(nextHeight)),
       })
     }
@@ -102,13 +154,13 @@ export default function ResizableMapFrame({
   }
 
   return (
-    <div className="venue-map-resize-wrap">
+    <div ref={wrapRef} className="venue-map-resize-wrap">
       {hint ? <p className="venue-map-resize-hint">{hint}</p> : null}
       <div
         ref={frameRef}
         className="venue-map-resize-frame"
         style={{
-          width: size.width ?? '100%',
+          width: size.width,
           height: size.height,
         }}
       >

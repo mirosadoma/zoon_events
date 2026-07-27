@@ -114,9 +114,14 @@ final class SyncEventZones
                     throw new InvalidArgumentException('Zone shapes require relative polygon coordinates.');
                 }
 
-                if ($shapeType === EventZoneShapeType::Circle->value || $shapeType === EventZoneShapeType::Ellipse->value) {
+                if (
+                    $shapeType === EventZoneShapeType::Circle->value
+                    || $shapeType === EventZoneShapeType::Ellipse->value
+                    || $shapeType === EventZoneShapeType::Pillar->value
+                    || $shapeType === EventZoneShapeType::Person->value
+                ) {
                     if (count($coordinates ?? []) !== 1) {
-                        throw new InvalidArgumentException('Circle/ellipse zones require a single relative center point.');
+                        throw new InvalidArgumentException('Circle/ellipse/marker zones require a single relative center point.');
                     }
                 } elseif ($shapeType === EventZoneShapeType::Rectangle->value) {
                     if (count($coordinates ?? []) !== 4) {
@@ -148,9 +153,14 @@ final class SyncEventZones
                     ? (float) $zone['shape_rotation']
                     : 0.0;
 
-                if ($shapeType === EventZoneShapeType::Circle->value || $shapeType === EventZoneShapeType::Ellipse->value) {
+                if (
+                    $shapeType === EventZoneShapeType::Circle->value
+                    || $shapeType === EventZoneShapeType::Ellipse->value
+                    || $shapeType === EventZoneShapeType::Pillar->value
+                    || $shapeType === EventZoneShapeType::Person->value
+                ) {
                     if ($shapeRadius === null || $shapeRadius <= 0 || $shapeRadius > 1) {
-                        throw new InvalidArgumentException('Circle/ellipse zones require a relative radius between 0 and 1.');
+                        throw new InvalidArgumentException('Circle/ellipse/marker zones require a relative radius between 0 and 1.');
                     }
                     if ($shapeType === EventZoneShapeType::Ellipse->value) {
                         if ($shapeRadiusY === null || $shapeRadiusY <= 0 || $shapeRadiusY > 1) {

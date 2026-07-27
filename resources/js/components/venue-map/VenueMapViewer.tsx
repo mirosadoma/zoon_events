@@ -2,7 +2,8 @@ import { Circle, Ellipse, Group, Image as KonvaImage, Layer, Line, Stage } from 
 import type Konva from 'konva'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { centeredLocalFlat, toPixel } from '@/components/venue-map/coordinates'
-import { defaultFillForType, type RelativePoint } from '@/components/venue-map/types'
+import { defaultFillForType, type RelativePoint, type ZoneShapeType } from '@/components/venue-map/types'
+import VenueMapMarkerShape from '@/components/venue-map/VenueMapMarkerShape'
 
 type PublicZone = {
   id: string
@@ -10,7 +11,7 @@ type PublicZone = {
   description?: { en: string | null; ar: string | null } | null
   label: string | null
   type: string
-  shape_type: 'polygon' | 'rectangle' | 'circle' | 'triangle' | 'hexagon' | 'ellipse' | null
+  shape_type: ZoneShapeType | null
   polygon_coordinates: RelativePoint[] | null
   shape_radius: number | null
   shape_rotation?: number | null
@@ -194,6 +195,22 @@ export default function VenueMapViewer({
                       strokeWidth={active ? 3 : 2}
                       {...handlers}
                     />
+                  ) : zone.shape_type === 'pillar' || zone.shape_type === 'person' ? (
+                    <VenueMapMarkerShape
+                      shapeType={zone.shape_type}
+                      x={px.x}
+                      y={px.y}
+                      radiusPx={(zone.shape_radius ?? 0.05) * naturalWidth}
+                      rotation={rotation}
+                      fill={fill}
+                      opacity={opacity}
+                      stroke={stroke}
+                      strokeWidth={active ? 3 : 2}
+                      onMouseEnter={handlers.onMouseEnter}
+                      onMouseMove={handlers.onMouseMove}
+                      onMouseLeave={handlers.onMouseLeave}
+                      onClick={handlers.onClick}
+                    />
                   ) : (
                     (() => {
                       const centered = centeredLocalFlat(zone.polygon_coordinates, naturalWidth, naturalHeight)
@@ -238,9 +255,9 @@ export default function VenueMapViewer({
                 {selectedDescription}
               </p>
             ) : null}
-            {navigateHint ? (
+            {/* {navigateHint ? (
               <p className="mt-1 text-sm text-[var(--muted)]">{navigateHint}</p>
-            ) : null}
+            ) : null} */}
           </div>
           {directionsUrl(selected) ? (
             <a

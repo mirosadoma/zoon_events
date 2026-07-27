@@ -1,5 +1,5 @@
 import VenueMapViewer from '@/components/venue-map/VenueMapViewer'
-import type { RelativePoint } from '@/components/venue-map/types'
+import type { RelativePoint, ZoneShapeType } from '@/components/venue-map/types'
 import RegistrationEventHero, { type RegistrationHeroEvent } from '@/components/registration/RegistrationEventHero'
 import RegistrationPageControls from '@/components/registration/RegistrationPageControls'
 import { useLocale } from '@/hooks/useLocale'
@@ -10,7 +10,7 @@ type PublicZone = {
   description?: { en: string | null; ar: string | null } | null
   label: string | null
   type: string
-  shape_type: 'polygon' | 'rectangle' | 'circle' | 'triangle' | 'hexagon' | 'ellipse' | null
+  shape_type: ZoneShapeType | null
   polygon_coordinates: RelativePoint[] | null
   shape_radius: number | null
   shape_rotation?: number | null

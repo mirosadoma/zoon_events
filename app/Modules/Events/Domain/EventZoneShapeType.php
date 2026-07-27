@@ -10,6 +10,8 @@ enum EventZoneShapeType: string
     case Triangle = 'triangle';
     case Hexagon = 'hexagon';
     case Ellipse = 'ellipse';
+    case Pillar = 'pillar';
+    case Person = 'person';
 
     /** @return list<string> */
     public static function values(): array

@@ -216,17 +216,70 @@ export function regularPolygonPoints(
   const radius = Math.hypot(dx, dy)
   const startAngle = Math.atan2(dy, dx)
 
-  return Array.from({ length: sides }, (_, index) => {
+  // Build in relative space without per-vertex clamping, then fit as a whole
+  // so triangles/hexagons near the frame edge keep their proportions.
+  const points = Array.from({ length: sides }, (_, index) => {
     const angle = startAngle + (index * 2 * Math.PI) / sides
     return {
-      x: Number(clamp01(center.x + Math.cos(angle) * radius).toFixed(6)),
-      y: Number(clamp01(center.y + Math.sin(angle) * radius).toFixed(6)),
+      x: center.x + Math.cos(angle) * radius,
+      y: center.y + Math.sin(angle) * radius,
     }
   })
+
+  return fitRelativePoints(points)
 }
 
 export function normalizeDegrees(degrees: number): number {
   if (!Number.isFinite(degrees)) return 0
   const wrapped = ((degrees % 360) + 360) % 360
   return Number((wrapped > 180 ? wrapped - 360 : wrapped).toFixed(3))
+}
+
+/** Rotate a pixel around a pivot (Konva-style, image pixel space). */
+export function rotatePixelAround(
+  x: number,
+  y: number,
+  cx: number,
+  cy: number,
+  degrees: number,
+): { x: number; y: number } {
+  if (!degrees) return { x, y }
+  const radians = (degrees * Math.PI) / 180
+  const cos = Math.cos(radians)
+  const sin = Math.sin(radians)
+  const dx = x - cx
+  const dy = y - cy
+  return {
+    x: cx + dx * cos - dy * sin,
+    y: cy + dx * sin + dy * cos,
+  }
+}
+
+/**
+ * Bake Konva rotation into absolute relative points (pixel-accurate),
+ * so vertex handles match what the user sees.
+ */
+export function bakeRotationIntoPoints(
+  points: RelativePoint[],
+  degrees: number,
+  width: number,
+  height: number,
+): RelativePoint[] {
+  if (!degrees || points.length === 0) return points
+
+  const center = centroid(points)
+  const centerPx = toPixel(center, width, height)
+
+  return points.map((point) => {
+    const px = toPixel(point, width, height)
+    const rotated = rotatePixelAround(px.x, px.y, centerPx.x, centerPx.y, degrees)
+    return toRelative(rotated.x, rotated.y, width, height)
+  })
+}
+
+export function supportsVertexEditing(shapeType: string | null | undefined): boolean {
+  return shapeType === 'polygon'
+    || shapeType === 'rectangle'
+    || shapeType === 'triangle'
+    || shapeType === 'hexagon'
 }

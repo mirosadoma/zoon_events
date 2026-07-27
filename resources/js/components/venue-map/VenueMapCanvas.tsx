@@ -12,14 +12,18 @@ import type Konva from 'konva'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   absoluteFromCenteredLocal,
+  bakeRotationIntoPoints,
   centeredLocalFlat,
+  centroid,
   clamp01,
   normalizeDegrees,
   pointsToFlat,
   rectangleFromCorners,
   regularPolygonPoints,
   relativeRadius,
+  rotatePixelAround,
   snapRelative,
+  supportsVertexEditing,
   toPixel,
   toRelative,
 } from '@/components/venue-map/coordinates'
@@ -30,6 +34,7 @@ import {
   type RelativePoint,
   type ZoneShapeType,
 } from '@/components/venue-map/types'
+import VenueMapMarkerShape, { isMarkerShape, isPointRadiusShape } from '@/components/venue-map/VenueMapMarkerShape'
 
 type Props = {
   imageUrl: string | null
@@ -117,6 +122,14 @@ export default function VenueMapCanvas({
     y: number
   } | null>(null)
   const [hoveredKey, setHoveredKey] = useState<string | null>(null)
+  // Live vertex drag preview — avoids flooding undo history on every pointer move.
+  const [dragPreview, setDragPreview] = useState<MapZone[] | null>(null)
+  const [activeVertexIndex, setActiveVertexIndex] = useState<number | null>(null)
+  const draggingVertexRef = useRef<{ key: string; index: number } | null>(null)
+  const zonesRef = useRef(zones)
+  const dragPreviewRef = useRef<MapZone[] | null>(null)
+  zonesRef.current = zones
+  dragPreviewRef.current = dragPreview
 
   useEffect(() => {
     const element = containerRef.current
@@ -137,19 +150,34 @@ export default function VenueMapCanvas({
 
   const imageWidth = naturalWidth || image?.naturalWidth || 1200
   const imageHeight = naturalHeight || image?.naturalHeight || 800
-  const fitScale = Math.min(size.width / imageWidth, size.height / imageHeight, 1)
+  // Fit the floor plan into the resizable frame (scale up or down), then apply user zoom.
+  const fitScale = Math.min(size.width / imageWidth, size.height / imageHeight)
   const stageScale = fitScale * scale
+  const centerX = (size.width - imageWidth * stageScale) / 2
+  const centerY = (size.height - imageHeight * stageScale) / 2
+  const stageX = centerX + position.x
+  const stageY = centerY + position.y
+  const viewTransformRef = useRef({ stageX, stageY, stageScale, imageWidth, imageHeight })
+  viewTransformRef.current = { stageX, stageY, stageScale, imageWidth, imageHeight }
+
+  const displayZones = dragPreview ?? zones
 
   const anchors = useMemo(() => {
     const points: RelativePoint[] = []
-    for (const zone of zones) {
+    for (const zone of displayZones) {
       if (zone.polygon_coordinates) {
         points.push(...zone.polygon_coordinates)
       }
     }
     points.push(...draftPoints)
     return points
-  }, [zones, draftPoints])
+  }, [displayZones, draftPoints])
+
+  useEffect(() => {
+    if (draggingVertexRef.current) return
+    setDragPreview(null)
+    setActiveVertexIndex(null)
+  }, [zones, selectedKey, tool])
 
   useEffect(() => {
     const transformer = transformerRef.current
@@ -164,7 +192,7 @@ export default function VenueMapCanvas({
       transformer.nodes([])
       transformer.getLayer()?.batchDraw()
     }
-  }, [selectedKey, tool, zones])
+  }, [selectedKey, tool, displayZones])
 
   function pointerRelative(): RelativePoint | null {
     const stage = stageRef.current
@@ -172,13 +200,40 @@ export default function VenueMapCanvas({
     const pointer = stage.getPointerPosition()
     if (!pointer) return null
 
-    const x = (pointer.x - position.x) / stageScale
-    const y = (pointer.y - position.y) / stageScale
+    const x = (pointer.x - stageX) / stageScale
+    const y = (pointer.y - stageY) / stageScale
     return snapRelative(toRelative(x, y, imageWidth, imageHeight), anchors)
   }
 
   function updateZone(key: string, patch: Partial<MapZone>) {
-    onZonesChange(zones.map((zone) => (zone.key === key ? { ...zone, ...patch } : zone)))
+    onZonesChange(zonesRef.current.map((zone) => (zone.key === key ? { ...zone, ...patch } : zone)))
+  }
+
+  const selectedVertexZone = useMemo((): MapZone | null => {
+    if (tool !== 'select' || !selectedKey) return null
+    const zone = displayZones.find((row) => row.key === selectedKey) ?? null
+    if (!zone || !supportsVertexEditing(zone.shape_type) || !zone.polygon_coordinates?.length) {
+      return null
+    }
+    return zone
+  }, [tool, selectedKey, displayZones])
+
+  function moveVertexPoints(
+    source: MapZone[],
+    zoneKey: string,
+    index: number,
+    nextPoint: RelativePoint,
+  ): MapZone[] {
+    return source.map((zone) => {
+      if (zone.key !== zoneKey || !zone.polygon_coordinates) return zone
+      return {
+        ...zone,
+        shape_rotation: 0,
+        polygon_coordinates: zone.polygon_coordinates.map((point, pointIndex) => (
+          pointIndex === index ? nextPoint : point
+        )),
+      }
+    })
   }
 
   function createShapeZone(
@@ -287,7 +342,7 @@ export default function VenueMapCanvas({
       return
     }
 
-    if (tool === 'circle' || tool === 'ellipse') {
+    if (tool === 'circle' || tool === 'ellipse' || tool === 'pillar' || tool === 'person') {
       if (!rectStart) {
         setRectStart(point)
         setDraftPoints([point])
@@ -296,9 +351,9 @@ export default function VenueMapCanvas({
       }
 
       const aspect = imageWidth / imageHeight
-      const radius = relativeRadius(rectStart, point, aspect)
+      const radius = Math.max(0.01, relativeRadius(rectStart, point, aspect))
       createShapeZone(
-        tool === 'ellipse' ? 'ellipse' : 'circle',
+        tool,
         [rectStart],
         radius,
         tool === 'ellipse' ? radius : null,
@@ -338,15 +393,26 @@ export default function VenueMapCanvas({
 
     const direction = event.evt.deltaY > 0 ? -1 : 1
     const nextScale = Math.min(4, Math.max(0.4, oldScale * (direction > 0 ? 1.08 : 1 / 1.08)))
+
+    const oldStageScale = fitScale * oldScale
+    const oldCenterX = (size.width - imageWidth * oldStageScale) / 2
+    const oldCenterY = (size.height - imageHeight * oldStageScale) / 2
+    const absX = oldCenterX + position.x
+    const absY = oldCenterY + position.y
+
     const mousePointTo = {
-      x: (pointer.x - position.x) / (fitScale * oldScale),
-      y: (pointer.y - position.y) / (fitScale * oldScale),
+      x: (pointer.x - absX) / oldStageScale,
+      y: (pointer.y - absY) / oldStageScale,
     }
+
+    const nextStageScale = fitScale * nextScale
+    const nextCenterX = (size.width - imageWidth * nextStageScale) / 2
+    const nextCenterY = (size.height - imageHeight * nextStageScale) / 2
 
     setScale(nextScale)
     setPosition({
-      x: pointer.x - mousePointTo.x * fitScale * nextScale,
-      y: pointer.y - mousePointTo.y * fitScale * nextScale,
+      x: pointer.x - mousePointTo.x * nextStageScale - nextCenterX,
+      y: pointer.y - mousePointTo.y * nextStageScale - nextCenterY,
     })
   }
 
@@ -426,7 +492,7 @@ export default function VenueMapCanvas({
       onDragEnd: (event: Konva.KonvaEventObject<DragEvent>) => {
         const node = event.target
 
-        if (zone.shape_type === 'circle' || zone.shape_type === 'ellipse') {
+        if (isPointRadiusShape(zone.shape_type)) {
           updateZone(zone.key, {
             polygon_coordinates: [toRelative(node.x(), node.y(), imageWidth, imageHeight)],
           })
@@ -450,7 +516,7 @@ export default function VenueMapCanvas({
         const node = event.target
         const nextRotation = normalizeDegrees(node.rotation())
 
-        if (zone.shape_type === 'circle' || zone.shape_type === 'ellipse') {
+        if (isPointRadiusShape(zone.shape_type)) {
           const scaleX = Math.abs(node.scaleX())
           const scaleY = Math.abs(node.scaleY())
           const baseRadiusX = (zone.shape_radius ?? 0.05) * imageWidth
@@ -458,28 +524,30 @@ export default function VenueMapCanvas({
           node.scaleX(1)
           node.scaleY(1)
 
-          if (zone.shape_type === 'circle') {
-            const circle = node as Konva.Circle
-            const nextRadiusPx = Math.max(4, baseRadiusX * ((scaleX + scaleY) / 2))
-            circle.radius(nextRadiusPx)
+          if (zone.shape_type === 'ellipse') {
+            const ellipse = node as Konva.Ellipse
+            const nextRadiusX = Math.max(4, baseRadiusX * scaleX)
+            const nextRadiusY = Math.max(4, baseRadiusY * scaleY)
+            ellipse.radiusX(nextRadiusX)
+            ellipse.radiusY(nextRadiusY)
             updateZone(zone.key, {
               polygon_coordinates: [toRelative(node.x(), node.y(), imageWidth, imageHeight)],
-              shape_radius: Number(Math.max(0.001, clamp01(nextRadiusPx / imageWidth)).toFixed(6)),
-              shape_radius_y: null,
+              shape_radius: Number(Math.max(0.001, clamp01(nextRadiusX / imageWidth)).toFixed(6)),
+              shape_radius_y: Number(Math.max(0.001, clamp01(nextRadiusY / imageHeight)).toFixed(6)),
               shape_rotation: nextRotation,
             })
             return
           }
 
-          const ellipse = node as Konva.Ellipse
-          const nextRadiusX = Math.max(4, baseRadiusX * scaleX)
-          const nextRadiusY = Math.max(4, baseRadiusY * scaleY)
-          ellipse.radiusX(nextRadiusX)
-          ellipse.radiusY(nextRadiusY)
+          const nextRadiusPx = Math.max(4, baseRadiusX * ((scaleX + scaleY) / 2))
+          if (zone.shape_type === 'circle') {
+            ;(node as Konva.Circle).radius(nextRadiusPx)
+          }
+
           updateZone(zone.key, {
             polygon_coordinates: [toRelative(node.x(), node.y(), imageWidth, imageHeight)],
-            shape_radius: Number(Math.max(0.001, clamp01(nextRadiusX / imageWidth)).toFixed(6)),
-            shape_radius_y: Number(Math.max(0.001, clamp01(nextRadiusY / imageHeight)).toFixed(6)),
+            shape_radius: Number(Math.max(0.001, clamp01(nextRadiusPx / imageWidth)).toFixed(6)),
+            shape_radius_y: null,
             shape_rotation: nextRotation,
           })
           return
@@ -537,6 +605,36 @@ export default function VenueMapCanvas({
       )
     }
 
+    if (zone.shape_type === 'pillar' || zone.shape_type === 'person') {
+      const markerType = zone.shape_type
+      const radiusPx = (zone.shape_radius ?? 0.05) * imageWidth
+      return (
+        <VenueMapMarkerShape
+          key={zone.key}
+          shapeType={markerType}
+          x={centerPx.x}
+          y={centerPx.y}
+          radiusPx={radiusPx}
+          rotation={rotation}
+          fill={fill}
+          opacity={hovered || selected ? Math.min(opacity + 0.15, 0.85) : opacity}
+          stroke={stroke}
+          strokeWidth={selected || hovered ? strokeWidth + 1 : strokeWidth}
+          draggable={tool === 'select'}
+          shapeRef={(node) => {
+            if (node) shapeRefs.current[zone.key] = node
+            else delete shapeRefs.current[zone.key]
+          }}
+          onMouseEnter={common.onMouseEnter}
+          onMouseMove={common.onMouseMove}
+          onMouseLeave={common.onMouseLeave}
+          onClick={common.onClick}
+          onDragEnd={common.onDragEnd}
+          onTransformEnd={common.onTransformEnd}
+        />
+      )
+    }
+
     const centered = centeredLocalFlat(zone.polygon_coordinates, imageWidth, imageHeight)
 
     return (
@@ -579,12 +677,15 @@ export default function VenueMapCanvas({
         height={size.height}
         scaleX={stageScale}
         scaleY={stageScale}
-        x={position.x}
-        y={position.y}
-        draggable={tool === 'select'}
+        x={stageX}
+        y={stageY}
+        draggable={tool === 'select' && activeVertexIndex === null}
         onDragEnd={(event) => {
           if (event.target !== stageRef.current) return
-          setPosition({ x: event.target.x(), y: event.target.y() })
+          setPosition({
+            x: event.target.x() - centerX,
+            y: event.target.y() - centerY,
+          })
         }}
         onWheel={handleWheel}
         onMouseMove={() => {
@@ -610,9 +711,26 @@ export default function VenueMapCanvas({
             <Rect width={imageWidth} height={imageHeight} fill="#e5e7eb" listening={false} />
           )}
 
-          {zones.map((zone) => renderZone(zone))}
+          {displayZones.map((zone) => renderZone(zone))}
 
-          {draftPreview ? (
+          {(tool === 'pillar' || tool === 'person') && draftPoints[0] && hoverPoint ? (
+            <VenueMapMarkerShape
+              shapeType={tool === 'pillar' ? 'pillar' : 'person'}
+              x={toPixel(draftPoints[0], imageWidth, imageHeight).x}
+              y={toPixel(draftPoints[0], imageWidth, imageHeight).y}
+              radiusPx={Math.max(
+                8,
+                relativeRadius(draftPoints[0], hoverPoint, imageWidth / imageHeight) * imageWidth,
+              )}
+              fill="#2563eb"
+              opacity={0.45}
+              stroke="#1d4ed8"
+              strokeWidth={2}
+              listening={false}
+            />
+          ) : null}
+
+          {draftPreview && tool !== 'pillar' && tool !== 'person' ? (
             <Line
               points={draftPreview}
               stroke="#2563eb"
@@ -640,27 +758,144 @@ export default function VenueMapCanvas({
             )
           })}
 
+          {selectedVertexZone?.polygon_coordinates?.map((point, index) => {
+            const zone = selectedVertexZone
+            const rotation = zone.shape_rotation ?? 0
+            const center = centroid(zone.polygon_coordinates!)
+            const centerPx = toPixel(center, imageWidth, imageHeight)
+            const px = toPixel(point, imageWidth, imageHeight)
+            const visual = rotatePixelAround(px.x, px.y, centerPx.x, centerPx.y, rotation)
+            const isDragging = activeVertexIndex === index
+
+            return (
+              <Circle
+                key={`vertex-${zone.key}-${index}`}
+                x={visual.x}
+                y={visual.y}
+                radius={7}
+                fill="#ffffff"
+                stroke="#2563eb"
+                strokeWidth={2}
+                draggable
+                perfectDrawEnabled={false}
+                hitStrokeWidth={12}
+                dragBoundFunc={(pos) => {
+                  // pos is absolute (stage/container space). Clamp in image-local space,
+                  // then convert back — otherwise zoom/fit/center makes edge points jump inward.
+                  const view = viewTransformRef.current
+                  if (view.stageScale === 0) return pos
+                  const localX = (pos.x - view.stageX) / view.stageScale
+                  const localY = (pos.y - view.stageY) / view.stageScale
+                  const clampedX = Math.min(view.imageWidth, Math.max(0, localX))
+                  const clampedY = Math.min(view.imageHeight, Math.max(0, localY))
+                  return {
+                    x: view.stageX + clampedX * view.stageScale,
+                    y: view.stageY + clampedY * view.stageScale,
+                  }
+                }}
+                onMouseDown={(event) => {
+                  event.cancelBubble = true
+                }}
+                onTouchStart={(event) => {
+                  event.cancelBubble = true
+                }}
+                onClick={(event) => {
+                  event.cancelBubble = true
+                  onSelect(zone.key)
+                }}
+                onDragStart={(event) => {
+                  event.cancelBubble = true
+                  draggingVertexRef.current = { key: zone.key, index }
+                  setActiveVertexIndex(index)
+
+                  if ((zone.shape_rotation ?? 0) !== 0 && zone.polygon_coordinates) {
+                    const baked = bakeRotationIntoPoints(
+                      zone.polygon_coordinates,
+                      zone.shape_rotation ?? 0,
+                      imageWidth,
+                      imageHeight,
+                    )
+                    const next = zonesRef.current.map((row) => (
+                      row.key === zone.key
+                        ? { ...row, polygon_coordinates: baked, shape_rotation: 0 }
+                        : row
+                    ))
+                    dragPreviewRef.current = next
+                    setDragPreview(next)
+                  } else {
+                    dragPreviewRef.current = zonesRef.current
+                    setDragPreview(zonesRef.current)
+                  }
+                }}
+                onDragMove={(event) => {
+                  event.cancelBubble = true
+                  const nextPoint = toRelative(event.target.x(), event.target.y(), imageWidth, imageHeight)
+                  const next = moveVertexPoints(
+                    dragPreviewRef.current ?? zonesRef.current,
+                    zone.key,
+                    index,
+                    nextPoint,
+                  )
+                  dragPreviewRef.current = next
+                  setDragPreview(next)
+                }}
+                onDragEnd={(event) => {
+                  event.cancelBubble = true
+                  const nextPoint = toRelative(event.target.x(), event.target.y(), imageWidth, imageHeight)
+                  const nextZones = moveVertexPoints(
+                    dragPreviewRef.current ?? zonesRef.current,
+                    zone.key,
+                    index,
+                    nextPoint,
+                  )
+                  draggingVertexRef.current = null
+                  dragPreviewRef.current = null
+                  setActiveVertexIndex(null)
+                  setDragPreview(null)
+                  onZonesChange(nextZones)
+                }}
+                onMouseEnter={(event) => {
+                  const container = event.target.getStage()?.container()
+                  if (container) container.style.cursor = 'grab'
+                }}
+                onMouseLeave={() => {
+                  if (isDragging) return
+                  const container = stageRef.current?.container()
+                  if (container) container.style.cursor = tool === 'select' ? 'default' : container.style.cursor
+                }}
+              />
+            )
+          })}
+
           <Transformer
             ref={transformerRef}
             rotateEnabled={tool === 'select'}
             rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
-            keepRatio={selectedKey !== null && zones.find((zone) => zone.key === selectedKey)?.shape_type === 'circle'}
-            enabledAnchors={
+            keepRatio={
               selectedKey !== null && (
-                zones.find((zone) => zone.key === selectedKey)?.shape_type === 'circle'
-                || zones.find((zone) => zone.key === selectedKey)?.shape_type === 'ellipse'
+                displayZones.find((zone) => zone.key === selectedKey)?.shape_type === 'circle'
+                || isMarkerShape(displayZones.find((zone) => zone.key === selectedKey)?.shape_type)
               )
-                ? ['top-left', 'top-right', 'bottom-left', 'bottom-right']
-                : [
-                  'top-left',
-                  'top-center',
-                  'top-right',
-                  'middle-right',
-                  'bottom-right',
-                  'bottom-center',
-                  'bottom-left',
-                  'middle-left',
-                ]
+            }
+            enabledAnchors={
+              selectedKey !== null && supportsVertexEditing(
+                displayZones.find((zone) => zone.key === selectedKey)?.shape_type,
+              )
+                ? []
+                : selectedKey !== null && isPointRadiusShape(
+                  displayZones.find((zone) => zone.key === selectedKey)?.shape_type,
+                )
+                  ? ['top-left', 'top-right', 'bottom-left', 'bottom-right']
+                  : [
+                    'top-left',
+                    'top-center',
+                    'top-right',
+                    'middle-right',
+                    'bottom-right',
+                    'bottom-center',
+                    'bottom-left',
+                    'middle-left',
+                  ]
             }
             boundBoxFunc={(oldBox, newBox) => (newBox.width < 8 || newBox.height < 8 ? oldBox : newBox)}
           />
