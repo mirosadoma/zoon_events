@@ -16,6 +16,8 @@ final class EventZonePresenter
      *   name: array{en: string, ar: string},
      *   zone_name_en: string,
      *   zone_name_ar: string,
+     *   description_en: ?string,
+     *   description_ar: ?string,
      *   type: string,
      *   capacity: ?int,
      *   shape_type: ?string,
@@ -46,11 +48,19 @@ final class EventZonePresenter
             'name' => ['en' => $nameEn, 'ar' => $nameAr],
             'zone_name_en' => $nameEn,
             'zone_name_ar' => $nameAr,
+            'description_en' => $zone->description_en !== null && $zone->description_en !== ''
+                ? (string) $zone->description_en
+                : null,
+            'description_ar' => $zone->description_ar !== null && $zone->description_ar !== ''
+                ? (string) $zone->description_ar
+                : null,
             'type' => $type,
             'capacity' => $zone->capacity !== null ? (int) $zone->capacity : null,
             'shape_type' => $shapeType,
             'polygon_coordinates' => self::normalizeCoordinates($zone->polygon_coordinates),
             'shape_radius' => $zone->shape_radius !== null ? (float) $zone->shape_radius : null,
+            'shape_rotation' => $zone->shape_rotation !== null ? (float) $zone->shape_rotation : 0.0,
+            'shape_radius_y' => $zone->shape_radius_y !== null ? (float) $zone->shape_radius_y : null,
             'label' => $zone->label !== null && $zone->label !== '' ? (string) $zone->label : null,
             'google_maps_url' => $zone->google_maps_url !== null && $zone->google_maps_url !== ''
                 ? (string) $zone->google_maps_url
@@ -70,6 +80,7 @@ final class EventZonePresenter
      * @return array{
      *   id: string,
      *   name: array{en: string, ar: string},
+     *   description: array{en: ?string, ar: ?string},
      *   type: string,
      *   label: ?string,
      *   shape_type: ?string,
@@ -99,11 +110,17 @@ final class EventZonePresenter
         return [
             'id' => $base['id'],
             'name' => $base['name'],
+            'description' => [
+                'en' => $base['description_en'],
+                'ar' => $base['description_ar'],
+            ],
             'type' => $base['type'],
             'label' => $base['label'] ?? $base['name']['en'],
             'shape_type' => $base['shape_type'],
             'polygon_coordinates' => $base['polygon_coordinates'],
             'shape_radius' => $base['shape_radius'],
+            'shape_rotation' => $base['shape_rotation'],
+            'shape_radius_y' => $base['shape_radius_y'],
             'fill_color' => $base['fill_color'],
             'stroke_color' => $base['stroke_color'],
             'opacity' => $base['opacity'],

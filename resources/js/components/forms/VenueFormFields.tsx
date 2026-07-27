@@ -2,7 +2,6 @@ import { lazy, Suspense, useMemo } from 'react'
 import DateTimeInput from '@/components/forms/DateTimeInput'
 import SearchableSelect, { type SearchableOption } from '@/components/forms/SearchableSelect'
 import TextInput from '@/components/forms/TextInput'
-import TextareaInput from '@/components/forms/TextareaInput'
 import { type VenueFormRow } from '@/components/forms/VenueRepeater'
 import { formFieldProps } from '@/lib/formatValidationErrors'
 import { useLocale } from '@/hooks/useLocale'
@@ -98,7 +97,7 @@ export default function VenueFormFields({
         {...formFieldProps(`${errorPrefix}.city_id`)}
       />
       <div className="md:col-span-2">
-        <TextareaInput
+        <TextInput
           label={t('venueRepeaterAddress')}
           name="venue_address"
           value={venue.location_address}
@@ -108,20 +107,20 @@ export default function VenueFormFields({
         />
       </div>
       <div className="md:col-span-2">
-                <Suspense fallback={<div className="min-h-[30rem] animate-pulse rounded-lg bg-slate-200 dark:bg-slate-700" />}>
-                  <MapPicker
-                    label={t('venueRepeaterMapLocation')}
-                    latitude={venue.latitude}
-                    longitude={venue.longitude}
-                    onLatitudeChange={(latitude) => onChange({ latitude })}
-                    onLongitudeChange={(longitude) => onChange({ longitude })}
-                    onCoordinatesChange={(latitude, longitude) => onChange({ latitude, longitude })}
-                    latitudeError={errorFor('latitude')}
-                    longitudeError={errorFor('longitude')}
-                    data-form-field-latitude={`${errorPrefix}.latitude`}
-                    data-form-field-longitude={`${errorPrefix}.longitude`}
-                  />
-                </Suspense>
+        <Suspense fallback={<div className="min-h-[30rem] animate-pulse rounded-lg bg-slate-200 dark:bg-slate-700" />}>
+          <MapPicker
+            label={t('venueRepeaterMapLocation')}
+            latitude={venue.latitude}
+            longitude={venue.longitude}
+            onLatitudeChange={(latitude) => onChange({ latitude })}
+            onLongitudeChange={(longitude) => onChange({ longitude })}
+            onCoordinatesChange={(latitude, longitude) => onChange({ latitude, longitude })}
+            latitudeError={errorFor('latitude')}
+            longitudeError={errorFor('longitude')}
+            data-form-field-latitude={`${errorPrefix}.latitude`}
+            data-form-field-longitude={`${errorPrefix}.longitude`}
+          />
+        </Suspense>
       </div>
       <DateTimeInput
         label={t('venueRepeaterEventStarts')}

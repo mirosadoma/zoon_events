@@ -1,10 +1,15 @@
 import { FormEvent, useMemo, useRef, useState } from 'react'
 import {
   Circle as CircleIcon,
+  CircleEllipsis,
+  Hexagon,
   MousePointer2,
   Pentagon,
   Redo2,
+  RotateCcw,
+  RotateCw,
   Square,
+  Triangle,
   Trash2,
   Undo2,
   Upload,
@@ -13,6 +18,7 @@ import {
 } from 'lucide-react'
 import VenueMapCanvas from '@/components/venue-map/VenueMapCanvas'
 import ResizableMapFrame from '@/components/venue-map/ResizableMapFrame'
+import { normalizeDegrees } from '@/components/venue-map/coordinates'
 import {
   defaultFillForType,
   type EditorTool,
@@ -23,7 +29,9 @@ import {
 import { useMapHistory } from '@/components/venue-map/useMapHistory'
 import SelectInput from '@/components/forms/SelectInput'
 import TextInput from '@/components/forms/TextInput'
+import TextareaInput from '@/components/forms/TextareaInput'
 import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
+import MapLocationPickerModal from '@/components/modals/MapLocationPickerModal'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
 import { ApiFetchError, apiFetch } from '@/lib/apiFetch'
@@ -45,6 +53,8 @@ function toDraft(zones: Array<Record<string, unknown>>): MapZone[] {
     id: zone.id ? String(zone.id) : undefined,
     zone_name_en: String(zone.zone_name_en ?? ''),
     zone_name_ar: String(zone.zone_name_ar ?? ''),
+    description_en: zone.description_en ? String(zone.description_en) : null,
+    description_ar: zone.description_ar ? String(zone.description_ar) : null,
     type: String(zone.type ?? 'hall'),
     capacity: zone.capacity === null || zone.capacity === undefined ? null : Number(zone.capacity),
     shape_type: (zone.shape_type as MapZone['shape_type']) ?? null,
@@ -52,6 +62,12 @@ function toDraft(zones: Array<Record<string, unknown>>): MapZone[] {
     shape_radius: zone.shape_radius === null || zone.shape_radius === undefined
       ? null
       : Number(zone.shape_radius),
+    shape_rotation: zone.shape_rotation === null || zone.shape_rotation === undefined
+      ? 0
+      : Number(zone.shape_rotation),
+    shape_radius_y: zone.shape_radius_y === null || zone.shape_radius_y === undefined
+      ? null
+      : Number(zone.shape_radius_y),
     label: zone.label ? String(zone.label) : null,
     google_maps_url: zone.google_maps_url ? String(zone.google_maps_url) : null,
     lat: zone.lat === null || zone.lat === undefined ? null : Number(zone.lat),
@@ -84,6 +100,7 @@ export default function VenueMapEditor({
   const [draftPoint, setDraftPoint] = useState<RelativePoint | null>(null)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [locationPickerOpen, setLocationPickerOpen] = useState(false)
   const history = useMapHistory(toDraft(initialZones as unknown as Array<Record<string, unknown>>))
 
   const selected = history.zones.find((zone) => zone.key === selectedKey) ?? null
@@ -159,11 +176,15 @@ export default function VenueMapEditor({
               id: zone.id ? Number(zone.id) : undefined,
               zone_name_en: zone.zone_name_en.trim(),
               zone_name_ar: zone.zone_name_ar.trim(),
+              description_en: zone.description_en?.trim() || null,
+              description_ar: zone.description_ar?.trim() || null,
               type: zone.type,
               capacity: zone.capacity,
               shape_type: zone.shape_type,
               polygon_coordinates: zone.polygon_coordinates,
               shape_radius: zone.shape_radius,
+              shape_rotation: zone.shape_rotation ?? 0,
+              shape_radius_y: zone.shape_radius_y,
               label: zone.label,
               google_maps_url: zone.google_maps_url,
               lat: zone.lat,
@@ -218,7 +239,10 @@ export default function VenueMapEditor({
     { id: 'select', icon: MousePointer2, label: t('venueMapToolSelect') },
     { id: 'polygon', icon: Pentagon, label: t('venueMapToolPolygon') },
     { id: 'rectangle', icon: Square, label: t('venueMapToolRectangle') },
+    { id: 'triangle', icon: Triangle, label: t('venueMapToolTriangle') },
+    { id: 'hexagon', icon: Hexagon, label: t('venueMapToolHexagon') },
     { id: 'circle', icon: CircleIcon, label: t('venueMapToolCircle') },
+    { id: 'ellipse', icon: CircleEllipsis, label: t('venueMapToolEllipse') },
     { id: 'delete', icon: Trash2, label: t('venueMapToolDelete') },
   ]
 
@@ -383,11 +407,15 @@ export default function VenueMapEditor({
                   key,
                   zone_name_en: `Zone ${history.zones.length + 1}`,
                   zone_name_ar: `منطقة ${history.zones.length + 1}`,
+                  description_en: null,
+                  description_ar: null,
                   type: zoneTypes[0] ?? 'hall',
                   capacity: null,
                   shape_type: null,
                   polygon_coordinates: null,
                   shape_radius: null,
+                  shape_rotation: 0,
+                  shape_radius_y: null,
                   label: `Zone ${history.zones.length + 1}`,
                   google_maps_url: null,
                   lat: venueLatitude,
@@ -422,6 +450,22 @@ export default function VenueMapEditor({
               onChange={(e) => updateSelected({ zone_name_ar: e.target.value })}
               required
             />
+            <TextareaInput
+              label={t('eventZoneDescriptionEn')}
+              name="description_en"
+              rows={3}
+              className="min-h-20"
+              value={selected.description_en ?? ''}
+              onChange={(e) => updateSelected({ description_en: e.target.value || null })}
+            />
+            <TextareaInput
+              label={t('eventZoneDescriptionAr')}
+              name="description_ar"
+              rows={3}
+              className="min-h-20"
+              value={selected.description_ar ?? ''}
+              onChange={(e) => updateSelected({ description_ar: e.target.value || null })}
+            />
             <SelectInput
               label={t('eventZoneType')}
               name="zone_type"
@@ -455,6 +499,19 @@ export default function VenueMapEditor({
               onChange={(e) => updateSelected({ opacity: Number(e.target.value) })}
             />
             <TextInput
+              label={t('venueMapGoogleUrl')}
+              name="google_maps_url"
+              value={selected.google_maps_url ?? ''}
+              onChange={(e) => updateSelected({ google_maps_url: e.target.value || null })}
+            />
+            <button
+              type="button"
+              className="button-secondary w-full"
+              onClick={() => setLocationPickerOpen(true)}
+            >
+              {t('venueMapPickLocation')}
+            </button>
+            <TextInput
               label={t('venueMapLat')}
               name="lat"
               value={selected.lat === null ? '' : String(selected.lat)}
@@ -470,13 +527,60 @@ export default function VenueMapEditor({
                 lng: e.target.value.trim() === '' ? null : Number(e.target.value),
               })}
             />
-            <TextInput
-              label={t('venueMapGoogleUrl')}
-              name="google_maps_url"
-              value={selected.google_maps_url ?? ''}
-              onChange={(e) => updateSelected({ google_maps_url: e.target.value || null })}
+            <MapLocationPickerModal
+              open={locationPickerOpen}
+              latitude={selected.lat}
+              longitude={selected.lng}
+              onCancel={() => setLocationPickerOpen(false)}
+              onSave={(nextLat, nextLng) => {
+                updateSelected({ lat: nextLat, lng: nextLng })
+                setLocationPickerOpen(false)
+              }}
             />
             <p className="text-xs text-[var(--muted)]">{t('venueMapNavHint')}</p>
+            <p className="text-xs text-[var(--muted)]">{t('venueMapReplaceShapeHint')}</p>
+            {selected.shape_type ? (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="button-secondary flex-1 inline-flex items-center justify-center gap-2"
+                  onClick={() => updateSelected({
+                    shape_rotation: normalizeDegrees((selected.shape_rotation ?? 0) - 15),
+                  })}
+                >
+                  <RotateCcw size={14} />
+                  {t('venueMapRotateLeft')}
+                </button>
+                <button
+                  type="button"
+                  className="button-secondary flex-1 inline-flex items-center justify-center gap-2"
+                  onClick={() => updateSelected({
+                    shape_rotation: normalizeDegrees((selected.shape_rotation ?? 0) + 15),
+                  })}
+                >
+                  <RotateCw size={14} />
+                  {t('venueMapRotateRight')}
+                </button>
+              </div>
+            ) : null}
+            {selected.shape_type ? (
+              <button
+                type="button"
+                className="button-secondary w-full"
+                onClick={() => {
+                  updateSelected({
+                    shape_type: null,
+                    polygon_coordinates: null,
+                    shape_radius: null,
+                    shape_radius_y: null,
+                    shape_rotation: 0,
+                  })
+                  setTool('polygon')
+                }}
+              >
+                {t('venueMapClearShape')}
+              </button>
+            ) : null}
             <button
               type="button"
               className="button-secondary w-full text-[var(--danger)]"

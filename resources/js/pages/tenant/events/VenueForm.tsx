@@ -9,6 +9,7 @@ import {
 } from '@/components/forms/VenueRepeater'
 import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
 import TextInput from '@/components/forms/TextInput'
+import TextareaInput from '@/components/forms/TextareaInput'
 import SelectInput from '@/components/forms/SelectInput'
 import { PageContent, PageHeader } from '@/components/layout'
 import DashboardLayout from '@/layouts/DashboardLayout'
@@ -31,6 +32,8 @@ type ZoneDraft = {
   id?: string
   zone_name_en: string
   zone_name_ar: string
+  description_en: string
+  description_ar: string
   type: string
   capacity: string
 }
@@ -69,6 +72,8 @@ function emptyZone(defaultType: string): ZoneDraft {
     key: crypto.randomUUID(),
     zone_name_en: '',
     zone_name_ar: '',
+    description_en: '',
+    description_ar: '',
     type: defaultType,
     capacity: '',
   }
@@ -84,6 +89,8 @@ function zonesFromVenue(venue: EventVenueRow | null, defaultType: string): ZoneD
     id: zone.id,
     zone_name_en: zone.zone_name_en ?? zone.name?.en ?? '',
     zone_name_ar: zone.zone_name_ar ?? zone.name?.ar ?? '',
+    description_en: zone.description_en ?? '',
+    description_ar: zone.description_ar ?? '',
     type: zone.type || defaultType,
     capacity: zone.capacity !== null && zone.capacity !== undefined ? String(zone.capacity) : '',
   }))
@@ -200,6 +207,8 @@ export default function EventVenueFormPage({
             id: zone.id ? Number(zone.id) : undefined,
             zone_name_en: zone.zone_name_en.trim(),
             zone_name_ar: zone.zone_name_ar.trim(),
+            description_en: zone.description_en.trim() || null,
+            description_ar: zone.description_ar.trim() || null,
             type: zone.type,
             capacity: zone.capacity.trim() === '' ? null : Number(zone.capacity),
           })),
@@ -288,11 +297,11 @@ export default function EventVenueFormPage({
             {zones.length === 0 ? (
               <p className="text-sm text-[var(--muted)]">{t('eventZonesEmpty')}</p>
             ) : (
-              <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
                 {zones.map((zone, index) => (
                   <div
                     key={zone.key}
-                    className="grid gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 sm:grid-cols-[1fr_1fr_10rem_8rem_auto]"
+                    className="grid gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 sm:grid-cols-2 border-[var(--brand)]"
                   >
                     <TextInput
                       label={t('eventZoneNameEn')}
@@ -331,7 +340,27 @@ export default function EventVenueFormPage({
                         rowIndex === index ? { ...row, capacity: e.target.value } : row
                       )))}
                     />
-                    <div className="flex items-end">
+                    <TextareaInput
+                      label={t('eventZoneDescriptionEn')}
+                      name={`description_en_${index}`}
+                      rows={3}
+                      className="min-h-20"
+                      value={zone.description_en}
+                      onChange={(e) => setZones((current) => current.map((row, rowIndex) => (
+                        rowIndex === index ? { ...row, description_en: e.target.value } : row
+                      )))}
+                    />
+                    <TextareaInput
+                      label={t('eventZoneDescriptionAr')}
+                      name={`description_ar_${index}`}
+                      rows={3}
+                      className="min-h-20"
+                      value={zone.description_ar}
+                      onChange={(e) => setZones((current) => current.map((row, rowIndex) => (
+                        rowIndex === index ? { ...row, description_ar: e.target.value } : row
+                      )))}
+                    />
+                    <div className="flex items-end sm:col-span-2">
                       <button
                         type="button"
                         className="button-secondary text-[var(--danger)]"

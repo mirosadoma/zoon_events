@@ -21,6 +21,8 @@ export type EventZoneRow = {
   name: { en: string; ar: string }
   zone_name_en?: string
   zone_name_ar?: string
+  description_en?: string | null
+  description_ar?: string | null
   type: string
   capacity: number | null
   shape_type?: string | null

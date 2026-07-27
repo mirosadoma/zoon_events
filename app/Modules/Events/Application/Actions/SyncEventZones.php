@@ -58,6 +58,16 @@ final class SyncEventZones
                 throw new InvalidArgumentException('Zone capacity must be zero or greater.');
             }
 
+            $descriptionEn = array_key_exists('description_en', $zone) && $zone['description_en'] !== null
+                ? trim((string) $zone['description_en'])
+                : null;
+            $descriptionEn = $descriptionEn === '' ? null : $descriptionEn;
+
+            $descriptionAr = array_key_exists('description_ar', $zone) && $zone['description_ar'] !== null
+                ? trim((string) $zone['description_ar'])
+                : null;
+            $descriptionAr = $descriptionAr === '' ? null : $descriptionAr;
+
             $payload = [
                 'tenant_id' => $tenantId,
                 'event_id' => $event->id,
@@ -68,9 +78,19 @@ final class SyncEventZones
                 'capacity' => $capacity,
             ];
 
+            if (array_key_exists('description_en', $zone)) {
+                $payload['description_en'] = $descriptionEn;
+            }
+
+            if (array_key_exists('description_ar', $zone)) {
+                $payload['description_ar'] = $descriptionAr;
+            }
+
             $touchesMap = array_key_exists('shape_type', $zone)
                 || array_key_exists('polygon_coordinates', $zone)
                 || array_key_exists('shape_radius', $zone)
+                || array_key_exists('shape_rotation', $zone)
+                || array_key_exists('shape_radius_y', $zone)
                 || array_key_exists('label', $zone)
                 || array_key_exists('google_maps_url', $zone)
                 || array_key_exists('lat', $zone)
@@ -94,13 +114,21 @@ final class SyncEventZones
                     throw new InvalidArgumentException('Zone shapes require relative polygon coordinates.');
                 }
 
-                if ($shapeType === EventZoneShapeType::Circle->value) {
+                if ($shapeType === EventZoneShapeType::Circle->value || $shapeType === EventZoneShapeType::Ellipse->value) {
                     if (count($coordinates ?? []) !== 1) {
-                        throw new InvalidArgumentException('Circle zones require a single relative center point.');
+                        throw new InvalidArgumentException('Circle/ellipse zones require a single relative center point.');
                     }
                 } elseif ($shapeType === EventZoneShapeType::Rectangle->value) {
                     if (count($coordinates ?? []) !== 4) {
                         throw new InvalidArgumentException('Rectangle zones require four relative corner points.');
+                    }
+                } elseif ($shapeType === EventZoneShapeType::Triangle->value) {
+                    if (count($coordinates ?? []) !== 3) {
+                        throw new InvalidArgumentException('Triangle zones require three relative points.');
+                    }
+                } elseif ($shapeType === EventZoneShapeType::Hexagon->value) {
+                    if (count($coordinates ?? []) !== 6) {
+                        throw new InvalidArgumentException('Hexagon zones require six relative points.');
                     }
                 } elseif ($shapeType === EventZoneShapeType::Polygon->value) {
                     if (count($coordinates ?? []) < 3) {
@@ -112,12 +140,28 @@ final class SyncEventZones
                     ? (float) $zone['shape_radius']
                     : null;
 
-                if ($shapeType === EventZoneShapeType::Circle->value) {
+                $shapeRadiusY = array_key_exists('shape_radius_y', $zone) && $zone['shape_radius_y'] !== null && $zone['shape_radius_y'] !== ''
+                    ? (float) $zone['shape_radius_y']
+                    : null;
+
+                $shapeRotation = array_key_exists('shape_rotation', $zone) && $zone['shape_rotation'] !== null && $zone['shape_rotation'] !== ''
+                    ? (float) $zone['shape_rotation']
+                    : 0.0;
+
+                if ($shapeType === EventZoneShapeType::Circle->value || $shapeType === EventZoneShapeType::Ellipse->value) {
                     if ($shapeRadius === null || $shapeRadius <= 0 || $shapeRadius > 1) {
-                        throw new InvalidArgumentException('Circle zones require a relative radius between 0 and 1.');
+                        throw new InvalidArgumentException('Circle/ellipse zones require a relative radius between 0 and 1.');
+                    }
+                    if ($shapeType === EventZoneShapeType::Ellipse->value) {
+                        if ($shapeRadiusY === null || $shapeRadiusY <= 0 || $shapeRadiusY > 1) {
+                            $shapeRadiusY = $shapeRadius;
+                        }
+                    } else {
+                        $shapeRadiusY = null;
                     }
                 } else {
                     $shapeRadius = null;
+                    $shapeRadiusY = null;
                 }
 
                 $label = array_key_exists('label', $zone) && $zone['label'] !== null
@@ -159,6 +203,8 @@ final class SyncEventZones
                     'shape_type' => $shapeType,
                     'polygon_coordinates' => $coordinates,
                     'shape_radius' => $shapeRadius,
+                    'shape_rotation' => $shapeRotation,
+                    'shape_radius_y' => $shapeRadiusY,
                     'label' => $label,
                     'google_maps_url' => $googleMapsUrl,
                     'lat' => $lat,

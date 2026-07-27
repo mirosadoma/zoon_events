@@ -78,6 +78,8 @@ final class EventZoneSyncTest extends Phase1MySqlTestCase
                     [
                         'zone_name_en' => 'Hall A',
                         'zone_name_ar' => 'قاعة أ',
+                        'description_en' => 'Main conference hall',
+                        'description_ar' => 'القاعة الرئيسية',
                         'type' => 'hall',
                         'capacity' => 200,
                     ],
@@ -98,8 +100,11 @@ final class EventZoneSyncTest extends Phase1MySqlTestCase
         $zoneResponse->assertOk()
             ->assertJsonPath('data.zones.0.zone_name_en', 'Hall A')
             ->assertJsonPath('data.zones.0.name.en', 'Hall A')
+            ->assertJsonPath('data.zones.0.description_en', 'Main conference hall')
+            ->assertJsonPath('data.zones.0.description_ar', 'القاعة الرئيسية')
             ->assertJsonPath('data.zones.0.type', 'hall')
-            ->assertJsonPath('data.zones.1.zone_name_en', 'Stage 1');
+            ->assertJsonPath('data.zones.1.zone_name_en', 'Stage 1')
+            ->assertJsonPath('data.zones.1.description_en', null);
 
         self::assertSame(2, EventZone::query()->where('event_id', $event->id)->count());
 

@@ -3,18 +3,22 @@ export type RelativePoint = {
   y: number
 }
 
-export type ZoneShapeType = 'polygon' | 'rectangle' | 'circle'
+export type ZoneShapeType = 'polygon' | 'rectangle' | 'circle' | 'triangle' | 'hexagon' | 'ellipse'
 
 export type MapZone = {
   key: string
   id?: string
   zone_name_en: string
   zone_name_ar: string
+  description_en: string | null
+  description_ar: string | null
   type: string
   capacity: number | null
   shape_type: ZoneShapeType | null
   polygon_coordinates: RelativePoint[] | null
   shape_radius: number | null
+  shape_rotation: number
+  shape_radius_y: number | null
   label: string | null
   google_maps_url: string | null
   lat: number | null
@@ -35,7 +39,15 @@ export type VenueMapData = {
   height: number | null
 }
 
-export type EditorTool = 'select' | 'polygon' | 'rectangle' | 'circle' | 'delete'
+export type EditorTool =
+  | 'select'
+  | 'polygon'
+  | 'rectangle'
+  | 'circle'
+  | 'triangle'
+  | 'hexagon'
+  | 'ellipse'
+  | 'delete'
 
 export const DEFAULT_ZONE_COLORS: Record<string, string> = {
   hall: '#7c3aed',

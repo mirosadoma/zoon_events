@@ -250,6 +250,8 @@ final readonly class CloneEvent
                 'venue_id' => $mappedVenueId,
                 'zone_name_en' => $zone->zone_name_en,
                 'zone_name_ar' => $zone->zone_name_ar,
+                'description_en' => $zone->description_en,
+                'description_ar' => $zone->description_ar,
                 'type' => $zone->type instanceof EventZoneType
                     ? $zone->type->value
                     : (string) $zone->type,
@@ -257,6 +259,8 @@ final readonly class CloneEvent
                 'shape_type' => $zone->shape_type?->value ?? $zone->shape_type,
                 'polygon_coordinates' => $zone->polygon_coordinates,
                 'shape_radius' => $zone->shape_radius,
+                'shape_rotation' => $zone->shape_rotation ?? 0,
+                'shape_radius_y' => $zone->shape_radius_y,
                 'label' => $zone->label,
                 'google_maps_url' => $zone->google_maps_url,
                 'lat' => $zone->lat,

@@ -7,11 +7,14 @@ import { useLocale } from '@/hooks/useLocale'
 type PublicZone = {
   id: string
   name: { en: string; ar: string }
+  description?: { en: string | null; ar: string | null } | null
   label: string | null
   type: string
-  shape_type: 'polygon' | 'rectangle' | 'circle' | null
+  shape_type: 'polygon' | 'rectangle' | 'circle' | 'triangle' | 'hexagon' | 'ellipse' | null
   polygon_coordinates: RelativePoint[] | null
   shape_radius: number | null
+  shape_rotation?: number | null
+  shape_radius_y?: number | null
   fill_color: string | null
   stroke_color: string | null
   opacity: number | null

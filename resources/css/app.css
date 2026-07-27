@@ -5429,13 +5429,18 @@ html:not(.dark) .event-detail-metric {
 .venue-map-viewer__popup {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.9rem 1rem;
   border: 1px solid var(--border);
   border-radius: 0.75rem;
   background: var(--surface);
+}
+
+.venue-map-viewer__popup .button-primary {
+  align-self: center;
+  flex-shrink: 0;
 }
 
 @media (max-width: 960px) {

@@ -1,17 +1,20 @@
-import { Circle, Group, Image as KonvaImage, Layer, Line, Stage } from 'react-konva'
+import { Circle, Ellipse, Group, Image as KonvaImage, Layer, Line, Stage } from 'react-konva'
 import type Konva from 'konva'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { pointsToFlat, toPixel } from '@/components/venue-map/coordinates'
+import { centeredLocalFlat, toPixel } from '@/components/venue-map/coordinates'
 import { defaultFillForType, type RelativePoint } from '@/components/venue-map/types'
 
 type PublicZone = {
   id: string
   name: { en: string; ar: string }
+  description?: { en: string | null; ar: string | null } | null
   label: string | null
   type: string
-  shape_type: 'polygon' | 'rectangle' | 'circle' | null
+  shape_type: 'polygon' | 'rectangle' | 'circle' | 'triangle' | 'hexagon' | 'ellipse' | null
   polygon_coordinates: RelativePoint[] | null
   shape_radius: number | null
+  shape_rotation?: number | null
+  shape_radius_y?: number | null
   fill_color: string | null
   stroke_color: string | null
   opacity: number | null
@@ -96,6 +99,15 @@ export default function VenueMapViewer({
     return locale === 'ar' ? (zone.name.ar || zone.name.en) : (zone.name.en || zone.name.ar)
   }
 
+  function descriptionFor(zone: PublicZone): string | null {
+    if (!zone.description) return null
+    const value = locale === 'ar'
+      ? (zone.description.ar || zone.description.en)
+      : (zone.description.en || zone.description.ar)
+    const trimmed = value?.trim() ?? ''
+    return trimmed === '' ? null : trimmed
+  }
+
   function directionsUrl(zone: PublicZone): string | null {
     if (zone.lat != null && zone.lng != null) {
       return `https://www.google.com/maps/dir/?api=1&destination=${zone.lat},${zone.lng}`
@@ -103,6 +115,8 @@ export default function VenueMapViewer({
 
     return zone.navigate_url
   }
+
+  const selectedDescription = selected ? descriptionFor(selected) : null
 
   function updateHoverTooltip(zone: PublicZone, event: Konva.KonvaEventObject<MouseEvent>) {
     const pointer = event.target.getStage()?.getPointerPosition()
@@ -141,6 +155,7 @@ export default function VenueMapViewer({
               const stroke = zone.stroke_color ?? '#111827'
               const center = zone.polygon_coordinates[0]
               const px = toPixel(center, naturalWidth, naturalHeight)
+              const rotation = zone.shape_rotation ?? 0
 
               const handlers = {
                 onMouseEnter: (event: Konva.KonvaEventObject<MouseEvent>) => updateHoverTooltip(zone, event),
@@ -159,6 +174,20 @@ export default function VenueMapViewer({
                       x={px.x}
                       y={px.y}
                       radius={(zone.shape_radius ?? 0.05) * naturalWidth}
+                      rotation={rotation}
+                      fill={fill}
+                      opacity={opacity}
+                      stroke={stroke}
+                      strokeWidth={active ? 3 : 2}
+                      {...handlers}
+                    />
+                  ) : zone.shape_type === 'ellipse' ? (
+                    <Ellipse
+                      x={px.x}
+                      y={px.y}
+                      radiusX={(zone.shape_radius ?? 0.05) * naturalWidth}
+                      radiusY={(zone.shape_radius_y ?? zone.shape_radius ?? 0.05) * naturalHeight}
+                      rotation={rotation}
                       fill={fill}
                       opacity={opacity}
                       stroke={stroke}
@@ -166,15 +195,23 @@ export default function VenueMapViewer({
                       {...handlers}
                     />
                   ) : (
-                    <Line
-                      points={pointsToFlat(zone.polygon_coordinates, naturalWidth, naturalHeight)}
-                      closed
-                      fill={fill}
-                      opacity={opacity}
-                      stroke={stroke}
-                      strokeWidth={active ? 3 : 2}
-                      {...handlers}
-                    />
+                    (() => {
+                      const centered = centeredLocalFlat(zone.polygon_coordinates, naturalWidth, naturalHeight)
+                      return (
+                        <Line
+                          x={centered.centerX}
+                          y={centered.centerY}
+                          points={centered.local}
+                          rotation={rotation}
+                          closed
+                          fill={fill}
+                          opacity={opacity}
+                          stroke={stroke}
+                          strokeWidth={active ? 3 : 2}
+                          {...handlers}
+                        />
+                      )
+                    })()
                   )}
                 </Group>
               )
@@ -196,6 +233,11 @@ export default function VenueMapViewer({
         <div className="venue-map-viewer__popup">
           <div>
             <strong>{labelFor(selected)}</strong>
+            {selectedDescription ? (
+              <p className="mt-1 text-sm text-[var(--ink)]/80 whitespace-pre-wrap">
+                {selectedDescription}
+              </p>
+            ) : null}
             {navigateHint ? (
               <p className="mt-1 text-sm text-[var(--muted)]">{navigateHint}</p>
             ) : null}

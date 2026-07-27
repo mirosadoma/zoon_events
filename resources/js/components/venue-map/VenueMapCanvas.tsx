@@ -1,5 +1,6 @@
 import {
   Circle,
+  Ellipse,
   Image as KonvaImage,
   Layer,
   Line,
@@ -10,9 +11,13 @@ import {
 import type Konva from 'konva'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  absoluteFromCenteredLocal,
+  centeredLocalFlat,
   clamp01,
+  normalizeDegrees,
   pointsToFlat,
   rectangleFromCorners,
+  regularPolygonPoints,
   relativeRadius,
   snapRelative,
   toPixel,
@@ -73,6 +78,7 @@ function zoneLabel(zone: MapZone, locale: 'en' | 'ar'): string {
 function withDefaults(zone: MapZone): MapZone {
   return {
     ...zone,
+    shape_rotation: zone.shape_rotation ?? 0,
     fill_color: zone.fill_color ?? defaultFillForType(zone.type),
     stroke_color: zone.stroke_color ?? '#111827',
     opacity: zone.opacity ?? 45,
@@ -152,6 +158,7 @@ export default function VenueMapCanvas({
     const selected = selectedKey ? shapeRefs.current[selectedKey] : null
     if (selected && tool === 'select') {
       transformer.nodes([selected])
+      transformer.forceUpdate()
       transformer.getLayer()?.batchDraw()
     } else {
       transformer.nodes([])
@@ -174,9 +181,17 @@ export default function VenueMapCanvas({
     onZonesChange(zones.map((zone) => (zone.key === key ? { ...zone, ...patch } : zone)))
   }
 
-  function createShapeZone(shapeType: ZoneShapeType, points: RelativePoint[], radius: number | null = null) {
-    const base = zones.find((zone) => zone.key === selectedKey && !zone.shape_type)
-      ?? zones.find((zone) => !zone.shape_type)
+  function createShapeZone(
+    shapeType: ZoneShapeType,
+    points: RelativePoint[],
+    radius: number | null = null,
+    radiusY: number | null = null,
+  ) {
+    // Prefer the selected zone so organizers can replace its shape without deleting the zone.
+    const selected = selectedKey
+      ? zones.find((zone) => zone.key === selectedKey)
+      : null
+    const base = selected ?? zones.find((zone) => !zone.shape_type)
 
     if (base) {
       onZonesChange(zones.map((zone) => (
@@ -186,6 +201,8 @@ export default function VenueMapCanvas({
             shape_type: shapeType,
             polygon_coordinates: points,
             shape_radius: radius,
+            shape_radius_y: radiusY,
+            shape_rotation: 0,
             label: zone.label ?? zone.zone_name_en,
           })
           : zone
@@ -199,11 +216,15 @@ export default function VenueMapCanvas({
       key,
       zone_name_en: `Zone ${zones.length + 1}`,
       zone_name_ar: `منطقة ${zones.length + 1}`,
+      description_en: null,
+      description_ar: null,
       type: 'hall',
       capacity: null,
       shape_type: shapeType,
       polygon_coordinates: points,
       shape_radius: radius,
+      shape_rotation: 0,
+      shape_radius_y: radiusY,
       label: `Zone ${zones.length + 1}`,
       google_maps_url: null,
       lat: null,
@@ -217,8 +238,15 @@ export default function VenueMapCanvas({
     onSelect(key)
   }
 
-  function handleStageClick() {
+  function handleStageClick(event: Konva.KonvaEventObject<MouseEvent>) {
+    // Empty-canvas click clears selection (hides rotate handle + corner anchors).
+    // Shape clicks cancelBubble; transformer/anchor clicks keep the current selection.
     if (tool === 'select' || tool === 'delete') {
+      if (tool === 'select' && event.target === stageRef.current) {
+        onSelect(null)
+        setHoverTooltip(null)
+        setHoveredKey(null)
+      }
       return
     }
 
@@ -259,7 +287,7 @@ export default function VenueMapCanvas({
       return
     }
 
-    if (tool === 'circle') {
+    if (tool === 'circle' || tool === 'ellipse') {
       if (!rectStart) {
         setRectStart(point)
         setDraftPoints([point])
@@ -268,7 +296,30 @@ export default function VenueMapCanvas({
       }
 
       const aspect = imageWidth / imageHeight
-      createShapeZone('circle', [rectStart], relativeRadius(rectStart, point, aspect))
+      const radius = relativeRadius(rectStart, point, aspect)
+      createShapeZone(
+        tool === 'ellipse' ? 'ellipse' : 'circle',
+        [rectStart],
+        radius,
+        tool === 'ellipse' ? radius : null,
+      )
+      setRectStart(null)
+      setDraftPoints([])
+      setHoverPoint(null)
+      onDraftPoint?.(null)
+      return
+    }
+
+    if (tool === 'triangle' || tool === 'hexagon') {
+      if (!rectStart) {
+        setRectStart(point)
+        setDraftPoints([point])
+        onDraftPoint?.(point)
+        return
+      }
+
+      const sides = tool === 'triangle' ? 3 : 6
+      createShapeZone(tool, regularPolygonPoints(rectStart, point, sides))
       setRectStart(null)
       setDraftPoints([])
       setHoverPoint(null)
@@ -309,6 +360,7 @@ export default function VenueMapCanvas({
     const strokeWidth = styled.stroke_width ?? 2
     const selected = zone.key === selectedKey
     const hovered = zone.key === hoveredKey
+    const rotation = zone.shape_rotation ?? 0
     const centerPx = toPixel(zone.polygon_coordinates[0], imageWidth, imageHeight)
 
     const updateHoverTooltip = (event: Konva.KonvaEventObject<MouseEvent>) => {
@@ -336,6 +388,7 @@ export default function VenueMapCanvas({
       stroke,
       strokeWidth: selected || hovered ? strokeWidth + 1 : strokeWidth,
       draggable: tool === 'select',
+      rotation,
       onMouseEnter: (event: Konva.KonvaEventObject<MouseEvent>) => {
         updateHoverTooltip(event)
         const container = event.target.getStage()?.container()
@@ -358,6 +411,8 @@ export default function VenueMapCanvas({
                 shape_type: null,
                 polygon_coordinates: null,
                 shape_radius: null,
+                shape_radius_y: null,
+                shape_rotation: 0,
               }
               : row
           )))
@@ -371,65 +426,87 @@ export default function VenueMapCanvas({
       onDragEnd: (event: Konva.KonvaEventObject<DragEvent>) => {
         const node = event.target
 
-        if (zone.shape_type === 'circle') {
+        if (zone.shape_type === 'circle' || zone.shape_type === 'ellipse') {
           updateZone(zone.key, {
             polygon_coordinates: [toRelative(node.x(), node.y(), imageWidth, imageHeight)],
-          })
-          return
-        }
-
-        const dx = node.x() / imageWidth
-        const dy = node.y() / imageHeight
-        node.position({ x: 0, y: 0 })
-
-        if (!zone.polygon_coordinates) return
-
-        updateZone(zone.key, {
-          polygon_coordinates: zone.polygon_coordinates.map((point) => ({
-            x: Number(Math.min(1, Math.max(0, point.x + dx)).toFixed(6)),
-            y: Number(Math.min(1, Math.max(0, point.y + dy)).toFixed(6)),
-          })),
-        })
-      },
-      onTransformEnd: (event: Konva.KonvaEventObject<Event>) => {
-        const node = event.target
-        const scaleX = node.scaleX()
-        const scaleY = node.scaleY()
-
-        if (zone.shape_type === 'circle') {
-          const circle = node as Konva.Circle
-          const nextRadiusPx = Math.max(
-            4,
-            circle.radius() * ((Math.abs(scaleX) + Math.abs(scaleY)) / 2),
-          )
-          node.scaleX(1)
-          node.scaleY(1)
-          circle.radius(nextRadiusPx)
-
-          updateZone(zone.key, {
-            polygon_coordinates: [toRelative(node.x(), node.y(), imageWidth, imageHeight)],
-            shape_radius: Number(Math.max(0.001, clamp01(nextRadiusPx / imageWidth)).toFixed(6)),
           })
           return
         }
 
         if (!zone.polygon_coordinates?.length) return
 
-        const transformed = zone.polygon_coordinates.map((point) => {
-          const px = toPixel(point, imageWidth, imageHeight)
-          const nextX = node.x() + px.x * scaleX
-          const nextY = node.y() + px.y * scaleY
-          return toRelative(nextX, nextY, imageWidth, imageHeight)
+        const { local } = centeredLocalFlat(zone.polygon_coordinates, imageWidth, imageHeight)
+        updateZone(zone.key, {
+          polygon_coordinates: absoluteFromCenteredLocal(
+            node.x(),
+            node.y(),
+            local,
+            imageWidth,
+            imageHeight,
+          ),
         })
+      },
+      onTransformEnd: (event: Konva.KonvaEventObject<Event>) => {
+        const node = event.target
+        const nextRotation = normalizeDegrees(node.rotation())
+
+        if (zone.shape_type === 'circle' || zone.shape_type === 'ellipse') {
+          const scaleX = Math.abs(node.scaleX())
+          const scaleY = Math.abs(node.scaleY())
+          const baseRadiusX = (zone.shape_radius ?? 0.05) * imageWidth
+          const baseRadiusY = (zone.shape_radius_y ?? zone.shape_radius ?? 0.05) * imageHeight
+          node.scaleX(1)
+          node.scaleY(1)
+
+          if (zone.shape_type === 'circle') {
+            const circle = node as Konva.Circle
+            const nextRadiusPx = Math.max(4, baseRadiusX * ((scaleX + scaleY) / 2))
+            circle.radius(nextRadiusPx)
+            updateZone(zone.key, {
+              polygon_coordinates: [toRelative(node.x(), node.y(), imageWidth, imageHeight)],
+              shape_radius: Number(Math.max(0.001, clamp01(nextRadiusPx / imageWidth)).toFixed(6)),
+              shape_radius_y: null,
+              shape_rotation: nextRotation,
+            })
+            return
+          }
+
+          const ellipse = node as Konva.Ellipse
+          const nextRadiusX = Math.max(4, baseRadiusX * scaleX)
+          const nextRadiusY = Math.max(4, baseRadiusY * scaleY)
+          ellipse.radiusX(nextRadiusX)
+          ellipse.radiusY(nextRadiusY)
+          updateZone(zone.key, {
+            polygon_coordinates: [toRelative(node.x(), node.y(), imageWidth, imageHeight)],
+            shape_radius: Number(Math.max(0.001, clamp01(nextRadiusX / imageWidth)).toFixed(6)),
+            shape_radius_y: Number(Math.max(0.001, clamp01(nextRadiusY / imageHeight)).toFixed(6)),
+            shape_rotation: nextRotation,
+          })
+          return
+        }
+
+        if (!zone.polygon_coordinates?.length) return
+
+        const line = node as Konva.Line
+        const scaleX = node.scaleX()
+        const scaleY = node.scaleY()
+        const scaledLocal = line.points().map((value, index) => (
+          index % 2 === 0 ? value * scaleX : value * scaleY
+        ))
 
         node.scaleX(1)
         node.scaleY(1)
-        node.position({ x: 0, y: 0 })
+        line.points(scaledLocal)
 
         updateZone(zone.key, {
-          polygon_coordinates: zone.shape_type === 'rectangle'
-            ? rectangleFromCorners(transformed[0], transformed[2] ?? transformed[1])
-            : transformed,
+          polygon_coordinates: absoluteFromCenteredLocal(
+            node.x(),
+            node.y(),
+            scaledLocal,
+            imageWidth,
+            imageHeight,
+          ),
+          shape_rotation: nextRotation,
         })
       },
     }
@@ -447,11 +524,28 @@ export default function VenueMapCanvas({
       )
     }
 
+    if (zone.shape_type === 'ellipse') {
+      return (
+        <Ellipse
+          key={zone.key}
+          {...common}
+          x={centerPx.x}
+          y={centerPx.y}
+          radiusX={(zone.shape_radius ?? 0.05) * imageWidth}
+          radiusY={(zone.shape_radius_y ?? zone.shape_radius ?? 0.05) * imageHeight}
+        />
+      )
+    }
+
+    const centered = centeredLocalFlat(zone.polygon_coordinates, imageWidth, imageHeight)
+
     return (
       <Line
         key={zone.key}
         {...common}
-        points={pointsToFlat(zone.polygon_coordinates, imageWidth, imageHeight)}
+        x={centered.centerX}
+        y={centered.centerY}
+        points={centered.local}
         closed
         tension={0}
       />
@@ -460,9 +554,22 @@ export default function VenueMapCanvas({
 
   const draftPreview = useMemo(() => {
     if (draftPoints.length === 0) return null
+
+    if (
+      (tool === 'triangle' || tool === 'hexagon')
+      && draftPoints.length === 1
+      && hoverPoint
+    ) {
+      return pointsToFlat(
+        regularPolygonPoints(draftPoints[0], hoverPoint, tool === 'triangle' ? 3 : 6),
+        imageWidth,
+        imageHeight,
+      )
+    }
+
     const points = hoverPoint ? [...draftPoints, hoverPoint] : draftPoints
     return pointsToFlat(points, imageWidth, imageHeight)
-  }, [draftPoints, hoverPoint, imageWidth, imageHeight])
+  }, [draftPoints, hoverPoint, imageWidth, imageHeight, tool])
 
   return (
     <div ref={containerRef} className="venue-map-canvas">
@@ -500,7 +607,7 @@ export default function VenueMapCanvas({
           {image ? (
             <KonvaImage image={image} width={imageWidth} height={imageHeight} listening={false} />
           ) : (
-            <Rect width={imageWidth} height={imageHeight} fill="#e5e7eb" />
+            <Rect width={imageWidth} height={imageHeight} fill="#e5e7eb" listening={false} />
           )}
 
           {zones.map((zone) => renderZone(zone))}
@@ -511,7 +618,11 @@ export default function VenueMapCanvas({
               stroke="#2563eb"
               strokeWidth={2}
               dash={[8, 6]}
-              closed={tool === 'rectangle' && draftPoints.length === 1 && !!hoverPoint}
+              closed={
+                (tool === 'rectangle' || tool === 'triangle' || tool === 'hexagon')
+                && draftPoints.length === 1
+                && !!hoverPoint
+              }
             />
           ) : null}
 
@@ -531,12 +642,25 @@ export default function VenueMapCanvas({
 
           <Transformer
             ref={transformerRef}
-            rotateEnabled={false}
+            rotateEnabled={tool === 'select'}
+            rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
             keepRatio={selectedKey !== null && zones.find((zone) => zone.key === selectedKey)?.shape_type === 'circle'}
             enabledAnchors={
-              selectedKey !== null && zones.find((zone) => zone.key === selectedKey)?.shape_type === 'circle'
+              selectedKey !== null && (
+                zones.find((zone) => zone.key === selectedKey)?.shape_type === 'circle'
+                || zones.find((zone) => zone.key === selectedKey)?.shape_type === 'ellipse'
+              )
                 ? ['top-left', 'top-right', 'bottom-left', 'bottom-right']
-                : undefined
+                : [
+                  'top-left',
+                  'top-center',
+                  'top-right',
+                  'middle-right',
+                  'bottom-right',
+                  'bottom-center',
+                  'bottom-left',
+                  'middle-left',
+                ]
             }
             boundBoxFunc={(oldBox, newBox) => (newBox.width < 8 || newBox.height < 8 ? oldBox : newBox)}
           />
