@@ -287,6 +287,8 @@ export default {
   nextPage: 'Next',
   pageOf: 'Page :page of :total',
   attendeeActions: 'Attendee actions',
+  viewEntryCard: 'View entry card',
+  viewEntryCardHelp: 'Open the public confirmation page with QR code and wallet pass links.',
   printBadge: 'Print badge',
   manualCheckIn: 'Manual check-in',
   attendeeActionReissueHelp: 'Reissue creates a new credential when the current one is revoked or expired. The old credential is replaced and linked to the new one.',

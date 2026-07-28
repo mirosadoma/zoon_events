@@ -60,4 +60,49 @@ class ConfigurationValidationTest extends TestCase
         self::assertStringNotContainsString('highly-sensitive-reference', $encoded);
         self::assertStringNotContainsString('another-sensitive-reference', $encoded);
     }
+
+    public function test_production_rejects_disabled_personal_data_encryption(): void
+    {
+        $this->app->detectEnvironment(fn (): string => 'production');
+        config([
+            'app.debug' => false,
+            'app.url' => 'https://example.test',
+            'credentials.personal_data_encryption_enabled' => false,
+            'session.encrypt' => true,
+            'integrations.default_adapter' => 'http',
+            'payments.default' => 'moyasar',
+            'notifications.email_adapter' => 'smtp',
+            'notifications.sms_adapter' => 'unifonic',
+        ]);
+
+        $encoded = json_encode(array_map(
+            fn ($issue) => $issue->toArray(),
+            app(ConfigurationValidator::class)->validate(),
+        ));
+
+        self::assertStringContainsString('personal_data_encryption_disabled_in_production', $encoded);
+        self::assertSame('unavailable', app(DataProtectionHealthCheck::class)->run()->status);
+    }
+
+    public function test_production_rejects_disabled_session_encryption(): void
+    {
+        $this->app->detectEnvironment(fn (): string => 'production');
+        config([
+            'app.debug' => false,
+            'app.url' => 'https://example.test',
+            'credentials.personal_data_encryption_enabled' => true,
+            'session.encrypt' => false,
+            'integrations.default_adapter' => 'http',
+            'payments.default' => 'moyasar',
+            'notifications.email_adapter' => 'smtp',
+            'notifications.sms_adapter' => 'unifonic',
+        ]);
+
+        $encoded = json_encode(array_map(
+            fn ($issue) => $issue->toArray(),
+            app(ConfigurationValidator::class)->validate(),
+        ));
+
+        self::assertStringContainsString('session_encryption_disabled_in_production', $encoded);
+    }
 }

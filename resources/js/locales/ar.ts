@@ -287,6 +287,8 @@ export default {
   nextPage: 'التالي',
   pageOf: 'صفحة :page من :total',
   attendeeActions: 'إجراءات الحاضر',
+  viewEntryCard: 'عرض بطاقة الدخول',
+  viewEntryCardHelp: 'افتح صفحة التأكيد العامة مع رمز QR وروابط المحفظة.',
   printBadge: 'طباعة البطاقة',
   manualCheckIn: 'تسجيل حضور يدوي',
   attendeeActionReissueHelp: 'إعادة الإصدار تنشئ بيانات دخول جديدة عندما تكون الحالية ملغاة أو منتهية. يتم استبدال القديمة وربطها بالجديدة.',

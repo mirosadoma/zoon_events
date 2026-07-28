@@ -33,17 +33,14 @@ use App\Modules\Registration\Application\Queries\ResolvePublishedRegistrationFor
 use App\Modules\Registration\Application\Support\RegistrationFieldPresenter;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationOtp;
 use App\Modules\Events\Application\Support\SendRegistrationOtpMail;
-use App\Modules\Registration\Mail\RegistrationOtpMail;
 use App\Modules\Identity\Application\Actions\CreateOrLinkVisitorAccount;
-use App\Modules\Shared\Application\DataProtection\BlindIndex;
-use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
+use App\Modules\Shared\Application\DataProtection\PersonalDataGuard;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
 use App\Modules\Ticketing\Application\Queries\PublicTicketTypeCatalog;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -66,8 +63,7 @@ final class PublicEventRegistrationController extends Controller
         private readonly RegistrationFieldPresenter $registrationFields,
         private readonly ResolvePublishedRegistrationForm $publishedForms,
         private readonly EnsureDefaultRegistrationSlot $defaultSlot,
-        private readonly PersonalDataCipher $cipher,
-        private readonly BlindIndex $indexes,
+        private readonly PersonalDataGuard $guard,
         private readonly ResolveActiveRegistrationInvite $invites,
         private readonly DeactivateRegistrationInvite $deactivateInvite,
         private readonly SendRegistrationBadgeEmail $badgeEmail,
@@ -132,7 +128,7 @@ final class PublicEventRegistrationController extends Controller
         $resolvedLocale = $locale === 'ar' ? 'ar' : 'en';
 
         /** @var array<string, mixed> $payload */
-        $payload = $otp->payload;
+        $payload = $otp->resolvedPayload($this->guard);
         $inviteCode = isset($payload['invite_code']) ? (string) $payload['invite_code'] : null;
         $registerUrl = "/{$resolvedLocale}/events/{$event->slug}/register";
         if ($inviteCode !== null) {
@@ -146,7 +142,7 @@ final class PublicEventRegistrationController extends Controller
                 'slug' => $event->slug,
                 'name' => ['en' => $event->name_en, 'ar' => $event->name_ar],
             ],
-            'email' => $this->maskEmail((string) $otp->email),
+            'email' => $this->maskEmail($otp->resolvedEmail($this->guard)),
             'token' => $otp->token,
             'submitUrl' => "/{$resolvedLocale}/events/{$event->slug}/register/otp/{$otp->token}",
             'resendUrl' => "/{$resolvedLocale}/events/{$event->slug}/register/otp/{$otp->token}/resend",
@@ -159,6 +155,7 @@ final class PublicEventRegistrationController extends Controller
         $event = $this->shareableEvents->findBySlug($eventSlug);
         $otp = $this->findActiveOtp($event, $token);
         $resolvedLocale = $locale === 'ar' ? 'ar' : 'en';
+        $otpEmail = $otp->resolvedEmail($this->guard);
 
         $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         $otp->forceFill([
@@ -172,7 +169,7 @@ final class PublicEventRegistrationController extends Controller
             : $event->name_en;
 
         try {
-            app(SendRegistrationOtpMail::class)->execute($event, (string) $otp->email, $code, $resolvedLocale);
+            app(SendRegistrationOtpMail::class)->execute($event, $otpEmail, $code, $resolvedLocale);
         } catch (Throwable $exception) {
             Log::warning('public_registration.otp_resend_failed', [
                 'event_id' => $event->id,
@@ -185,7 +182,6 @@ final class PublicEventRegistrationController extends Controller
             Log::info('public_registration.otp_resend_code', [
                 'token' => $token,
                 'code' => $code,
-                'email' => $otp->email,
             ]);
         }
 
@@ -225,7 +221,7 @@ final class PublicEventRegistrationController extends Controller
         $otp->forceFill(['verified_at' => now()])->save();
 
         /** @var array<string, mixed> $payload */
-        $payload = $otp->payload;
+        $payload = $otp->resolvedPayload($this->guard);
         $attendeePerson = $this->sanitizePerson((array) ($payload['attendee'] ?? []));
         $this->assertEmailNotAlreadyRegistered(
             $event,
@@ -481,7 +477,7 @@ final class PublicEventRegistrationController extends Controller
 
         try {
             $scope = "{$attendee->tenant_id}:{$attendee->event_id}:attendee";
-            $firstName = $this->cipher->decrypt([
+            $firstName = $this->guard->decryptString([
                 'key_id' => $attendee->encryption_key_id,
                 'ciphertext' => $attendee->first_name_ciphertext,
             ], $scope);
@@ -592,8 +588,8 @@ final class PublicEventRegistrationController extends Controller
             'submitUrl' => $submitUrl,
             'theme' => $this->presentRegistrationTheme($branding?->theme_config),
             'inviteCode' => $invite?->code,
-            'lockedEmail' => $invite?->email,
-            'prefillName' => filled($invite?->name) ? (string) $invite->name : null,
+            'lockedEmail' => $invite !== null ? $invite->resolvedEmail($this->guard) : null,
+            'prefillName' => $invite?->resolvedName($this->guard),
         ]);
     }
 
@@ -672,7 +668,7 @@ final class PublicEventRegistrationController extends Controller
         $attendee = $this->sanitizePerson($validated['attendee']);
 
         if ($invite !== null) {
-            $lockedEmail = strtolower($invite->email);
+            $lockedEmail = $invite->resolvedEmail($this->guard);
             $submittedEmails = array_values(array_filter([
                 $buyer['email'],
                 $attendee['email'],
@@ -698,29 +694,37 @@ final class PublicEventRegistrationController extends Controller
         $resolvedLocale = $locale === 'ar' ? 'ar' : 'en';
         $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         $token = Str::random(48);
+        $otpScope = "{$event->tenant_id}:{$event->id}:registration-otp";
+        $otpPayload = [
+            'form_version_id' => (string) $validated['form_version_id'],
+            'event_category_id' => $category !== null ? (string) $category->id : null,
+            'ticket_type_id' => (string) $ticket->id,
+            'event_venue_id' => $validated['event_venue_id'] ?? null,
+            'idempotency_key' => $idempotencyKey,
+            'answers' => $answers,
+            'consents' => [
+                'terms' => (bool) ($validated['consents']['terms'] ?? false),
+                'privacy' => (bool) ($validated['consents']['privacy'] ?? false),
+                'marketing' => (bool) ($validated['consents']['marketing'] ?? false),
+            ],
+            'buyer' => $buyer,
+            'attendee' => $attendee,
+            'invite_code' => $invite?->code,
+            'invite_email' => $invite !== null ? $invite->resolvedEmail($this->guard) : null,
+        ];
+        $encryptedEmail = $this->guard->encryptString((string) $attendee['email'], $otpScope);
+        $encryptedPayload = $this->guard->encryptJson($otpPayload, $otpScope);
 
         RegistrationOtp::query()->create([
             'token' => $token,
             'tenant_id' => $event->tenant_id,
             'event_id' => $event->id,
-            'email' => $attendee['email'],
-            'payload' => [
-                'form_version_id' => (string) $validated['form_version_id'],
-                'event_category_id' => $category !== null ? (string) $category->id : null,
-                'ticket_type_id' => (string) $ticket->id,
-                'event_venue_id' => $validated['event_venue_id'] ?? null,
-                'idempotency_key' => $idempotencyKey,
-                'answers' => $answers,
-                'consents' => [
-                    'terms' => (bool) ($validated['consents']['terms'] ?? false),
-                    'privacy' => (bool) ($validated['consents']['privacy'] ?? false),
-                    'marketing' => (bool) ($validated['consents']['marketing'] ?? false),
-                ],
-                'buyer' => $buyer,
-                'attendee' => $attendee,
-                'invite_code' => $invite?->code,
-                'invite_email' => $invite?->email,
-            ],
+            'email' => null,
+            'email_ciphertext' => $encryptedEmail['ciphertext'],
+            'email_index' => $this->guard->emailIndex((string) $attendee['email']),
+            'payload' => null,
+            'payload_ciphertext' => $encryptedPayload['ciphertext'],
+            'encryption_key_id' => $encryptedEmail['key_id'],
             'code_hash' => hash('sha256', $code),
             'expires_at' => now()->addMinutes(15),
             'attempts' => 0,
@@ -740,7 +744,6 @@ final class PublicEventRegistrationController extends Controller
             Log::info('public_registration.otp_code', [
                 'token' => $token,
                 'code' => $code,
-                'email' => $attendee['email'],
             ]);
         }
 
@@ -748,7 +751,6 @@ final class PublicEventRegistrationController extends Controller
             Log::info('public_registration.otp_code', [
                 'token' => $token,
                 'code' => $code,
-                'email' => $attendee['email'],
             ]);
         }
 
@@ -770,7 +772,7 @@ final class PublicEventRegistrationController extends Controller
     ): void {
         $email = strtolower(trim($email));
         if ($email !== '') {
-            $this->deactivateInvite->execute($event->id, $email, $inviteCode);
+            $this->deactivateInvite->markConsumed((string) $event->id, $email, $inviteCode);
         }
 
         $resolvedAttendeeId = $attendeeId;
@@ -808,11 +810,11 @@ final class PublicEventRegistrationController extends Controller
             if ($attendee !== null) {
                 try {
                     $scope = "{$attendee->tenant_id}:{$attendee->event_id}:attendee";
-                    $first = $this->cipher->decrypt([
+                    $first = $this->guard->decryptString([
                         'key_id' => $attendee->encryption_key_id,
                         'ciphertext' => $attendee->first_name_ciphertext,
                     ], $scope);
-                    $last = $this->cipher->decrypt([
+                    $last = $this->guard->decryptString([
                         'key_id' => $attendee->encryption_key_id,
                         'ciphertext' => $attendee->last_name_ciphertext,
                     ], $scope);
@@ -844,8 +846,10 @@ final class PublicEventRegistrationController extends Controller
 
         $exists = Attendee::query()
             ->where('event_id', $event->id)
-            ->where('email_index', $this->indexes->email($email))
+            ->where('email_index', $this->guard->emailIndex($email))
             ->whereNull('anonymized_at')
+            ->where('registration_status', '!=', 'cancelled')
+            ->where('registration_status', '!=', 'anonymized')
             ->exists();
 
         if ($exists) {
@@ -900,7 +904,7 @@ final class PublicEventRegistrationController extends Controller
     private function resolveOrderEmail(Order $order): string
     {
         try {
-            return strtolower(trim($this->cipher->decrypt([
+            return strtolower(trim($this->guard->decryptString([
                 'key_id' => $order->encryption_key_id,
                 'ciphertext' => $order->buyer_email_ciphertext,
             ], "{$order->tenant_id}:{$order->event_id}:order")));

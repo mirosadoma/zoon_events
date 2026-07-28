@@ -7,7 +7,9 @@ use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
 use App\Modules\Events\Application\Support\PublicRegistrationUrlBuilder;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
+use App\Modules\Orders\Infrastructure\Persistence\Models\Order;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\URL;
 
 final readonly class AttendeeDetailViewModel
 {
@@ -69,6 +71,7 @@ final readonly class AttendeeDetailViewModel
                 'registered_at' => $attendee->registered_at?->toIso8601String(),
                 'first_checked_in_at' => $attendee->first_checked_in_at?->toIso8601String(),
                 'origin' => $attendee->origin,
+                'entry_card_url' => $this->entryCardUrl($attendee),
                 'credential' => $credential !== null ? [
                     'id' => (string) $credential->id,
                     'status' => $credential->status,
@@ -79,6 +82,33 @@ final readonly class AttendeeDetailViewModel
                 ] : null,
             ],
         ];
+    }
+
+    private function entryCardUrl(Attendee $attendee): ?string
+    {
+        if ($attendee->order_id === null) {
+            return null;
+        }
+
+        $order = Order::query()
+            ->whereKey($attendee->order_id)
+            ->where('tenant_id', $attendee->tenant_id)
+            ->where('event_id', $attendee->event_id)
+            ->first();
+
+        if ($order === null || ! is_string($order->public_reference) || $order->public_reference === '') {
+            return null;
+        }
+
+        $locale = in_array($attendee->preferred_locale, ['ar', 'en'], true)
+            ? $attendee->preferred_locale
+            : 'en';
+
+        return URL::temporarySignedRoute(
+            'public.order.show',
+            now()->addDays(90),
+            ['locale' => $locale, 'public_reference' => $order->public_reference],
+        );
     }
 
     /** @return array<string, mixed> */

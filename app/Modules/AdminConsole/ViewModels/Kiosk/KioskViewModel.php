@@ -118,6 +118,7 @@ final readonly class KioskViewModel
             'id' => (string) $kiosk->id,
             'device_name' => $kiosk->device_name,
             'device_code' => $kiosk->device_code,
+            'location_label' => $kiosk->location_label,
             'status' => $this->deriver->derive($kiosk, $threshold, $this->clock->now()),
             'printer_status' => $kiosk->printer_status instanceof \BackedEnum
                 ? $kiosk->printer_status->value

@@ -14,8 +14,7 @@ use App\Modules\Orders\Domain\FreeRegistrationInput;
 use App\Modules\Orders\Infrastructure\Persistence\Models\Order;
 use App\Modules\Orders\Infrastructure\Persistence\Models\OrderItem;
 use App\Modules\Registration\Contracts\SubmissionCreator;
-use App\Modules\Shared\Application\DataProtection\BlindIndex;
-use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
+use App\Modules\Shared\Application\DataProtection\PersonalDataGuard;
 use App\Modules\Ticketing\Contracts\FreeTicketAllocator;
 use Illuminate\Support\Facades\DB;
 
@@ -28,8 +27,7 @@ final readonly class CompleteFreeRegistration
         private CredentialIssuer $credentials,
         private CredentialIssuerService $directCredentials,
         private ConfirmationIntentCreator $notifications,
-        private PersonalDataCipher $cipher,
-        private BlindIndex $indexes,
+        private PersonalDataGuard $guard,
         private AuditWriter $audit,
         private CompletedRegistrationResolver $completedRegistrations,
     ) {}
@@ -50,19 +48,22 @@ final readonly class CompleteFreeRegistration
             $allocation = $this->tickets->reserve($input->tenantId, $input->eventId, $input->ticketTypeId);
             $accessToken = sodium_bin2base64(random_bytes(32), SODIUM_BASE64_VARIANT_URLSAFE_NO_PADDING);
             $scope = "{$input->tenantId}:{$input->eventId}:order";
-            $encrypt = fn (string $value): string => $this->cipher->encrypt($value, $scope)['ciphertext'];
+            $encrypt = fn (string $value): array => $this->guard->encryptString($value, $scope);
+            $buyerName = $encrypt($input->buyer['first_name'].' '.$input->buyer['last_name']);
+            $buyerEmail = $encrypt($input->buyer['email']);
+            $buyerPhone = isset($input->buyer['phone']) ? $encrypt($input->buyer['phone']) : null;
             $order = Order::query()->create([
                 'tenant_id' => $input->tenantId,
                 'event_id' => $input->eventId,
                 'public_reference' => $reference,
                 'access_token_hash' => hash('sha256', $accessToken),
                 'status' => 'paid',
-                'buyer_name_ciphertext' => $encrypt($input->buyer['first_name'].' '.$input->buyer['last_name']),
-                'buyer_email_ciphertext' => $encrypt($input->buyer['email']),
-                'buyer_phone_ciphertext' => isset($input->buyer['phone']) ? $encrypt($input->buyer['phone']) : null,
-                'buyer_email_index' => $this->indexes->email($input->buyer['email']),
-                'buyer_phone_index' => isset($input->buyer['phone']) ? $this->indexes->phone($input->buyer['phone']) : null,
-                'encryption_key_id' => $submission->encryptionKeyId,
+                'buyer_name_ciphertext' => $buyerName['ciphertext'],
+                'buyer_email_ciphertext' => $buyerEmail['ciphertext'],
+                'buyer_phone_ciphertext' => $buyerPhone['ciphertext'] ?? null,
+                'buyer_email_index' => $this->guard->emailIndex($input->buyer['email']),
+                'buyer_phone_index' => isset($input->buyer['phone']) ? $this->guard->phoneIndex($input->buyer['phone']) : null,
+                'encryption_key_id' => $buyerName['key_id'],
                 'subtotal_minor' => 0, 'tax_minor' => 0, 'fees_minor' => 0, 'total_minor' => 0,
                 'currency' => $allocation->currency,
                 'inventory_hold_id' => $allocation->holdId,

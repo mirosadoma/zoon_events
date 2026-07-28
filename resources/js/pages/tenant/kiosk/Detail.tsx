@@ -1,14 +1,19 @@
 import { useState } from 'react'
 import LocalizedLink from '@/components/routing/LocalizedLink'
-import { MapPin, MonitorSmartphone, Printer } from 'lucide-react'
+import { Link2, MapPin, MonitorSmartphone, Printer } from 'lucide-react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { HeartbeatIndicator } from '@/components/kiosk/HeartbeatIndicator'
+import { PairingDialog } from '@/components/kiosk/PairingDialog'
 import { DetailsCard, EmptyState } from '@/components/feedback'
+import ConfirmModal from '@/components/modals/ConfirmModal'
 import { PageContent, PageHeader } from '@/components/layout'
 import SideDetailPane, { SideDetailInfoGrid } from '@/components/layout/SideDetailPane'
+import PermissionGate from '@/components/layout/PermissionGate'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import { useLocale } from '@/hooks/useLocale'
+import { useToast } from '@/hooks/useToast'
+import { apiFetch } from '@/lib/apiFetch'
 import type { Kiosk } from '@/types/phase3'
 
 type EventRow = {
@@ -55,20 +60,41 @@ function formatDateTime(value: string | null, locale: string): string {
   return new Date(value).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-US')
 }
 
-export default function KioskDetailPage({ event, kiosk }: Props) {
+export default function KioskDetailPage({ event, tenantId, kiosk }: Props) {
   const { locale, t } = useLocale()
+  const { toast } = useToast()
   const [selectedCheckinId, setSelectedCheckinId] = useState<string | null>(null)
   const [selectedPrintJobId, setSelectedPrintJobId] = useState<string | null>(null)
+  const [pairingOpen, setPairingOpen] = useState(false)
+  const [pairingSecret, setPairingSecret] = useState<string | null>(null)
   const selectedCheckin = kiosk.recent_checkins.find((item) => item.id === selectedCheckinId) ?? null
   const selectedPrintJob = kiosk.recent_print_jobs.find((item) => item.id === selectedPrintJobId) ?? null
   const heartbeatKiosk: Kiosk = {
     id: String(kiosk.id),
     device_name: kiosk.device_name,
     device_code: kiosk.device_code,
+    location_label: kiosk.location_label,
     status: kiosk.status as Kiosk['status'],
     printer_status: kiosk.printer_status as Kiosk['printer_status'],
     last_heartbeat_at: kiosk.last_heartbeat_at,
     confirmation_required: kiosk.confirmation_required,
+  }
+
+  async function handlePair(kioskId: string) {
+    try {
+      const data = await apiFetch<{ session_secret?: string }>(
+        `/api/v1/tenant/events/${event.id}/kiosks/${kioskId}/pair`,
+        {
+          method: 'POST',
+          tenantId,
+          idempotency: true,
+        },
+      )
+      setPairingSecret(data.session_secret ?? null)
+      toast(t('kioskPaired'), 'success')
+    } finally {
+      setPairingOpen(false)
+    }
   }
 
   return (
@@ -88,6 +114,16 @@ export default function KioskDetailPage({ event, kiosk }: Props) {
             <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/kiosks`}>
               {t('kioskPageBackToList')}
             </LocalizedLink>
+            <PermissionGate permission="kiosk.manage">
+              <button
+                type="button"
+                className="button-secondary inline-flex items-center gap-1.5"
+                onClick={() => setPairingOpen(true)}
+              >
+                <Link2 className="h-4 w-4" aria-hidden />
+                {t('kioskPagePair')}
+              </button>
+            </PermissionGate>
             <LocalizedLink className="button-primary" href={`/kiosk/${kiosk.device_code}/unlock`}>
               {t('kioskPageMode')}
             </LocalizedLink>
@@ -311,6 +347,30 @@ export default function KioskDetailPage({ event, kiosk }: Props) {
           />
         ) : null}
       </SideDetailPane>
+
+      {pairingOpen ? (
+        <PairingDialog
+          kiosk={heartbeatKiosk}
+          onConfirm={(kioskId) => void handlePair(kioskId)}
+          onCancel={() => setPairingOpen(false)}
+        />
+      ) : null}
+
+      <ConfirmModal
+        open={pairingSecret !== null}
+        title={t('kioskPagePaired')}
+        message={t('kioskPagePairedMessage')}
+        confirmLabel={t('kioskPageDone')}
+        cancelLabel={t('kioskPageClose')}
+        onConfirm={() => setPairingSecret(null)}
+        onCancel={() => setPairingSecret(null)}
+      >
+        {pairingSecret ? (
+          <p className="mt-3 break-all rounded bg-slate-100 p-3 font-mono text-sm dark:bg-slate-800">
+            {pairingSecret}
+          </p>
+        ) : null}
+      </ConfirmModal>
     </DashboardLayout>
   )
 }

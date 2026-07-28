@@ -8,8 +8,7 @@ use App\Modules\Orders\Domain\FreeRegistrationInput;
 use App\Modules\Orders\Infrastructure\Persistence\Models\Order;
 use App\Modules\Orders\Infrastructure\Persistence\Models\OrderItem;
 use App\Modules\Registration\Contracts\SubmissionCreator;
-use App\Modules\Shared\Application\DataProtection\BlindIndex;
-use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
+use App\Modules\Shared\Application\DataProtection\PersonalDataGuard;
 use App\Modules\Ticketing\Contracts\PaidTicketAllocator;
 use Illuminate\Support\Facades\DB;
 
@@ -18,8 +17,7 @@ final readonly class StartPaidRegistration
     public function __construct(
         private SubmissionCreator $submissions,
         private PaidTicketAllocator $tickets,
-        private PersonalDataCipher $cipher,
-        private BlindIndex $indexes,
+        private PersonalDataGuard $guard,
         private AuditWriter $audit,
     ) {}
 
@@ -51,23 +49,23 @@ final readonly class StartPaidRegistration
             $accessToken = sodium_bin2base64(random_bytes(32), SODIUM_BASE64_VARIANT_URLSAFE_NO_PADDING);
             $orderScope = "{$input->tenantId}:{$input->eventId}:order";
             $fulfillmentScope = "{$input->tenantId}:{$input->eventId}:paid-fulfillment";
-            $encrypt = fn (string $value): string => $this->cipher->encrypt($value, $orderScope)['ciphertext'];
-            $fulfillment = $this->cipher->encrypt(
-                json_encode($input->attendee, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
-                $fulfillmentScope,
-            );
+            $encrypt = fn (string $value): array => $this->guard->encryptString($value, $orderScope);
+            $buyerName = $encrypt($input->buyer['first_name'].' '.$input->buyer['last_name']);
+            $buyerEmail = $encrypt($input->buyer['email']);
+            $buyerPhone = isset($input->buyer['phone']) ? $encrypt($input->buyer['phone']) : null;
+            $fulfillment = $this->guard->encryptJson($input->attendee, $fulfillmentScope);
             $order = Order::query()->create([
                 'tenant_id' => $input->tenantId,
                 'event_id' => $input->eventId,
                 'public_reference' => $reference,
                 'access_token_hash' => hash('sha256', $accessToken),
                 'status' => 'pending_payment',
-                'buyer_name_ciphertext' => $encrypt($input->buyer['first_name'].' '.$input->buyer['last_name']),
-                'buyer_email_ciphertext' => $encrypt($input->buyer['email']),
-                'buyer_phone_ciphertext' => isset($input->buyer['phone']) ? $encrypt($input->buyer['phone']) : null,
-                'buyer_email_index' => $this->indexes->email($input->buyer['email']),
-                'buyer_phone_index' => isset($input->buyer['phone']) ? $this->indexes->phone($input->buyer['phone']) : null,
-                'encryption_key_id' => $submission->encryptionKeyId,
+                'buyer_name_ciphertext' => $buyerName['ciphertext'],
+                'buyer_email_ciphertext' => $buyerEmail['ciphertext'],
+                'buyer_phone_ciphertext' => $buyerPhone['ciphertext'] ?? null,
+                'buyer_email_index' => $this->guard->emailIndex($input->buyer['email']),
+                'buyer_phone_index' => isset($input->buyer['phone']) ? $this->guard->phoneIndex($input->buyer['phone']) : null,
+                'encryption_key_id' => $buyerName['key_id'],
                 'subtotal_minor' => $priceMinor,
                 'tax_minor' => 0,
                 'fees_minor' => 0,

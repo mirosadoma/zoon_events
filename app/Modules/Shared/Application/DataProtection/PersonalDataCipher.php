@@ -34,14 +34,27 @@ final readonly class PersonalDataCipher
     /** @param array{key_id:string,ciphertext:string} $encrypted */
     public function decrypt(array $encrypted, string $scope): string
     {
+        $ciphertext = (string) ($encrypted['ciphertext'] ?? '');
+        $keyId = (string) ($encrypted['key_id'] ?? '');
+
+        if ($keyId === PersonalDataGuard::PLAIN_KEY_ID || str_starts_with($ciphertext, 'plain:')) {
+            if (str_starts_with($ciphertext, 'plain:')) {
+                $decoded = base64_decode(substr($ciphertext, 6), true);
+
+                return is_string($decoded) ? $decoded : '';
+            }
+
+            return $ciphertext;
+        }
+
         try {
-            $packed = sodium_base642bin($encrypted['ciphertext'], SODIUM_BASE64_VARIANT_URLSAFE_NO_PADDING);
+            $packed = sodium_base642bin($ciphertext, SODIUM_BASE64_VARIANT_URLSAFE_NO_PADDING);
             $nonceLength = SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES;
             $plaintext = sodium_crypto_aead_xchacha20poly1305_ietf_decrypt(
                 substr($packed, $nonceLength),
                 $scope,
                 substr($packed, 0, $nonceLength),
-                $this->key($encrypted['key_id']),
+                $this->key($keyId),
             );
         } catch (\Throwable) {
             throw new InvalidArgumentException('Encrypted personal data is invalid.');

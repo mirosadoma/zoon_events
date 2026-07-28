@@ -87,6 +87,29 @@ final class ConfigurationValidator
 
     private function validatePersonalDataKeys(array &$issues): void
     {
+        $encryptionEnabled = (bool) config('credentials.personal_data_encryption_enabled', true);
+
+        if (app()->environment('production') && ! $encryptionEnabled) {
+            $issues[] = new ConfigurationIssue(
+                'PERSONAL_DATA_ENCRYPTION_ENABLED',
+                'personal_data_encryption_disabled_in_production',
+                'Personal-data encryption must be enabled in production.',
+            );
+        }
+
+        if (app()->environment('production') && ! (bool) config('session.encrypt')) {
+            $issues[] = new ConfigurationIssue(
+                'SESSION_ENCRYPT',
+                'session_encryption_disabled_in_production',
+                'Session encryption must be enabled in production.',
+            );
+        }
+
+        if (! $encryptionEnabled && ! app()->environment('production')) {
+            // Keys are optional when encryption is intentionally off outside production.
+            return;
+        }
+
         $keyId = (string) config('credentials.personal_data_current_key_id');
         $encoded = config("credentials.personal_data_key_ring.{$keyId}");
         $decoded = is_string($encoded) ? base64_decode($encoded, true) : false;

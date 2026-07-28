@@ -215,7 +215,17 @@ final readonly class RenderBadgePrintPayloadAction
 
         $registeredViaInvite = EventRegistrationInvite::query()
             ->where('event_id', $eventId)
-            ->where('email', $email)
+            ->where(function ($builder) use ($email, $attendee): void {
+                $emailIndex = filled($attendee->email_index)
+                    ? (string) $attendee->email_index
+                    : '';
+                if ($emailIndex !== '') {
+                    $builder->where('email_index', $emailIndex)
+                        ->orWhere('email', $email);
+                } else {
+                    $builder->where('email', $email);
+                }
+            })
             ->whereNotNull('used_at')
             ->exists();
 

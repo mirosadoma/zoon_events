@@ -250,6 +250,7 @@ final class DemoContentSeeder extends Seeder
         }
 
         $generator = app(InviteCodeGenerator::class);
+        $guard = app(\App\Modules\Shared\Application\DataProtection\PersonalDataGuard::class);
         $emails = [
             'invite1@demo.zonetec.test',
             'invite2@demo.zonetec.test',
@@ -257,20 +258,30 @@ final class DemoContentSeeder extends Seeder
         ];
 
         foreach ($emails as $email) {
+            $emailIndex = $guard->emailIndex($email);
             $existing = EventRegistrationInvite::query()
                 ->where('tenant_id', $tenant->id)
                 ->where('event_id', $private->id)
-                ->where('email', $email)
+                ->where(function ($builder) use ($email, $emailIndex): void {
+                    $builder->where('email_index', $emailIndex)
+                        ->orWhere('email', $email);
+                })
                 ->first();
 
             if ($existing) {
                 continue;
             }
 
+            $scope = "{$tenant->id}:{$private->id}:invite";
+            $encryptedEmail = $guard->encryptString($email, $scope);
+
             EventRegistrationInvite::query()->create([
                 'tenant_id' => $tenant->id,
                 'event_id' => $private->id,
-                'email' => $email,
+                'email' => null,
+                'email_ciphertext' => $encryptedEmail['ciphertext'],
+                'email_index' => $emailIndex,
+                'encryption_key_id' => $encryptedEmail['key_id'],
                 'code' => $generator->generateUnique($private->id),
                 'is_active' => true,
                 'invite_status' => 'not_registered',

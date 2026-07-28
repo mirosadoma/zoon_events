@@ -80,6 +80,9 @@ final readonly class PurgeExpiredIdentityArtifacts
             ->update([
                 'verified_name' => null,
                 'verified_nationality' => null,
+                'verified_name_ciphertext' => null,
+                'verified_nationality_ciphertext' => null,
+                'encryption_key_id' => null,
                 'provider_reference' => null,
             ]);
 

@@ -2,6 +2,7 @@ export interface Kiosk {
   id: string
   device_name: string
   device_code: string
+  location_label?: string | null
   status: 'registered' | 'online' | 'offline' | 'degraded' | 'retired'
   printer_status: 'unknown' | 'ready' | 'error' | 'disconnected'
   last_heartbeat_at: string | null

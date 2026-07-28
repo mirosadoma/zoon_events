@@ -4,6 +4,7 @@ namespace Tests\Unit\Shared;
 
 use App\Modules\Shared\Application\DataProtection\BlindIndex;
 use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
+use App\Modules\Shared\Application\DataProtection\PersonalDataGuard;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
@@ -49,5 +50,35 @@ final class PersonalDataProtectionTest extends TestCase
         self::assertSame($index->email(' Test@Example.COM '), $index->email('test@example.com'));
         self::assertSame($index->phone('+966 50 123 4567'), $index->phone('00966-50-123-4567'));
         self::assertStringNotContainsString('example', $index->email('test@example.com'));
+    }
+
+    public function test_guard_stores_plaintext_marker_when_encryption_disabled(): void
+    {
+        $cipher = new PersonalDataCipher('current', ['current' => $this->key]);
+        $indexes = new BlindIndex('v1', ['v1' => 'synthetic-index-key']);
+        $guard = new PersonalDataGuard($cipher, $indexes, false, 'current');
+
+        $encrypted = $guard->encryptString('secret@example.test', 'scope');
+
+        self::assertSame(PersonalDataGuard::PLAIN_KEY_ID, $encrypted['key_id']);
+        self::assertStringStartsWith('plain:', $encrypted['ciphertext']);
+        self::assertSame('secret@example.test', $guard->decryptString($encrypted, 'scope'));
+        self::assertSame('secret@example.test', $cipher->decrypt($encrypted, 'scope'));
+    }
+
+    public function test_guard_encrypts_when_enabled(): void
+    {
+        $cipher = new PersonalDataCipher('current', ['current' => $this->key]);
+        $indexes = new BlindIndex('v1', ['v1' => 'synthetic-index-key']);
+        $guard = new PersonalDataGuard($cipher, $indexes, true, 'current');
+
+        $encrypted = $guard->encryptJson(['email' => 'a@b.test'], 'scope');
+
+        self::assertSame('current', $encrypted['key_id']);
+        self::assertSame(['email' => 'a@b.test'], $guard->decryptJson($encrypted, 'scope'));
+        self::assertSame(
+            $indexes->email('A@B.TEST'),
+            $guard->emailIndex('a@b.test'),
+        );
     }
 }

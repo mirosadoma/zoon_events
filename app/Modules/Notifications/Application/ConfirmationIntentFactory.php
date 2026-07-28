@@ -5,15 +5,14 @@ namespace App\Modules\Notifications\Application;
 use App\Modules\Notifications\Application\Jobs\DeliverNotificationJob;
 use App\Modules\Notifications\Contracts\ConfirmationIntentCreator;
 use App\Modules\Notifications\Infrastructure\Persistence\Models\Notification;
-use App\Modules\Shared\Application\DataProtection\BlindIndex;
-use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
+use App\Modules\Shared\Application\DataProtection\PersonalDataGuard;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 final readonly class ConfirmationIntentFactory implements ConfirmationIntentCreator
 {
-    public function __construct(private PersonalDataCipher $cipher, private BlindIndex $indexes) {}
+    public function __construct(private PersonalDataGuard $guard) {}
 
     public function create(
         string $tenantId,
@@ -84,7 +83,7 @@ final readonly class ConfirmationIntentFactory implements ConfirmationIntentCrea
         string $locale,
         string $adapter,
     ): Notification {
-        $encrypted = $this->cipher->encrypt($destination, "{$tenantId}:{$eventId}:notification");
+        $encrypted = $this->guard->encryptString($destination, "{$tenantId}:{$eventId}:notification");
         $notification = Notification::query()->firstOrCreate(
             [
                 'tenant_id' => $tenantId,
@@ -100,8 +99,8 @@ final readonly class ConfirmationIntentFactory implements ConfirmationIntentCrea
                 'locale' => $locale,
                 'destination_ciphertext' => $encrypted['ciphertext'],
                 'destination_index' => $channel === 'email'
-                    ? $this->indexes->email($destination)
-                    : $this->indexes->phone($destination),
+                    ? $this->guard->emailIndex($destination)
+                    : $this->guard->phoneIndex($destination),
                 'encryption_key_id' => $encrypted['key_id'],
                 'content_digest' => hash('sha256', "registration_confirmation:v1:{$locale}"),
                 'adapter_key' => $adapter,

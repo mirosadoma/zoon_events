@@ -12,7 +12,7 @@ use App\Modules\Orders\Domain\PaidOrderResult;
 use App\Modules\Orders\Domain\PayableOrder;
 use App\Modules\Orders\Infrastructure\Persistence\Models\Order;
 use App\Modules\Orders\Infrastructure\Persistence\Models\OrderItem;
-use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
+use App\Modules\Shared\Application\DataProtection\PersonalDataGuard;
 use App\Modules\Shared\Http\Problems\Phase1Problem;
 use App\Modules\Ticketing\Contracts\PaidTicketAllocator;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +21,7 @@ final readonly class CompletePaidRegistration implements OrderPaymentPort
 {
     public function __construct(
         private PublicOrderHostAuthorizer $hosts,
-        private PersonalDataCipher $cipher,
+        private PersonalDataGuard $guard,
         private AttendeeCreator $attendees,
         private CredentialIssuer $credentials,
         private ConfirmationIntentCreator $notifications,
@@ -63,16 +63,12 @@ final readonly class CompletePaidRegistration implements OrderPaymentPort
                 || $order->credential_expires_at === null) {
                 throw Phase1Problem::make('payment_mismatch');
             }
-            $identity = json_decode(
-                $this->cipher->decrypt(
-                    [
-                        'key_id' => $order->fulfillment_encryption_key_id,
-                        'ciphertext' => $order->fulfillment_payload_ciphertext,
-                    ],
-                    "{$order->tenant_id}:{$order->event_id}:paid-fulfillment",
-                ),
-                true,
-                flags: JSON_THROW_ON_ERROR,
+            $identity = $this->guard->decryptJson(
+                [
+                    'key_id' => (string) $order->fulfillment_encryption_key_id,
+                    'ciphertext' => (string) $order->fulfillment_payload_ciphertext,
+                ],
+                "{$order->tenant_id}:{$order->event_id}:paid-fulfillment",
             );
             $item = OrderItem::query()->where('order_id', $order->id)->lockForUpdate()->firstOrFail();
             $attendee = $this->attendees->create(

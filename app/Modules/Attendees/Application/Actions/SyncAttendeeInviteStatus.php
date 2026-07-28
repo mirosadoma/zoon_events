@@ -6,12 +6,12 @@ use App\Modules\Attendees\Domain\AttendeeInviteStatus;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventRegistrationInvite;
-use App\Modules\Shared\Application\DataProtection\BlindIndex;
+use App\Modules\Shared\Application\DataProtection\PersonalDataGuard;
 use Illuminate\Support\Facades\DB;
 
 final readonly class SyncAttendeeInviteStatus
 {
-    public function __construct(private BlindIndex $indexes) {}
+    public function __construct(private PersonalDataGuard $guard) {}
 
     public function markRegistered(string $tenantId, string $eventId, string $email): void
     {
@@ -22,7 +22,10 @@ final readonly class SyncAttendeeInviteStatus
 
         EventRegistrationInvite::query()
             ->where('event_id', $eventId)
-            ->where('email', $email)
+            ->where(function ($builder) use ($email): void {
+                $builder->where('email_index', $this->guard->emailIndex($email))
+                    ->orWhere('email', $email);
+            })
             ->whereIn('invite_status', [
                 AttendeeInviteStatus::NotRegistered->value,
                 AttendeeInviteStatus::Registered->value,
@@ -58,7 +61,10 @@ final readonly class SyncAttendeeInviteStatus
 
         EventRegistrationInvite::query()
             ->where('event_id', $eventId)
-            ->where('email', $email)
+            ->where(function ($builder) use ($email): void {
+                $builder->where('email_index', $this->guard->emailIndex($email))
+                    ->orWhere('email', $email);
+            })
             ->whereIn('invite_status', [
                 AttendeeInviteStatus::NotRegistered->value,
                 AttendeeInviteStatus::Registered->value,
@@ -67,7 +73,7 @@ final readonly class SyncAttendeeInviteStatus
 
         Attendee::query()
             ->where('event_id', $eventId)
-            ->where('email_index', $this->indexes->email($email))
+            ->where('email_index', $this->guard->emailIndex($email))
             ->whereIn('invite_status', [
                 AttendeeInviteStatus::Registered->value,
                 AttendeeInviteStatus::NotAttended->value,

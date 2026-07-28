@@ -24,6 +24,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if ($this->app->environment('production')) {
+            URL::forceScheme('https');
+        }
+
         // Root-relative asset URLs so Vite's CSS preload helper can match existing
         // <link> tags (absolute APP_URL hrefs cause duplicate crossorigin loads → crash).
         Vite::createAssetPathsUsing(

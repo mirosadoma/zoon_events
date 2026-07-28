@@ -9,6 +9,7 @@ use App\Modules\Events\Domain\EventTier;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventRegistrationInvite;
 use App\Modules\Events\Mail\PrivateEventInviteMail;
+use App\Modules\Shared\Application\DataProtection\PersonalDataGuard;
 use Illuminate\Support\Facades\Mail;
 
 final readonly class SendPrivateEventInvites
@@ -16,6 +17,7 @@ final readonly class SendPrivateEventInvites
     public function __construct(
         private InviteCodeGenerator $codes,
         private PublicRegistrationUrlBuilder $urls,
+        private PersonalDataGuard $guard,
     ) {}
 
     /**
@@ -61,15 +63,22 @@ final readonly class SendPrivateEventInvites
         $eventName = $resolvedLocale === 'ar'
             ? ($event->name_ar ?: $event->name_en)
             : $event->name_en;
+        $scope = "{$event->tenant_id}:{$event->id}:invite";
 
         foreach ($normalized as $invitee) {
             $email = $invitee['email'];
             $name = $invitee['name'];
             $phone = $invitee['phone'];
+            $emailIndex = $this->guard->emailIndex($email);
+            $encryptedEmail = $this->guard->encryptString($email, $scope);
+            $encryptedName = $name !== null ? $this->guard->encryptString($name, $scope) : null;
 
             $existing = EventRegistrationInvite::query()
                 ->where('event_id', $event->id)
-                ->where('email', $email)
+                ->where(function ($builder) use ($email, $emailIndex): void {
+                    $builder->where('email_index', $emailIndex)
+                        ->orWhere('email', $email);
+                })
                 ->orderByDesc('id')
                 ->first();
 
@@ -77,12 +86,20 @@ final readonly class SendPrivateEventInvites
                 // Keep a single invite row per email; invalidate older duplicates.
                 EventRegistrationInvite::query()
                     ->where('event_id', $event->id)
-                    ->where('email', $email)
+                    ->where(function ($builder) use ($email, $emailIndex): void {
+                        $builder->where('email_index', $emailIndex)
+                            ->orWhere('email', $email);
+                    })
                     ->whereKeyNot($existing->id)
                     ->update(['is_active' => false]);
 
                 $existing->forceFill([
-                    'name' => $name,
+                    'email' => null,
+                    'email_ciphertext' => $encryptedEmail['ciphertext'],
+                    'email_index' => $emailIndex,
+                    'name' => null,
+                    'name_ciphertext' => $encryptedName['ciphertext'] ?? null,
+                    'encryption_key_id' => $encryptedEmail['key_id'],
                     'code' => $this->codes->generateUnique($event->id),
                     'is_active' => true,
                     'used_at' => null,
@@ -98,8 +115,12 @@ final readonly class SendPrivateEventInvites
                 $invite = EventRegistrationInvite::query()->create([
                     'tenant_id' => $event->tenant_id,
                     'event_id' => $event->id,
-                    'email' => $email,
-                    'name' => $name,
+                    'email' => null,
+                    'email_ciphertext' => $encryptedEmail['ciphertext'],
+                    'email_index' => $emailIndex,
+                    'name' => null,
+                    'name_ciphertext' => $encryptedName['ciphertext'] ?? null,
+                    'encryption_key_id' => $encryptedEmail['key_id'],
                     'code' => $this->codes->generateUnique($event->id),
                     'is_active' => true,
                     'invite_status' => 'not_registered',
@@ -147,8 +168,8 @@ final readonly class SendPrivateEventInvites
 
             $invites[] = [
                 'id' => (string) $invite->id,
-                'email' => $invite->email,
-                'name' => $invite->name,
+                'email' => $email,
+                'name' => $name,
                 'code' => $invite->code,
             ];
         }

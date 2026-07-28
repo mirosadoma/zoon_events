@@ -27,6 +27,7 @@ final readonly class BuildBadgePrintDocumentAction
         BadgeTemplate $template,
         array $fieldOverrides = [],
         bool $autoPrint = true,
+        ?bool $showFieldGuides = null,
     ): array {
         $printPayload = $this->payload->execute(
             $tenantId,
@@ -69,7 +70,7 @@ final readonly class BuildBadgePrintDocumentAction
             $this->withEmbeddedBackground($template),
             $fields,
             $qrDataUri,
-            showFieldGuides: ! $autoPrint,
+            showFieldGuides: $showFieldGuides ?? ! $autoPrint,
         );
 
         return [

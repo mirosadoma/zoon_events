@@ -16,6 +16,7 @@ use App\Modules\IdentityVerification\Domain\ValueObjects\IdentityVerificationSta
 use App\Modules\IdentityVerification\Http\Requests\FaceCaptureSubmitRequest;
 use App\Modules\IdentityVerification\Http\Requests\IdentityConsentRequest;
 use App\Modules\IdentityVerification\Infrastructure\Persistence\Models\IdentityVerification;
+use App\Modules\Shared\Application\DataProtection\PersonalDataGuard;
 use App\Modules\Shared\Http\Problems\Phase1Problem;
 use App\Modules\Shared\Http\Problems\Phase5Problem;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
@@ -31,6 +32,7 @@ final class AttendeeIdentityController extends Controller
         private readonly PublicOrderIdentityContext $orderContext,
         private readonly TenantContextStore $tenantContexts,
         private readonly PermissionEvaluator $permissions,
+        private readonly PersonalDataGuard $guard,
     ) {}
 
     public function storeConsent(
@@ -231,8 +233,8 @@ final class AttendeeIdentityController extends Controller
             'attendee_id' => (string) $verification->attendee_id,
             'method' => (string) $verification->method,
             'status' => (string) $verification->status,
-            'verified_name' => $verification->verified_name,
-            'verified_nationality' => $verification->verified_nationality,
+            'verified_name' => $verification->resolvedVerifiedName($this->guard),
+            'verified_nationality' => $verification->resolvedVerifiedNationality($this->guard),
             'verified_at' => $verification->verified_at?->toIso8601String(),
             'rejection_reason' => $verification->rejection_reason,
         ];

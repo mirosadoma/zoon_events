@@ -41,6 +41,7 @@ type AttendeeDetail = {
   registered_at?: string | null
   first_checked_in_at?: string | null
   origin?: string | null
+  entry_card_url?: string | null
   credential?: CredentialSummary | null
 }
 
@@ -277,6 +278,16 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
           <section className="state-panel mt-6">
             <h2 className="text-lg font-semibold">{t('attendeeActions')}</h2>
             <div className="mt-4 flex flex-wrap gap-2">
+              {attendee.entry_card_url ? (
+                <a
+                  href={attendee.entry_card_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="button-primary"
+                >
+                  {t('viewEntryCard')}
+                </a>
+              ) : null}
               <PermissionGate permission="badge.print">
                 <button type="button" className="button-secondary" onClick={openPrintPreview} disabled={busyAction !== null}>
                   {t('printBadge')}
@@ -289,6 +300,12 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
               </PermissionGate>
             </div>
             <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+              {attendee.entry_card_url ? (
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-slate-500">{t('viewEntryCard')}</dt>
+                  <dd className="mt-1 text-sm text-slate-700">{t('viewEntryCardHelp')}</dd>
+                </div>
+              ) : null}
               <div>
                 <dt className="text-xs uppercase tracking-wide text-slate-500">{t('reissueCredential')}</dt>
                 <dd className="mt-1 text-sm text-slate-700">{t('attendeeActionReissueHelp')}</dd>
@@ -304,6 +321,22 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
             </dl>
           </section>
         )}
+
+        {!attendee.credential && attendee.entry_card_url ? (
+          <section className="state-panel mt-6">
+            <h2 className="text-lg font-semibold">{t('attendeeActions')}</h2>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <a
+                href={attendee.entry_card_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="button-primary"
+              >
+                {t('viewEntryCard')}
+              </a>
+            </div>
+          </section>
+        ) : null}
 
         {attendee.credential && (
           <CredentialDialog

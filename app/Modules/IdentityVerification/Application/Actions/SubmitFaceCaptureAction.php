@@ -79,6 +79,9 @@ final readonly class SubmitFaceCaptureAction
                 'provider_reference' => $result->reference,
                 'verified_name' => null,
                 'verified_nationality' => null,
+                'verified_name_ciphertext' => null,
+                'verified_nationality_ciphertext' => null,
+                'encryption_key_id' => null,
                 'verified_at' => null,
                 'rejection_reason' => null,
             ])->save();

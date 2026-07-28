@@ -6,12 +6,16 @@ use App\Modules\IdentityVerification\Contracts\GovernmentIdentityAdapter;
 use App\Modules\IdentityVerification\Domain\Events\IdentityVerificationResultRecorded;
 use App\Modules\IdentityVerification\Domain\ValueObjects\IdentityVerificationStatus;
 use App\Modules\IdentityVerification\Infrastructure\Persistence\Models\IdentityVerification;
+use App\Modules\Shared\Application\DataProtection\PersonalDataGuard;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 final readonly class HandleGovernmentCallbackAction
 {
-    public function __construct(private GovernmentIdentityAdapter $adapter) {}
+    public function __construct(
+        private GovernmentIdentityAdapter $adapter,
+        private PersonalDataGuard $guard,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $payload
@@ -54,10 +58,21 @@ final readonly class HandleGovernmentCallbackAction
                 return $locked;
             }
 
+            $scope = "{$locked->tenant_id}:{$locked->event_id}:identity-verification";
+            $encryptedName = $attributes->verifiedName !== null && $attributes->verifiedName !== ''
+                ? $this->guard->encryptString($attributes->verifiedName, $scope)
+                : null;
+            $encryptedNationality = $attributes->verifiedNationality !== null && $attributes->verifiedNationality !== ''
+                ? $this->guard->encryptString($attributes->verifiedNationality, $scope)
+                : null;
+
             $locked->forceFill([
                 'status' => $status,
-                'verified_name' => $attributes->verifiedName,
-                'verified_nationality' => $attributes->verifiedNationality,
+                'verified_name' => null,
+                'verified_nationality' => null,
+                'verified_name_ciphertext' => $encryptedName['ciphertext'] ?? null,
+                'verified_nationality_ciphertext' => $encryptedNationality['ciphertext'] ?? null,
+                'encryption_key_id' => $encryptedName['key_id'] ?? $encryptedNationality['key_id'] ?? null,
                 'verified_at' => $status === IdentityVerificationStatus::GOV_VERIFIED
                     ? CarbonImmutable::now()
                     : null,

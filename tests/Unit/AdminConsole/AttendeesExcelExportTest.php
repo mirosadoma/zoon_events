@@ -5,7 +5,9 @@ namespace Tests\Unit\AdminConsole;
 use App\Modules\AdminConsole\Application\Exports\AttendeesExcelExport;
 use App\Modules\AdminConsole\Application\PersonalDataReader;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
+use App\Modules\Shared\Application\DataProtection\BlindIndex;
 use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
+use App\Modules\Shared\Application\DataProtection\PersonalDataGuard;
 use Illuminate\Support\Collection;
 use PHPUnit\Framework\Attributes\Group;
 use Tests\TestCase;
@@ -17,7 +19,9 @@ class AttendeesExcelExportTest extends TestCase
     {
         $key = base64_encode(str_repeat('k', SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES));
         $cipher = new PersonalDataCipher('current', ['current' => $key]);
-        $export = new AttendeesExcelExport(new PersonalDataReader($cipher));
+        $indexes = new BlindIndex('v1', ['v1' => 'synthetic-index-key']);
+        $guard = new PersonalDataGuard($cipher, $indexes, true, 'current');
+        $export = new AttendeesExcelExport(new PersonalDataReader($guard));
 
         $attendee = new Attendee;
         $attendee->forceFill([

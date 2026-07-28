@@ -162,9 +162,17 @@ final readonly class ListEventAttendeesQuery
         return EventRegistrationInvite::query()
             ->where('event_id', $eventId)
             ->whereNotNull('used_at')
-            ->pluck('email')
-            ->filter(fn (mixed $email): bool => is_string($email) && trim($email) !== '')
-            ->map(fn (string $email): string => $this->indexes->email($email))
+            ->get(['email', 'email_index'])
+            ->map(function ($invite): ?string {
+                if (filled($invite->email_index)) {
+                    return (string) $invite->email_index;
+                }
+
+                $email = is_string($invite->email) ? trim($invite->email) : '';
+
+                return $email !== '' ? $this->indexes->email($email) : null;
+            })
+            ->filter(fn (?string $index): bool => is_string($index) && $index !== '')
             ->unique()
             ->values()
             ->all();

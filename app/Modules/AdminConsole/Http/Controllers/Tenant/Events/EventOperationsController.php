@@ -23,7 +23,7 @@ use App\Modules\IdentityVerification\Application\Queries\IdentityGate;
 use App\Modules\Notifications\Infrastructure\Persistence\Models\Notification;
 use App\Modules\Orders\Infrastructure\Persistence\Models\Order;
 use App\Modules\Orders\Infrastructure\Persistence\Models\OrderItem;
-use App\Modules\Shared\Application\DataProtection\BlindIndex;
+use App\Modules\Shared\Application\DataProtection\PersonalDataGuard;
 use App\Modules\Tenancy\Domain\Context\TenantContext;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -44,7 +44,7 @@ final class EventOperationsController extends Controller
         private readonly ListEventAttendeesQuery $listAttendees,
         private readonly AttendeesExcelExport $attendeesExcelExport,
         private readonly PublicRegistrationUrlBuilder $registrationUrls,
-        private readonly BlindIndex $indexes,
+        private readonly PersonalDataGuard $guard,
     ) {}
 
     public function orders(Request $request, string $eventId): Response
@@ -171,7 +171,13 @@ final class EventOperationsController extends Controller
 
         $query = EventRegistrationInvite::query()
             ->where('event_id', $event->id)
-            ->where('is_active', true)
+            // Keep pending active invites and consumed/registered invite rows.
+            // markConsumed() sets is_active=false, so filtering only on is_active
+            // hides every private registrant from this tab.
+            ->where(function ($builder): void {
+                $builder->where('is_active', true)
+                    ->orWhereNotNull('used_at');
+            })
             ->when($statusFilter !== '', function ($builder) use ($statusFilter): void {
                 if ($statusFilter === 'not_registered') {
                     $builder->where('invite_status', 'not_registered');
@@ -183,8 +189,13 @@ final class EventOperationsController extends Controller
             })
             ->when($search !== '', function ($builder) use ($search): void {
                 $builder->where(function ($inner) use ($search): void {
-                    $inner->where('email', 'like', '%'.$search.'%')
-                        ->orWhere('name', 'like', '%'.$search.'%');
+                    if (filter_var($search, FILTER_VALIDATE_EMAIL) !== false) {
+                        $inner->where('email_index', $this->guard->emailIndex($search))
+                            ->orWhere('email', $search);
+                    } else {
+                        $inner->where('email', 'like', '%'.$search.'%')
+                            ->orWhere('name', 'like', '%'.$search.'%');
+                    }
                 });
             })
             ->orderByDesc('id');
@@ -193,9 +204,16 @@ final class EventOperationsController extends Controller
         $invites = $paginator->getCollection();
 
         $emailIndexes = $invites
-            ->pluck('email')
-            ->filter(fn (mixed $email): bool => is_string($email) && trim($email) !== '')
-            ->map(fn (string $email): string => $this->indexes->email($email))
+            ->map(function (EventRegistrationInvite $invite): ?string {
+                if (filled($invite->email_index)) {
+                    return (string) $invite->email_index;
+                }
+
+                $email = $invite->resolvedEmail($this->guard);
+
+                return $email !== '' ? $this->guard->emailIndex($email) : null;
+            })
+            ->filter(fn (?string $index): bool => is_string($index) && $index !== '')
             ->unique()
             ->values()
             ->all();
@@ -217,12 +235,15 @@ final class EventOperationsController extends Controller
         );
 
         $rows = $invites->map(function (EventRegistrationInvite $invite) use ($attendeesByEmailIndex, $credentialStatuses): array {
-            $email = is_string($invite->email) ? trim($invite->email) : '';
-            $attendee = $email !== ''
-                ? $attendeesByEmailIndex->get($this->indexes->email($email))
+            $email = $invite->resolvedEmail($this->guard);
+            $emailIndex = filled($invite->email_index)
+                ? (string) $invite->email_index
+                : ($email !== '' ? $this->guard->emailIndex($email) : '');
+            $attendee = $emailIndex !== ''
+                ? $attendeesByEmailIndex->get($emailIndex)
                 : null;
             $attendeeId = $attendee instanceof Attendee ? (string) $attendee->id : null;
-            $displayName = $invite->name;
+            $displayName = $invite->resolvedName($this->guard);
             $phone = null;
 
             if ($attendee instanceof Attendee) {
@@ -238,9 +259,9 @@ final class EventOperationsController extends Controller
                 'invite_status' => $invite->invite_status ?? 'not_registered',
                 'locale' => $attendee?->preferred_locale ?? 'en',
                 'credential_status' => $attendeeId !== null ? ($credentialStatuses[$attendeeId] ?? null) : null,
-                'label' => $displayName ?: $invite->email,
+                'label' => $displayName ?: $email,
                 'display_name' => $displayName,
-                'email' => $invite->email,
+                'email' => $email !== '' ? $email : null,
                 'phone' => $phone,
             ];
         })->values()->all();

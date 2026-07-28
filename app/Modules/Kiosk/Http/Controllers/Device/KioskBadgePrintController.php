@@ -29,6 +29,7 @@ final class KioskBadgePrintController extends Controller
         [$attendee, $credential] = $this->resolveCheckedInAttendee($request);
 
         $context = $this->kioskContexts->current();
+        // Device kiosk preview should match the final printed badge (no designer guides).
         $document = $this->buildDocument(
             (string) $context->tenantId,
             (string) $context->eventId,
@@ -36,6 +37,7 @@ final class KioskBadgePrintController extends Controller
             (string) $credential->id,
             null,
             $request->fieldOverrides(),
+            false,
             false,
         );
 
@@ -130,6 +132,7 @@ final class KioskBadgePrintController extends Controller
         ?string $templateId,
         array $fieldOverrides = [],
         bool $autoPrint = true,
+        ?bool $showFieldGuides = null,
     ): ?array {
         $template = $templateId !== null
             ? BadgeTemplate::query()
@@ -159,6 +162,7 @@ final class KioskBadgePrintController extends Controller
             $template,
             $fieldOverrides,
             $autoPrint,
+            $showFieldGuides,
         );
     }
 }

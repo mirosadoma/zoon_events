@@ -6,16 +6,14 @@ use App\Modules\Attendees\Domain\Events\AttendeeCorrected;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\AttendeeCorrection;
 use App\Modules\Audit\Application\AuditWriter;
-use App\Modules\Shared\Application\DataProtection\BlindIndex;
-use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
+use App\Modules\Shared\Application\DataProtection\PersonalDataGuard;
 use App\Modules\Tenancy\Domain\Context\TenantContext;
 use Illuminate\Support\Facades\DB;
 
 final readonly class CorrectAttendee
 {
     public function __construct(
-        private PersonalDataCipher $cipher,
-        private BlindIndex $indexes,
+        private PersonalDataGuard $guard,
         private AuditWriter $audit,
     ) {}
 
@@ -33,12 +31,18 @@ final readonly class CorrectAttendee
             $scope = "{$context->tenant->id}:{$eventId}:attendee";
             $updates = [];
             foreach ($allowed as $field => $value) {
-                $updates[$field.'_ciphertext'] = $value === null ? null : $this->cipher->encrypt($value, $scope)['ciphertext'];
+                if ($value === null) {
+                    $updates[$field.'_ciphertext'] = null;
+                } else {
+                    $encrypted = $this->guard->encryptString($value, $scope);
+                    $updates[$field.'_ciphertext'] = $encrypted['ciphertext'];
+                    $updates['encryption_key_id'] = $encrypted['key_id'];
+                }
                 if ($field === 'email') {
-                    $updates['email_index'] = $value === null ? null : $this->indexes->email($value);
+                    $updates['email_index'] = $value === null ? null : $this->guard->emailIndex($value);
                 }
                 if ($field === 'phone') {
-                    $updates['phone_index'] = $value === null ? null : $this->indexes->phone($value);
+                    $updates['phone_index'] = $value === null ? null : $this->guard->phoneIndex($value);
                 }
             }
             $attendee->forceFill($updates)->save();

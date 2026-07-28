@@ -28,6 +28,9 @@ vi.mock('@/hooks/useLocale', () => ({
     direction: 'ltr',
     t: (key: string) => ({
       attendeeDetail: 'Attendee profile',
+      attendeeActions: 'Attendee actions',
+      viewEntryCard: 'View entry card',
+      viewEntryCardHelp: 'Open the public confirmation page with QR code and wallet pass links.',
       printBadge: 'Print badge',
       manualCheckIn: 'Manual check-in',
       notAvailable: 'Not available',
@@ -45,7 +48,7 @@ vi.mock('@/components/layout/PermissionGate', () => ({
 }))
 
 describe('attendee detail', () => {
-  it('renders attendee profile with linked credential', () => {
+  it('renders attendee profile with entry card and actions', () => {
     render(
       <AttendeeDetailPage
         tenantId="ten_1"
@@ -56,6 +59,7 @@ describe('attendee detail', () => {
           status: 'checked_in',
           locale: 'en',
           order_id: 'order_1',
+          entry_card_url: 'https://zoon.test/en/public/orders/ord_test?signature=abc',
           registered_at: '2026-07-01T10:00:00Z',
           credential: {
             id: '42',
@@ -68,7 +72,10 @@ describe('attendee detail', () => {
 
     expect(screen.getByRole('heading', { name: 'ndee_1' })).toBeInTheDocument()
     expect(screen.getByText('Attendee profile')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '42' })).toHaveAttribute('href', '/en/tenant/events/evt_1/credentials/42')
+    expect(screen.getByRole('link', { name: 'View entry card' })).toHaveAttribute(
+      'href',
+      'https://zoon.test/en/public/orders/ord_test?signature=abc',
+    )
     expect(screen.getByRole('button', { name: 'Print badge' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Manual check-in' })).toBeInTheDocument()
   })

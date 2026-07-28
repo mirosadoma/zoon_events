@@ -8,7 +8,7 @@ final class DataProtectionHealthCheck extends AbstractConfigurationHealthCheck
 {
     public function __construct(ConfigurationValidator $validator)
     {
-        parent::__construct($validator, ['PERSONAL_DATA_', 'BLIND_INDEX_']);
+        parent::__construct($validator, ['PERSONAL_DATA_', 'BLIND_INDEX_', 'SESSION_ENCRYPT']);
     }
 
     public function category(): string

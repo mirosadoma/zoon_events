@@ -9,13 +9,13 @@ use App\Modules\Registration\Domain\Fields\FormFieldType;
 use App\Modules\Registration\Domain\SubmissionRecord;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationFormVersion;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationSubmission;
-use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
+use App\Modules\Shared\Application\DataProtection\PersonalDataGuard;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 final readonly class EncryptedSubmissionCreator implements SubmissionCreator
 {
-    public function __construct(private PersonalDataCipher $cipher) {}
+    public function __construct(private PersonalDataGuard $guard) {}
 
     public function create(string $tenantId, string $eventId, string $formVersionId, string $idempotencyKey, array $answers, array $consent, string $locale): SubmissionRecord
     {
@@ -70,7 +70,7 @@ final readonly class EncryptedSubmissionCreator implements SubmissionCreator
             'recorded_at' => now()->toIso8601String(),
         ];
         ksort($storedAnswers);
-        $encrypted = $this->cipher->encrypt(json_encode($storedAnswers, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE), "{$tenantId}:{$eventId}:submission");
+        $encrypted = $this->guard->encryptJson($storedAnswers, "{$tenantId}:{$eventId}:submission");
         $submission = RegistrationSubmission::query()->create([
             'tenant_id' => $tenantId,
             'event_id' => $eventId,

@@ -1,6 +1,6 @@
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import { FormEvent, useEffect, useState } from 'react'
-import { Link2, Plus, Power } from 'lucide-react'
+import { ArrowUpRight, Link2, Plus, Power } from 'lucide-react'
 import { router } from '@inertiajs/react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { HeartbeatIndicator } from '@/components/kiosk/HeartbeatIndicator'
@@ -23,10 +23,8 @@ import { useLocale } from '@/hooks/useLocale'
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
 import { useToast } from '@/hooks/useToast'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
-import { localizedPath } from '@/lib/localePath'
 import { defaultPagination, type PaginationMeta, withPage } from '@/lib/pagination'
 import type { Kiosk } from '@/types/phase3'
-import { ArrowUpRight } from 'lucide-react'
 
 type EventRow = {
   id: string
@@ -66,7 +64,7 @@ export default function KioskIndex({
     setKiosks(initialKiosks)
   }, [initialKiosks])
 
-  const selected = kiosks.find((kiosk) => kiosk.id === selectedRowId) ?? null
+  const selected = kiosks.find((kiosk) => String(kiosk.id) === selectedRowId) ?? null
   const notAvailable = t('notAvailable')
 
   function closePane() {
@@ -112,6 +110,7 @@ export default function KioskIndex({
       })
 
       setKiosks((prev) => [created, ...prev])
+      setSelectedRowId(String(created.id))
       setRegisterOpen(false)
       resetRegisterForm()
       toast(t('kioskPageRegistered'), 'success')
@@ -149,6 +148,9 @@ export default function KioskIndex({
     setKiosks((prev) => prev.map((kiosk) => (
       kiosk.id === retireTarget.id ? { ...kiosk, status: 'retired' } : kiosk
     )))
+    if (selectedRowId === String(retireTarget.id)) {
+      setSelectedRowId(null)
+    }
     setRetireTarget(null)
   }
 
@@ -211,17 +213,11 @@ export default function KioskIndex({
                 {
                   key: 'device_name',
                   header: t('kioskPageDevice'),
-                  render: (row) => {
-                    const kiosk = row as unknown as Kiosk
-                    return (
-                      <LocalizedLink
-                        href={`/tenant/events/${event.id}/kiosks/${kiosk.id}`}
-                        className="font-medium text-[var(--brand)] hover:underline"
-                      >
-                        {kiosk.device_name}
-                      </LocalizedLink>
-                    )
-                  },
+                  render: (row) => (
+                    <span className="font-medium text-[var(--ink)]">
+                      {String(row.device_name ?? '')}
+                    </span>
+                  ),
                 },
                 {
                   key: 'device_code',
@@ -232,10 +228,11 @@ export default function KioskIndex({
 
                     return (
                       <a
-                        href={localizedPath(locale, `/kiosk/${code}/unlock`)}
+                        href={localizedPath(`/kiosk/${code}/unlock`)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="font-mono text-sm font-medium text-[var(--brand)] hover:underline"
+                        onClick={(clickEvent) => clickEvent.stopPropagation()}
                       >
                         {code}
                       </a>
@@ -291,22 +288,24 @@ export default function KioskIndex({
         editLabel={t('view')}
         footer={selected ? (
           <SideDetailActions>
-            <LocalizedLink
-              href={`/tenant/events/${event.id}/kiosks/${selected.id}`}
-              className={sideDetailActionClassName('primary')}
-            >
-              {t('view')}
-              <ArrowUpRight className="h-4 w-4" aria-hidden />
-            </LocalizedLink>
             <PermissionGate permission="kiosk.manage">
               <button
                 type="button"
-                className={sideDetailActionClassName()}
+                className={sideDetailActionClassName('primary')}
                 onClick={() => setSelectedKiosk(selected)}
               >
                 <Link2 className="h-4 w-4" aria-hidden />
                 {t('kioskPagePair')}
               </button>
+            </PermissionGate>
+            <LocalizedLink
+              href={`/tenant/events/${event.id}/kiosks/${selected.id}`}
+              className={sideDetailActionClassName()}
+            >
+              {t('view')}
+              <ArrowUpRight className="h-4 w-4" aria-hidden />
+            </LocalizedLink>
+            <PermissionGate permission="kiosk.manage">
               {selected.status !== 'retired' ? (
                 <button
                   type="button"
@@ -389,7 +388,7 @@ export default function KioskIndex({
 
       {registerOpen ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="kiosk-register-title">
-          <form className="ta-card w-full max-w-md shadow-xl" onSubmit={(event) => void handleRegister(event)}>
+          <form className="ta-card w-full max-w-md shadow-xl" onSubmit={(formSubmitEvent) => void handleRegister(formSubmitEvent)}>
             <h2 id="kiosk-register-title" className="text-lg font-semibold">{t('kioskPageAddTitle')}</h2>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{t('kioskPageAddMessage')}</p>
 
@@ -399,21 +398,21 @@ export default function KioskIndex({
                 name="device_name"
                 value={deviceName}
                 required
-                onChange={(event) => setDeviceName(event.target.value)}
+                onChange={(inputEvent) => setDeviceName(inputEvent.target.value)}
                 placeholder={t('kioskPageDeviceNamePlaceholder')}
               />
               <TextInput
                 label={t('kioskPageLocation')}
                 name="location_label"
                 value={locationLabel}
-                onChange={(event) => setLocationLabel(event.target.value)}
+                onChange={(inputEvent) => setLocationLabel(inputEvent.target.value)}
                 placeholder={t('kioskPageLocationPlaceholder')}
               />
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
                   checked={confirmationRequired}
-                  onChange={(event) => setConfirmationRequired(event.target.checked)}
+                  onChange={(inputEvent) => setConfirmationRequired(inputEvent.target.checked)}
                 />
                 <span>{t('kioskPageConfirmationRequired')}</span>
               </label>
@@ -423,7 +422,7 @@ export default function KioskIndex({
                   name="confirmation_code"
                   value={confirmationCode}
                   required
-                  onChange={(event) => setConfirmationCode(event.target.value)}
+                  onChange={(inputEvent) => setConfirmationCode(inputEvent.target.value)}
                 />
               ) : null}
               {registerError ? <p className="text-sm text-red-600">{registerError}</p> : null}
