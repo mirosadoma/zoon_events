@@ -24,6 +24,7 @@ type Props = {
   publicMapPath?: string | null
   map: VenueMapData | null
   zones: MapZone[]
+  paths?: Array<Record<string, unknown>>
   zoneTypes: string[]
   shapeTypes: string[]
 }
@@ -35,6 +36,7 @@ export default function VenueMapPage({
   publicMapPath: publicMapPathProp,
   map,
   zones,
+  paths = [],
   zoneTypes,
 }: Props) {
   const { locale, t, localizedPath } = useLocale()
@@ -116,6 +118,7 @@ export default function VenueMapPage({
             ...zone,
             key: zone.id ?? crypto.randomUUID(),
           }))}
+          initialPaths={paths}
           zoneTypes={zoneTypes}
         />
       </PageContent>

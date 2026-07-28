@@ -1,19 +1,26 @@
-import { Circle, Ellipse, Group, Image as KonvaImage, Layer, Line, Stage } from 'react-konva'
-import type Konva from 'konva'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { centeredLocalFlat, toPixel } from '@/components/venue-map/coordinates'
-import { defaultFillForType, type RelativePoint, type ZoneShapeType } from '@/components/venue-map/types'
-import VenueMapMarkerShape from '@/components/venue-map/VenueMapMarkerShape'
+import { Circle, GoogleMap, Polygon, Polyline, useJsApiLoader } from '@react-google-maps/api'
+import type { Libraries } from '@react-google-maps/api'
+import { Fragment, useMemo, useState } from 'react'
+import {
+  boundsFromCamera,
+  isGeoPoint,
+  isRelativePoint,
+  relativePointsToGeo,
+  relativeRadiusToMeters,
+  type GeoPoint,
+  type OverlayBounds,
+} from '@/components/venue-map/geoCoordinates'
+import { routeToDestination, type RoutingPath, type RoutingZone } from '@/components/venue-map/indoorRouting'
+import MapHoverTooltip from '@/components/venue-map/MapHoverTooltip'
+import RotatableFloorOverlay from '@/components/venue-map/RotatableFloorOverlay'
+import GeoMarkerOverlay, { isGeoMarkerShape } from '@/components/venue-map/GeoMarkerOverlay'
+import { defaultFillForType, type MapPoint } from '@/components/venue-map/types'
+import { useLocale } from '@/hooks/useLocale'
 
-type PublicZone = {
-  id: string
+type PublicZone = RoutingZone & {
   name: { en: string; ar: string }
   description?: { en: string | null; ar: string | null } | null
   label: string | null
-  type: string
-  shape_type: ZoneShapeType | null
-  polygon_coordinates: RelativePoint[] | null
-  shape_radius: number | null
   shape_rotation?: number | null
   shape_radius_y?: number | null
   fill_color: string | null
@@ -25,14 +32,72 @@ type PublicZone = {
   lng?: number | null
 }
 
+type PublicPath = RoutingPath & {
+  name: { en: string; ar: string }
+  from_zone_id: string | null
+  to_zone_id: string | null
+  stroke_color: string | null
+  stroke_width: number | null
+  opacity: number | null
+}
+
 type Props = {
   imageUrl: string | null
   width: number
   height: number
   zones: PublicZone[]
+  paths?: PublicPath[]
   locale: 'en' | 'ar'
   navigateLabel: string
   navigateHint?: string
+  overlayOpacity?: number
+  removeBackground?: boolean
+  showBaseMap?: boolean
+  venueLatitude?: number | null
+  venueLongitude?: number | null
+  mapCenterLat?: number | null
+  mapCenterLng?: number | null
+  mapZoom?: number | null
+  mapHeading?: number | null
+  mapType?: string | null
+  overlayNorth?: number | null
+  overlaySouth?: number | null
+  overlayEast?: number | null
+  overlayWest?: number | null
+  overlayRotation?: number | null
+}
+
+const MAP_LIBRARIES: Libraries = ['places']
+
+function asGeoPoints(points: MapPoint[] | null | undefined, bounds: OverlayBounds | null): GeoPoint[] {
+  if (!points?.length) return []
+  if (points.every(isGeoPoint)) {
+    return points.map((point) => ({ lat: Number(point.lat), lng: Number(point.lng) }))
+  }
+  if (bounds && points.every(isRelativePoint)) {
+    return relativePointsToGeo(points, bounds)
+  }
+  return []
+}
+
+function resolveRadiusMeters(
+  zone: PublicZone,
+  bounds: OverlayBounds | null,
+): number {
+  const radius = zone.shape_radius ?? 8
+  if (zone.coordinate_space === 'geo' || (zone.polygon_coordinates?.some(isGeoPoint))) {
+    return Math.max(1, radius)
+  }
+  if (bounds) {
+    return relativeRadiusToMeters(radius, bounds)
+  }
+  return Math.max(1, radius)
+}
+
+function zoneDisplayName(zone: PublicZone, locale: 'en' | 'ar'): string {
+  return locale === 'ar'
+    ? (zone.name.ar || zone.name.en || zone.label || '').trim()
+    : (zone.name.en || zone.name.ar || zone.label || '').trim()
 }
 
 export default function VenueMapViewer({
@@ -40,237 +105,513 @@ export default function VenueMapViewer({
   width,
   height,
   zones,
+  paths = [],
   locale,
   navigateLabel,
   navigateHint,
+  overlayOpacity = 0.85,
+  removeBackground = false,
+  venueLatitude = null,
+  venueLongitude = null,
+  mapCenterLat = null,
+  mapCenterLng = null,
+  mapZoom = null,
+  mapHeading = null,
+  mapType = null,
+  overlayNorth = null,
+  overlaySouth = null,
+  overlayEast = null,
+  overlayWest = null,
+  overlayRotation = 0,
 }: Props) {
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const [size, setSize] = useState({ width: 720, height: 480 })
-  const [image, setImage] = useState<HTMLImageElement | null>(null)
+  const { t } = useLocale()
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [hoverId, setHoverId] = useState<string | null>(null)
-  const [hoverTooltip, setHoverTooltip] = useState<{ id: string; name: string; x: number; y: number } | null>(null)
+  const [hoverTip, setHoverTip] = useState<{ name: string; position: GeoPoint } | null>(null)
+  const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null)
+  const [currentLocation, setCurrentLocation] = useState<GeoPoint | null>(null)
+  const [locationError, setLocationError] = useState<string | null>(null)
+  const [startZoneId, setStartZoneId] = useState<string>('')
+  const [endZoneId, setEndZoneId] = useState<string>('')
+  const [activeRoute, setActiveRoute] = useState<ReturnType<typeof routeToDestination> | null>(null)
+  const [routeError, setRouteError] = useState<string | null>(null)
 
-  const naturalWidth = Math.max(width, 1)
-  const naturalHeight = Math.max(height, 1)
-  const aspect = naturalHeight / naturalWidth
+  const apiKey = ((import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) ?? '')
+    .trim()
+    .replace(/^["']|["']$/g, '')
 
-  useEffect(() => {
-    const element = containerRef.current
-    if (!element) return
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: 'zoon-google-maps',
+    googleMapsApiKey: apiKey,
+    libraries: MAP_LIBRARIES,
+    language: locale,
+  })
 
-    const syncSize = (nextWidth: number) => {
-      const safeWidth = Math.max(280, nextWidth)
-      setSize({
-        width: safeWidth,
-        height: Math.max(280, Math.round(safeWidth * aspect)),
-      })
+  const centerLat = mapCenterLat ?? venueLatitude
+  const centerLng = mapCenterLng ?? venueLongitude
+  const zoom = Number(mapZoom ?? 18)
+  const heading = Number(mapHeading ?? 0)
+  const typedMapType = mapType === 'roadmap' || mapType === 'satellite' || mapType === 'hybrid'
+    ? mapType
+    : 'hybrid'
+  const mapCenter = useMemo(() => ({ lat: centerLat ?? 0, lng: centerLng ?? 0 }), [centerLat, centerLng])
+
+  const overlayBounds = useMemo((): OverlayBounds | null => {
+    if (
+      overlayNorth != null
+      && overlaySouth != null
+      && overlayEast != null
+      && overlayWest != null
+    ) {
+      return {
+        north: Number(overlayNorth),
+        south: Number(overlaySouth),
+        east: Number(overlayEast),
+        west: Number(overlayWest),
+      }
     }
+    if (centerLat != null && centerLng != null) {
+      const aspect = width > 0 && height > 0 ? width / height : 1.6
+      return boundsFromCamera(centerLat, centerLng, zoom, aspect)
+    }
+    return null
+  }, [
+    overlayNorth,
+    overlaySouth,
+    overlayEast,
+    overlayWest,
+    centerLat,
+    centerLng,
+    zoom,
+    width,
+    height,
+  ])
 
-    syncSize(element.clientWidth)
+  const selected = zones.find((zone) => zone.id === selectedId) ?? null
+  const endZone = zones.find((zone) => zone.id === endZoneId) ?? null
+  const endZoneName = endZone ? zoneDisplayName(endZone, locale) : null
+  const zoneOptions = useMemo(
+    () => zones
+      .filter((zone) => zone.shape_type)
+      .map((zone) => ({
+        value: zone.id,
+        label: zoneDisplayName(zone, locale),
+      })),
+    [zones, locale],
+  )
 
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0]
-      if (!entry) return
-      syncSize(entry.contentRect.width)
-    })
-
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [aspect])
-
-  useEffect(() => {
-    if (!imageUrl) {
-      setImage(null)
+  function requestCurrentLocation() {
+    if (!('geolocation' in navigator)) {
+      setLocationError(t('venueMapRouteGeoUnsupported'))
       return
     }
-    const element = new window.Image()
-    element.onload = () => setImage(element)
-    element.src = imageUrl
-  }, [imageUrl])
-
-  const scale = useMemo(
-    () => size.width / naturalWidth,
-    [size.width, naturalWidth],
-  )
-  const selected = zones.find((zone) => zone.id === selectedId) ?? null
-
-  function labelFor(zone: PublicZone): string {
-    if (zone.label?.trim()) return zone.label
-    return locale === 'ar' ? (zone.name.ar || zone.name.en) : (zone.name.en || zone.name.ar)
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const point = { lat: position.coords.latitude, lng: position.coords.longitude }
+        setCurrentLocation(point)
+        setLocationError(null)
+        setRouteError(null)
+        if (mapInstance) {
+          mapInstance.panTo(point)
+        }
+      },
+      () => {
+        setLocationError(t('venueMapRouteGeoDenied'))
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 15_000,
+        timeout: 12_000,
+      },
+    )
   }
 
-  function descriptionFor(zone: PublicZone): string | null {
-    if (!zone.description) return null
-    const value = locale === 'ar'
-      ? (zone.description.ar || zone.description.en)
-      : (zone.description.en || zone.description.ar)
-    const trimmed = value?.trim() ?? ''
-    return trimmed === '' ? null : trimmed
-  }
-
-  function directionsUrl(zone: PublicZone): string | null {
-    if (zone.lat != null && zone.lng != null) {
-      return `https://www.google.com/maps/dir/?api=1&destination=${zone.lat},${zone.lng}`
+  function drawRoute() {
+    setRouteError(null)
+    if (!endZoneId) {
+      setActiveRoute(null)
+      setRouteError(t('venueMapRoutePickDestination'))
+      return
     }
 
-    return zone.navigate_url
+    if (!startZoneId && !currentLocation) {
+      setActiveRoute(null)
+      setRouteError(t('venueMapRouteNeedLocationOrStart'))
+      return
+    }
+
+    const nextRoute = routeToDestination({
+      origin: startZoneId ? null : currentLocation,
+      startZoneId: startZoneId || null,
+      destinationZoneId: endZoneId,
+      zones,
+      paths,
+      overlayBounds,
+    })
+
+    if (!nextRoute) {
+      setActiveRoute(null)
+      setRouteError(t('venueMapRouteNoPath'))
+      return
+    }
+
+    setActiveRoute(nextRoute)
   }
 
-  const selectedDescription = selected ? descriptionFor(selected) : null
+  const destinationNavigateUrl = useMemo(
+    () => {
+      if (!endZoneId) return null
+      const zone = zones.find((candidate) => candidate.id === endZoneId)
+      if (!zone) return null
+      if (zone.navigate_url) return zone.navigate_url
+      if (zone.lat != null && zone.lng != null) {
+        return `https://www.google.com/maps/dir/?api=1&destination=${zone.lat},${zone.lng}`
+      }
+      return null
+    },
+    [endZoneId, zones],
+  )
 
-  function updateHoverTooltip(zone: PublicZone, event: Konva.KonvaEventObject<MouseEvent>) {
-    const pointer = event.target.getStage()?.getPointerPosition()
-    if (!pointer) return
-    setHoverId(zone.id)
-    setHoverTooltip({
-      id: zone.id,
-      name: labelFor(zone),
-      x: pointer.x,
-      y: pointer.y,
-    })
+  const routeNotice = useMemo(() => {
+    if (!endZoneId) return t('venueMapRoutePickDestination')
+    if (!activeRoute && routeError) return routeError
+    if (!activeRoute) return t('venueMapRoutePressDraw')
+    if (activeRoute.usedGateZoneId) {
+      const gateZone = zones.find((zone) => zone.id === activeRoute.usedGateZoneId)
+      const gateName = gateZone ? zoneDisplayName(gateZone, locale) : t('eventZoneType_gate')
+      return t('venueMapRouteViaGate').replace(':gate', gateName)
+    }
+    return t('venueMapRouteReady')
+  }, [activeRoute, endZoneId, locale, routeError, t, zones])
+
+  if (centerLat == null || centerLng == null) {
+    return <p className="text-[var(--muted)]">{t('venueMapPublicEmpty')}</p>
+  }
+
+  if (apiKey === '') {
+    return <div className="venue-map-geo-canvas venue-map-geo-canvas--empty">{t('mapPickerMissingApiKey')}</div>
+  }
+  if (loadError) {
+    return <div className="venue-map-geo-canvas venue-map-geo-canvas--empty">{t('venueMapBaseMapError')}</div>
+  }
+  if (!isLoaded) {
+    return <div className="venue-map-geo-canvas venue-map-geo-canvas--empty" aria-hidden />
   }
 
   return (
     <div className="venue-map-viewer">
-      <div
-        ref={containerRef}
-        className="venue-map-viewer__canvas"
-        style={{ height: size.height }}
-      >
-        <Stage
-          width={size.width}
-          height={size.height}
-          scaleX={scale}
-          scaleY={scale}
-        >
-          <Layer>
-            {image ? (
-              <KonvaImage image={image} width={naturalWidth} height={naturalHeight} />
-            ) : null}
-            {zones.map((zone) => {
-              if (!zone.shape_type || !zone.polygon_coordinates?.length) return null
-              const active = zone.id === selectedId || zone.id === hoverId
-              const fill = zone.fill_color ?? defaultFillForType(zone.type)
-              const opacity = Math.min(((zone.opacity ?? 45) / 100) * (active ? 1.25 : 1), 0.85)
-              const stroke = zone.stroke_color ?? '#111827'
-              const center = zone.polygon_coordinates[0]
-              const px = toPixel(center, naturalWidth, naturalHeight)
-              const rotation = zone.shape_rotation ?? 0
-
-              const handlers = {
-                onMouseEnter: (event: Konva.KonvaEventObject<MouseEvent>) => updateHoverTooltip(zone, event),
-                onMouseMove: (event: Konva.KonvaEventObject<MouseEvent>) => updateHoverTooltip(zone, event),
-                onMouseLeave: () => {
-                  setHoverId((current) => (current === zone.id ? null : current))
-                  setHoverTooltip((current) => (current?.id === zone.id ? null : current))
-                },
-                onClick: () => setSelectedId(zone.id),
-              }
-
-              return (
-                <Group key={zone.id}>
-                  {zone.shape_type === 'circle' ? (
-                    <Circle
-                      x={px.x}
-                      y={px.y}
-                      radius={(zone.shape_radius ?? 0.05) * naturalWidth}
-                      rotation={rotation}
-                      fill={fill}
-                      opacity={opacity}
-                      stroke={stroke}
-                      strokeWidth={active ? 3 : 2}
-                      {...handlers}
-                    />
-                  ) : zone.shape_type === 'ellipse' ? (
-                    <Ellipse
-                      x={px.x}
-                      y={px.y}
-                      radiusX={(zone.shape_radius ?? 0.05) * naturalWidth}
-                      radiusY={(zone.shape_radius_y ?? zone.shape_radius ?? 0.05) * naturalHeight}
-                      rotation={rotation}
-                      fill={fill}
-                      opacity={opacity}
-                      stroke={stroke}
-                      strokeWidth={active ? 3 : 2}
-                      {...handlers}
-                    />
-                  ) : zone.shape_type === 'pillar' || zone.shape_type === 'person' ? (
-                    <VenueMapMarkerShape
-                      shapeType={zone.shape_type}
-                      x={px.x}
-                      y={px.y}
-                      radiusPx={(zone.shape_radius ?? 0.05) * naturalWidth}
-                      rotation={rotation}
-                      fill={fill}
-                      opacity={opacity}
-                      stroke={stroke}
-                      strokeWidth={active ? 3 : 2}
-                      onMouseEnter={handlers.onMouseEnter}
-                      onMouseMove={handlers.onMouseMove}
-                      onMouseLeave={handlers.onMouseLeave}
-                      onClick={handlers.onClick}
-                    />
-                  ) : (
-                    (() => {
-                      const centered = centeredLocalFlat(zone.polygon_coordinates, naturalWidth, naturalHeight)
-                      return (
-                        <Line
-                          x={centered.centerX}
-                          y={centered.centerY}
-                          points={centered.local}
-                          rotation={rotation}
-                          closed
-                          fill={fill}
-                          opacity={opacity}
-                          stroke={stroke}
-                          strokeWidth={active ? 3 : 2}
-                          {...handlers}
-                        />
-                      )
-                    })()
-                  )}
-                </Group>
-              )
-            })}
-          </Layer>
-        </Stage>
-
-        {hoverTooltip ? (
-          <div
-            className="venue-map-hover-popup"
-            style={{ left: hoverTooltip.x, top: hoverTooltip.y }}
+      <div className="venue-map-viewer__controls">
+        <button type="button" className="button-secondary" onClick={requestCurrentLocation}>
+          {t('venueMapRouteUseMyLocation')}
+        </button>
+        <label>
+          <span>{t('venueMapRouteStart')}</span>
+          <select
+            className="venue-map-viewer__select"
+            value={startZoneId}
+            onChange={(event) => {
+              setStartZoneId(event.target.value)
+              setActiveRoute(null)
+              setRouteError(null)
+            }}
           >
-            {hoverTooltip.name}
-          </div>
-        ) : null}
+            <option value="">{t('venueMapRouteCurrentLocation')}</option>
+            {zoneOptions.map((zone) => (
+              <option key={zone.value} value={zone.value}>{zone.label}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>{t('venueMapRouteEnd')}</span>
+          <select
+            className="venue-map-viewer__select"
+            value={endZoneId}
+            onChange={(event) => {
+              setEndZoneId(event.target.value)
+              setSelectedId(event.target.value || null)
+              setActiveRoute(null)
+              setRouteError(null)
+            }}
+          >
+            <option value="">{t('venueMapRouteSelectDestination')}</option>
+            {zoneOptions.map((zone) => (
+              <option key={zone.value} value={zone.value}>{zone.label}</option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="button"
+          className="button-primary"
+          onClick={drawRoute}
+        >
+          {t('venueMapRouteDraw')}
+        </button>
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() => {
+            setEndZoneId('')
+            setSelectedId(null)
+            setActiveRoute(null)
+            setRouteError(null)
+          }}
+        >
+          {t('venueMapRouteClear')}
+        </button>
+        <a
+          className="button-secondary"
+          href={destinationNavigateUrl ?? '#'}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(event) => {
+            if (!destinationNavigateUrl) {
+              event.preventDefault()
+            }
+          }}
+        >
+          {navigateLabel}
+        </a>
       </div>
 
-      {selected ? (
-        <div className="venue-map-viewer__popup">
-          <div>
-            <strong>{labelFor(selected)}</strong>
-            {selectedDescription ? (
-              <p className="mt-1 text-sm text-[var(--ink)]/80 whitespace-pre-wrap">
-                {selectedDescription}
-              </p>
-            ) : null}
-            {/* {navigateHint ? (
-              <p className="mt-1 text-sm text-[var(--muted)]">{navigateHint}</p>
-            ) : null} */}
-          </div>
-          {directionsUrl(selected) ? (
-            <a
-              className="button-primary"
-              href={directionsUrl(selected) ?? undefined}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {navigateLabel}
-            </a>
+      <div className="venue-map-geo-canvas venue-map-viewer__canvas">
+        <GoogleMap
+          mapContainerClassName="venue-map-geo-canvas__map"
+          center={mapCenter}
+          zoom={zoom}
+          options={{
+            disableDefaultUI: false,
+            gestureHandling: 'greedy',
+            clickableIcons: false,
+            mapTypeControl: true,
+            rotateControl: true,
+            streetViewControl: false,
+            fullscreenControl: true,
+            mapTypeId: typedMapType,
+            heading,
+          }}
+          onLoad={(map) => setMapInstance(map)}
+          onClick={() => {
+            setSelectedId(null)
+          }}
+        >
+          {mapInstance && imageUrl && overlayBounds ? (
+            <RotatableFloorOverlay
+              map={mapInstance}
+              imageUrl={imageUrl}
+              bounds={overlayBounds}
+              opacity={overlayOpacity}
+              rotation={Number(overlayRotation ?? 0)}
+              removeBackground={removeBackground}
+              draggable={false}
+              selected={false}
+            />
           ) : null}
-        </div>
-      ) : null}
+
+          {zones.map((zone) => {
+            const points = asGeoPoints(zone.polygon_coordinates, overlayBounds)
+            if (!zone.shape_type || points.length === 0) return null
+            const isSelected = zone.id === selectedId || zone.id === endZoneId
+            const fill = zone.fill_color ?? defaultFillForType(zone.type)
+            const stroke = zone.stroke_color ?? '#111827'
+            const opacity = (zone.opacity ?? 45) / 100
+            const tipName = zoneDisplayName(zone, locale)
+            const common = {
+              onClick: (event: google.maps.MapMouseEvent) => {
+                event.stop()
+                setSelectedId(zone.id)
+                setEndZoneId(zone.id)
+              },
+              onMouseOver: (event: google.maps.MapMouseEvent) => {
+                if (!tipName || !event.latLng) return
+                setHoverTip({
+                  name: tipName,
+                  position: { lat: event.latLng.lat(), lng: event.latLng.lng() },
+                })
+              },
+              onMouseMove: (event: google.maps.MapMouseEvent) => {
+                if (!tipName || !event.latLng) return
+                setHoverTip({
+                  name: tipName,
+                  position: { lat: event.latLng.lat(), lng: event.latLng.lng() },
+                })
+              },
+              onMouseOut: () => setHoverTip(null),
+            }
+
+            if (zone.shape_type === 'circle' || zone.shape_type === 'ellipse') {
+              return (
+                <Circle
+                  key={zone.id}
+                  center={points[0]}
+                  radius={resolveRadiusMeters(zone, overlayBounds)}
+                  options={{
+                    fillColor: fill,
+                    fillOpacity: opacity,
+                    strokeColor: stroke,
+                    strokeWeight: isSelected ? 4 : (zone.stroke_width ?? 2),
+                    clickable: true,
+                    zIndex: isSelected ? 8 : 3,
+                  }}
+                  {...common}
+                />
+              )
+            }
+
+            if (isGeoMarkerShape(zone.shape_type)) {
+              const radius = resolveRadiusMeters(zone, overlayBounds)
+              return (
+                <Fragment key={zone.id}>
+                  <Circle
+                    center={points[0]}
+                    radius={radius}
+                    options={{
+                      fillColor: fill,
+                      fillOpacity: isSelected ? 0.12 : 0.02,
+                      strokeColor: stroke,
+                      strokeOpacity: isSelected ? 0.7 : 0.2,
+                      strokeWeight: isSelected ? 2 : 1,
+                      clickable: true,
+                      zIndex: isSelected ? 8 : 3,
+                    }}
+                    {...common}
+                  />
+                  {mapInstance ? (
+                    <GeoMarkerOverlay
+                      map={mapInstance}
+                      center={points[0]}
+                      radiusMeters={radius}
+                      shapeType={zone.shape_type}
+                      rotation={Number(zone.shape_rotation ?? 0)}
+                      fill={fill}
+                      stroke={stroke}
+                      opacity={opacity}
+                      strokeWidth={zone.stroke_width ?? 2}
+                      selected={isSelected}
+                    />
+                  ) : null}
+                </Fragment>
+              )
+            }
+
+            return (
+              <Polygon
+                key={zone.id}
+                paths={points}
+                options={{
+                  fillColor: fill,
+                  fillOpacity: opacity,
+                  strokeColor: stroke,
+                  strokeWeight: isSelected ? 4 : (zone.stroke_width ?? 2),
+                  clickable: true,
+                  zIndex: isSelected ? 8 : 3,
+                }}
+                {...common}
+              />
+            )
+          })}
+
+          {currentLocation ? (
+            <Circle
+              center={currentLocation}
+              radius={5}
+              options={{
+                fillColor: '#0ea5e9',
+                fillOpacity: 0.9,
+                strokeColor: '#ffffff',
+                strokeWeight: 2,
+                clickable: false,
+                zIndex: 9,
+              }}
+            />
+          ) : null}
+
+          {activeRoute?.approachRoute.length === 2 ? (
+            <Polyline
+              path={activeRoute.approachRoute}
+              options={{
+                strokeColor: '#64748b',
+                strokeOpacity: 0.85,
+                strokeWeight: 3,
+                clickable: false,
+                zIndex: 9,
+                icons: [{
+                  icon: {
+                    path: 'M 0,-1 0,1',
+                    strokeOpacity: 1,
+                    scale: 3,
+                  },
+                  offset: '0',
+                  repeat: '12px',
+                }],
+              }}
+            />
+          ) : null}
+
+          {activeRoute?.indoorRoute.length ? (
+            <>
+              <Polyline
+                path={activeRoute.indoorRoute}
+                options={{
+                  strokeColor: '#0f766e',
+                  strokeOpacity: 0.9,
+                  strokeWeight: 5,
+                  clickable: false,
+                  zIndex: 10,
+                }}
+              />
+              <Polyline
+                path={activeRoute.indoorRoute}
+                options={{
+                  strokeColor: '#ffffff',
+                  strokeOpacity: 1,
+                  strokeWeight: 2,
+                  clickable: false,
+                  zIndex: 11,
+                  icons: [{
+                    icon: {
+                      path: google.maps.SymbolPath.CIRCLE,
+                      fillOpacity: 1,
+                      fillColor: '#ffffff',
+                      strokeOpacity: 1,
+                      strokeColor: '#0f766e',
+                      scale: 3.5,
+                    },
+                    offset: '0',
+                    repeat: '28px',
+                  }],
+                }}
+              />
+            </>
+          ) : null}
+
+          {mapInstance && hoverTip ? (
+            <MapHoverTooltip
+              map={mapInstance}
+              position={hoverTip.position}
+              label={hoverTip.name}
+            />
+          ) : null}
+        </GoogleMap>
+      </div>
+
+      <div className="venue-map-viewer__panel">
+        <h2>{endZoneName || t('venueMapRouteTitle')}</h2>
+        <p className="text-sm text-[var(--muted)]">{routeNotice}</p>
+        {activeRoute ? (
+          <p className="text-sm">
+            {t('venueMapRouteDistance').replace(':distance', `${Math.round(activeRoute.distanceMeters)}m`)}
+          </p>
+        ) : null}
+        {locationError ? (
+          <p className="text-sm text-[var(--danger)]">{locationError}</p>
+        ) : null}
+        {selected?.navigate_url ? (
+          <a className="button-primary" href={selected.navigate_url} target="_blank" rel="noreferrer">
+            {navigateLabel}
+          </a>
+        ) : navigateHint ? (
+          <p className="text-sm text-[var(--muted)]">{navigateHint}</p>
+        ) : null}
+      </div>
     </div>
   )
 }

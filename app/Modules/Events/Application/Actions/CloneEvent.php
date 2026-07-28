@@ -14,6 +14,7 @@ use App\Modules\Events\Infrastructure\Persistence\Models\EventBranding;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventCategory;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventEmailTemplate;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventImage;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventPath;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventVenueMap;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventZone;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationForm;
@@ -81,6 +82,7 @@ final readonly class CloneEvent
             $venueIdMap = $this->cloneVenues($source, $clone);
             $this->cloneVenueMaps($source, $clone, $venueIdMap);
             $zoneIdMap = $this->cloneZones($source, $clone, $venueIdMap);
+            $this->clonePaths($source, $clone, $venueIdMap, $zoneIdMap);
             $this->cloneAgenda($source, $clone, $venueIdMap, $zoneIdMap);
             $this->cloneCategories($source, $clone, $venueIdMap);
             $this->cloneRegistrationForm($source, $clone, $context);
@@ -210,22 +212,37 @@ final readonly class CloneEvent
                 continue;
             }
 
-            $copied = $this->copyPublicFile(
-                (string) $map->image_path,
-                "tenants/{$clone->tenant_id}/events/{$clone->id}/venue-maps",
-            );
-
-            if ($copied === null) {
-                continue;
+            $copied = null;
+            if ($map->image_path !== null && $map->image_path !== '') {
+                $copied = $this->copyPublicFile(
+                    (string) $map->image_path,
+                    "tenants/{$clone->tenant_id}/events/{$clone->id}/venue-maps",
+                );
+                if ($copied === null) {
+                    continue;
+                }
             }
 
             EventVenueMap::query()->create([
                 'tenant_id' => $clone->tenant_id,
                 'event_id' => $clone->id,
                 'venue_id' => $mappedVenueId,
-                'image_path' => $copied,
+                'image_path' => $copied ?? '',
                 'width' => $map->width,
                 'height' => $map->height,
+                'overlay_opacity' => $map->overlay_opacity ?? 0.85,
+                'remove_background' => (bool) ($map->remove_background ?? false),
+                'show_base_map' => (bool) ($map->show_base_map ?? true),
+                'map_center_lat' => $map->map_center_lat,
+                'map_center_lng' => $map->map_center_lng,
+                'map_zoom' => $map->map_zoom,
+                'map_heading' => $map->map_heading,
+                'map_type' => $map->map_type,
+                'overlay_north' => $map->overlay_north,
+                'overlay_south' => $map->overlay_south,
+                'overlay_east' => $map->overlay_east,
+                'overlay_west' => $map->overlay_west,
+                'overlay_rotation' => $map->overlay_rotation ?? 0,
             ]);
         }
     }
@@ -257,6 +274,7 @@ final readonly class CloneEvent
                     : (string) $zone->type,
                 'capacity' => $zone->capacity,
                 'shape_type' => $zone->shape_type?->value ?? $zone->shape_type,
+                'coordinate_space' => $zone->coordinate_space ?? 'relative',
                 'polygon_coordinates' => $zone->polygon_coordinates,
                 'shape_radius' => $zone->shape_radius,
                 'shape_rotation' => $zone->shape_rotation ?? 0,
@@ -275,6 +293,50 @@ final readonly class CloneEvent
         }
 
         return $map;
+    }
+
+    /**
+     * @param  array<int, int>  $venueIdMap
+     * @param  array<int, int>  $zoneIdMap
+     */
+    private function clonePaths(Event $source, Event $clone, array $venueIdMap, array $zoneIdMap): void
+    {
+        $paths = EventPath::query()
+            ->where('tenant_id', $source->tenant_id)
+            ->where('event_id', $source->id)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($paths as $path) {
+            $mappedVenueId = $venueIdMap[(int) $path->venue_id] ?? null;
+            if ($mappedVenueId === null) {
+                continue;
+            }
+
+            $fromZoneId = $path->from_zone_id !== null
+                ? ($zoneIdMap[(int) $path->from_zone_id] ?? null)
+                : null;
+            $toZoneId = $path->to_zone_id !== null
+                ? ($zoneIdMap[(int) $path->to_zone_id] ?? null)
+                : null;
+
+            EventPath::query()->create([
+                'tenant_id' => $clone->tenant_id,
+                'event_id' => $clone->id,
+                'venue_id' => $mappedVenueId,
+                'name_en' => $path->name_en,
+                'name_ar' => $path->name_ar,
+                'polyline_coordinates' => $path->polyline_coordinates,
+                'coordinate_space' => $path->coordinate_space ?? 'relative',
+                'from_zone_id' => $fromZoneId,
+                'to_zone_id' => $toZoneId,
+                'stroke_color' => $path->stroke_color,
+                'stroke_width' => $path->stroke_width,
+                'opacity' => $path->opacity,
+                'sort_order' => $path->sort_order,
+            ]);
+        }
     }
 
     /**

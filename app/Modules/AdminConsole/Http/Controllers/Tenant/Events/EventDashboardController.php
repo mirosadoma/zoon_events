@@ -12,6 +12,7 @@ use App\Modules\AdminConsole\ViewModels\Events\EventSetupReferenceData;
 use App\Modules\AdminConsole\ViewModels\Events\EventSetupViewModel;
 use App\Modules\Authorization\Application\PermissionEvaluator;
 use App\Modules\Events\Application\Support\EventMediaPresenter;
+use App\Modules\Events\Application\Support\EventPathPresenter;
 use App\Modules\Events\Application\Support\EventVenueMapPresenter;
 use App\Modules\Events\Application\Support\EventWallClockDateTime;
 use App\Modules\Events\Application\Support\EventZonePresenter;
@@ -41,6 +42,8 @@ use App\Modules\Ticketing\Infrastructure\Persistence\Models\PriceTier;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketInventory;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketType;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -251,7 +254,7 @@ final class EventDashboardController extends Controller
             ->where('tenant_id', $context->tenant->id)
             ->where('event_id', $event->id)
             ->whereKey($venueId)
-            ->with('zones')
+            ->with(['zones', 'paths'])
             ->first();
 
         abort_unless($venueModel instanceof EventVenue, 404);
@@ -278,6 +281,10 @@ final class EventDashboardController extends Controller
             'map' => $map instanceof EventVenueMap ? EventVenueMapPresenter::toArray($map) : null,
             'zones' => $venueModel->zones
                 ->map(fn ($zone): array => EventZonePresenter::toArray($zone))
+                ->values()
+                ->all(),
+            'paths' => $venueModel->paths
+                ->map(fn ($path): array => EventPathPresenter::toArray($path))
                 ->values()
                 ->all(),
             'zoneTypes' => EventZoneType::values(),
@@ -858,7 +865,7 @@ final class EventDashboardController extends Controller
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, EventAgendaItem>  $items
+     * @param  Collection<int, EventAgendaItem>  $items
      * @return list<array<string, mixed>>
      */
     private function mapPublicAgendaItems(Event $event, $items): array
@@ -989,7 +996,7 @@ final class EventDashboardController extends Controller
         if (is_array($theme)) {
             $path = is_string($theme['background_image_path'] ?? null) ? $theme['background_image_path'] : null;
             if ($path !== null && $path !== '') {
-                $url = \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+                $url = Storage::disk('public')->url($path);
                 $theme['background_image_url'] = str_starts_with($url, 'http://') || str_starts_with($url, 'https://')
                     ? $url
                     : url($url);
@@ -997,7 +1004,7 @@ final class EventDashboardController extends Controller
 
             $logoPath = is_string($theme['logo_path'] ?? null) ? $theme['logo_path'] : null;
             if ($logoPath !== null && $logoPath !== '') {
-                $logoUrl = \Illuminate\Support\Facades\Storage::disk('public')->url($logoPath);
+                $logoUrl = Storage::disk('public')->url($logoPath);
                 $theme['logo_url'] = str_starts_with($logoUrl, 'http://') || str_starts_with($logoUrl, 'https://')
                     ? $logoUrl
                     : url($logoUrl);
@@ -1014,7 +1021,6 @@ final class EventDashboardController extends Controller
         ];
     }
 
-    /** @param  mixed  $fields */
     private function formHasType(mixed $fields, string $type): bool
     {
         if (! is_array($fields)) {

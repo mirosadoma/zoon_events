@@ -5,12 +5,14 @@ namespace App\Modules\AdminConsole\Http\Controllers\Public;
 use App\Exceptions\FoundationException;
 use App\Http\Controllers\Controller;
 use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
+use App\Modules\Events\Application\Support\EventPathPresenter;
 use App\Modules\Events\Application\Support\EventVenueMapPresenter;
 use App\Modules\Events\Application\Support\EventZonePresenter;
 use App\Modules\Events\Application\Support\PublicRegistrationEventPresenter;
 use App\Modules\Events\Application\Support\RenderRegistrationInviteUnavailablePage;
 use App\Modules\Events\Application\Support\ResolveActiveRegistrationInvite;
 use App\Modules\Events\Application\Support\ShareablePublicEventResolver;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventPath;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventVenueMap;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventZone;
 use Illuminate\Http\Request;
@@ -72,15 +74,29 @@ final class PublicEventVenueMapController extends Controller
             ->values()
             ->all();
 
+        $paths = EventPath::query()
+            ->where('tenant_id', $event->tenant_id)
+            ->where('event_id', $event->id)
+            ->where('venue_id', $venue->id)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (EventPath $path): array => EventPathPresenter::toPublicMapArray($path))
+            ->values()
+            ->all();
+
         return Inertia::render('public/registration/VenueMap', [
             'locale' => $resolvedLocale,
             'event' => $this->eventPages->heroEvent($event),
             'venue' => [
                 'id' => (string) $venue->id,
                 'name' => ['en' => (string) $venue->name_en, 'ar' => (string) $venue->name_ar],
+                'latitude' => $venue->latitude !== null ? (float) $venue->latitude : null,
+                'longitude' => $venue->longitude !== null ? (float) $venue->longitude : null,
             ],
             'map' => $map instanceof EventVenueMap ? EventVenueMapPresenter::toArray($map) : null,
             'zones' => $zones,
+            'paths' => $paths,
         ]);
     }
 }

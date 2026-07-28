@@ -4,6 +4,7 @@ namespace App\Modules\Events\Domain;
 
 enum EventZoneType: string
 {
+    case Gate = 'gate';
     case Hall = 'hall';
     case Stage = 'stage';
     case Room = 'room';

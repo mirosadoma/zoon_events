@@ -28,28 +28,50 @@ import {
   toRelative,
 } from '@/components/venue-map/coordinates'
 import {
+  DEFAULT_PATH_COLOR,
   defaultFillForType,
   type EditorTool,
+  type MapPath,
   type MapZone,
   type RelativePoint,
   type ZoneShapeType,
 } from '@/components/venue-map/types'
+import VenueMapBaseLayer, { type VenueBaseMapType } from '@/components/venue-map/VenueMapBaseLayer'
 import VenueMapMarkerShape, { isMarkerShape, isPointRadiusShape } from '@/components/venue-map/VenueMapMarkerShape'
+import { removeNearWhiteBackground } from '@/components/venue-map/removeImageBackground'
 
 type Props = {
   imageUrl: string | null
   naturalWidth: number
   naturalHeight: number
   zones: MapZone[]
+  paths: MapPath[]
   selectedKey: string | null
+  selectedPathKey: string | null
   tool: EditorTool
   locale: 'en' | 'ar'
+  overlayOpacity?: number
+  removeBackground?: boolean
+  showBaseMap?: boolean
+  baseMapType?: VenueBaseMapType
+  baseMapInteractive?: boolean
+  baseMapZoom?: number
+  baseMapHeading?: number
+  onBaseMapTypeChange?: (mapTypeId: VenueBaseMapType) => void
+  onBaseMapHeadingChange?: (heading: number) => void
+  venueLatitude?: number | null
+  venueLongitude?: number | null
   onSelect: (key: string | null) => void
+  onSelectPath: (key: string | null) => void
   onZonesChange: (zones: MapZone[]) => void
+  onPathsChange: (paths: MapPath[]) => void
   onDraftPoint?: (point: RelativePoint | null) => void
 }
 
-function useHtmlImage(url: string | null): HTMLImageElement | null {
+function useFloorPlanImage(
+  url: string | null,
+  removeBackground: boolean,
+): HTMLImageElement | null {
   const [image, setImage] = useState<HTMLImageElement | null>(null)
 
   useEffect(() => {
@@ -58,17 +80,47 @@ function useHtmlImage(url: string | null): HTMLImageElement | null {
       return
     }
 
+    let cancelled = false
     const element = new window.Image()
-    element.crossOrigin = 'anonymous'
-    element.onload = () => setImage(element)
-    element.onerror = () => setImage(null)
+    // Only request CORS when we need pixel access for background removal.
+    if (removeBackground) {
+      element.crossOrigin = 'anonymous'
+    }
+    element.onload = () => {
+      void (async () => {
+        if (cancelled) return
+        if (!removeBackground) {
+          setImage(element)
+          return
+        }
+        const processed = await removeNearWhiteBackground(element)
+        if (!cancelled) setImage(processed)
+      })()
+    }
+    element.onerror = () => {
+      if (cancelled) return
+      // Retry without CORS if the first attempt failed (common on local storage).
+      if (removeBackground) {
+        const fallback = new window.Image()
+        fallback.onload = () => {
+          if (!cancelled) setImage(fallback)
+        }
+        fallback.onerror = () => {
+          if (!cancelled) setImage(null)
+        }
+        fallback.src = url
+        return
+      }
+      setImage(null)
+    }
     element.src = url
 
     return () => {
+      cancelled = true
       element.onload = null
       element.onerror = null
     }
-  }, [url])
+  }, [url, removeBackground])
 
   return image
 }
@@ -96,18 +148,33 @@ export default function VenueMapCanvas({
   naturalWidth,
   naturalHeight,
   zones,
+  paths,
   selectedKey,
+  selectedPathKey,
   tool,
   locale,
+  overlayOpacity = 1,
+  removeBackground = false,
+  showBaseMap = false,
+  baseMapType = 'hybrid',
+  baseMapInteractive = false,
+  baseMapZoom = 18,
+  baseMapHeading = 0,
+  onBaseMapTypeChange,
+  onBaseMapHeadingChange,
+  venueLatitude = null,
+  venueLongitude = null,
   onSelect,
+  onSelectPath,
   onZonesChange,
+  onPathsChange,
   onDraftPoint,
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const stageRef = useRef<Konva.Stage | null>(null)
   const transformerRef = useRef<Konva.Transformer | null>(null)
   const shapeRefs = useRef<Record<string, Konva.Node>>({})
-  const image = useHtmlImage(imageUrl)
+  const image = useFloorPlanImage(imageUrl, removeBackground)
 
   const [size, setSize] = useState({ width: 800, height: 500 })
   const [scale, setScale] = useState(1)
@@ -125,11 +192,19 @@ export default function VenueMapCanvas({
   // Live vertex drag preview — avoids flooding undo history on every pointer move.
   const [dragPreview, setDragPreview] = useState<MapZone[] | null>(null)
   const [activeVertexIndex, setActiveVertexIndex] = useState<number | null>(null)
+  const [activePathVertexIndex, setActivePathVertexIndex] = useState<number | null>(null)
   const draggingVertexRef = useRef<{ key: string; index: number } | null>(null)
+  const draggingPathVertexRef = useRef<{ key: string; index: number } | null>(null)
   const zonesRef = useRef(zones)
+  const pathsRef = useRef(paths)
   const dragPreviewRef = useRef<MapZone[] | null>(null)
+  const pathDragPreviewRef = useRef<MapPath[] | null>(null)
+  const [pathDragPreview, setPathDragPreview] = useState<MapPath[] | null>(null)
+  const [passThroughToMap, setPassThroughToMap] = useState(false)
   zonesRef.current = zones
+  pathsRef.current = paths
   dragPreviewRef.current = dragPreview
+  pathDragPreviewRef.current = pathDragPreview
 
   useEffect(() => {
     const element = containerRef.current
@@ -161,6 +236,7 @@ export default function VenueMapCanvas({
   viewTransformRef.current = { stageX, stageY, stageScale, imageWidth, imageHeight }
 
   const displayZones = dragPreview ?? zones
+  const displayPaths = pathDragPreview ?? paths
 
   const anchors = useMemo(() => {
     const points: RelativePoint[] = []
@@ -169,21 +245,26 @@ export default function VenueMapCanvas({
         points.push(...zone.polygon_coordinates)
       }
     }
+    for (const path of displayPaths) {
+      points.push(...path.polyline_coordinates)
+    }
     points.push(...draftPoints)
     return points
-  }, [displayZones, draftPoints])
+  }, [displayZones, displayPaths, draftPoints])
 
   useEffect(() => {
-    if (draggingVertexRef.current) return
+    if (draggingVertexRef.current || draggingPathVertexRef.current) return
     setDragPreview(null)
+    setPathDragPreview(null)
     setActiveVertexIndex(null)
-  }, [zones, selectedKey, tool])
+    setActivePathVertexIndex(null)
+  }, [zones, paths, selectedKey, selectedPathKey, tool])
 
   useEffect(() => {
     const transformer = transformerRef.current
     if (!transformer) return
 
-    const selected = selectedKey ? shapeRefs.current[selectedKey] : null
+    const selected = selectedKey && !selectedPathKey ? shapeRefs.current[selectedKey] : null
     if (selected && tool === 'select') {
       transformer.nodes([selected])
       transformer.forceUpdate()
@@ -192,7 +273,7 @@ export default function VenueMapCanvas({
       transformer.nodes([])
       transformer.getLayer()?.batchDraw()
     }
-  }, [selectedKey, tool, displayZones])
+  }, [selectedKey, selectedPathKey, tool, displayZones])
 
   function pointerRelative(): RelativePoint | null {
     const stage = stageRef.current
@@ -236,21 +317,59 @@ export default function VenueMapCanvas({
     })
   }
 
+  function finishPathDraft() {
+    if (draftPoints.length < 2) return
+    const key = crypto.randomUUID()
+    const created: MapPath = {
+      key,
+      name_en: `Path ${paths.length + 1}`,
+      name_ar: `مسار ${paths.length + 1}`,
+      polyline_coordinates: draftPoints,
+      from_zone_key: null,
+      to_zone_key: null,
+      stroke_color: DEFAULT_PATH_COLOR,
+      stroke_width: 3,
+      opacity: 85,
+    }
+    onPathsChange([...paths, created])
+    onSelect(null)
+    onSelectPath(key)
+    setDraftPoints([])
+    setHoverPoint(null)
+    onDraftPoint?.(null)
+  }
+
+  function movePathVertex(
+    source: MapPath[],
+    pathKey: string,
+    index: number,
+    nextPoint: RelativePoint,
+  ): MapPath[] {
+    return source.map((path) => {
+      if (path.key !== pathKey) return path
+      return {
+        ...path,
+        polyline_coordinates: path.polyline_coordinates.map((point, pointIndex) => (
+          pointIndex === index ? nextPoint : point
+        )),
+      }
+    })
+  }
+
   function createShapeZone(
     shapeType: ZoneShapeType,
     points: RelativePoint[],
     radius: number | null = null,
     radiusY: number | null = null,
   ) {
-    // Prefer the selected zone so organizers can replace its shape without deleting the zone.
+    // Only attach to an explicitly selected zone; otherwise always create a new one.
     const selected = selectedKey
-      ? zones.find((zone) => zone.key === selectedKey)
+      ? zones.find((zone) => zone.key === selectedKey) ?? null
       : null
-    const base = selected ?? zones.find((zone) => !zone.shape_type)
 
-    if (base) {
+    if (selected) {
       onZonesChange(zones.map((zone) => (
-        zone.key === base.key
+        zone.key === selected.key
           ? withDefaults({
             ...zone,
             shape_type: shapeType,
@@ -262,7 +381,7 @@ export default function VenueMapCanvas({
           })
           : zone
       )))
-      onSelect(base.key)
+      onSelect(selected.key)
       return
     }
 
@@ -299,6 +418,7 @@ export default function VenueMapCanvas({
     if (tool === 'select' || tool === 'delete') {
       if (tool === 'select' && event.target === stageRef.current) {
         onSelect(null)
+        onSelectPath(null)
         setHoverTooltip(null)
         setHoveredKey(null)
       }
@@ -307,6 +427,13 @@ export default function VenueMapCanvas({
 
     const point = pointerRelative()
     if (!point) return
+
+    if (tool === 'path') {
+      const next = [...draftPoints, point]
+      setDraftPoints(next)
+      onDraftPoint?.(point)
+      return
+    }
 
     if (tool === 'polygon') {
       const next = [...draftPoints, point]
@@ -487,7 +614,8 @@ export default function VenueMapCanvas({
           setHoveredKey(null)
           return
         }
-        onSelect(zone.key)
+        onSelect(zone.key === selectedKey ? null : zone.key)
+        onSelectPath(null)
       },
       onDragEnd: (event: Konva.KonvaEventObject<DragEvent>) => {
         const node = event.target
@@ -669,8 +797,93 @@ export default function VenueMapCanvas({
     return pointsToFlat(points, imageWidth, imageHeight)
   }, [draftPoints, hoverPoint, imageWidth, imageHeight, tool])
 
+  const hasBaseMap = Boolean(
+    showBaseMap
+    && venueLatitude != null
+    && venueLongitude != null
+    && Number.isFinite(venueLatitude)
+    && Number.isFinite(venueLongitude),
+  )
+  const floorOpacity = Math.min(1, Math.max(0, overlayOpacity))
+  const mapReceivesPointer = hasBaseMap && (baseMapInteractive || passThroughToMap)
+
+  function clientOverFloorPlan(clientX: number, clientY: number): boolean {
+    const container = containerRef.current
+    if (!container) return true
+    const rect = container.getBoundingClientRect()
+    const pointerX = clientX - rect.left
+    const pointerY = clientY - rect.top
+    const view = viewTransformRef.current
+    if (view.stageScale === 0) return true
+    const localX = (pointerX - view.stageX) / view.stageScale
+    const localY = (pointerY - view.stageY) / view.stageScale
+    return localX >= 0
+      && localY >= 0
+      && localX <= view.imageWidth
+      && localY <= view.imageHeight
+  }
+
+  function syncMapPassThrough(clientX: number, clientY: number) {
+    if (!hasBaseMap) {
+      setPassThroughToMap(false)
+      return
+    }
+    if (baseMapInteractive) {
+      setPassThroughToMap(true)
+      return
+    }
+    const passThrough = !clientOverFloorPlan(clientX, clientY)
+    const content = stageRef.current?.content
+    if (content instanceof HTMLElement) {
+      content.style.pointerEvents = passThrough ? 'none' : ''
+    }
+    setPassThroughToMap(passThrough)
+  }
+
+  useEffect(() => {
+    const content = stageRef.current?.content
+    if (!(content instanceof HTMLElement)) return
+
+    if (baseMapInteractive) {
+      content.style.pointerEvents = 'none'
+      setPassThroughToMap(true)
+      return
+    }
+
+    content.style.pointerEvents = ''
+    setPassThroughToMap(false)
+  }, [baseMapInteractive])
+
+  useEffect(() => {
+    if (hasBaseMap) return
+    const content = stageRef.current?.content
+    if (content instanceof HTMLElement) {
+      content.style.pointerEvents = ''
+    }
+    setPassThroughToMap(false)
+  }, [hasBaseMap])
+
   return (
-    <div ref={containerRef} className="venue-map-canvas">
+    <div
+      ref={containerRef}
+      className={`venue-map-canvas${hasBaseMap ? ' venue-map-canvas--has-base-map' : ''}${mapReceivesPointer ? ' venue-map-canvas--base-map-interactive' : ''}`}
+      onMouseMove={(event) => syncMapPassThrough(event.clientX, event.clientY)}
+      onMouseLeave={() => {
+        if (!baseMapInteractive) setPassThroughToMap(false)
+      }}
+    >
+      {hasBaseMap ? (
+        <VenueMapBaseLayer
+          latitude={venueLatitude as number}
+          longitude={venueLongitude as number}
+          zoom={baseMapZoom}
+          heading={baseMapHeading}
+          mapTypeId={baseMapType}
+          interactive
+          onMapTypeIdChange={onBaseMapTypeChange}
+          onHeadingChange={onBaseMapHeadingChange}
+        />
+      ) : null}
       <Stage
         ref={stageRef}
         width={size.width}
@@ -679,7 +892,25 @@ export default function VenueMapCanvas({
         scaleY={stageScale}
         x={stageX}
         y={stageY}
-        draggable={tool === 'select' && activeVertexIndex === null}
+        draggable={
+          !mapReceivesPointer
+          && tool === 'select'
+          && activeVertexIndex === null
+          && activePathVertexIndex === null
+        }
+        onDragStart={(event) => {
+          if (event.target !== stageRef.current) return
+          if (!hasBaseMap || baseMapInteractive) return
+          const pointer = event.target.getStage()?.getPointerPosition()
+          if (!pointer) return
+          const container = containerRef.current
+          if (!container) return
+          const rect = container.getBoundingClientRect()
+          if (!clientOverFloorPlan(rect.left + pointer.x, rect.top + pointer.y)) {
+            event.target.stopDrag()
+            setPassThroughToMap(true)
+          }
+        }}
         onDragEnd={(event) => {
           if (event.target !== stageRef.current) return
           setPosition({
@@ -687,8 +918,40 @@ export default function VenueMapCanvas({
             y: event.target.y() - centerY,
           })
         }}
-        onWheel={handleWheel}
-        onMouseMove={() => {
+        onMouseDown={(event) => {
+          if (!hasBaseMap || baseMapInteractive) return
+          if (clientOverFloorPlan(event.evt.clientX, event.evt.clientY)) return
+          const content = stageRef.current?.content
+          if (content instanceof HTMLElement) {
+            content.style.pointerEvents = 'none'
+          }
+          setPassThroughToMap(true)
+        }}
+        onWheel={(event) => {
+          if (hasBaseMap && !baseMapInteractive && !clientOverFloorPlan(event.evt.clientX, event.evt.clientY)) {
+            const content = stageRef.current?.content
+            if (content instanceof HTMLElement) {
+              content.style.pointerEvents = 'none'
+            }
+            setPassThroughToMap(true)
+
+            const target = document.elementFromPoint(event.evt.clientX, event.evt.clientY)
+            target?.dispatchEvent(new WheelEvent('wheel', {
+              bubbles: true,
+              cancelable: true,
+              clientX: event.evt.clientX,
+              clientY: event.evt.clientY,
+              deltaX: event.evt.deltaX,
+              deltaY: event.evt.deltaY,
+              deltaZ: event.evt.deltaZ,
+              deltaMode: event.evt.deltaMode,
+            }))
+            return
+          }
+          handleWheel(event)
+        }}
+        onMouseMove={(event) => {
+          syncMapPassThrough(event.evt.clientX, event.evt.clientY)
           if (tool === 'select' || tool === 'delete') return
           const point = pointerRelative()
           setHoverPoint(point)
@@ -701,17 +964,66 @@ export default function VenueMapCanvas({
             setHoverPoint(null)
             onDraftPoint?.(null)
           }
+          if (tool === 'path' && draftPoints.length >= 2) {
+            finishPathDraft()
+          }
         }}
         onClick={handleStageClick}
       >
         <Layer>
           {image ? (
-            <KonvaImage image={image} width={imageWidth} height={imageHeight} listening={false} />
+            <KonvaImage
+              image={image}
+              width={imageWidth}
+              height={imageHeight}
+              opacity={floorOpacity}
+              listening={false}
+            />
           ) : (
-            <Rect width={imageWidth} height={imageHeight} fill="#e5e7eb" listening={false} />
+            <Rect
+              width={imageWidth}
+              height={imageHeight}
+              fill={hasBaseMap ? 'rgba(0,0,0,0)' : '#e5e7eb'}
+              listening={false}
+            />
           )}
 
           {displayZones.map((zone) => renderZone(zone))}
+
+          {displayPaths.map((path) => {
+            const selected = path.key === selectedPathKey
+            const flat = pointsToFlat(path.polyline_coordinates, imageWidth, imageHeight)
+            const stroke = path.stroke_color ?? DEFAULT_PATH_COLOR
+            const strokeWidth = path.stroke_width ?? 3
+            const opacity = (path.opacity ?? 85) / 100
+
+            return (
+              <Line
+                key={`path-${path.key}`}
+                points={flat}
+                stroke={stroke}
+                strokeWidth={selected ? strokeWidth + 1 : strokeWidth}
+                opacity={opacity}
+                lineCap="round"
+                lineJoin="round"
+                hitStrokeWidth={16}
+                onClick={(event) => {
+                  event.cancelBubble = true
+                  if (tool === 'delete') {
+                    onPathsChange(paths.filter((row) => row.key !== path.key))
+                    onSelectPath(null)
+                    return
+                  }
+                  onSelect(null)
+                  onSelectPath(path.key)
+                }}
+                onMouseEnter={(event) => {
+                  const container = event.target.getStage()?.container()
+                  if (container) container.style.cursor = tool === 'select' ? 'pointer' : container.style.cursor
+                }}
+              />
+            )
+          })}
 
           {(tool === 'pillar' || tool === 'person') && draftPoints[0] && hoverPoint ? (
             <VenueMapMarkerShape
@@ -741,6 +1053,8 @@ export default function VenueMapCanvas({
                 && draftPoints.length === 1
                 && !!hoverPoint
               }
+              lineCap="round"
+              lineJoin="round"
             />
           ) : null}
 
@@ -802,6 +1116,7 @@ export default function VenueMapCanvas({
                 onClick={(event) => {
                   event.cancelBubble = true
                   onSelect(zone.key)
+                  onSelectPath(null)
                 }}
                 onDragStart={(event) => {
                   event.cancelBubble = true
@@ -867,9 +1182,89 @@ export default function VenueMapCanvas({
             )
           })}
 
+          {tool === 'select' && selectedPathKey ? (
+            (displayPaths.find((path) => path.key === selectedPathKey)?.polyline_coordinates ?? []).map((point, index) => {
+              const px = toPixel(point, imageWidth, imageHeight)
+              const isDragging = activePathVertexIndex === index
+
+              return (
+                <Circle
+                  key={`path-vertex-${selectedPathKey}-${index}`}
+                  x={px.x}
+                  y={px.y}
+                  radius={6}
+                  fill="#ffffff"
+                  stroke="#2563eb"
+                  strokeWidth={2}
+                  draggable
+                  perfectDrawEnabled={false}
+                  hitStrokeWidth={12}
+                  dragBoundFunc={(pos) => {
+                    const view = viewTransformRef.current
+                    if (view.stageScale === 0) return pos
+                    const localX = (pos.x - view.stageX) / view.stageScale
+                    const localY = (pos.y - view.stageY) / view.stageScale
+                    const clampedX = Math.min(view.imageWidth, Math.max(0, localX))
+                    const clampedY = Math.min(view.imageHeight, Math.max(0, localY))
+                    return {
+                      x: view.stageX + clampedX * view.stageScale,
+                      y: view.stageY + clampedY * view.stageScale,
+                    }
+                  }}
+                  onMouseDown={(event) => {
+                    event.cancelBubble = true
+                  }}
+                  onDragStart={(event) => {
+                    event.cancelBubble = true
+                    draggingPathVertexRef.current = { key: selectedPathKey, index }
+                    setActivePathVertexIndex(index)
+                    pathDragPreviewRef.current = pathsRef.current
+                    setPathDragPreview(pathsRef.current)
+                  }}
+                  onDragMove={(event) => {
+                    event.cancelBubble = true
+                    const nextPoint = toRelative(event.target.x(), event.target.y(), imageWidth, imageHeight)
+                    const next = movePathVertex(
+                      pathDragPreviewRef.current ?? pathsRef.current,
+                      selectedPathKey,
+                      index,
+                      nextPoint,
+                    )
+                    pathDragPreviewRef.current = next
+                    setPathDragPreview(next)
+                  }}
+                  onDragEnd={(event) => {
+                    event.cancelBubble = true
+                    const nextPoint = toRelative(event.target.x(), event.target.y(), imageWidth, imageHeight)
+                    const nextPaths = movePathVertex(
+                      pathDragPreviewRef.current ?? pathsRef.current,
+                      selectedPathKey,
+                      index,
+                      nextPoint,
+                    )
+                    draggingPathVertexRef.current = null
+                    pathDragPreviewRef.current = null
+                    setActivePathVertexIndex(null)
+                    setPathDragPreview(null)
+                    onPathsChange(nextPaths)
+                  }}
+                  onMouseEnter={(event) => {
+                    const container = event.target.getStage()?.container()
+                    if (container) container.style.cursor = 'grab'
+                  }}
+                  onMouseLeave={() => {
+                    if (isDragging) return
+                    const container = stageRef.current?.container()
+                    if (container) container.style.cursor = tool === 'select' ? 'default' : container.style.cursor
+                  }}
+                />
+              )
+            })
+          ) : null}
+
           <Transformer
             ref={transformerRef}
-            rotateEnabled={tool === 'select'}
+            rotateEnabled={tool === 'select' && !selectedPathKey}
             rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
             keepRatio={
               selectedKey !== null && (

@@ -55,6 +55,11 @@ final class Event extends Model
         return $this->hasMany(EventZone::class);
     }
 
+    public function paths(): HasMany
+    {
+        return $this->hasMany(EventPath::class);
+    }
+
     public function images(): HasMany
     {
         return $this->hasMany(EventImage::class)->orderBy('sort_order')->orderBy('id');

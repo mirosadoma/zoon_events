@@ -10,7 +10,11 @@ use InvalidArgumentException;
 
 final class DeleteEventVenueMap
 {
-    public function execute(string $tenantId, Event $event, int $venueId): void
+    /**
+     * Remove the floor-plan image file and clear image fields,
+     * while keeping camera / overlay settings for the geo editor.
+     */
+    public function execute(string $tenantId, Event $event, int $venueId): ?EventVenueMap
     {
         $venue = EventVenue::query()
             ->where('tenant_id', $tenantId)
@@ -29,13 +33,20 @@ final class DeleteEventVenueMap
             ->first();
 
         if (! $map instanceof EventVenueMap) {
-            return;
+            return null;
         }
 
-        if ($map->image_path !== '') {
+        if ($map->image_path !== null && $map->image_path !== '') {
             Storage::disk('public')->delete($map->image_path);
         }
 
-        $map->delete();
+        $map->fill([
+            'image_path' => '',
+            'width' => null,
+            'height' => null,
+            'remove_background' => false,
+        ])->save();
+
+        return $map->refresh();
     }
 }

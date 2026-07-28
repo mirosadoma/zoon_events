@@ -4,6 +4,7 @@ namespace App\Modules\AdminConsole\Infrastructure\Persistence\Models;
 
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventAgendaItem;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventPath;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventVenueMap;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventZone;
 use Illuminate\Database\Eloquent\Model;
@@ -60,6 +61,11 @@ final class EventVenue extends Model
     public function zones(): HasMany
     {
         return $this->hasMany(EventZone::class, 'venue_id')->orderBy('id');
+    }
+
+    public function paths(): HasMany
+    {
+        return $this->hasMany(EventPath::class, 'venue_id')->orderBy('sort_order')->orderBy('id');
     }
 
     public function map(): HasOne

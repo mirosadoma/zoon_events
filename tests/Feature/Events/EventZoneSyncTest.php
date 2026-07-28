@@ -165,4 +165,114 @@ final class EventZoneSyncTest extends Phase1MySqlTestCase
         self::assertNull(EventAgendaItem::query()->where('event_id', $event->id)->value('zone_id'));
         self::assertSame((int) $venue->id, (int) EventAgendaItem::query()->where('event_id', $event->id)->value('event_venue_id'));
     }
+
+    #[Test]
+    public function it_accepts_rectangle_with_closed_ring_duplicate_and_coerces_extra_vertices_to_polygon(): void
+    {
+        $this->seed(PermissionCatalogSeeder::class);
+
+        $fixture = $this->createRegistrationFixture();
+        $actor = $fixture['actor'];
+        $tenant = $fixture['tenant'];
+        $event = $fixture['event'];
+
+        $membership = TenantMembership::query()->create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $actor->id,
+            'status' => 'active',
+            'created_by_user_id' => $actor->id,
+        ]);
+        $this->grantTenantPermissions($tenant, $membership, ['event.manage', 'event.view']);
+
+        $country = Country::query()->first() ?? Country::query()->create([
+            'code' => 'SA',
+            'name_en' => 'Saudi Arabia',
+            'name_ar' => 'السعودية',
+        ]);
+        $city = City::query()->where('country_id', $country->id)->first() ?? City::query()->create([
+            'country_id' => $country->id,
+            'name_en' => 'Riyadh',
+            'name_ar' => 'الرياض',
+        ]);
+
+        $venue = EventVenue::query()->create([
+            'tenant_id' => $tenant->id,
+            'event_id' => $event->id,
+            'country_id' => $country->id,
+            'city_id' => $city->id,
+            'name_en' => 'Main Venue',
+            'name_ar' => 'الموقع الرئيسي',
+            'location_address' => 'King Fahd Rd',
+            'start_at' => '2027-01-10 08:00:00',
+            'end_at' => '2027-01-10 18:00:00',
+            'sort_order' => 0,
+        ]);
+
+        $this->actingAsTenantMember($actor, $tenant);
+
+        $closedRing = $this->putJson(
+            "/api/v1/tenant/events/{$event->id}/zones",
+            [
+                'venue_id' => $venue->id,
+                'zones' => [
+                    [
+                        'zone_name_en' => 'Hall',
+                        'zone_name_ar' => 'قاعة',
+                        'type' => 'hall',
+                        'shape_type' => 'rectangle',
+                        'coordinate_space' => 'geo',
+                        'polygon_coordinates' => [
+                            ['lat' => 24.7140, 'lng' => 46.6750],
+                            ['lat' => 24.7140, 'lng' => 46.6760],
+                            ['lat' => 24.7130, 'lng' => 46.6760],
+                            ['lat' => 24.7130, 'lng' => 46.6750],
+                            ['lat' => 24.7140, 'lng' => 46.6750],
+                        ],
+                        'shape_rotation' => 15,
+                    ],
+                ],
+            ],
+            [
+                'X-Tenant-ID' => (string) $tenant->id,
+                'Idempotency-Key' => (string) Str::ulid(),
+            ],
+        );
+
+        $closedRing->assertOk()
+            ->assertJsonPath('data.zones.0.shape_type', 'rectangle');
+        self::assertCount(4, $closedRing->json('data.zones.0.polygon_coordinates'));
+
+        $extraVertex = $this->putJson(
+            "/api/v1/tenant/events/{$event->id}/zones",
+            [
+                'venue_id' => $venue->id,
+                'zones' => [
+                    [
+                        'id' => (int) $closedRing->json('data.zones.0.id'),
+                        'zone_name_en' => 'Hall',
+                        'zone_name_ar' => 'قاعة',
+                        'type' => 'hall',
+                        'shape_type' => 'rectangle',
+                        'coordinate_space' => 'geo',
+                        'polygon_coordinates' => [
+                            ['lat' => 24.7140, 'lng' => 46.6750],
+                            ['lat' => 24.7140, 'lng' => 46.6760],
+                            ['lat' => 24.7135, 'lng' => 46.6765],
+                            ['lat' => 24.7130, 'lng' => 46.6760],
+                            ['lat' => 24.7130, 'lng' => 46.6750],
+                        ],
+                        'shape_rotation' => 15,
+                    ],
+                ],
+            ],
+            [
+                'X-Tenant-ID' => (string) $tenant->id,
+                'Idempotency-Key' => (string) Str::ulid(),
+            ],
+        );
+
+        $extraVertex->assertOk()
+            ->assertJsonPath('data.zones.0.shape_type', 'polygon');
+        self::assertCount(5, $extraVertex->json('data.zones.0.polygon_coordinates'));
+    }
 }

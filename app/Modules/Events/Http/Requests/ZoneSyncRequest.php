@@ -2,6 +2,7 @@
 
 namespace App\Modules\Events\Http\Requests;
 
+use App\Modules\Events\Domain\EventCoordinateSpace;
 use App\Modules\Events\Domain\EventZoneShapeType;
 use App\Modules\Events\Domain\EventZoneType;
 use Illuminate\Foundation\Http\FormRequest;
@@ -28,12 +29,15 @@ final class ZoneSyncRequest extends FormRequest
             'zones.*.type' => ['required', 'string', Rule::in(EventZoneType::values())],
             'zones.*.capacity' => ['nullable', 'integer', 'min:0'],
             'zones.*.shape_type' => ['nullable', 'string', Rule::in(EventZoneShapeType::values())],
+            'zones.*.coordinate_space' => ['nullable', 'string', Rule::in(EventCoordinateSpace::values())],
             'zones.*.polygon_coordinates' => ['nullable', 'array'],
-            'zones.*.polygon_coordinates.*.x' => ['required_with:zones.*.polygon_coordinates', 'numeric', 'between:0,1'],
-            'zones.*.polygon_coordinates.*.y' => ['required_with:zones.*.polygon_coordinates', 'numeric', 'between:0,1'],
-            'zones.*.shape_radius' => ['nullable', 'numeric', 'gt:0', 'lte:1'],
+            'zones.*.polygon_coordinates.*.x' => ['nullable', 'numeric', 'between:0,1'],
+            'zones.*.polygon_coordinates.*.y' => ['nullable', 'numeric', 'between:0,1'],
+            'zones.*.polygon_coordinates.*.lat' => ['nullable', 'numeric', 'between:-90,90'],
+            'zones.*.polygon_coordinates.*.lng' => ['nullable', 'numeric', 'between:-180,180'],
+            'zones.*.shape_radius' => ['nullable', 'numeric', 'gt:0', 'lte:50000'],
             'zones.*.shape_rotation' => ['nullable', 'numeric', 'between:-360,360'],
-            'zones.*.shape_radius_y' => ['nullable', 'numeric', 'gt:0', 'lte:1'],
+            'zones.*.shape_radius_y' => ['nullable', 'numeric', 'gt:0', 'lte:50000'],
             'zones.*.label' => ['nullable', 'string', 'max:160'],
             'zones.*.google_maps_url' => ['nullable', 'string', 'max:1024'],
             'zones.*.lat' => ['nullable', 'numeric', 'between:-90,90'],

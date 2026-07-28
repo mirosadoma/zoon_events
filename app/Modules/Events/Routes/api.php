@@ -6,6 +6,7 @@ use App\Modules\Events\Http\Controllers\EventCategoryController;
 use App\Modules\Events\Http\Controllers\EventInviteController;
 use App\Modules\Events\Http\Controllers\OrganizerAgendaController;
 use App\Modules\Events\Http\Controllers\OrganizerEventController;
+use App\Modules\Events\Http\Controllers\OrganizerEventPathController;
 use App\Modules\Events\Http\Controllers\OrganizerEventVenueController;
 use App\Modules\Events\Http\Controllers\OrganizerEventVenueMapController;
 use App\Modules\Events\Http\Controllers\OrganizerEventZoneController;
@@ -30,8 +31,10 @@ Route::prefix('tenant/events')
         Route::put('/{event_id}/agenda', [OrganizerAgendaController::class, 'sync'])->middleware(['permission:event.manage,tenant', 'idempotency']);
         Route::put('/{event_id}/venues', [OrganizerEventVenueController::class, 'sync'])->middleware(['permission:event.manage,tenant', 'idempotency']);
         Route::put('/{event_id}/zones', [OrganizerEventZoneController::class, 'sync'])->middleware(['permission:event.manage,tenant', 'idempotency']);
+        Route::put('/{event_id}/paths', [OrganizerEventPathController::class, 'sync'])->middleware(['permission:event.manage,tenant', 'idempotency']);
         Route::get('/{event_id}/venues/{venue_id}/map', [OrganizerEventVenueMapController::class, 'show'])->middleware('permission:event.view,tenant');
         Route::post('/{event_id}/venues/{venue_id}/map', [OrganizerEventVenueMapController::class, 'store'])->middleware('permission:event.manage,tenant');
+        Route::patch('/{event_id}/venues/{venue_id}/map/settings', [OrganizerEventVenueMapController::class, 'updateSettings'])->middleware(['permission:event.manage,tenant', 'idempotency']);
         Route::delete('/{event_id}/venues/{venue_id}/map', [OrganizerEventVenueMapController::class, 'destroy'])->middleware(['permission:event.manage,tenant', 'idempotency']);
         Route::get('/{event_id}/venues/{venue_id}/zones', [OrganizerEventVenueMapController::class, 'zones'])->middleware('permission:event.view,tenant');
 

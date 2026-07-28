@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useRef, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Circle as CircleIcon,
   CircleEllipsis,
@@ -10,6 +10,7 @@ import {
   Redo2,
   RotateCcw,
   RotateCw,
+  Route,
   Square,
   Triangle,
   Trash2,
@@ -18,12 +19,28 @@ import {
   ZoomIn,
   ZoomOut,
 } from 'lucide-react'
-import VenueMapCanvas from '@/components/venue-map/VenueMapCanvas'
+import { type VenueBaseMapType } from '@/components/venue-map/VenueMapBaseLayer'
+import VenueMapGeoCanvas from '@/components/venue-map/VenueMapGeoCanvas'
+import VenueMapPlaceSearch from '@/components/venue-map/VenueMapPlaceSearch'
+import {
+  boundsFromCamera,
+  centroidGeo,
+  insetOverlayBounds,
+  isGeoPoint,
+  isRelativePoint,
+  relativePointsToGeo,
+  relativeRadiusToMeters,
+  rotateGeoPointsAround,
+  type GeoPoint,
+  type OverlayBounds,
+} from '@/components/venue-map/geoCoordinates'
 import ResizableMapFrame from '@/components/venue-map/ResizableMapFrame'
 import { normalizeDegrees } from '@/components/venue-map/coordinates'
 import {
+  DEFAULT_PATH_COLOR,
   defaultFillForType,
   type EditorTool,
+  type MapPath,
   type MapZone,
   type RelativePoint,
   type VenueMapData,
@@ -46,6 +63,7 @@ type Props = {
   venueLongitude: number | null
   initialMap: VenueMapData | null
   initialZones: MapZone[]
+  initialPaths?: Array<Record<string, unknown>>
   zoneTypes: string[]
 }
 
@@ -60,7 +78,8 @@ function toDraft(zones: Array<Record<string, unknown>>): MapZone[] {
     type: String(zone.type ?? 'hall'),
     capacity: zone.capacity === null || zone.capacity === undefined ? null : Number(zone.capacity),
     shape_type: (zone.shape_type as MapZone['shape_type']) ?? null,
-    polygon_coordinates: (zone.polygon_coordinates as RelativePoint[] | null) ?? null,
+    coordinate_space: (zone.coordinate_space as MapZone['coordinate_space']) ?? undefined,
+    polygon_coordinates: (zone.polygon_coordinates as MapZone['polygon_coordinates']) ?? null,
     shape_radius: zone.shape_radius === null || zone.shape_radius === undefined
       ? null
       : Number(zone.shape_radius),
@@ -83,6 +102,108 @@ function toDraft(zones: Array<Record<string, unknown>>): MapZone[] {
   }))
 }
 
+function toPathDraft(
+  paths: Array<Record<string, unknown>>,
+  zones: MapZone[],
+): MapPath[] {
+  const idToKey = new Map(zones.filter((zone) => zone.id).map((zone) => [zone.id!, zone.key]))
+
+  return paths.map((path, index) => {
+    const fromId = path.from_zone_id ? String(path.from_zone_id) : null
+    const toId = path.to_zone_id ? String(path.to_zone_id) : null
+    const nestedName = path.name && typeof path.name === 'object'
+      ? path.name as { en?: string; ar?: string }
+      : null
+
+    return {
+      key: String(path.id ?? crypto.randomUUID()),
+      id: path.id ? String(path.id) : undefined,
+      name_en: String(path.name_en ?? nestedName?.en ?? `Path ${index + 1}`),
+      name_ar: String(path.name_ar ?? nestedName?.ar ?? `مسار ${index + 1}`),
+      coordinate_space: (path.coordinate_space as MapPath['coordinate_space']) ?? undefined,
+      polyline_coordinates: (path.polyline_coordinates as MapPath['polyline_coordinates']) ?? [],
+      from_zone_key: fromId ? (idToKey.get(fromId) ?? null) : null,
+      to_zone_key: toId ? (idToKey.get(toId) ?? null) : null,
+      stroke_color: path.stroke_color ? String(path.stroke_color) : DEFAULT_PATH_COLOR,
+      stroke_width: path.stroke_width === null || path.stroke_width === undefined
+        ? 3
+        : Number(path.stroke_width),
+      opacity: path.opacity === null || path.opacity === undefined ? 85 : Number(path.opacity),
+    }
+  })
+}
+
+function convertDraftToGeo(
+  zones: MapZone[],
+  paths: MapPath[],
+  bounds: OverlayBounds,
+): { zones: MapZone[]; paths: MapPath[] } {
+  return {
+    zones: zones.map((zone) => {
+      const points = zone.polygon_coordinates
+      if (!points?.length || zone.coordinate_space === 'geo') {
+        return { ...zone, coordinate_space: zone.coordinate_space ?? 'geo' }
+      }
+      if (!points.every(isRelativePoint)) {
+        return { ...zone, coordinate_space: 'geo' }
+      }
+      const geoPoints = relativePointsToGeo(points, bounds)
+      const isRadiusShape = zone.shape_type === 'circle'
+        || zone.shape_type === 'ellipse'
+        || zone.shape_type === 'pillar'
+        || zone.shape_type === 'person'
+      return {
+        ...zone,
+        coordinate_space: 'geo',
+        polygon_coordinates: geoPoints,
+        shape_radius: isRadiusShape && zone.shape_radius != null
+          ? relativeRadiusToMeters(zone.shape_radius, bounds)
+          : zone.shape_radius,
+        shape_radius_y: isRadiusShape && zone.shape_radius_y != null
+          ? relativeRadiusToMeters(zone.shape_radius_y, bounds)
+          : zone.shape_radius_y,
+      }
+    }),
+    paths: paths.map((path) => {
+      if (path.coordinate_space === 'geo' || !path.polyline_coordinates.every(isRelativePoint)) {
+        return { ...path, coordinate_space: path.coordinate_space ?? 'geo' }
+      }
+      return {
+        ...path,
+        coordinate_space: 'geo',
+        polyline_coordinates: relativePointsToGeo(path.polyline_coordinates, bounds),
+      }
+    }),
+  }
+}
+
+function buildZoneKeyToIdMap(before: MapZone[], after: Array<Record<string, unknown>>): Record<string, string> {
+  const map: Record<string, string> = {}
+  const usedIds = new Set<string>()
+
+  for (const zone of before) {
+    if (zone.id) {
+      map[zone.key] = zone.id
+      usedIds.add(zone.id)
+    }
+  }
+
+  const unmatched = after.filter((zone) => zone.id && !usedIds.has(String(zone.id)))
+  for (const zone of before) {
+    if (map[zone.key]) continue
+    const matchIndex = unmatched.findIndex((row) => (
+      String(row.zone_name_en ?? '') === zone.zone_name_en
+      && String(row.zone_name_ar ?? '') === zone.zone_name_ar
+    ))
+    if (matchIndex >= 0) {
+      map[zone.key] = String(unmatched[matchIndex].id)
+      unmatched.splice(matchIndex, 1)
+    }
+  }
+
+  return map
+}
+
 export default function VenueMapEditor({
   eventId,
   tenantId,
@@ -91,21 +212,270 @@ export default function VenueMapEditor({
   venueLongitude,
   initialMap,
   initialZones,
+  initialPaths = [],
   zoneTypes,
 }: Props) {
+  type Snapshot = { zones: MapZone[]; paths: MapPath[] }
   const { locale, t } = useLocale()
   const { toast } = useToast()
   const fileRef = useRef<HTMLInputElement | null>(null)
   const [map, setMap] = useState<VenueMapData | null>(initialMap)
   const [tool, setTool] = useState<EditorTool>('select')
-  const [selectedKey, setSelectedKey] = useState<string | null>(initialZones[0]?.key ?? null)
-  const [draftPoint, setDraftPoint] = useState<RelativePoint | null>(null)
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [selectedPathKey, setSelectedPathKey] = useState<string | null>(null)
+  const [draftPoint, setDraftPoint] = useState<GeoPoint | RelativePoint | null>(null)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [deletingImage, setDeletingImage] = useState(false)
+  const [savingOverlay, setSavingOverlay] = useState(false)
   const [locationPickerOpen, setLocationPickerOpen] = useState(false)
+  const [overlayOpacity, setOverlayOpacity] = useState(
+    () => Math.round(((initialMap?.overlay_opacity ?? 0.85) * 100)),
+  )
+  const [removeBackground, setRemoveBackground] = useState(
+    () => Boolean(initialMap?.remove_background ?? false),
+  )
+  const [showBaseMap, setShowBaseMap] = useState(
+    () => Boolean(initialMap?.show_base_map ?? true),
+  )
+  const [baseMapType, setBaseMapType] = useState<VenueBaseMapType>(
+    () => ((initialMap?.map_type as VenueBaseMapType | undefined) ?? 'hybrid'),
+  )
+  const [baseMapCenter, setBaseMapCenter] = useState<{ lat: number; lng: number } | null>(() => {
+    if (initialMap?.map_center_lat != null && initialMap?.map_center_lng != null) {
+      return { lat: Number(initialMap.map_center_lat), lng: Number(initialMap.map_center_lng) }
+    }
+    return venueLatitude != null && venueLongitude != null
+      ? { lat: venueLatitude, lng: venueLongitude }
+      : null
+  })
+  const [baseMapZoom, setBaseMapZoom] = useState(() => Number(initialMap?.map_zoom ?? 18))
+  const [baseMapHeading, setBaseMapHeading] = useState(() => Number(initialMap?.map_heading ?? 0))
+  const [overlayBounds, setOverlayBounds] = useState<OverlayBounds | null>(() => {
+    if (
+      initialMap?.overlay_north != null
+      && initialMap?.overlay_south != null
+      && initialMap?.overlay_east != null
+      && initialMap?.overlay_west != null
+    ) {
+      return {
+        north: Number(initialMap.overlay_north),
+        south: Number(initialMap.overlay_south),
+        east: Number(initialMap.overlay_east),
+        west: Number(initialMap.overlay_west),
+      }
+    }
+    return null
+  })
+  const [overlayRotation, setOverlayRotation] = useState(
+    () => Number(initialMap?.overlay_rotation ?? 0),
+  )
+  const overlaySaveTimer = useRef<number | null>(null)
+  const overlayReadyRef = useRef(false)
+  const overlayBoundsSeededRef = useRef(
+    initialMap?.overlay_north != null
+    && initialMap?.overlay_south != null
+    && initialMap?.overlay_east != null
+    && initialMap?.overlay_west != null,
+  )
+  // Live camera for saves only — do not push every pan into React state (that re-centers the map).
+  const mapCameraRef = useRef({
+    center: baseMapCenter
+      ?? (venueLatitude != null && venueLongitude != null
+        ? { lat: venueLatitude, lng: venueLongitude }
+        : null),
+    zoom: Number(initialMap?.map_zoom ?? 18),
+    heading: Number(initialMap?.map_heading ?? 0),
+    mapType: ((initialMap?.map_type as VenueBaseMapType | undefined) ?? 'hybrid') as VenueBaseMapType,
+  })
   const history = useMapHistory(toDraft(initialZones as unknown as Array<Record<string, unknown>>))
+  const [paths, setPaths] = useState<MapPath[]>(() => (
+    toPathDraft(initialPaths, initialZones)
+  ))
+  const [undoPast, setUndoPast] = useState<Snapshot[]>([])
+  const [undoFuture, setUndoFuture] = useState<Snapshot[]>([])
+  const zonesRef = useRef(history.zones)
+  const pathsRef = useRef(paths)
+  zonesRef.current = history.zones
+  pathsRef.current = paths
+
+  function commitSnapshot(next: Snapshot) {
+    const current: Snapshot = { zones: zonesRef.current, paths: pathsRef.current }
+    setUndoPast((stack) => [...stack.slice(-49), current])
+    setUndoFuture([])
+    history.replace(next.zones)
+    setPaths(next.paths)
+  }
+
+  function commitZones(next: MapZone[]) {
+    commitSnapshot({ zones: next, paths: pathsRef.current })
+  }
+
+  function commitPaths(next: MapPath[]) {
+    commitSnapshot({ zones: zonesRef.current, paths: next })
+  }
+
+  function resetTimeline(next: Snapshot) {
+    history.replace(next.zones)
+    setPaths(next.paths)
+    setUndoPast([])
+    setUndoFuture([])
+  }
+
+  function undoAll() {
+    setUndoPast((stack) => {
+      if (stack.length === 0) return stack
+      const previous = stack[stack.length - 1]
+      const current: Snapshot = { zones: zonesRef.current, paths: pathsRef.current }
+      setUndoFuture((future) => [current, ...future])
+      history.replace(previous.zones)
+      setPaths(previous.paths)
+      setSelectedKey(null)
+      setSelectedPathKey(null)
+      return stack.slice(0, -1)
+    })
+  }
+
+  function redoAll() {
+    setUndoFuture((stack) => {
+      if (stack.length === 0) return stack
+      const [next, ...rest] = stack
+      const current: Snapshot = { zones: zonesRef.current, paths: pathsRef.current }
+      setUndoPast((past) => [...past, current])
+      history.replace(next.zones)
+      setPaths(next.paths)
+      setSelectedKey(null)
+      setSelectedPathKey(null)
+      return rest
+    })
+  }
 
   const selected = history.zones.find((zone) => zone.key === selectedKey) ?? null
+  const selectedPath = paths.find((path) => path.key === selectedPathKey) ?? null
+  const hasFloorPlanImage = Boolean(map?.image_url && map.image_url.trim() !== '')
+  const canShowBaseMap = venueLatitude != null && venueLongitude != null
+  const resolvedBaseCenter = baseMapCenter
+    ?? (canShowBaseMap
+      ? { lat: venueLatitude as number, lng: venueLongitude as number }
+      : null)
+  const useGeoEditor = Boolean(resolvedBaseCenter)
+  const migratedRef = useRef(false)
+
+  useEffect(() => {
+    if (!useGeoEditor || migratedRef.current) return
+    const bounds = overlayBounds
+      ?? (resolvedBaseCenter
+        ? boundsFromCamera(resolvedBaseCenter.lat, resolvedBaseCenter.lng, baseMapZoom)
+        : null)
+    if (!bounds) return
+
+    const needsZoneConvert = history.zones.some((zone) => (
+      Boolean(zone.polygon_coordinates?.length)
+      && zone.coordinate_space !== 'geo'
+      && (zone.polygon_coordinates?.every(isRelativePoint) ?? false)
+    ))
+    const needsPathConvert = paths.some((path) => (
+      path.polyline_coordinates.length > 0
+      && path.coordinate_space !== 'geo'
+      && path.polyline_coordinates.every(isRelativePoint)
+    ))
+
+    if (!needsZoneConvert && !needsPathConvert) {
+      migratedRef.current = true
+      return
+    }
+
+    const converted = convertDraftToGeo(history.zones, paths, bounds)
+    if (needsZoneConvert || needsPathConvert) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      resetTimeline({
+        zones: needsZoneConvert ? converted.zones : history.zones,
+        paths: needsPathConvert ? converted.paths : paths,
+      })
+    }
+    if (!overlayBounds) {
+      setOverlayBounds(insetOverlayBounds(bounds, 0.4))
+      overlayBoundsSeededRef.current = true
+    }
+    migratedRef.current = true
+    // One-time relative → geo conversion when camera/bounds are available.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [useGeoEditor, overlayBounds, resolvedBaseCenter, baseMapZoom])
+
+  function scheduleOverlaySave() {
+    if (overlaySaveTimer.current !== null) {
+      window.clearTimeout(overlaySaveTimer.current)
+    }
+    overlaySaveTimer.current = window.setTimeout(() => {
+      void saveOverlaySettings()
+    }, 600)
+  }
+
+  useEffect(() => {
+    if (!overlayReadyRef.current) {
+      overlayReadyRef.current = true
+      return
+    }
+
+    scheduleOverlaySave()
+
+    return () => {
+      if (overlaySaveTimer.current !== null) {
+        window.clearTimeout(overlaySaveTimer.current)
+      }
+    }
+  }, [
+    overlayOpacity,
+    removeBackground,
+    showBaseMap,
+    baseMapType,
+    overlayBounds,
+    overlayRotation,
+  ])
+
+  async function saveOverlaySettings() {
+    setSavingOverlay(true)
+    try {
+      const camera = mapCameraRef.current
+      const center = camera.center ?? resolvedBaseCenter
+      const result = await apiFetch<{
+        map: VenueMapData | null
+      }>(`/api/v1/tenant/events/${eventId}/venues/${venueId}/map/settings`, {
+        method: 'PATCH',
+        tenantId,
+        idempotency: true,
+        body: {
+          overlay_opacity: Math.min(1, Math.max(0, overlayOpacity / 100)),
+          remove_background: removeBackground,
+          show_base_map: showBaseMap,
+          map_center_lat: center?.lat ?? null,
+          map_center_lng: center?.lng ?? null,
+          map_zoom: camera.zoom,
+          map_heading: camera.heading,
+          map_type: camera.mapType,
+          overlay_north: overlayBounds?.north ?? null,
+          overlay_south: overlayBounds?.south ?? null,
+          overlay_east: overlayBounds?.east ?? null,
+          overlay_west: overlayBounds?.west ?? null,
+          overlay_rotation: overlayRotation,
+        },
+      })
+      if (result.map) {
+        const nextMap = result.map
+        setMap((current) => ({
+          ...(current ?? nextMap),
+          ...nextMap,
+          image_url: nextMap.image_url ?? current?.image_url ?? null,
+        }))
+      }
+    } catch (caught) {
+      if (import.meta.env.DEV) {
+        console.warn('Venue map overlay settings save failed', caught)
+      }
+    } finally {
+      setSavingOverlay(false)
+    }
+  }
 
   const typeOptions = useMemo(
     () => zoneTypes.map((type) => ({
@@ -115,11 +485,51 @@ export default function VenueMapEditor({
     [zoneTypes, t],
   )
 
+  const zoneLinkOptions = useMemo(
+    () => [
+      { value: '', label: t('venueMapPathNoZone') },
+      ...history.zones.map((zone) => ({
+        value: zone.key,
+        label: locale === 'ar'
+          ? (zone.zone_name_ar || zone.zone_name_en || zone.key)
+          : (zone.zone_name_en || zone.zone_name_ar || zone.key),
+      })),
+    ],
+    [history.zones, locale, t],
+  )
+
   function updateSelected(patch: Partial<MapZone>) {
     if (!selected) return
-    history.commit(history.zones.map((zone) => (
+    commitZones(history.zones.map((zone) => (
       zone.key === selected.key ? { ...zone, ...patch } : zone
     )))
+  }
+
+  function updateSelectedPath(patch: Partial<MapPath>) {
+    if (!selectedPath) return
+    commitPaths(pathsRef.current.map((path) => (
+      path.key === selectedPath.key ? { ...path, ...patch } : path
+    )))
+  }
+
+  function selectZone(key: string | null) {
+    setSelectedKey(key)
+    if (key !== null) {
+      setSelectedPathKey(null)
+    }
+  }
+
+  function toggleSelectZone(key: string) {
+    setSelectedKey((current) => (current === key ? null : key))
+    setSelectedPathKey(null)
+  }
+
+  function selectPath(key: string | null) {
+    setSelectedPathKey(key)
+    if (key !== null) {
+      setSelectedKey(null)
+      if (tool === 'path') setTool('select')
+    }
   }
 
   async function uploadMap(file: File) {
@@ -129,11 +539,36 @@ export default function VenueMapEditor({
       body.append('image', file)
 
       const image = await createImageBitmap(file).catch(() => null)
+      let aspect = 1.6
       if (image) {
         body.append('width', String(image.width))
         body.append('height', String(image.height))
+        aspect = image.width / Math.max(1, image.height)
         image.close()
       }
+
+      const camera = mapCameraRef.current
+      const center = camera.center ?? resolvedBaseCenter
+      const zoom = camera.zoom
+      const bounds = overlayBounds
+        ?? (center ? insetOverlayBounds(boundsFromCamera(center.lat, center.lng, zoom, aspect), 0.4) : null)
+
+      if (center) {
+        body.append('map_center_lat', String(center.lat))
+        body.append('map_center_lng', String(center.lng))
+        body.append('map_zoom', String(zoom))
+        body.append('map_heading', String(camera.heading))
+        body.append('map_type', camera.mapType)
+      }
+      if (bounds) {
+        body.append('overlay_north', String(bounds.north))
+        body.append('overlay_south', String(bounds.south))
+        body.append('overlay_east', String(bounds.east))
+        body.append('overlay_west', String(bounds.west))
+      }
+      body.append('overlay_opacity', String(Math.min(1, Math.max(0, overlayOpacity / 100))))
+      body.append('remove_background', removeBackground ? '1' : '0')
+      body.append('show_base_map', showBaseMap ? '1' : '0')
 
       const result = await apiFetch<{
         map: VenueMapData | null
@@ -145,12 +580,77 @@ export default function VenueMapEditor({
       })
 
       setMap(result.map)
-      history.replace(toDraft(result.zones))
+      if (result.map) {
+        setOverlayOpacity(Math.round((result.map.overlay_opacity ?? 0.85) * 100))
+        setRemoveBackground(Boolean(result.map.remove_background ?? false))
+        setShowBaseMap(Boolean(result.map.show_base_map ?? true))
+        if (result.map.map_center_lat != null && result.map.map_center_lng != null) {
+          setBaseMapCenter({
+            lat: Number(result.map.map_center_lat),
+            lng: Number(result.map.map_center_lng),
+          })
+        }
+        if (result.map.map_zoom != null) setBaseMapZoom(Number(result.map.map_zoom))
+        if (result.map.map_heading != null) setBaseMapHeading(Number(result.map.map_heading))
+        if (result.map.map_type) setBaseMapType(result.map.map_type as VenueBaseMapType)
+        if (result.map.overlay_rotation != null) {
+          setOverlayRotation(Number(result.map.overlay_rotation))
+        }
+        if (
+          result.map.overlay_north != null
+          && result.map.overlay_south != null
+          && result.map.overlay_east != null
+          && result.map.overlay_west != null
+        ) {
+          setOverlayBounds({
+            north: Number(result.map.overlay_north),
+            south: Number(result.map.overlay_south),
+            east: Number(result.map.overlay_east),
+            west: Number(result.map.overlay_west),
+          })
+          overlayBoundsSeededRef.current = true
+        } else if (bounds) {
+          setOverlayBounds(bounds)
+          overlayBoundsSeededRef.current = true
+        }
+      }
+      // Keep existing drawn shapes; upload only adds the floor-plan overlay.
+      if (history.zones.length === 0 && result.zones.length > 0) {
+        resetTimeline({
+          zones: toDraft(result.zones),
+          paths: pathsRef.current,
+        })
+      }
       toast(t('venueMapUploaded'), 'success')
     } catch (caught) {
       toast(caught instanceof ApiFetchError ? caught.message : t('requestFailed'), 'error')
     } finally {
       setUploading(false)
+    }
+  }
+
+  async function deleteFloorPlanImage() {
+    if (!hasFloorPlanImage || deletingImage) return
+    if (!window.confirm(t('venueMapDeleteImageConfirm'))) return
+
+    setDeletingImage(true)
+    try {
+      const result = await apiFetch<{
+        map: VenueMapData | null
+      }>(`/api/v1/tenant/events/${eventId}/venues/${venueId}/map`, {
+        method: 'DELETE',
+        tenantId,
+        idempotency: true,
+      })
+
+      setMap(result.map)
+      setRemoveBackground(false)
+      setOverlayOpacity(Math.round(((result.map?.overlay_opacity ?? 0.85) * 100)))
+      toast(t('venueMapImageDeleted'), 'success')
+    } catch (caught) {
+      toast(caught instanceof ApiFetchError ? caught.message : t('requestFailed'), 'error')
+    } finally {
+      setDeletingImage(false)
     }
   }
 
@@ -166,6 +666,15 @@ export default function VenueMapEditor({
         return
       }
 
+      const incompletePaths = paths.find((path) => path.polyline_coordinates.length < 2)
+      if (incompletePaths) {
+        toast(t('venueMapPathIncomplete'), 'error')
+        return
+      }
+
+      await saveOverlaySettings()
+
+      const zonesBeforeSave = history.zones
       const result = await apiFetch<{ zones: Array<Record<string, unknown>> }>(
         `/api/v1/tenant/events/${eventId}/zones`,
         {
@@ -174,33 +683,92 @@ export default function VenueMapEditor({
           idempotency: true,
           body: {
             venue_id: Number(venueId),
-            zones: history.zones.map((zone) => ({
-              id: zone.id ? Number(zone.id) : undefined,
-              zone_name_en: zone.zone_name_en.trim(),
-              zone_name_ar: zone.zone_name_ar.trim(),
-              description_en: zone.description_en?.trim() || null,
-              description_ar: zone.description_ar?.trim() || null,
-              type: zone.type,
-              capacity: zone.capacity,
-              shape_type: zone.shape_type,
-              polygon_coordinates: zone.polygon_coordinates,
-              shape_radius: zone.shape_radius,
-              shape_rotation: zone.shape_rotation ?? 0,
-              shape_radius_y: zone.shape_radius_y,
-              label: zone.label,
-              google_maps_url: zone.google_maps_url,
-              lat: zone.lat,
-              lng: zone.lng,
-              fill_color: zone.fill_color ?? defaultFillForType(zone.type),
-              stroke_color: zone.stroke_color ?? '#111827',
-              opacity: zone.opacity ?? 45,
-              stroke_width: zone.stroke_width ?? 2,
+            zones: history.zones.map((zone) => {
+              const rawPoints = (zone.polygon_coordinates ?? [])
+                .filter((point): point is GeoPoint => 'lat' in point && 'lng' in point)
+                .map((point) => ({ lat: Number(point.lat), lng: Number(point.lng) }))
+              const polygon_coordinates = rawPoints.length >= 2
+                && Math.abs(rawPoints[0].lat - rawPoints[rawPoints.length - 1].lat) < 1e-9
+                && Math.abs(rawPoints[0].lng - rawPoints[rawPoints.length - 1].lng) < 1e-9
+                ? rawPoints.slice(0, -1)
+                : (zone.polygon_coordinates ?? null)
+              const pointCount = Array.isArray(polygon_coordinates) ? polygon_coordinates.length : 0
+              const expected: Record<string, number> = {
+                rectangle: 4,
+                triangle: 3,
+                hexagon: 6,
+                circle: 1,
+                ellipse: 1,
+                pillar: 1,
+                person: 1,
+              }
+              const need = zone.shape_type ? expected[zone.shape_type] : undefined
+              const shape_type = need != null && pointCount !== need && pointCount >= 3
+                ? 'polygon'
+                : zone.shape_type
+
+              return {
+                id: zone.id ? Number(zone.id) : undefined,
+                zone_name_en: zone.zone_name_en.trim(),
+                zone_name_ar: zone.zone_name_ar.trim(),
+                description_en: zone.description_en?.trim() || null,
+                description_ar: zone.description_ar?.trim() || null,
+                type: zone.type,
+                capacity: zone.capacity,
+                shape_type,
+                coordinate_space: zone.coordinate_space ?? 'geo',
+                polygon_coordinates,
+                shape_radius: zone.shape_radius,
+                shape_rotation: zone.shape_rotation ?? 0,
+                shape_radius_y: zone.shape_radius_y,
+                label: zone.label,
+                google_maps_url: zone.google_maps_url,
+                lat: zone.lat,
+                lng: zone.lng,
+                fill_color: zone.fill_color ?? defaultFillForType(zone.type),
+                stroke_color: zone.stroke_color ?? '#111827',
+                opacity: zone.opacity ?? 45,
+                stroke_width: zone.stroke_width ?? 2,
+              }
+            }),
+          },
+        },
+      )
+
+      const savedZones = toDraft(result.zones)
+      const keyToId = buildZoneKeyToIdMap(zonesBeforeSave, result.zones)
+      commitZones(savedZones)
+
+      const pathResult = await apiFetch<{ paths: Array<Record<string, unknown>> }>(
+        `/api/v1/tenant/events/${eventId}/paths`,
+        {
+          method: 'PUT',
+          tenantId,
+          idempotency: true,
+          body: {
+            venue_id: Number(venueId),
+            paths: paths.map((path, index) => ({
+              id: path.id ? Number(path.id) : undefined,
+              name_en: path.name_en.trim() || null,
+              name_ar: path.name_ar.trim() || null,
+              coordinate_space: path.coordinate_space ?? 'geo',
+              polyline_coordinates: path.polyline_coordinates,
+              from_zone_id: path.from_zone_key && keyToId[path.from_zone_key]
+                ? Number(keyToId[path.from_zone_key])
+                : null,
+              to_zone_id: path.to_zone_key && keyToId[path.to_zone_key]
+                ? Number(keyToId[path.to_zone_key])
+                : null,
+              stroke_color: path.stroke_color ?? DEFAULT_PATH_COLOR,
+              stroke_width: path.stroke_width ?? 3,
+              opacity: path.opacity ?? 85,
+              sort_order: index,
             })),
           },
         },
       )
 
-      history.replace(toDraft(result.zones))
+      commitPaths(toPathDraft(pathResult.paths, savedZones))
       toast(t('saved'), 'success')
     } catch (caught) {
       toast(caught instanceof ApiFetchError ? caught.message : t('requestFailed'), 'error')
@@ -213,6 +781,7 @@ export default function VenueMapEditor({
     const payload = {
       map,
       zones: history.zones,
+      paths,
     }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -225,12 +794,19 @@ export default function VenueMapEditor({
 
   async function importJson(file: File) {
     try {
-      const parsed = JSON.parse(await file.text()) as { zones?: Array<Record<string, unknown>> }
+      const parsed = JSON.parse(await file.text()) as {
+        zones?: Array<Record<string, unknown>>
+        paths?: Array<Record<string, unknown>>
+      }
       if (!Array.isArray(parsed.zones)) {
         toast(t('venueMapImportInvalid'), 'error')
         return
       }
-      history.replace(toDraft(parsed.zones))
+      const nextZones = toDraft(parsed.zones)
+      commitSnapshot({
+        zones: nextZones,
+        paths: toPathDraft(Array.isArray(parsed.paths) ? parsed.paths : [], nextZones),
+      })
       toast(t('venueMapImported'), 'success')
     } catch {
       toast(t('venueMapImportInvalid'), 'error')
@@ -247,6 +823,7 @@ export default function VenueMapEditor({
     { id: 'ellipse', icon: CircleEllipsis, label: t('venueMapToolEllipse') },
     { id: 'pillar', icon: Columns3, label: t('venueMapToolPillar') },
     { id: 'person', icon: PersonStanding, label: t('venueMapToolPerson') },
+    { id: 'path', icon: Route, label: t('venueMapToolPath') },
     { id: 'delete', icon: Trash2, label: t('venueMapToolDelete') },
   ]
 
@@ -272,14 +849,47 @@ export default function VenueMapEditor({
 
       <section className="venue-map-editor__stage">
         <div className="venue-map-editor__toolbar">
-          <button type="button" className="button-secondary" disabled={!history.canUndo} onClick={history.undo}>
+          <button type="button" className="button-secondary" disabled={undoPast.length === 0} onClick={undoAll}>
             <Undo2 size={16} />
             {t('venueMapUndo')}
           </button>
-          <button type="button" className="button-secondary" disabled={!history.canRedo} onClick={history.redo}>
+          <button type="button" className="button-secondary" disabled={undoFuture.length === 0} onClick={redoAll}>
             <Redo2 size={16} />
             {t('venueMapRedo')}
           </button>
+          {selected?.shape_type ? (
+            <button
+              type="button"
+              className="button-secondary text-[var(--danger)]"
+              title={t('venueMapClearShape')}
+              onClick={() => {
+                updateSelected({
+                  shape_type: null,
+                  polygon_coordinates: null,
+                  shape_radius: null,
+                  shape_radius_y: null,
+                  shape_rotation: 0,
+                })
+              }}
+            >
+              <Trash2 size={16} />
+              {t('venueMapDeleteShape')}
+            </button>
+          ) : null}
+          {selectedPath ? (
+            <button
+              type="button"
+              className="button-secondary text-[var(--danger)]"
+              title={t('venueMapDeletePath')}
+              onClick={() => {
+                commitPaths(pathsRef.current.filter((path) => path.key !== selectedPath.key))
+                setSelectedPathKey(null)
+              }}
+            >
+              <Trash2 size={16} />
+              {t('venueMapDeletePath')}
+            </button>
+          ) : null}
           <button type="button" className="button-secondary" onClick={() => fileRef.current?.click()}>
             <Upload size={16} />
             {uploading ? t('venueMapUploading') : t('venueMapUpload')}
@@ -311,7 +921,11 @@ export default function VenueMapEditor({
               }}
             />
           </label>
-          {draftPoint ? (
+          {draftPoint && isGeoPoint(draftPoint) ? (
+            <span className="venue-map-editor__coords">
+              lat: {draftPoint.lat.toFixed(5)}, lng: {draftPoint.lng.toFixed(5)}
+            </span>
+          ) : draftPoint && 'x' in draftPoint ? (
             <span className="venue-map-editor__coords">
               x: {draftPoint.x.toFixed(3)}, y: {draftPoint.y.toFixed(3)}
             </span>
@@ -325,26 +939,69 @@ export default function VenueMapEditor({
           </div>
         </div>
 
-        {map?.image_url ? (
+        {useGeoEditor && resolvedBaseCenter ? (
+          <VenueMapPlaceSearch
+            onPlaceResolved={(place) => {
+              const next = { lat: place.latitude, lng: place.longitude }
+              mapCameraRef.current = {
+                ...mapCameraRef.current,
+                center: next,
+                zoom: 18,
+              }
+              setBaseMapCenter(next)
+              setBaseMapZoom(18)
+            }}
+          />
+        ) : null}
+
+        {useGeoEditor && resolvedBaseCenter ? (
           <ResizableMapFrame
             storageKey={`venue-map-frame:${eventId}:${venueId}`}
-            aspectRatio={
-              map.width && map.height && map.height > 0
-                ? map.width / map.height
-                : null
-            }
             hint={t('venueMapResizeHint')}
           >
-            <VenueMapCanvas
-              imageUrl={map.image_url}
-              naturalWidth={map.width ?? 1200}
-              naturalHeight={map.height ?? 800}
+            <VenueMapGeoCanvas
+              latitude={resolvedBaseCenter.lat}
+              longitude={resolvedBaseCenter.lng}
+              zoom={baseMapZoom}
+              heading={baseMapHeading}
+              mapTypeId={baseMapType}
+              imageUrl={map?.image_url ?? null}
+              overlayBounds={overlayBounds}
+              overlayOpacity={overlayOpacity / 100}
+              overlayRotation={overlayRotation}
+              removeBackground={removeBackground}
               zones={history.zones}
+              paths={paths}
               selectedKey={selectedKey}
+              selectedPathKey={selectedPathKey}
               tool={tool}
-              locale={locale}
-              onSelect={setSelectedKey}
-              onZonesChange={history.commit}
+              onSelect={selectZone}
+              onSelectPath={selectPath}
+              onZonesChange={commitZones}
+              onPathsChange={commitPaths}
+              onOverlayRotationChange={setOverlayRotation}
+              onOverlayBoundsChange={(bounds) => {
+                overlayBoundsSeededRef.current = true
+                setOverlayBounds(bounds)
+              }}
+              onCameraChange={(camera) => {
+                mapCameraRef.current = {
+                  center: camera.center,
+                  zoom: camera.zoom,
+                  heading: camera.heading,
+                  mapType: camera.mapTypeId,
+                }
+                // Map-type control lives in React options; avoid re-centering on every pan.
+                if (camera.mapTypeId !== baseMapType) {
+                  setBaseMapType(camera.mapTypeId)
+                }
+                // Seed geo-fixed overlay once — never retarget it to the viewport while panning.
+                if (!overlayBoundsSeededRef.current) {
+                  overlayBoundsSeededRef.current = true
+                  setOverlayBounds(insetOverlayBounds(camera.bounds, 0.4))
+                }
+                scheduleOverlaySave()
+              }}
               onDraftPoint={setDraftPoint}
             />
           </ResizableMapFrame>
@@ -354,16 +1011,71 @@ export default function VenueMapEditor({
             hint={t('venueMapResizeHint')}
           >
             <div className="venue-map-editor__empty">
-              <p>{t('venueMapEmpty')}</p>
-              <button type="button" className="button-primary" onClick={() => fileRef.current?.click()}>
-                {t('venueMapUpload')}
-              </button>
+              <div className="venue-map-editor__empty-content">
+                <p>{t('venueMapEmpty')}</p>
+                <p className="text-sm text-[var(--muted)]">{t('venueMapBaseMapNeedsCoords')}</p>
+              </div>
             </div>
           </ResizableMapFrame>
         )}
       </section>
 
       <aside className="venue-map-editor__sidebar">
+        <div className="venue-map-editor__overlay-settings">
+          <h2>{t('venueMapOverlayTitle')}</h2>
+
+          <label className="venue-map-editor__check">
+            <input
+              type="checkbox"
+              checked={showBaseMap}
+              disabled={!canShowBaseMap}
+              onChange={(event) => setShowBaseMap(event.target.checked)}
+            />
+            <span>{t('venueMapShowBaseMap')}</span>
+          </label>
+          {!canShowBaseMap ? (
+            <p className="text-xs text-[var(--muted)]">{t('venueMapBaseMapNeedsCoords')}</p>
+          ) : null}
+
+          {hasFloorPlanImage ? (
+            <>
+              <label className="venue-map-editor__range">
+                <span>
+                  {t('venueMapFloorOpacity')}
+                  {savingOverlay ? ` · ${t('venueMapOverlaySaving')}` : ''}
+                </span>
+                <input
+                  type="range"
+                  min={10}
+                  max={100}
+                  step={1}
+                  value={overlayOpacity}
+                  onChange={(event) => setOverlayOpacity(Number(event.target.value))}
+                />
+                <em>{overlayOpacity}%</em>
+              </label>
+
+              <label className="venue-map-editor__check">
+                <input
+                  type="checkbox"
+                  checked={removeBackground}
+                  onChange={(event) => setRemoveBackground(event.target.checked)}
+                />
+                <span>{t('venueMapRemoveBackground')}</span>
+              </label>
+              <button
+                type="button"
+                className="button-secondary inline-flex w-full items-center justify-center gap-2"
+                disabled={deletingImage}
+                onClick={() => void deleteFloorPlanImage()}
+              >
+                <Trash2 size={16} />
+                {deletingImage ? t('venueMapDeletingImage') : t('venueMapDeleteImage')}
+              </button>
+            </>
+          ) : null}
+        </div>
+
         <div>
           <h2>{t('venueMapZones')}</h2>
           <p className="text-sm text-[var(--muted)]">{t('venueMapZonesHint')}</p>
@@ -373,7 +1085,7 @@ export default function VenueMapEditor({
                 <button
                   type="button"
                   className={zone.key === selectedKey ? 'is-active' : undefined}
-                  onClick={() => setSelectedKey(zone.key)}
+                  onClick={() => toggleSelectZone(zone.key)}
                 >
                   <span
                     className="venue-map-editor__swatch"
@@ -394,7 +1106,7 @@ export default function VenueMapEditor({
                   title={t('delete')}
                   aria-label={t('delete')}
                   onClick={() => {
-                    history.commit(history.zones.filter((row) => row.key !== zone.key))
+                    commitZones(history.zones.filter((row) => row.key !== zone.key))
                     if (selectedKey === zone.key) {
                       setSelectedKey(null)
                     }
@@ -410,7 +1122,7 @@ export default function VenueMapEditor({
             className="button-secondary w-full"
             onClick={() => {
               const key = crypto.randomUUID()
-              history.commit([
+              commitZones([
                 ...history.zones,
                 {
                   key,
@@ -420,6 +1132,7 @@ export default function VenueMapEditor({
                   description_ar: null,
                   type: zoneTypes[0] ?? 'hall',
                   capacity: null,
+                  coordinate_space: 'geo',
                   shape_type: null,
                   polygon_coordinates: null,
                   shape_radius: null,
@@ -436,11 +1149,116 @@ export default function VenueMapEditor({
                 },
               ])
               setSelectedKey(key)
+              setSelectedPathKey(null)
             }}
           >
             {t('eventZonesAdd')}
           </button>
         </div>
+        {
+            paths.length > 0 ? (
+                <>
+                    <h2>{t('venueMapPaths')}</h2>
+                    <p className="text-sm text-[var(--muted)]">{t('venueMapPathsHint')}</p>
+                    {paths.map((path) => (
+                        <div key={path.key}>
+                            <ul className="venue-map-editor__zone-list" style={{ margin: '0' }}>
+                                <li className="venue-map-editor__zone-row">
+                                    <button
+                                    type="button"
+                                    className={path.key === selectedPathKey ? 'is-active' : undefined}
+                                    onClick={() => {
+                                        setSelectedPathKey(path.key)
+                                        setSelectedKey(null)
+                                    }}
+                                    >
+                                    <span
+                                        className="venue-map-editor__swatch"
+                                        style={{ background: path.stroke_color ?? DEFAULT_PATH_COLOR }}
+                                    />
+                                    <span className="venue-map-editor__zone-name">
+                                        {locale === 'ar'
+                                        ? (path.name_ar || path.name_en)
+                                        : (path.name_en || path.name_ar)}
+                                    </span>
+                                    </button>
+                                    <button
+                                    type="button"
+                                    className="venue-map-editor__zone-delete"
+                                    title={t('delete')}
+                                    aria-label={t('delete')}
+                                    onClick={() => {
+                                        commitPaths(pathsRef.current.filter((row) => row.key !== path.key))
+                                        if (selectedPathKey === path.key) setSelectedPathKey(null)
+                                    }}
+                                    >
+                                    <Trash2 size={14} />
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                    ))}
+                </>
+            ) : null
+        }
+
+        {selectedPath ? (
+          <div className="venue-map-editor__settings space-y-3">
+            <h3>{t('venueMapSelectedPath')}</h3>
+            <TextInput
+              label={t('venueMapPathNameEn')}
+              name="path_name_en"
+              value={selectedPath.name_en}
+              onChange={(e) => updateSelectedPath({ name_en: e.target.value })}
+            />
+            <TextInput
+              label={t('venueMapPathNameAr')}
+              name="path_name_ar"
+              value={selectedPath.name_ar}
+              onChange={(e) => updateSelectedPath({ name_ar: e.target.value })}
+            />
+            <SelectInput
+              label={t('venueMapPathFromZone')}
+              name="from_zone_key"
+              value={selectedPath.from_zone_key ?? ''}
+              onChange={(e) => updateSelectedPath({ from_zone_key: e.target.value || null })}
+              options={zoneLinkOptions}
+            />
+            <SelectInput
+              label={t('venueMapPathToZone')}
+              name="to_zone_key"
+              value={selectedPath.to_zone_key ?? ''}
+              onChange={(e) => updateSelectedPath({ to_zone_key: e.target.value || null })}
+              options={zoneLinkOptions}
+            />
+            <TextInput
+              label={t('venueMapFillColor')}
+              name="path_stroke_color"
+              type="color"
+              value={selectedPath.stroke_color ?? DEFAULT_PATH_COLOR}
+              onChange={(e) => updateSelectedPath({ stroke_color: e.target.value })}
+            />
+            <TextInput
+              label={t('venueMapOpacity')}
+              name="path_opacity"
+              type="number"
+              min={0}
+              max={100}
+              value={String(selectedPath.opacity ?? 85)}
+              onChange={(e) => updateSelectedPath({ opacity: Number(e.target.value) })}
+            />
+            <button
+              type="button"
+              className="button-secondary w-full text-[var(--danger)]"
+              onClick={() => {
+                commitPaths(pathsRef.current.filter((path) => path.key !== selectedPath.key))
+                setSelectedPathKey(null)
+              }}
+            >
+              {t('delete')}
+            </button>
+          </div>
+        ) : null}
 
         {selected ? (
           <div className="venue-map-editor__settings space-y-3">
@@ -554,9 +1372,22 @@ export default function VenueMapEditor({
                 <button
                   type="button"
                   className="button-secondary flex-1 inline-flex items-center justify-center gap-2"
-                  onClick={() => updateSelected({
-                    shape_rotation: normalizeDegrees((selected.shape_rotation ?? 0) - 15),
-                  })}
+                  onClick={() => {
+                    const delta = -15
+                    const points = (selected.polygon_coordinates ?? [])
+                      .filter((point): point is GeoPoint => isGeoPoint(point))
+                      .map((point) => ({ lat: Number(point.lat), lng: Number(point.lng) }))
+                    if (points.length >= 3) {
+                      updateSelected({
+                        polygon_coordinates: rotateGeoPointsAround(points, centroidGeo(points), delta),
+                        shape_rotation: normalizeDegrees((selected.shape_rotation ?? 0) + delta),
+                      })
+                      return
+                    }
+                    updateSelected({
+                      shape_rotation: normalizeDegrees((selected.shape_rotation ?? 0) + delta),
+                    })
+                  }}
                 >
                   <RotateCcw size={14} />
                   {t('venueMapRotateLeft')}
@@ -564,9 +1395,22 @@ export default function VenueMapEditor({
                 <button
                   type="button"
                   className="button-secondary flex-1 inline-flex items-center justify-center gap-2"
-                  onClick={() => updateSelected({
-                    shape_rotation: normalizeDegrees((selected.shape_rotation ?? 0) + 15),
-                  })}
+                  onClick={() => {
+                    const delta = 15
+                    const points = (selected.polygon_coordinates ?? [])
+                      .filter((point): point is GeoPoint => isGeoPoint(point))
+                      .map((point) => ({ lat: Number(point.lat), lng: Number(point.lng) }))
+                    if (points.length >= 3) {
+                      updateSelected({
+                        polygon_coordinates: rotateGeoPointsAround(points, centroidGeo(points), delta),
+                        shape_rotation: normalizeDegrees((selected.shape_rotation ?? 0) + delta),
+                      })
+                      return
+                    }
+                    updateSelected({
+                      shape_rotation: normalizeDegrees((selected.shape_rotation ?? 0) + delta),
+                    })
+                  }}
                 >
                   <RotateCw size={14} />
                   {t('venueMapRotateRight')}
@@ -595,7 +1439,7 @@ export default function VenueMapEditor({
               type="button"
               className="button-secondary w-full text-[var(--danger)]"
               onClick={() => {
-                history.commit(history.zones.filter((zone) => zone.key !== selected.key))
+                commitZones(history.zones.filter((zone) => zone.key !== selected.key))
                 setSelectedKey(null)
               }}
             >

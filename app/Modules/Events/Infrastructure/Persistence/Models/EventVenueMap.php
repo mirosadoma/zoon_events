@@ -3,7 +3,6 @@
 namespace App\Modules\Events\Infrastructure\Persistence\Models;
 
 use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
-use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
@@ -17,6 +16,19 @@ final class EventVenueMap extends Model
         'image_path',
         'width',
         'height',
+        'overlay_opacity',
+        'remove_background',
+        'show_base_map',
+        'map_center_lat',
+        'map_center_lng',
+        'map_zoom',
+        'map_heading',
+        'map_type',
+        'overlay_north',
+        'overlay_south',
+        'overlay_east',
+        'overlay_west',
+        'overlay_rotation',
     ];
 
     protected function casts(): array
@@ -24,6 +36,18 @@ final class EventVenueMap extends Model
         return [
             'width' => 'integer',
             'height' => 'integer',
+            'overlay_opacity' => 'float',
+            'remove_background' => 'boolean',
+            'show_base_map' => 'boolean',
+            'map_center_lat' => 'float',
+            'map_center_lng' => 'float',
+            'map_zoom' => 'float',
+            'map_heading' => 'float',
+            'overlay_north' => 'float',
+            'overlay_south' => 'float',
+            'overlay_east' => 'float',
+            'overlay_west' => 'float',
+            'overlay_rotation' => 'float',
         ];
     }
 

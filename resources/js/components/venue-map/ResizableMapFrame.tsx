@@ -47,18 +47,15 @@ function sizeFromAspect(
   minHeight: number,
 ): FrameSize {
   const maxWidth = Math.max(minWidth, parentWidth)
-  const ratio = aspectRatio && aspectRatio > 0 ? aspectRatio : 16 / 10
-  let height = defaultHeight
-  let width = Math.round(height * ratio)
-
-  if (width > maxWidth) {
-    width = maxWidth
-    height = Math.round(width / ratio)
-  }
+  // Prefer filling the outer section width; height is user-controlled.
+  const width = maxWidth
+  const height = aspectRatio && aspectRatio > 0
+    ? Math.max(minHeight, Math.round(width / aspectRatio))
+    : Math.max(minHeight, defaultHeight)
 
   return {
     width: clamp(width, minWidth, maxWidth),
-    height: Math.max(minHeight, height),
+    height,
   }
 }
 

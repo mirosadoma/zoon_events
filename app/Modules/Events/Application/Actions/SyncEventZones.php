@@ -4,6 +4,7 @@ namespace App\Modules\Events\Application\Actions;
 
 use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
 use App\Modules\Events\Application\Support\EventZonePresenter;
+use App\Modules\Events\Domain\EventCoordinateSpace;
 use App\Modules\Events\Domain\EventZoneShapeType;
 use App\Modules\Events\Domain\EventZoneType;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
@@ -111,8 +112,15 @@ final class SyncEventZones
 
                 $coordinates = EventZonePresenter::normalizeCoordinates($zone['polygon_coordinates'] ?? null);
                 if ($shapeType !== null && ($coordinates === null || $coordinates === [])) {
-                    throw new InvalidArgumentException('Zone shapes require relative polygon coordinates.');
+                    throw new InvalidArgumentException('Zone shapes require polygon coordinates.');
                 }
+
+                $shapeType = EventZonePresenter::coerceShapeTypeForCoordinates($shapeType, $coordinates);
+
+                $coordinateSpace = array_key_exists('coordinate_space', $zone) && $zone['coordinate_space'] !== null && $zone['coordinate_space'] !== ''
+                    ? (string) $zone['coordinate_space']
+                    : EventZonePresenter::detectCoordinateSpace($zone['polygon_coordinates'] ?? null);
+                $isGeo = $coordinateSpace === EventCoordinateSpace::Geo->value;
 
                 if (
                     $shapeType === EventZoneShapeType::Circle->value
@@ -121,23 +129,23 @@ final class SyncEventZones
                     || $shapeType === EventZoneShapeType::Person->value
                 ) {
                     if (count($coordinates ?? []) !== 1) {
-                        throw new InvalidArgumentException('Circle/ellipse/marker zones require a single relative center point.');
+                        throw new InvalidArgumentException('Circle/ellipse/marker zones require a single center point.');
                     }
                 } elseif ($shapeType === EventZoneShapeType::Rectangle->value) {
                     if (count($coordinates ?? []) !== 4) {
-                        throw new InvalidArgumentException('Rectangle zones require four relative corner points.');
+                        throw new InvalidArgumentException('Rectangle zones require four corner points.');
                     }
                 } elseif ($shapeType === EventZoneShapeType::Triangle->value) {
                     if (count($coordinates ?? []) !== 3) {
-                        throw new InvalidArgumentException('Triangle zones require three relative points.');
+                        throw new InvalidArgumentException('Triangle zones require three points.');
                     }
                 } elseif ($shapeType === EventZoneShapeType::Hexagon->value) {
                     if (count($coordinates ?? []) !== 6) {
-                        throw new InvalidArgumentException('Hexagon zones require six relative points.');
+                        throw new InvalidArgumentException('Hexagon zones require six points.');
                     }
                 } elseif ($shapeType === EventZoneShapeType::Polygon->value) {
                     if (count($coordinates ?? []) < 3) {
-                        throw new InvalidArgumentException('Polygon zones require at least three relative points.');
+                        throw new InvalidArgumentException('Polygon zones require at least three points.');
                     }
                 }
 
@@ -159,11 +167,16 @@ final class SyncEventZones
                     || $shapeType === EventZoneShapeType::Pillar->value
                     || $shapeType === EventZoneShapeType::Person->value
                 ) {
-                    if ($shapeRadius === null || $shapeRadius <= 0 || $shapeRadius > 1) {
-                        throw new InvalidArgumentException('Circle/ellipse/marker zones require a relative radius between 0 and 1.');
+                    $maxRadius = $isGeo ? 50000.0 : 1.0;
+                    if ($shapeRadius === null || $shapeRadius <= 0 || $shapeRadius > $maxRadius) {
+                        throw new InvalidArgumentException(
+                            $isGeo
+                                ? 'Circle/ellipse/marker zones require a radius in meters (0–50000).'
+                                : 'Circle/ellipse/marker zones require a relative radius between 0 and 1.',
+                        );
                     }
                     if ($shapeType === EventZoneShapeType::Ellipse->value) {
-                        if ($shapeRadiusY === null || $shapeRadiusY <= 0 || $shapeRadiusY > 1) {
+                        if ($shapeRadiusY === null || $shapeRadiusY <= 0 || $shapeRadiusY > $maxRadius) {
                             $shapeRadiusY = $shapeRadius;
                         }
                     } else {
@@ -211,6 +224,7 @@ final class SyncEventZones
                 $payload = [
                     ...$payload,
                     'shape_type' => $shapeType,
+                    'coordinate_space' => $coordinateSpace,
                     'polygon_coordinates' => $coordinates,
                     'shape_radius' => $shapeRadius,
                     'shape_rotation' => $shapeRotation,

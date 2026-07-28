@@ -22,6 +22,7 @@ final class EventZone extends Model
         'type',
         'capacity',
         'shape_type',
+        'coordinate_space',
         'polygon_coordinates',
         'shape_radius',
         'shape_rotation',

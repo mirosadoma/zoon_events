@@ -2,6 +2,7 @@
 
 namespace App\Modules\Events\Application\Support;
 
+use App\Modules\Events\Domain\EventCoordinateSpace;
 use App\Modules\Events\Domain\EventZoneShapeType;
 use App\Modules\Events\Domain\EventZoneType;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventAgendaItem;
@@ -57,6 +58,7 @@ final class EventZonePresenter
             'type' => $type,
             'capacity' => $zone->capacity !== null ? (int) $zone->capacity : null,
             'shape_type' => $shapeType,
+            'coordinate_space' => (string) ($zone->coordinate_space ?? EventCoordinateSpace::Relative->value),
             'polygon_coordinates' => self::normalizeCoordinates($zone->polygon_coordinates),
             'shape_radius' => $zone->shape_radius !== null ? (float) $zone->shape_radius : null,
             'shape_rotation' => $zone->shape_rotation !== null ? (float) $zone->shape_rotation : 0.0,
@@ -117,6 +119,7 @@ final class EventZonePresenter
             'type' => $base['type'],
             'label' => $base['label'] ?? $base['name']['en'],
             'shape_type' => $base['shape_type'],
+            'coordinate_space' => $base['coordinate_space'] ?? EventCoordinateSpace::Relative->value,
             'polygon_coordinates' => $base['polygon_coordinates'],
             'shape_radius' => $base['shape_radius'],
             'shape_rotation' => $base['shape_rotation'],
@@ -132,10 +135,61 @@ final class EventZonePresenter
     }
 
     /**
-     * @param  mixed  $coordinates
-     * @return list<array{x: float, y: float}>|null
+     * @return list<array{x: float, y: float}>|list<array{lat: float, lng: float}>|null
      */
     public static function normalizeCoordinates(mixed $coordinates): ?array
+    {
+        if (! is_array($coordinates) || $coordinates === []) {
+            return null;
+        }
+
+        $first = $coordinates[0] ?? null;
+        if (is_array($first) && array_key_exists('lat', $first) && array_key_exists('lng', $first)) {
+            return self::normalizeGeoCoordinates($coordinates);
+        }
+
+        return self::normalizeRelativeCoordinates($coordinates);
+    }
+
+    /**
+     * @return list<array{lat: float, lng: float}>|null
+     */
+    public static function normalizeGeoCoordinates(mixed $coordinates): ?array
+    {
+        if (! is_array($coordinates) || $coordinates === []) {
+            return null;
+        }
+
+        $points = [];
+        foreach ($coordinates as $point) {
+            if (! is_array($point)) {
+                continue;
+            }
+
+            if (! array_key_exists('lat', $point) || ! array_key_exists('lng', $point)) {
+                continue;
+            }
+
+            $lat = (float) $point['lat'];
+            $lng = (float) $point['lng'];
+
+            if ($lat < -90.0 || $lat > 90.0 || $lng < -180.0 || $lng > 180.0) {
+                continue;
+            }
+
+            $points[] = [
+                'lat' => round($lat, 7),
+                'lng' => round($lng, 7),
+            ];
+        }
+
+        return $points === [] ? null : self::stripClosedRingDuplicate($points);
+    }
+
+    /**
+     * @return list<array{x: float, y: float}>|null
+     */
+    public static function normalizeRelativeCoordinates(mixed $coordinates): ?array
     {
         if (! is_array($coordinates) || $coordinates === []) {
             return null;
@@ -164,7 +218,96 @@ final class EventZonePresenter
             ];
         }
 
-        return $points === [] ? null : $points;
+        return $points === [] ? null : self::stripClosedRingDuplicate($points);
+    }
+
+    /**
+     * Drop a trailing point that only closes the ring (common from map editors).
+     *
+     * @param  list<array{lat: float, lng: float}>|list<array{x: float, y: float}>  $points
+     * @return list<array{lat: float, lng: float}>|list<array{x: float, y: float}>
+     */
+    public static function stripClosedRingDuplicate(array $points): array
+    {
+        $count = count($points);
+        if ($count < 2) {
+            return $points;
+        }
+
+        $first = $points[0];
+        $last = $points[$count - 1];
+
+        if (array_key_exists('lat', $first) && array_key_exists('lng', $first)
+            && array_key_exists('lat', $last) && array_key_exists('lng', $last)
+        ) {
+            if (
+                abs((float) $first['lat'] - (float) $last['lat']) < 1e-7
+                && abs((float) $first['lng'] - (float) $last['lng']) < 1e-7
+            ) {
+                return array_values(array_slice($points, 0, -1));
+            }
+
+            return $points;
+        }
+
+        if (array_key_exists('x', $first) && array_key_exists('y', $first)
+            && array_key_exists('x', $last) && array_key_exists('y', $last)
+        ) {
+            if (
+                abs((float) $first['x'] - (float) $last['x']) < 1e-6
+                && abs((float) $first['y'] - (float) $last['y']) < 1e-6
+            ) {
+                return array_values(array_slice($points, 0, -1));
+            }
+        }
+
+        return $points;
+    }
+
+    /**
+     * When a fixed-vertex shape was free-edited (extra corners), keep the geometry as a polygon.
+     */
+    public static function coerceShapeTypeForCoordinates(?string $shapeType, ?array $coordinates): ?string
+    {
+        if ($shapeType === null || $coordinates === null) {
+            return $shapeType;
+        }
+
+        $count = count($coordinates);
+        $expected = match ($shapeType) {
+            EventZoneShapeType::Rectangle->value => 4,
+            EventZoneShapeType::Triangle->value => 3,
+            EventZoneShapeType::Hexagon->value => 6,
+            EventZoneShapeType::Circle->value,
+            EventZoneShapeType::Ellipse->value,
+            EventZoneShapeType::Pillar->value,
+            EventZoneShapeType::Person->value => 1,
+            default => null,
+        };
+
+        if ($expected === null) {
+            return $shapeType;
+        }
+
+        if ($count !== $expected && $count >= 3) {
+            return EventZoneShapeType::Polygon->value;
+        }
+
+        return $shapeType;
+    }
+
+    public static function detectCoordinateSpace(mixed $coordinates): string
+    {
+        if (! is_array($coordinates) || $coordinates === []) {
+            return EventCoordinateSpace::Geo->value;
+        }
+
+        $first = $coordinates[0] ?? null;
+        if (is_array($first) && array_key_exists('lat', $first) && array_key_exists('lng', $first)) {
+            return EventCoordinateSpace::Geo->value;
+        }
+
+        return EventCoordinateSpace::Relative->value;
     }
 
     /**
