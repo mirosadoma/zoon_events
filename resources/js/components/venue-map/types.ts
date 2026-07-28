@@ -20,6 +20,8 @@ export type MapZone = {
   description_en: string | null
   description_ar: string | null
   type: string
+  floor_type: 'basement' | 'floor' | null
+  floor_number: number | null
   capacity: number | null
   shape_type: ZoneShapeType | null
   coordinate_space?: 'relative' | 'geo'
@@ -32,6 +34,8 @@ export type MapZone = {
   lat: number | null
   lng: number | null
   fill_color: string | null
+  fill_image_path?: string | null
+  fill_image_url?: string | null
   stroke_color: string | null
   opacity: number | null
   stroke_width: number | null

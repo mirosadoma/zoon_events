@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import { MapPin, MonitorSmartphone, Printer } from 'lucide-react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { HeartbeatIndicator } from '@/components/kiosk/HeartbeatIndicator'
 import { DetailsCard, EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, { SideDetailInfoGrid } from '@/components/layout/SideDetailPane'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import { useLocale } from '@/hooks/useLocale'
@@ -55,6 +57,10 @@ function formatDateTime(value: string | null, locale: string): string {
 
 export default function KioskDetailPage({ event, kiosk }: Props) {
   const { locale, t } = useLocale()
+  const [selectedCheckinId, setSelectedCheckinId] = useState<string | null>(null)
+  const [selectedPrintJobId, setSelectedPrintJobId] = useState<string | null>(null)
+  const selectedCheckin = kiosk.recent_checkins.find((item) => item.id === selectedCheckinId) ?? null
+  const selectedPrintJob = kiosk.recent_print_jobs.find((item) => item.id === selectedPrintJobId) ?? null
   const heartbeatKiosk: Kiosk = {
     id: String(kiosk.id),
     device_name: kiosk.device_name,
@@ -177,6 +183,8 @@ export default function KioskDetailPage({ event, kiosk }: Props) {
               title={t('kioskPageRecentCheckIns')}
               rows={kiosk.recent_checkins as unknown as Record<string, unknown>[]}
               getRowKey={(row) => String(row.id)}
+              selectedRowKey={selectedCheckinId}
+              onRowClick={(row) => setSelectedCheckinId(String(row.id))}
               columns={[
                 {
                   key: 'result',
@@ -216,6 +224,8 @@ export default function KioskDetailPage({ event, kiosk }: Props) {
               title={t('kioskPageRecentPrintJobs')}
               rows={kiosk.recent_print_jobs as unknown as Record<string, unknown>[]}
               getRowKey={(row) => String(row.id)}
+              selectedRowKey={selectedPrintJobId}
+              onRowClick={(row) => setSelectedPrintJobId(String(row.id))}
               columns={[
                 {
                   key: 'status',
@@ -249,6 +259,58 @@ export default function KioskDetailPage({ event, kiosk }: Props) {
           )}
         </section>
       </PageContent>
+
+      <SideDetailPane
+        open={selectedCheckin !== null}
+        title={selectedCheckin ? `${t('kioskPageResult')}: ${selectedCheckin.result}` : ''}
+        onClose={() => setSelectedCheckinId(null)}
+      >
+        {selectedCheckin ? (
+          <SideDetailInfoGrid
+            items={[
+              { label: t('kioskPageResult'), value: <StatusBadge status={selectedCheckin.result} /> },
+              {
+                label: t('reason'),
+                value: selectedCheckin.reason ? (
+                  <span className="font-mono text-xs">{selectedCheckin.reason}</span>
+                ) : '—',
+              },
+              {
+                label: t('time'),
+                value: formatDateTime(selectedCheckin.scanned_at, locale),
+              },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
+
+      <SideDetailPane
+        open={selectedPrintJob !== null}
+        title={selectedPrintJob ? `${t('status')}: ${selectedPrintJob.status}` : ''}
+        onClose={() => setSelectedPrintJobId(null)}
+      >
+        {selectedPrintJob ? (
+          <SideDetailInfoGrid
+            items={[
+              { label: t('status'), value: <StatusBadge status={selectedPrintJob.status} /> },
+              {
+                label: t('kioskPageReprint'),
+                value: selectedPrintJob.is_reprint
+                  ? <StatusBadge status="reissued" label={t('yes')} />
+                  : t('no'),
+              },
+              {
+                label: t('kioskPageReprintReason'),
+                value: selectedPrintJob.reprint_reason ?? '—',
+              },
+              {
+                label: t('kioskPagePrintedAt'),
+                value: formatDateTime(selectedPrintJob.printed_at, locale),
+              },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
     </DashboardLayout>
   )
 }

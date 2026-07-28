@@ -3,6 +3,11 @@ import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import ReasonModal from '@/components/modals/ReasonModal'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, {
+  SideDetailActions,
+  SideDetailInfoGrid,
+  sideDetailActionClassName,
+} from '@/components/layout/SideDetailPane'
 import PermissionGate from '@/components/layout/PermissionGate'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
@@ -56,8 +61,10 @@ export default function VenueShow({ venue = null, venuePublicId, tenantId }: Pro
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [paneSelectedAssetId, setPaneSelectedAssetId] = useState<string | null>(null)
 
   const assets = venue?.assets ?? []
+  const paneSelectedAsset = assets.find((asset) => asset.id === paneSelectedAssetId) ?? null
 
   const handleSave = useCallback(async () => {
     if (!publicId) return
@@ -179,6 +186,26 @@ export default function VenueShow({ venue = null, venuePublicId, tenantId }: Pro
               title={t('venueAssets')}
               rows={assets as unknown as Record<string, unknown>[]}
               getRowKey={(row) => String(row.id)}
+              selectedRowKey={paneSelectedAssetId}
+              onRowClick={(row) => {
+                const asset = row as unknown as VenueAssetRow
+                setSelectedAsset(asset)
+                setPaneSelectedAssetId(String(asset.id))
+                setAssetValues({
+                  ...emptyAssetFormValues(),
+                  asset_type: asset.asset_type,
+                  name_en: asset.name.en,
+                  name_ar: asset.name.ar,
+                  location_en: asset.location?.en ?? '',
+                  location_ar: asset.location?.ar ?? '',
+                  operational_status: asset.operational_status,
+                  pricing_model: asset.pricing_model ?? 'per_hour',
+                  price_minor: asset.price_minor != null ? String(asset.price_minor) : '',
+                  currency: asset.currency ?? 'SAR',
+                  capacity_per_minute: asset.capacity_per_minute != null ? String(asset.capacity_per_minute) : '',
+                  binding_value: '',
+                })
+              }}
               columns={[
                 {
                   key: 'name',
@@ -205,36 +232,6 @@ export default function VenueShow({ venue = null, venuePublicId, tenantId }: Pro
                     const status = (row as unknown as VenueAssetRow).publication_status
                     return status ? <StatusBadge status={status} /> : '—'
                   },
-                },
-                {
-                  key: 'actions',
-                  header: t('actions'),
-                  render: (row) => (
-                    <button
-                      type="button"
-                      className="ta-table-action"
-                      onClick={() => {
-                        const asset = row as unknown as VenueAssetRow
-                        setSelectedAsset(asset)
-                        setAssetValues({
-                          ...emptyAssetFormValues(),
-                          asset_type: asset.asset_type,
-                          name_en: asset.name.en,
-                          name_ar: asset.name.ar,
-                          location_en: asset.location?.en ?? '',
-                          location_ar: asset.location?.ar ?? '',
-                          operational_status: asset.operational_status,
-                          pricing_model: asset.pricing_model ?? 'per_hour',
-                          price_minor: asset.price_minor != null ? String(asset.price_minor) : '',
-                          currency: asset.currency ?? 'SAR',
-                          capacity_per_minute: asset.capacity_per_minute != null ? String(asset.capacity_per_minute) : '',
-                          binding_value: '',
-                        })
-                      }}
-                    >
-                      {t('viewVenue')}
-                    </button>
-                  ),
                 },
               ]}
             />
@@ -264,6 +261,39 @@ export default function VenueShow({ venue = null, venuePublicId, tenantId }: Pro
           </div>
         ) : null}
       </PageContent>
+
+      <SideDetailPane
+        open={paneSelectedAsset !== null}
+        title={paneSelectedAsset ? paneSelectedAsset.name[locale] : ''}
+        subtitle={paneSelectedAsset ? t(assetTypeLabelKey(paneSelectedAsset.asset_type)) : null}
+        onClose={() => setPaneSelectedAssetId(null)}
+        onEdit={!readOnly && paneSelectedAsset ? () => setPaneSelectedAssetId(null) : null}
+        footer={!readOnly && paneSelectedAsset ? (
+          <SideDetailActions>
+            <button
+              type="button"
+              className={sideDetailActionClassName('primary')}
+              onClick={() => setPaneSelectedAssetId(null)}
+            >
+              {t('edit')}
+            </button>
+          </SideDetailActions>
+        ) : null}
+      >
+        {paneSelectedAsset ? (
+          <SideDetailInfoGrid
+            items={[
+              { label: t('venueName'), value: paneSelectedAsset.name[locale] },
+              { label: t('assetType'), value: t(assetTypeLabelKey(paneSelectedAsset.asset_type)) },
+              { label: t('assetStatus'), value: <StatusBadge status={paneSelectedAsset.operational_status} /> },
+              {
+                label: t('publicationStatus'),
+                value: paneSelectedAsset.publication_status ? <StatusBadge status={paneSelectedAsset.publication_status} /> : '—',
+              },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
 
       <ReasonModal
         open={archiveOpen}

@@ -6,6 +6,7 @@ import ShapeRotateOverlay from '@/components/venue-map/ShapeRotateOverlay'
 import ShapeMoveHandle from '@/components/venue-map/ShapeMoveHandle'
 import MapHoverTooltip from '@/components/venue-map/MapHoverTooltip'
 import GeoMarkerOverlay, { isGeoMarkerShape } from '@/components/venue-map/GeoMarkerOverlay'
+import ZoneFillImageOverlay from '@/components/venue-map/ZoneFillImageOverlay'
 import {
   boundsFromCamera,
   haversineMeters,
@@ -59,7 +60,7 @@ type Props = {
   onDraftPoint?: (point: GeoPoint | null) => void
 }
 
-const MAP_LIBRARIES: Libraries = ['places']
+const MAP_LIBRARIES: Libraries = ['places', 'geometry']
 
 function withDefaults(zone: MapZone): MapZone {
   return {
@@ -166,11 +167,13 @@ function useStableGeoPoints(
 type HoverTip = {
   name: string
   position: GeoPoint
+  zoneKey?: string
 }
 
 type EditableZoneShapeProps = {
   zone: MapZone
   selected: boolean
+  emphasized: boolean
   canEdit: boolean
   drawingPassThrough: boolean
   tool: EditorTool
@@ -203,6 +206,7 @@ function pathHoverName(path: MapPath, locale: string): string {
 const EditableZoneShape = memo(function EditableZoneShape({
   zone,
   selected,
+  emphasized,
   canEdit,
   drawingPassThrough,
   tool,
@@ -221,7 +225,9 @@ const EditableZoneShape = memo(function EditableZoneShape({
   const editable = canEdit && selected
   const fill = zone.fill_color ?? defaultFillForType(zone.type)
   const stroke = zone.stroke_color ?? '#111827'
-  const opacity = (zone.opacity ?? 45) / 100
+  const hasFillImage = Boolean(zone.fill_image_url)
+  const baseOpacity = (zone.opacity ?? 45) / 100
+  const opacity = emphasized ? 1 : baseOpacity
   const isCircleLike = zone.shape_type === 'circle'
     || zone.shape_type === 'ellipse'
   const isMarker = isGeoMarkerShape(zone.shape_type)
@@ -232,12 +238,12 @@ const EditableZoneShape = memo(function EditableZoneShape({
 
   const options = useMemo(() => ({
     fillColor: fill,
-    fillOpacity: opacity,
+    fillOpacity: hasFillImage ? 0.05 : opacity,
     strokeColor: stroke,
     strokeWeight: selected ? 3 : (zone.stroke_width ?? 2),
     clickable: true,
     zIndex: selected ? 5 : 3,
-  }), [fill, opacity, stroke, selected, zone.stroke_width])
+  }), [fill, hasFillImage, opacity, stroke, selected, zone.stroke_width])
 
   const handleClick = useCallback((event: google.maps.MapMouseEvent) => {
     if (drawingPassThrough) {
@@ -271,8 +277,9 @@ const EditableZoneShape = memo(function EditableZoneShape({
     onHover({
       name: displayName,
       position: { lat: event.latLng.lat(), lng: event.latLng.lng() },
+      zoneKey: zone.key,
     })
-  }, [drawingPassThrough, draggingRef, displayName, onHover])
+  }, [drawingPassThrough, draggingRef, displayName, onHover, zone.key])
 
   const handleHoverOut = useCallback(() => {
     onHover(null)
@@ -312,6 +319,18 @@ const EditableZoneShape = memo(function EditableZoneShape({
 
   if (!zone.shape_type || points.length === 0) return null
 
+  const fillImage = map && hasFillImage && zone.fill_image_url ? (
+    <ZoneFillImageOverlay
+      map={map}
+      points={points}
+      radiusMeters={isPointRadius ? (zone.shape_radius ?? 8) : null}
+      imageUrl={zone.fill_image_url}
+      opacity={opacity}
+      rotation={zone.shape_rotation ?? 0}
+      zIndex={selected ? 4 : 2}
+    />
+  ) : null
+
   if (isPointRadius) {
     const radius = zone.shape_radius ?? 8
     const markerType = isGeoMarkerShape(zone.shape_type) ? zone.shape_type : null
@@ -324,7 +343,9 @@ const EditableZoneShape = memo(function EditableZoneShape({
           options={{
             ...options,
             // Markers: keep a light hit/edit ring; icon paints on top.
-            fillOpacity: markerType ? (selected ? Math.min(opacity, 0.18) : 0.02) : opacity,
+            fillOpacity: markerType
+              ? (selected ? Math.min(opacity, 0.18) : 0.02)
+              : (hasFillImage ? 0.05 : opacity),
             strokeOpacity: markerType ? (selected ? 0.75 : 0.15) : 1,
             strokeWeight: markerType
               ? (selected ? 2 : 1)
@@ -346,6 +367,7 @@ const EditableZoneShape = memo(function EditableZoneShape({
           onDragEnd={handleCircleDragEnd}
           onMouseUp={handleCircleMouseUp}
         />
+        {fillImage}
         {map && markerType ? (
           <GeoMarkerOverlay
             map={map}
@@ -365,25 +387,28 @@ const EditableZoneShape = memo(function EditableZoneShape({
   }
 
   return (
-    <Polygon
-      paths={points}
-      options={options}
-      draggable={editable}
-      editable={editable}
-      onLoad={(polygon) => {
-        polygonInstanceRef.current = polygon
-      }}
-      onUnmount={() => {
-        polygonInstanceRef.current = null
-      }}
-      onClick={handleClick}
-      onMouseOver={handleHoverMove}
-      onMouseMove={handleHoverMove}
-      onMouseOut={handleHoverOut}
-      onDragStart={handleDragStart}
-      onDragEnd={handlePolygonDragEnd}
-      onMouseUp={handlePolygonMouseUp}
-    />
+    <>
+      <Polygon
+        paths={points}
+        options={options}
+        draggable={editable}
+        editable={editable}
+        onLoad={(polygon) => {
+          polygonInstanceRef.current = polygon
+        }}
+        onUnmount={() => {
+          polygonInstanceRef.current = null
+        }}
+        onClick={handleClick}
+        onMouseOver={handleHoverMove}
+        onMouseMove={handleHoverMove}
+        onMouseOut={handleHoverOut}
+        onDragStart={handleDragStart}
+        onDragEnd={handlePolygonDragEnd}
+        onMouseUp={handlePolygonMouseUp}
+      />
+      {fillImage}
+    </>
   )
 })
 
@@ -785,6 +810,8 @@ export default function VenueMapGeoCanvas({
         description_en: null,
         description_ar: null,
         type: 'hall',
+        floor_type: null,
+        floor_number: null,
         capacity: null,
         coordinate_space: 'geo',
         shape_type: shapeType,
@@ -797,6 +824,8 @@ export default function VenueMapGeoCanvas({
         lat: points[0]?.lat ?? latitude,
         lng: points[0]?.lng ?? longitude,
         fill_color: null,
+        fill_image_path: null,
+        fill_image_url: null,
         stroke_color: null,
         opacity: null,
         stroke_width: null,
@@ -1163,6 +1192,7 @@ export default function VenueMapGeoCanvas({
             key={zone.key}
             zone={zone}
             selected={zone.key === selectedKey}
+            emphasized={Boolean(hoverTip?.zoneKey && hoverTip.zoneKey === zone.key)}
             canEdit={canEditShapes}
             drawingPassThrough={drawingPathOrShape}
             tool={tool}

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { router } from '@inertiajs/react'
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import {
   emptyVenueRow,
@@ -9,6 +10,11 @@ import ConfirmModal from '@/components/modals/ConfirmModal'
 import DataTable from '@/components/tables/DataTable'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, {
+  SideDetailActions,
+  SideDetailInfoGrid,
+  sideDetailActionClassName,
+} from '@/components/layout/SideDetailPane'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
@@ -24,6 +30,8 @@ export type EventZoneRow = {
   description_en?: string | null
   description_ar?: string | null
   type: string
+  floor_type?: 'basement' | 'floor' | null
+  floor_number?: number | null
   capacity: number | null
   shape_type?: string | null
   polygon_coordinates?: Array<{ x: number; y: number }> | null
@@ -33,6 +41,7 @@ export type EventZoneRow = {
   lat?: number | null
   lng?: number | null
   fill_color?: string | null
+  fill_image_url?: string | null
   stroke_color?: string | null
   opacity?: number | null
   stroke_width?: number | null
@@ -84,9 +93,10 @@ export default function EventVenuesPage({
   tenantId,
   venues: initialVenues,
 }: Props) {
-  const { locale, t } = useLocale()
+  const { locale, t, localizedPath } = useLocale()
   const { toast } = useToast()
   const [venues, setVenues] = useState<EventVenueRow[]>(initialVenues)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
 
@@ -130,6 +140,9 @@ export default function EventVenuesPage({
 
       setVenues(result.venues ?? [])
       setDeleteId(null)
+      if (selectedId === deleteId) {
+        setSelectedId(null)
+      }
       toast(t('deleted'), 'success')
     } catch (caught) {
       toast(caught instanceof ApiFetchError ? caught.message : t('requestFailed'), 'error')
@@ -139,6 +152,8 @@ export default function EventVenuesPage({
   }
 
   const deleteTarget = venues.find((venue) => venue.id === deleteId)
+  const selected = venues.find((venue) => venue.id === selectedId) ?? null
+  const notAvailable = t('notAvailable')
 
   return (
     <DashboardLayout title={event.name[locale]}>
@@ -191,39 +206,71 @@ export default function EventVenuesPage({
               { key: 'address', header: t('address') },
               { key: 'start', header: t('startAt') },
               { key: 'end', header: t('endAt') },
-              {
-                key: 'actions',
-                header: t('actions'),
-                render: (row) => (
-                  <div className="flex flex-wrap gap-2">
-                    <LocalizedLink
-                      className="ta-table-action"
-                      href={`/tenant/events/${event.id}/venues/${row.id}/map`}
-                    >
-                      {t('venueMapTitle')}
-                    </LocalizedLink>
-                    <LocalizedLink
-                      className="ta-table-action"
-                      href={`/tenant/events/${event.id}/venues/${row.id}/edit`}
-                    >
-                      {t('edit')}
-                    </LocalizedLink>
-                    <button
-                      type="button"
-                      className="ta-table-action text-[var(--danger)]"
-                      onClick={() => setDeleteId(String(row.id))}
-                    >
-                      {t('delete')}
-                    </button>
-                  </div>
-                ),
-              },
             ]}
             rows={tableRows}
             getRowKey={(row) => String(row.id)}
+            selectedRowKey={selectedId}
+            onRowClick={(row) => setSelectedId(String(row.id))}
           />
         )}
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? (selected.name[locale] || selected.name.en || selected.name.ar) : ''}
+        subtitle={selected?.location_address?.trim() || null}
+        onClose={() => setSelectedId(null)}
+        onEdit={selected ? () => router.visit(localizedPath(`/tenant/events/${event.id}/venues/${selected.id}/edit`)) : null}
+        onDelete={selected ? () => setDeleteId(selected.id) : null}
+        footer={selected ? (
+          <SideDetailActions>
+            <LocalizedLink
+              href={`/tenant/events/${event.id}/venues/${selected.id}/map`}
+              className={sideDetailActionClassName('primary')}
+            >
+              {t('venueMapTitle')}
+            </LocalizedLink>
+            <button
+              type="button"
+              className={sideDetailActionClassName()}
+              onClick={() => router.visit(localizedPath(`/tenant/events/${event.id}/venues/${selected.id}/edit`))}
+            >
+              {t('edit')}
+            </button>
+          </SideDetailActions>
+        ) : null}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              {
+                label: t('name'),
+                value: selected.name[locale] || selected.name.en || selected.name.ar,
+              },
+              {
+                label: t('eventZonesTitle'),
+                value: t('eventVenueZonesCount', { count: String(selected.zones?.length ?? 0) }),
+              },
+              {
+                label: t('address'),
+                value: selected.location_address?.trim() || notAvailable,
+              },
+              {
+                label: t('startAt'),
+                value: selected.start_at
+                  ? new Date(selected.start_at).toLocaleString(locale === 'ar' ? 'ar' : 'en')
+                  : notAvailable,
+              },
+              {
+                label: t('endAt'),
+                value: selected.end_at
+                  ? new Date(selected.end_at).toLocaleString(locale === 'ar' ? 'ar' : 'en')
+                  : notAvailable,
+              },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
 
       <ConfirmModal
         open={deleteId !== null}

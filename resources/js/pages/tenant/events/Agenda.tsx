@@ -8,6 +8,11 @@ import SearchInput from '@/components/tables/SearchInput'
 import SelectInput from '@/components/forms/SelectInput'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, {
+  SideDetailActions,
+  SideDetailInfoGrid,
+  sideDetailActionClassName,
+} from '@/components/layout/SideDetailPane'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
@@ -97,9 +102,10 @@ export default function EventAgendaPage({
   items: initialItems,
   venues,
 }: Props) {
-  const { locale, t } = useLocale()
+  const { locale, t, localizedPath } = useLocale()
   const { toast } = useToast()
   const [items, setItems] = useState(initialItems)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [search, setSearch] = useState('')
@@ -215,6 +221,18 @@ export default function EventAgendaPage({
   }
 
   const hasActiveFilters = search.trim() !== '' || venueId !== '' || zoneId !== '' || date !== ''
+
+  const selected = items.find((item) => item.id === selectedId) ?? null
+  const notAvailable = t('notAvailable')
+
+  function closePane() {
+    setSelectedId(null)
+  }
+
+  function goToEdit() {
+    if (!selectedId) return
+    router.visit(localizedPath(`${listHref}/${selectedId}/edit`))
+  }
 
   async function confirmDelete() {
     if (!deleteId) return
@@ -371,35 +389,67 @@ export default function EventAgendaPage({
                   { key: 'date', header: t('eventAgendaDate') },
                   { key: 'time', header: t('eventAgendaTime') },
                   { key: 'speaker', header: t('eventAgendaSpeaker') },
-                  {
-                    key: 'actions',
-                    header: t('actions'),
-                    render: (row) => (
-                      <div className="flex flex-wrap gap-2">
-                        <LocalizedLink
-                          className="ta-table-action"
-                          href={`${listHref}/${row.id}/edit`}
-                        >
-                          {t('edit')}
-                        </LocalizedLink>
-                        <button
-                          type="button"
-                          className="ta-table-action text-[var(--danger)]"
-                          onClick={() => setDeleteId(String(row.id))}
-                        >
-                          {t('delete')}
-                        </button>
-                      </div>
-                    ),
-                  },
                 ]}
                 rows={tableRows}
                 getRowKey={(row) => String(row.id)}
+                selectedRowKey={selectedId}
+                onRowClick={(row) => setSelectedId(String(row.id))}
               />
             )}
           </>
         )}
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? (locale === 'ar' ? selected.title_ar : selected.title_en) : ''}
+        subtitle={selected?.speaker?.trim() || null}
+        onClose={closePane}
+        onEdit={goToEdit}
+        onDelete={() => setDeleteId(selectedId)}
+        footer={selected ? (
+          <SideDetailActions>
+            <button type="button" className={sideDetailActionClassName('primary')} onClick={goToEdit}>
+              {t('edit')}
+            </button>
+          </SideDetailActions>
+        ) : null}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              {
+                label: t('name'),
+                value: locale === 'ar' ? selected.title_ar : selected.title_en,
+              },
+              {
+                label: t('eventAgendaPreviewVenue'),
+                value: selected.venue_name
+                  ? localizedText(selected.venue_name, locale)
+                  : notAvailable,
+              },
+              {
+                label: t('eventAgendaZone'),
+                value: selected.zone_name
+                  ? localizedText(selected.zone_name, locale)
+                  : t('eventAgendaZoneNone'),
+              },
+              {
+                label: t('eventAgendaDate'),
+                value: selected.agenda_date || selected.start_at?.split('T')[0] || notAvailable,
+              },
+              {
+                label: t('eventAgendaTime'),
+                value: formatTimeRange(selected.start_at, selected.end_at),
+              },
+              {
+                label: t('eventAgendaSpeaker'),
+                value: selected.speaker?.trim() || notAvailable,
+              },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
 
       <ConfirmModal
         open={deleteId !== null}

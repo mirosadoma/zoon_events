@@ -1,6 +1,7 @@
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import { FormEvent, useEffect, useState } from 'react'
 import { Link2, Plus, Power } from 'lucide-react'
+import { router } from '@inertiajs/react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { HeartbeatIndicator } from '@/components/kiosk/HeartbeatIndicator'
 import { HealthTable } from '@/components/kiosk/HealthTable'
@@ -9,6 +10,11 @@ import { EmptyState } from '@/components/feedback'
 import TextInput from '@/components/forms/TextInput'
 import ConfirmModal from '@/components/modals/ConfirmModal'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, {
+  SideDetailActions,
+  SideDetailInfoGrid,
+  sideDetailActionClassName,
+} from '@/components/layout/SideDetailPane'
 import PermissionGate from '@/components/layout/PermissionGate'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
@@ -20,6 +26,7 @@ import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
 import { localizedPath } from '@/lib/localePath'
 import { defaultPagination, type PaginationMeta, withPage } from '@/lib/pagination'
 import type { Kiosk } from '@/types/phase3'
+import { ArrowUpRight } from 'lucide-react'
 
 type EventRow = {
   id: string
@@ -39,10 +46,11 @@ export default function KioskIndex({
   kiosks: initialKiosks,
   pagination = defaultPagination,
 }: Props) {
-  const { locale, t } = useLocale()
+  const { locale, t, localizedPath } = useLocale()
   const localizedRouter = useLocalizedRouter()
   const { toast } = useToast()
   const [kiosks, setKiosks] = useState(initialKiosks)
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null)
   const [selectedKiosk, setSelectedKiosk] = useState<Kiosk | null>(null)
   const [retireTarget, setRetireTarget] = useState<Kiosk | null>(null)
   const [pairingSecret, setPairingSecret] = useState<string | null>(null)
@@ -57,6 +65,18 @@ export default function KioskIndex({
   useEffect(() => {
     setKiosks(initialKiosks)
   }, [initialKiosks])
+
+  const selected = kiosks.find((kiosk) => kiosk.id === selectedRowId) ?? null
+  const notAvailable = t('notAvailable')
+
+  function closePane() {
+    setSelectedRowId(null)
+  }
+
+  function goToView() {
+    if (!selectedRowId) return
+    router.visit(localizedPath(`/tenant/events/${event.id}/kiosks/${selectedRowId}`))
+  }
 
   function changePage(page: number) {
     localizedRouter.get(`/tenant/events/${event.id}/kiosks`, withPage({}, page), {
@@ -185,6 +205,8 @@ export default function KioskIndex({
               title={t('kioskPageKiosks')}
               rows={kiosks as unknown as Record<string, unknown>[]}
               getRowKey={(row) => String(row.id)}
+              selectedRowKey={selectedRowId}
+              onRowClick={(row) => setSelectedRowId(String(row.id))}
               columns={[
                 {
                   key: 'device_name',
@@ -239,37 +261,6 @@ export default function KioskIndex({
                   header: t('kioskPageHeartbeat'),
                   render: (row) => <HeartbeatIndicator kiosk={row as unknown as Kiosk} />,
                 },
-                {
-                  key: 'actions',
-                  header: t('kioskPageActions'),
-                  render: (row) => {
-                    const kiosk = row as unknown as Kiosk
-                    return (
-                      <PermissionGate permission="kiosk.manage">
-                        <div className="ta-table-actions">
-                          <button
-                            type="button"
-                            className="ta-table-action inline-flex items-center gap-1.5"
-                            onClick={() => setSelectedKiosk(kiosk)}
-                          >
-                            <Link2 className="h-3.5 w-3.5" aria-hidden />
-                            {t('kioskPagePair')}
-                          </button>
-                          {kiosk.status !== 'retired' && (
-                            <button
-                              type="button"
-                              className="ta-table-action inline-flex items-center gap-1.5"
-                              onClick={() => setRetireTarget(kiosk)}
-                            >
-                              <Power className="h-3.5 w-3.5" aria-hidden />
-                              {t('kioskPageRetire')}
-                            </button>
-                          )}
-                        </div>
-                      </PermissionGate>
-                    )
-                  },
-                },
               ]}
             />
             <Pagination
@@ -290,6 +281,77 @@ export default function KioskIndex({
           <HealthTable eventId={event.id} tenantId={tenantId} />
         </section>
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? selected.device_name : ''}
+        subtitle={selected?.location_label || null}
+        onClose={closePane}
+        onEdit={goToView}
+        editLabel={t('view')}
+        footer={selected ? (
+          <SideDetailActions>
+            <LocalizedLink
+              href={`/tenant/events/${event.id}/kiosks/${selected.id}`}
+              className={sideDetailActionClassName('primary')}
+            >
+              {t('view')}
+              <ArrowUpRight className="h-4 w-4" aria-hidden />
+            </LocalizedLink>
+            <PermissionGate permission="kiosk.manage">
+              <button
+                type="button"
+                className={sideDetailActionClassName()}
+                onClick={() => setSelectedKiosk(selected)}
+              >
+                <Link2 className="h-4 w-4" aria-hidden />
+                {t('kioskPagePair')}
+              </button>
+              {selected.status !== 'retired' ? (
+                <button
+                  type="button"
+                  className={sideDetailActionClassName('danger')}
+                  onClick={() => setRetireTarget(selected)}
+                >
+                  <Power className="h-4 w-4" aria-hidden />
+                  {t('kioskPageRetire')}
+                </button>
+              ) : null}
+            </PermissionGate>
+          </SideDetailActions>
+        ) : null}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              {
+                label: t('kioskPageDevice'),
+                value: selected.device_name,
+              },
+              {
+                label: t('kioskPageCode'),
+                value: selected.device_code || notAvailable,
+              },
+              {
+                label: t('status'),
+                value: <StatusBadge status={selected.status} />,
+              },
+              {
+                label: t('kioskPagePrinter'),
+                value: selected.printer_status ? <StatusBadge status={selected.printer_status} /> : '—',
+              },
+              {
+                label: t('kioskPageLocation'),
+                value: selected.location_label || notAvailable,
+              },
+              {
+                label: t('kioskPageHeartbeat'),
+                value: <HeartbeatIndicator kiosk={selected} />,
+              },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
 
       {selectedKiosk ? (
         <PairingDialog

@@ -3,6 +3,7 @@
 namespace App\Modules\Events\Http\Requests;
 
 use App\Modules\Events\Domain\EventCoordinateSpace;
+use App\Modules\Events\Domain\EventZoneFloorType;
 use App\Modules\Events\Domain\EventZoneShapeType;
 use App\Modules\Events\Domain\EventZoneType;
 use Illuminate\Foundation\Http\FormRequest;
@@ -27,6 +28,8 @@ final class ZoneSyncRequest extends FormRequest
             'zones.*.description_en' => ['nullable', 'string', 'max:5000'],
             'zones.*.description_ar' => ['nullable', 'string', 'max:5000'],
             'zones.*.type' => ['required', 'string', Rule::in(EventZoneType::values())],
+            'zones.*.floor_type' => ['nullable', 'string', Rule::in(EventZoneFloorType::values())],
+            'zones.*.floor_number' => ['nullable', 'integer', 'min:0', 'max:500', 'required_if:zones.*.floor_type,floor'],
             'zones.*.capacity' => ['nullable', 'integer', 'min:0'],
             'zones.*.shape_type' => ['nullable', 'string', Rule::in(EventZoneShapeType::values())],
             'zones.*.coordinate_space' => ['nullable', 'string', Rule::in(EventCoordinateSpace::values())],

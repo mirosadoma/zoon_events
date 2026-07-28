@@ -5,6 +5,11 @@ import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import PublishReadinessBadge from '@/components/events/PublishReadinessBadge'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, {
+  SideDetailActions,
+  SideDetailInfoGrid,
+  sideDetailActionClassName,
+} from '@/components/layout/SideDetailPane'
 import ConfirmModal from '@/components/modals/ConfirmModal'
 import StatusBadge from '@/components/status/StatusBadge'
 import { DataTable } from '@/components/tables'
@@ -13,6 +18,7 @@ import { useToast } from '@/hooks/useToast'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
 import { labelForEventTier, requiresTicketing } from '@/lib/eventOptions'
 import type { PublishReadinessContext } from '@/lib/publishReadinessCatalog'
+import { ArrowUpRight } from 'lucide-react'
 
 type EventRow = {
   id: string
@@ -44,10 +50,23 @@ export default function EventList({ events, tenantId: tenantIdProp }: Props) {
   const { toast } = useToast()
   const page = usePage().props as { session?: { tenant?: { id?: string | number } } }
   const tenantId = String(tenantIdProp ?? page.session?.tenant?.id ?? '')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [copying, setCopying] = useState<EventRow | null>(null)
   const [copyNameEn, setCopyNameEn] = useState('')
   const [copyNameAr, setCopyNameAr] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  const selected = events.find((event) => event.id === selectedId) ?? null
+  const notAvailable = t('notAvailable')
+
+  function closePane() {
+    setSelectedId(null)
+  }
+
+  function goToEdit() {
+    if (!selectedId) return
+    router.visit(localizedPath(`/tenant/events/${selectedId}/edit`))
+  }
 
   function openCopyModal(event: EventRow) {
     setCopying(event)
@@ -117,6 +136,8 @@ export default function EventList({ events, tenantId: tenantIdProp }: Props) {
           <DataTable
             rows={events as unknown as Record<string, unknown>[]}
             getRowKey={(row) => String(row.id)}
+            selectedRowKey={selectedId}
+            onRowClick={(row) => setSelectedId(String(row.id))}
             columns={[
               {
                 key: 'name',
@@ -154,35 +175,66 @@ export default function EventList({ events, tenantId: tenantIdProp }: Props) {
                 },
               },
               { key: 'timezone', header: t('eventListTimezone') },
-              {
-                key: 'actions',
-                header: t('actions'),
-                render: (row) => {
-                  const event = row as unknown as EventRow
-
-                  return (
-                    <div className="ta-table-actions">
-                      <LocalizedLink href={`/tenant/events/${event.id}`} className="ta-table-action">
-                        {t('view')}
-                      </LocalizedLink>
-                      <LocalizedLink href={`/tenant/events/${event.id}/edit`} className="ta-table-action">
-                        {t('edit')}
-                      </LocalizedLink>
-                      <button
-                        type="button"
-                        className="ta-table-action"
-                        onClick={() => openCopyModal(event)}
-                      >
-                        {t('eventListCopy')}
-                      </button>
-                    </div>
-                  )
-                },
-              },
             ]}
           />
         )}
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? selected.name[locale] : ''}
+        subtitle={selected ? labelForEventTier(selected.tier, locale) : null}
+        onClose={closePane}
+        onEdit={goToEdit}
+        footer={selected ? (
+          <SideDetailActions>
+            <LocalizedLink
+              href={`/tenant/events/${selected.id}`}
+              className={sideDetailActionClassName('primary')}
+            >
+              {t('view')}
+              <ArrowUpRight className="h-4 w-4" aria-hidden />
+            </LocalizedLink>
+            <button type="button" className={sideDetailActionClassName()} onClick={goToEdit}>
+              {t('edit')}
+            </button>
+            <button type="button" className={sideDetailActionClassName()} onClick={() => openCopyModal(selected)}>
+              {t('eventListCopy')}
+            </button>
+          </SideDetailActions>
+        ) : null}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              {
+                label: t('eventListName'),
+                value: selected.name[locale],
+              },
+              {
+                label: t('eventListTier'),
+                value: labelForEventTier(selected.tier, locale),
+              },
+              {
+                label: t('eventListType'),
+                value: selected.event_type || notAvailable,
+              },
+              {
+                label: t('eventListRegistration'),
+                value: selected.registration_mode || notAvailable,
+              },
+              {
+                label: t('status'),
+                value: <StatusBadge status={selected.status} />,
+              },
+              {
+                label: t('eventListTimezone'),
+                value: selected.timezone || notAvailable,
+              },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
 
       <ConfirmModal
         open={copying !== null}

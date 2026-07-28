@@ -1,13 +1,21 @@
 import LocalizedLink from '@/components/routing/LocalizedLink'
+import { useState } from 'react'
+import { router } from '@inertiajs/react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, {
+  SideDetailActions,
+  SideDetailInfoGrid,
+  sideDetailActionClassName,
+} from '@/components/layout/SideDetailPane'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import Pagination from '@/components/tables/Pagination'
 import { useLocale } from '@/hooks/useLocale'
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
 import { defaultPagination, type PaginationMeta, withPage } from '@/lib/pagination'
+import { ArrowUpRight } from 'lucide-react'
 
 type EventRow = {
   id: string
@@ -35,8 +43,21 @@ export default function WalletPasses({
   walletPasses,
   pagination = defaultPagination,
 }: Props) {
-  const { locale, t } = useLocale()
+  const { locale, t, localizedPath } = useLocale()
   const localizedRouter = useLocalizedRouter()
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const selected = walletPasses.find((pass) => pass.id === selectedId) ?? null
+  const notAvailable = t('notAvailable')
+
+  function closePane() {
+    setSelectedId(null)
+  }
+
+  function goToView() {
+    if (!selectedId) return
+    router.visit(localizedPath(`/tenant/events/${event.id}/wallet-passes/${selectedId}`))
+  }
 
   function changePage(page: number) {
     localizedRouter.get(`/tenant/events/${event.id}/wallet-passes`, withPage({}, page), {
@@ -68,6 +89,8 @@ export default function WalletPasses({
             <DataTable
               rows={walletPasses as unknown as Record<string, unknown>[]}
               getRowKey={(row) => String(row.id)}
+              selectedRowKey={selectedId}
+              onRowClick={(row) => setSelectedId(String(row.id))}
               columns={[
                 {
                   key: 'serial',
@@ -119,6 +142,53 @@ export default function WalletPasses({
           </>
         )}
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? selected.serial : ''}
+        subtitle={selected?.provider || null}
+        onClose={closePane}
+        onEdit={goToView}
+        editLabel={t('view')}
+        footer={selected ? (
+          <SideDetailActions>
+            <LocalizedLink
+              href={`/tenant/events/${event.id}/wallet-passes/${selected.id}`}
+              className={sideDetailActionClassName('primary')}
+            >
+              {t('view')}
+              <ArrowUpRight className="h-4 w-4" aria-hidden />
+            </LocalizedLink>
+          </SideDetailActions>
+        ) : null}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              {
+                label: t('walletPassesSerial'),
+                value: selected.serial,
+              },
+              {
+                label: t('walletPassesProvider'),
+                value: selected.provider,
+              },
+              {
+                label: t('walletPassesStatus'),
+                value: <StatusBadge status={selected.status} />,
+              },
+              {
+                label: t('attendees'),
+                value: selected.attendee_id ? String(selected.attendee_id).slice(-8) : notAvailable,
+              },
+              {
+                label: t('walletPassesLastPushed'),
+                value: selected.last_pushed_at || notAvailable,
+              },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
     </DashboardLayout>
   )
 }

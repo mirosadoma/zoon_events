@@ -7,6 +7,7 @@ import SelectInput from '@/components/forms/SelectInput'
 import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, { SideDetailInfoGrid } from '@/components/layout/SideDetailPane'
 import { useLocale } from '@/hooks/useLocale'
 import { ApiFetchError, apiFetch } from '@/lib/apiFetch'
 import type { AcsLane, AcsZone } from '@/types/phase4'
@@ -28,6 +29,9 @@ export default function AcsLanes({ event, tenantId, zones, lanes: initialLanes }
   const [externalId, setExternalId] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const selected = lanes.find((lane) => lane.id === selectedId) ?? null
 
   async function handleCreate(formEvent: FormEvent<HTMLFormElement>) {
     formEvent.preventDefault()
@@ -79,7 +83,7 @@ export default function AcsLanes({ event, tenantId, zones, lanes: initialLanes }
         )}
       />
       <PageContent>
-        <ZoneLaneEditor zones={zones} lanes={lanes} showZones={false} />
+        <ZoneLaneEditor zones={zones} lanes={lanes} showZones={false} onLaneSelect={setSelectedId} />
 
         {zones.length === 0 ? (
           <div className="mt-6">
@@ -127,6 +131,23 @@ export default function AcsLanes({ event, tenantId, zones, lanes: initialLanes }
           </form>
         )}
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? selected.name : ''}
+        subtitle={selected ? selected.external_acs_lane_id : null}
+        onClose={() => setSelectedId(null)}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              { label: t('name'), value: selected.name },
+              { label: t('zone'), value: zones.find((z) => z.id === selected.zone_id)?.name ?? selected.zone_id },
+              { label: t('acsPageExternalLaneId'), value: selected.external_acs_lane_id },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
     </DashboardLayout>
   )
 }

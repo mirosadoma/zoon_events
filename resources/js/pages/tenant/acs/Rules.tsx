@@ -6,6 +6,7 @@ import SelectInput from '@/components/forms/SelectInput'
 import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, { SideDetailInfoGrid } from '@/components/layout/SideDetailPane'
 import { useLocale } from '@/hooks/useLocale'
 import { ApiFetchError, apiFetch } from '@/lib/apiFetch'
 import type { AcsLane, AcsRule, AcsZone } from '@/types/phase4'
@@ -30,6 +31,9 @@ export default function AcsRules({ event, tenantId, zones, lanes, rules: initial
   const [ticketTypeId, setTicketTypeId] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const selected = rules.find((rule) => rule.id === selectedId) ?? null
 
   async function handleCreate(formEvent: FormEvent<HTMLFormElement>) {
     formEvent.preventDefault()
@@ -78,7 +82,7 @@ export default function AcsRules({ event, tenantId, zones, lanes, rules: initial
         )}
       />
       <PageContent>
-        <RuleEditor rules={rules} zones={zones} lanes={lanes} />
+        <RuleEditor rules={rules} zones={zones} lanes={lanes} onRuleSelect={setSelectedId} />
 
         {zones.length === 0 ? (
           <div className="mt-6">
@@ -140,6 +144,30 @@ export default function AcsRules({ event, tenantId, zones, lanes, rules: initial
           </form>
         )}
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? `${t('acsPageRules')} #${selected.id}` : ''}
+        onClose={() => setSelectedId(null)}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              { label: t('zone'), value: zones.find((z) => z.id === selected.zone_id)?.name ?? selected.zone_id },
+              {
+                label: t('acsPageLaneOptional'),
+                value: selected.lane_id ? lanes.find((l) => l.id === selected.lane_id)?.name ?? selected.lane_id : '—',
+              },
+              {
+                label: t('acsPageTicketTypeOptional'),
+                value: selected.ticket_type_id
+                  ? ticketTypes.find((t) => t.id === selected.ticket_type_id)?.name[locale] ?? selected.ticket_type_id
+                  : '—',
+              },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
     </DashboardLayout>
   )
 }

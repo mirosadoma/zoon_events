@@ -6,6 +6,7 @@ import DateTimeInput from '@/components/forms/DateTimeInput'
 import SelectInput from '@/components/forms/SelectInput'
 import TextInput from '@/components/forms/TextInput'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, { SideDetailInfoGrid } from '@/components/layout/SideDetailPane'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import FiltersBar from '@/components/tables/FiltersBar'
@@ -51,6 +52,9 @@ export default function AdminAuditLogs({ auditLogs, filters }: Props) {
     outcome: filters.outcome ?? '',
     actor_id: filters.actor_id ?? '',
   })
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const selected = auditLogs.find((log) => log.id === selectedId) ?? null
 
   function submitFilters(event: FormEvent) {
     event.preventDefault()
@@ -104,6 +108,8 @@ export default function AdminAuditLogs({ auditLogs, filters }: Props) {
           <DataTable
             rows={auditLogs as unknown as Record<string, unknown>[]}
             getRowKey={(row) => String(row.id)}
+            selectedRowKey={selectedId}
+            onRowClick={(row) => setSelectedId(String(row.id))}
             columns={[
               {
                 key: 'occurred_at',
@@ -141,6 +147,35 @@ export default function AdminAuditLogs({ auditLogs, filters }: Props) {
           />
         )}
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? `Audit Log #${selected.id}` : ''}
+        onClose={() => setSelectedId(null)}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              {
+                label: messages.adminOccurredAt,
+                value: selected.occurred_at ? new Date(selected.occurred_at).toLocaleString() : '—',
+              },
+              { label: messages.adminFilterAction, value: auditActionLabel(selected.action, locale) },
+              { label: messages.adminFilterOutcome, value: <StatusBadge status={selected.outcome} /> },
+              {
+                label: t('auditLogsFailureReason'),
+                value: selected.outcome === 'failed' ? (selected.reason_code ?? t('auditLogsFailedNoDetails')) : '—',
+              },
+              { label: messages.adminFilterActor, value: selected.actor_id ?? '—' },
+              {
+                label: messages.adminTargetType,
+                value: selected.target_type ? auditTargetTypeLabel(selected.target_type, locale) : '—',
+              },
+              { label: messages.adminTargetId, value: selected.target_id ?? '—' },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
     </DashboardLayout>
   )
 }

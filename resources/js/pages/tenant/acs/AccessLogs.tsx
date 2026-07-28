@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, { SideDetailInfoGrid } from '@/components/layout/SideDetailPane'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import { useLocale } from '@/hooks/useLocale'
@@ -20,6 +21,9 @@ type Props = {
 export default function AcsAccessLogs({ event, tenantId, accessEvents: initialEvents }: Props) {
   const { locale, t } = useLocale()
   const [events, setEvents] = useState(initialEvents)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const selected = events.find((evt) => evt.id === selectedId) ?? null
 
   useEffect(() => {
     let active = true
@@ -71,6 +75,8 @@ export default function AcsAccessLogs({ event, tenantId, accessEvents: initialEv
             title={t('acsPageRecentEvents')}
             rows={events as unknown as Record<string, unknown>[]}
             getRowKey={(row) => String(row.id)}
+            selectedRowKey={selectedId}
+            onRowClick={(row) => setSelectedId(String(row.id))}
             columns={[
               {
                 key: 'occurred_at',
@@ -100,6 +106,24 @@ export default function AcsAccessLogs({ event, tenantId, accessEvents: initialEv
           />
         )}
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? `Event #${selected.id}` : ''}
+        onClose={() => setSelectedId(null)}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              { label: t('acsPageOccurred'), value: String(selected.occurred_at) },
+              { label: t('acsPageType'), value: selected.event_type },
+              { label: t('acsPageDirection'), value: selected.direction },
+              { label: t('acsPageDecision'), value: selected.decision ? <StatusBadge status={selected.decision} /> : '—' },
+              { label: t('reason'), value: selected.reason_code },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
     </DashboardLayout>
   )
 }

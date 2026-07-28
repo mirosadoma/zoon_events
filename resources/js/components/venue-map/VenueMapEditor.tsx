@@ -4,6 +4,8 @@ import {
   CircleEllipsis,
   Columns3,
   Hexagon,
+  ImagePlus,
+  ImageOff,
   MousePointer2,
   Pentagon,
   PersonStanding,
@@ -76,6 +78,12 @@ function toDraft(zones: Array<Record<string, unknown>>): MapZone[] {
     description_en: zone.description_en ? String(zone.description_en) : null,
     description_ar: zone.description_ar ? String(zone.description_ar) : null,
     type: String(zone.type ?? 'hall'),
+    floor_type: zone.floor_type === 'basement' || zone.floor_type === 'floor'
+      ? zone.floor_type
+      : null,
+    floor_number: zone.floor_number === null || zone.floor_number === undefined
+      ? null
+      : Number(zone.floor_number),
     capacity: zone.capacity === null || zone.capacity === undefined ? null : Number(zone.capacity),
     shape_type: (zone.shape_type as MapZone['shape_type']) ?? null,
     coordinate_space: (zone.coordinate_space as MapZone['coordinate_space']) ?? undefined,
@@ -94,6 +102,8 @@ function toDraft(zones: Array<Record<string, unknown>>): MapZone[] {
     lat: zone.lat === null || zone.lat === undefined ? null : Number(zone.lat),
     lng: zone.lng === null || zone.lng === undefined ? null : Number(zone.lng),
     fill_color: zone.fill_color ? String(zone.fill_color) : null,
+    fill_image_path: zone.fill_image_path ? String(zone.fill_image_path) : null,
+    fill_image_url: zone.fill_image_url ? String(zone.fill_image_url) : null,
     stroke_color: zone.stroke_color ? String(zone.stroke_color) : null,
     opacity: zone.opacity === null || zone.opacity === undefined ? null : Number(zone.opacity),
     stroke_width: zone.stroke_width === null || zone.stroke_width === undefined
@@ -219,6 +229,7 @@ export default function VenueMapEditor({
   const { locale, t } = useLocale()
   const { toast } = useToast()
   const fileRef = useRef<HTMLInputElement | null>(null)
+  const fillImageFileRef = useRef<HTMLInputElement | null>(null)
   const [map, setMap] = useState<VenueMapData | null>(initialMap)
   const [tool, setTool] = useState<EditorTool>('select')
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
@@ -226,6 +237,9 @@ export default function VenueMapEditor({
   const [draftPoint, setDraftPoint] = useState<GeoPoint | RelativePoint | null>(null)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [uploadingFillImage, setUploadingFillImage] = useState(false)
+  const [removingFillImage, setRemovingFillImage] = useState(false)
+  const [fillMode, setFillMode] = useState<'color' | 'image'>('color')
   const [deletingImage, setDeletingImage] = useState(false)
   const [savingOverlay, setSavingOverlay] = useState(false)
   const [locationPickerOpen, setLocationPickerOpen] = useState(false)
@@ -360,6 +374,16 @@ export default function VenueMapEditor({
       : null)
   const useGeoEditor = Boolean(resolvedBaseCenter)
   const migratedRef = useRef(false)
+
+  useEffect(() => {
+    if (!selected) {
+      setFillMode('color')
+      return
+    }
+    setFillMode(selected.fill_image_url ? 'image' : 'color')
+    // Only reset the tab when switching zones — mode changes are handled by the toggle/upload handlers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.key])
 
   useEffect(() => {
     if (!useGeoEditor || migratedRef.current) return
@@ -503,6 +527,99 @@ export default function VenueMapEditor({
     commitZones(history.zones.map((zone) => (
       zone.key === selected.key ? { ...zone, ...patch } : zone
     )))
+  }
+
+  async function uploadZoneFillImage(file: File) {
+    if (!selected?.id) {
+      toast(t('venueMapFillImageSaveFirst'), 'info')
+      return
+    }
+
+    setUploadingFillImage(true)
+    try {
+      const body = new FormData()
+      body.append('image', file)
+      const result = await apiFetch<{ zone: Record<string, unknown> }>(
+        `/api/v1/tenant/events/${eventId}/venues/${venueId}/zones/${selected.id}/fill-image`,
+        { method: 'POST', tenantId, body },
+      )
+      updateSelected({
+        fill_image_url: result.zone.fill_image_url
+          ? String(result.zone.fill_image_url)
+          : null,
+        fill_image_path: result.zone.fill_image_path
+          ? String(result.zone.fill_image_path)
+          : null,
+        fill_color: null,
+      })
+      setFillMode('image')
+      toast(t('saved'), 'success')
+    } catch (caught) {
+      toast(caught instanceof ApiFetchError ? caught.message : t('requestFailed'), 'error')
+    } finally {
+      setUploadingFillImage(false)
+    }
+  }
+
+  async function removeZoneFillImage() {
+    if (!selected) return
+
+    if (!selected.id || !selected.fill_image_url) {
+      updateSelected({
+        fill_image_url: null,
+        fill_image_path: null,
+        fill_color: selected.fill_color ?? defaultFillForType(selected.type),
+      })
+      setFillMode('color')
+      return
+    }
+
+    setRemovingFillImage(true)
+    try {
+      const result = await apiFetch<{ zone: Record<string, unknown> }>(
+        `/api/v1/tenant/events/${eventId}/venues/${venueId}/zones/${selected.id}/fill-image`,
+        { method: 'DELETE', tenantId, idempotency: true },
+      )
+      updateSelected({
+        fill_image_url: null,
+        fill_image_path: null,
+        fill_color: result.zone.fill_color
+          ? String(result.zone.fill_color)
+          : defaultFillForType(selected.type),
+      })
+      setFillMode('color')
+    } catch (caught) {
+      toast(caught instanceof ApiFetchError ? caught.message : t('requestFailed'), 'error')
+    } finally {
+      setRemovingFillImage(false)
+    }
+  }
+
+  function switchFillMode(mode: 'color' | 'image') {
+    if (!selected || mode === fillMode) return
+
+    if (mode === 'image') {
+      setFillMode('image')
+      return
+    }
+
+    setFillMode('color')
+    if (selected.fill_image_url) {
+      void removeZoneFillImage()
+    }
+  }
+
+  function openFillImagePicker() {
+    if (!selected) {
+      toast(t('venueMapFillImageSelectZone'), 'info')
+      return
+    }
+    if (!selected.id) {
+      toast(t('venueMapFillImageSaveFirst'), 'info')
+      return
+    }
+    setFillMode('image')
+    fillImageFileRef.current?.click()
   }
 
   function updateSelectedPath(patch: Partial<MapPath>) {
@@ -714,6 +831,8 @@ export default function VenueMapEditor({
                 description_en: zone.description_en?.trim() || null,
                 description_ar: zone.description_ar?.trim() || null,
                 type: zone.type,
+                floor_type: zone.floor_type,
+                floor_number: zone.floor_type === 'floor' ? zone.floor_number : null,
                 capacity: zone.capacity,
                 shape_type,
                 coordinate_space: zone.coordinate_space ?? 'geo',
@@ -725,7 +844,9 @@ export default function VenueMapEditor({
                 google_maps_url: zone.google_maps_url,
                 lat: zone.lat,
                 lng: zone.lng,
-                fill_color: zone.fill_color ?? defaultFillForType(zone.type),
+                fill_color: zone.fill_image_url
+                  ? null
+                  : (zone.fill_color ?? defaultFillForType(zone.type)),
                 stroke_color: zone.stroke_color ?? '#111827',
                 opacity: zone.opacity ?? 45,
                 stroke_width: zone.stroke_width ?? 2,
@@ -857,6 +978,37 @@ export default function VenueMapEditor({
             <Redo2 size={16} />
             {t('venueMapRedo')}
           </button>
+          <button
+            type="button"
+            className="button-secondary text-[var(--danger)]"
+            title={t('venueMapDeleteFillImage')}
+            disabled={!selected?.fill_image_url || removingFillImage || uploadingFillImage}
+            onClick={() => void removeZoneFillImage()}
+          >
+            <ImageOff size={16} />
+            {removingFillImage ? t('venueMapRemovingFillImage') : t('venueMapDeleteFillImage')}
+          </button>
+          <button
+            type="button"
+            className="button-secondary"
+            title={selected?.id ? t('venueMapUploadFillImage') : t('venueMapFillImageSaveFirst')}
+            disabled={!selected || uploadingFillImage}
+            onClick={openFillImagePicker}
+          >
+            <ImagePlus size={16} />
+            {uploadingFillImage ? t('venueMapUploadingFillImage') : t('venueMapUploadFillImage')}
+          </button>
+          <input
+            ref={fillImageFileRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(changeEvent) => {
+              const file = changeEvent.target.files?.[0]
+              changeEvent.target.value = ''
+              if (file) void uploadZoneFillImage(file)
+            }}
+          />
           {selected?.shape_type ? (
             <button
               type="button"
@@ -1076,6 +1228,7 @@ export default function VenueMapEditor({
           ) : null}
         </div>
 
+        <div className="venue-map-editor__sidebar-scroll">
         <div>
           <h2>{t('venueMapZones')}</h2>
           <p className="text-sm text-[var(--muted)]">{t('venueMapZonesHint')}</p>
@@ -1131,6 +1284,8 @@ export default function VenueMapEditor({
                   description_en: null,
                   description_ar: null,
                   type: zoneTypes[0] ?? 'hall',
+                  floor_type: null,
+                  floor_number: null,
                   capacity: null,
                   coordinate_space: 'geo',
                   shape_type: null,
@@ -1143,6 +1298,8 @@ export default function VenueMapEditor({
                   lat: venueLatitude,
                   lng: venueLongitude,
                   fill_color: defaultFillForType(zoneTypes[0] ?? 'hall'),
+                  fill_image_path: null,
+                  fill_image_url: null,
                   stroke_color: '#111827',
                   opacity: 45,
                   stroke_width: 2,
@@ -1299,23 +1456,139 @@ export default function VenueMapEditor({
               value={selected.type}
               onChange={(e) => updateSelected({
                 type: e.target.value,
-                fill_color: defaultFillForType(e.target.value),
+                fill_color: selected.fill_image_url
+                  ? selected.fill_color
+                  : defaultFillForType(e.target.value),
               })}
               options={typeOptions}
             />
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium text-[var(--ink)]">{t('eventZoneFloorType')}</legend>
+              <label className="venue-map-editor__check">
+                <input
+                  type="radio"
+                  name="floor_type"
+                  checked={selected.floor_type === 'basement'}
+                  onChange={() => updateSelected({ floor_type: 'basement', floor_number: null })}
+                />
+                <span>{t('eventZoneFloorType_basement')}</span>
+              </label>
+              <label className="venue-map-editor__check">
+                <input
+                  type="radio"
+                  name="floor_type"
+                  checked={selected.floor_type === 'floor'}
+                  onChange={() => updateSelected({
+                    floor_type: 'floor',
+                    floor_number: selected.floor_number ?? 1,
+                  })}
+                />
+                <span>{t('eventZoneFloorType_floor')}</span>
+              </label>
+            </fieldset>
+            {selected.floor_type === 'floor' ? (
+              <TextInput
+                label={t('eventZoneFloorNumber')}
+                name="floor_number"
+                type="number"
+                min={0}
+                max={500}
+                value={String(selected.floor_number ?? 1)}
+                onChange={(e) => updateSelected({
+                  floor_number: e.target.value.trim() === '' ? null : Number(e.target.value),
+                })}
+              />
+            ) : null}
             <TextInput
               label={t('venueMapLabel')}
               name="label"
               value={selected.label ?? ''}
               onChange={(e) => updateSelected({ label: e.target.value || null })}
             />
-            <TextInput
-              label={t('venueMapFillColor')}
-              name="fill_color"
-              type="color"
-              value={selected.fill_color ?? defaultFillForType(selected.type)}
-              onChange={(e) => updateSelected({ fill_color: e.target.value })}
-            />
+            <fieldset className="venue-map-editor__fill-panel">
+              <legend className="venue-map-editor__fill-legend">{t('venueMapFillMode')}</legend>
+              <div className="venue-map-editor__fill-tabs" role="tablist" aria-label={t('venueMapFillMode')}>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={fillMode === 'color'}
+                  className={fillMode === 'color' ? 'is-active' : undefined}
+                  disabled={removingFillImage || uploadingFillImage}
+                  onClick={() => switchFillMode('color')}
+                >
+                  {t('venueMapFillModeColor')}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={fillMode === 'image'}
+                  className={fillMode === 'image' ? 'is-active' : undefined}
+                  disabled={removingFillImage || uploadingFillImage}
+                  onClick={() => switchFillMode('image')}
+                >
+                  {t('venueMapFillModeImage')}
+                </button>
+              </div>
+
+              {fillMode === 'color' ? (
+                <div className="venue-map-editor__fill-color">
+                  <TextInput
+                    label={t('venueMapFillColor')}
+                    name="fill_color"
+                    type="color"
+                    value={selected.fill_color ?? defaultFillForType(selected.type)}
+                    onChange={(e) => updateSelected({
+                      fill_color: e.target.value,
+                      fill_image_url: null,
+                      fill_image_path: null,
+                    })}
+                  />
+                </div>
+              ) : selected.fill_image_url ? (
+                <div className="venue-map-editor__fill-preview">
+                  <div className="venue-map-editor__fill-preview-frame">
+                    <img src={selected.fill_image_url} alt="" />
+                  </div>
+                  <div className="venue-map-editor__fill-preview-actions">
+                    <button
+                      type="button"
+                      className="button-secondary"
+                      disabled={uploadingFillImage || removingFillImage}
+                      onClick={openFillImagePicker}
+                    >
+                      <ImagePlus size={14} />
+                      {t('venueMapReplaceFillImage')}
+                    </button>
+                    <button
+                      type="button"
+                      className="button-secondary text-[var(--danger)]"
+                      disabled={uploadingFillImage || removingFillImage}
+                      onClick={() => void removeZoneFillImage()}
+                    >
+                      <Trash2 size={14} />
+                      {removingFillImage ? t('venueMapRemovingFillImage') : t('venueMapRemoveFillImage')}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="venue-map-editor__fill-dropzone"
+                  disabled={!selected.id || uploadingFillImage}
+                  onClick={openFillImagePicker}
+                >
+                  <span className="venue-map-editor__fill-dropzone-icon" aria-hidden>
+                    <ImagePlus size={20} />
+                  </span>
+                  <span className="venue-map-editor__fill-dropzone-title">
+                    {uploadingFillImage ? t('venueMapUploadingFillImage') : t('venueMapUploadFillImage')}
+                  </span>
+                  <span className="venue-map-editor__fill-dropzone-hint">
+                    {selected.id ? t('venueMapFillImageHint') : t('venueMapFillImageSaveFirst')}
+                  </span>
+                </button>
+              )}
+            </fieldset>
             <TextInput
               label={t('venueMapOpacity')}
               name="opacity"
@@ -1447,6 +1720,7 @@ export default function VenueMapEditor({
             </button>
           </div>
         ) : null}
+        </div>
       </aside>
     </form>
   )

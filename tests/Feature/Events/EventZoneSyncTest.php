@@ -275,4 +275,102 @@ final class EventZoneSyncTest extends Phase1MySqlTestCase
             ->assertJsonPath('data.zones.0.shape_type', 'polygon');
         self::assertCount(5, $extraVertex->json('data.zones.0.polygon_coordinates'));
     }
+
+    #[Test]
+    public function it_syncs_floor_type_and_floor_number_for_zones(): void
+    {
+        $this->seed(PermissionCatalogSeeder::class);
+
+        $fixture = $this->createRegistrationFixture();
+        $actor = $fixture['actor'];
+        $tenant = $fixture['tenant'];
+        $event = $fixture['event'];
+
+        $membership = TenantMembership::query()->create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $actor->id,
+            'status' => 'active',
+            'created_by_user_id' => $actor->id,
+        ]);
+        $this->grantTenantPermissions($tenant, $membership, ['event.manage', 'event.view']);
+
+        $country = Country::query()->first() ?? Country::query()->create([
+            'code' => 'SA',
+            'name_en' => 'Saudi Arabia',
+            'name_ar' => 'السعودية',
+        ]);
+        $city = City::query()->where('country_id', $country->id)->first() ?? City::query()->create([
+            'country_id' => $country->id,
+            'name_en' => 'Riyadh',
+            'name_ar' => 'الرياض',
+        ]);
+
+        $venue = EventVenue::query()->create([
+            'tenant_id' => $tenant->id,
+            'event_id' => $event->id,
+            'country_id' => $country->id,
+            'city_id' => $city->id,
+            'name_en' => 'Main Venue',
+            'name_ar' => 'الموقع الرئيسي',
+            'location_address' => 'King Fahd Rd',
+            'start_at' => '2027-01-10 08:00:00',
+            'end_at' => '2027-01-10 18:00:00',
+            'sort_order' => 0,
+        ]);
+
+        $this->actingAsTenantMember($actor, $tenant);
+
+        $response = $this->putJson(
+            "/api/v1/tenant/events/{$event->id}/zones",
+            [
+                'venue_id' => $venue->id,
+                'zones' => [
+                    [
+                        'zone_name_en' => 'Basement Hall',
+                        'zone_name_ar' => 'قاعة القبو',
+                        'type' => 'hall',
+                        'floor_type' => 'basement',
+                    ],
+                    [
+                        'zone_name_en' => 'Floor 2 Room',
+                        'zone_name_ar' => 'غرفة الطابق 2',
+                        'type' => 'room',
+                        'floor_type' => 'floor',
+                        'floor_number' => 2,
+                    ],
+                ],
+            ],
+            [
+                'X-Tenant-ID' => (string) $tenant->id,
+                'Idempotency-Key' => (string) Str::ulid(),
+            ],
+        );
+
+        $response->assertOk()
+            ->assertJsonPath('data.zones.0.floor_type', 'basement')
+            ->assertJsonPath('data.zones.0.floor_number', null)
+            ->assertJsonPath('data.zones.1.floor_type', 'floor')
+            ->assertJsonPath('data.zones.1.floor_number', 2);
+
+        $missingFloorNumber = $this->putJson(
+            "/api/v1/tenant/events/{$event->id}/zones",
+            [
+                'venue_id' => $venue->id,
+                'zones' => [
+                    [
+                        'zone_name_en' => 'Bad Floor',
+                        'zone_name_ar' => 'طابق خاطئ',
+                        'type' => 'hall',
+                        'floor_type' => 'floor',
+                    ],
+                ],
+            ],
+            [
+                'X-Tenant-ID' => (string) $tenant->id,
+                'Idempotency-Key' => (string) Str::ulid(),
+            ],
+        );
+
+        $missingFloorNumber->assertStatus(422);
+    }
 }

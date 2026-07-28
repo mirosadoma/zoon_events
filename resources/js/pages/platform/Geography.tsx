@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, { SideDetailInfoGrid } from '@/components/layout/SideDetailPane'
 import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
 import TextInput from '@/components/forms/TextInput'
 import CheckboxInput from '@/components/forms/CheckboxInput'
@@ -42,6 +43,9 @@ export default function Geography({ countries }: Props) {
     name_ar: '',
     is_active: true,
   })
+  const [selectedCountryId, setSelectedCountryId] = useState<string | null>(null)
+
+  const selectedCountry = countries.find((c) => c.id === selectedCountryId) ?? null
 
   function submitCountry(event: React.FormEvent) {
     event.preventDefault()
@@ -103,12 +107,15 @@ export default function Geography({ countries }: Props) {
                 <th>{t('geographyCode')}</th>
                 <th>{t('geographyCities')}</th>
                 <th>{t('geographyStatus')}</th>
-                <th />
               </tr>
             </thead>
             <tbody>
               {countries.map((country) => (
-                <tr key={country.id}>
+                <tr
+                  key={country.id}
+                  onClick={() => setSelectedCountryId(country.id)}
+                  className={selectedCountryId === country.id ? 'ta-table-row-selected cursor-pointer' : 'cursor-pointer'}
+                >
                   <td>{locale === 'ar' ? country.name_ar : country.name_en}</td>
                   <td>{country.code}</td>
                   <td>
@@ -119,7 +126,10 @@ export default function Geography({ countries }: Props) {
                           <button
                             type="button"
                             className="text-xs text-red-600"
-                            onClick={() => localizedRouter.delete(`/platform/geography/cities/${city.id}`, { preserveScroll: true })}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              localizedRouter.delete(`/platform/geography/cities/${city.id}`, { preserveScroll: true })
+                            }}
                           >
                             {t('delete')}
                           </button>
@@ -128,21 +138,36 @@ export default function Geography({ countries }: Props) {
                     </ul>
                   </td>
                   <td>{country.is_active ? t('geographyActiveStatus') : t('geographyInactiveStatus')}</td>
-                  <td className="ta-table-actions">
-                    <button
-                      type="button"
-                      className="ta-table-action"
-                      onClick={() => localizedRouter.delete(`/platform/geography/countries/${country.id}`, { preserveScroll: true })}
-                    >
-                      {t('delete')}
-                    </button>
-                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </PageContent>
+
+      <SideDetailPane
+        open={selectedCountry !== null}
+        title={selectedCountry ? (locale === 'ar' ? selectedCountry.name_ar : selectedCountry.name_en) : ''}
+        subtitle={selectedCountry ? selectedCountry.code : null}
+        onClose={() => setSelectedCountryId(null)}
+        onDelete={selectedCountry ? () => localizedRouter.delete(`/platform/geography/countries/${selectedCountry.id}`, { preserveScroll: true }) : null}
+      >
+        {selectedCountry ? (
+          <SideDetailInfoGrid
+            items={[
+              { label: t('geographyCountry'), value: locale === 'ar' ? selectedCountry.name_ar : selectedCountry.name_en },
+              { label: t('geographyCode'), value: selectedCountry.code },
+              {
+                label: t('geographyCities'),
+                value: selectedCountry.cities.length > 0
+                  ? selectedCountry.cities.map((city) => (locale === 'ar' ? city.name_ar : city.name_en)).join(', ')
+                  : '—',
+              },
+              { label: t('geographyStatus'), value: selectedCountry.is_active ? t('geographyActiveStatus') : t('geographyInactiveStatus') },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
     </DashboardLayout>
   )
 }

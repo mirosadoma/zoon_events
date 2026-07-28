@@ -2,6 +2,11 @@ import { useState } from 'react'
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, {
+  SideDetailActions,
+  SideDetailInfoGrid,
+  sideDetailActionClassName,
+} from '@/components/layout/SideDetailPane'
 import StatusBadge from '@/components/status/StatusBadge'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { useLocale } from '@/hooks/useLocale'
@@ -55,6 +60,8 @@ export default function SubscriptionPlanShow({ plan, subscriptions, canManage }:
   const { locale, t } = useLocale()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const selected = subscriptions.find((sub) => sub.id === selectedId) ?? null
   const planName = locale === 'ar' ? plan.name_ar || plan.name : plan.name
 
   async function renew(subscriptionId: string) {
@@ -119,12 +126,15 @@ export default function SubscriptionPlanShow({ plan, subscriptions, canManage }:
                     <th>{t('subscriptionPlanColumnStarts')}</th>
                     <th>{t('subscriptionPlanColumnEnds')}</th>
                     <th>{t('subscriptionPlanColumnPaid')}</th>
-                    {canManage && <th>{t('actions')}</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {subscriptions.map((sub) => (
-                    <tr key={sub.id}>
+                    <tr
+                      key={sub.id}
+                      onClick={() => setSelectedId(sub.id)}
+                      className={selectedId === sub.id ? 'ta-table-row-selected cursor-pointer' : 'cursor-pointer'}
+                    >
                       <td className="font-medium text-[var(--ink)]">{sub.tenant_name}</td>
                       <td><StatusBadge status={sub.status} /></td>
                       <td className="text-sm text-[var(--muted)]">
@@ -134,18 +144,6 @@ export default function SubscriptionPlanShow({ plan, subscriptions, canManage }:
                         {sub.ends_at ? new Date(sub.ends_at).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB') : '—'}
                       </td>
                       <td className="text-sm text-[var(--muted)]">{sub.amount_paid}</td>
-                      {canManage && (
-                        <td>
-                          <button
-                            type="button"
-                            disabled={loading}
-                            onClick={() => void renew(sub.id)}
-                            className="ta-table-action"
-                          >
-                            {t('subscriptionPlanRenew')}
-                          </button>
-                        </td>
-                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -154,6 +152,47 @@ export default function SubscriptionPlanShow({ plan, subscriptions, canManage }:
           </div>
         )}
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected?.tenant_name ?? ''}
+        subtitle={selected?.status ?? null}
+        onClose={() => setSelectedId(null)}
+        footer={canManage && selected ? (
+          <SideDetailActions>
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => void renew(selected.id)}
+              className={`${sideDetailActionClassName('primary')} disabled:opacity-50`}
+            >
+              {t('subscriptionPlanRenew')}
+            </button>
+          </SideDetailActions>
+        ) : null}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              { label: t('subscriptionPlanColumnTenant'), value: selected.tenant_name },
+              { label: t('subscriptionPlanColumnStatus'), value: <StatusBadge status={selected.status} /> },
+              {
+                label: t('subscriptionPlanColumnStarts'),
+                value: selected.starts_at
+                  ? new Date(selected.starts_at).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB')
+                  : '—',
+              },
+              {
+                label: t('subscriptionPlanColumnEnds'),
+                value: selected.ends_at
+                  ? new Date(selected.ends_at).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB')
+                  : '—',
+              },
+              { label: t('subscriptionPlanColumnPaid'), value: selected.amount_paid },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
     </DashboardLayout>
   )
 }

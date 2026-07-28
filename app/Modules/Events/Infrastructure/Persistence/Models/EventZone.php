@@ -20,6 +20,8 @@ final class EventZone extends Model
         'description_en',
         'description_ar',
         'type',
+        'floor_type',
+        'floor_number',
         'capacity',
         'shape_type',
         'coordinate_space',
@@ -32,6 +34,7 @@ final class EventZone extends Model
         'lat',
         'lng',
         'fill_color',
+        'fill_image_path',
         'stroke_color',
         'opacity',
         'stroke_width',
@@ -43,6 +46,7 @@ final class EventZone extends Model
             'type' => EventZoneType::class,
             'shape_type' => EventZoneShapeType::class,
             'capacity' => 'integer',
+            'floor_number' => 'integer',
             'polygon_coordinates' => 'array',
             'shape_radius' => 'float',
             'shape_rotation' => 'float',
@@ -52,6 +56,19 @@ final class EventZone extends Model
             'opacity' => 'integer',
             'stroke_width' => 'integer',
         ];
+    }
+
+    public function fillImageUrl(): ?string
+    {
+        if ($this->fill_image_path === null || $this->fill_image_path === '') {
+            return null;
+        }
+
+        $relativeUrl = \Illuminate\Support\Facades\Storage::disk('public')->url($this->fill_image_path);
+
+        return str_starts_with($relativeUrl, 'http://') || str_starts_with($relativeUrl, 'https://')
+            ? $relativeUrl
+            : url($relativeUrl);
     }
 
     public function event(): BelongsTo

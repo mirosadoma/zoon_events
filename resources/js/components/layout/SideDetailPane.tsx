@@ -16,6 +16,20 @@ type SideDetailPaneProps = {
   children: ReactNode
 }
 
+export function sideDetailActionClassName(variant: 'primary' | 'secondary' | 'danger' = 'secondary'): string {
+  if (variant === 'primary') {
+    return 'inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[color-mix(in_srgb,var(--brand)_35%,var(--border))] bg-[var(--brand-soft)] px-4 py-2.5 text-sm font-semibold text-[var(--brand)] transition hover:brightness-95'
+  }
+  if (variant === 'danger') {
+    return 'inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[color-mix(in_srgb,var(--danger)_30%,var(--border))] bg-[var(--surface-elevated)] px-4 py-2.5 text-sm font-semibold text-[var(--danger)] transition hover:bg-[var(--danger-soft)]'
+  }
+  return 'inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2.5 text-sm font-semibold text-[var(--ink)] transition hover:border-[color-mix(in_srgb,var(--brand)_35%,var(--border))] hover:bg-[var(--brand-soft)] hover:text-[var(--brand)]'
+}
+
+export function SideDetailActions({ children }: { children: ReactNode }) {
+  return <div className="flex flex-col gap-2">{children}</div>
+}
+
 export default function SideDetailPane({
   open,
   title,
@@ -43,7 +57,7 @@ export default function SideDetailPane({
         aria-label={t('close')}
         onClick={onClose}
       />
-      <aside className="side-detail-pane relative flex h-full w-full max-w-[26rem] flex-col bg-[var(--surface-elevated)] shadow-[-12px_0_40px_rgba(15,23,42,0.12)] mt-16">
+      <aside className="side-detail-pane relative mt-16 flex h-[calc(100%-4rem)] w-full max-w-[26rem] flex-col bg-[var(--surface-elevated)] shadow-[-12px_0_40px_rgba(15,23,42,0.12)]">
         <header className="shrink-0 border-b border-[var(--border)] px-5 pb-4 pt-5">
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
@@ -55,7 +69,7 @@ export default function SideDetailPane({
               ) : null}
             </div>
             <div className="flex shrink-0 items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)]/70 p-1">
-              {/* {onEdit ? (
+              {onEdit ? (
                 <button
                   type="button"
                   className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--muted)] transition hover:bg-[var(--brand-soft)] hover:text-[var(--brand)]"
@@ -65,7 +79,7 @@ export default function SideDetailPane({
                 >
                   <Pencil className="h-3.5 w-3.5" aria-hidden />
                 </button>
-              ) : null} */}
+              ) : null}
               {onDelete ? (
                 <button
                   type="button"

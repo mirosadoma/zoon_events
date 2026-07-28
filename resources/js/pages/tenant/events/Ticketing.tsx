@@ -11,6 +11,11 @@ import DateTimeInput from '@/components/forms/DateTimeInput'
 import { toDateTimeLocalValue } from '@/lib/dateTimeLocal'
 import SelectInput from '@/components/forms/SelectInput'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, {
+  SideDetailActions,
+  SideDetailInfoGrid,
+  sideDetailActionClassName,
+} from '@/components/layout/SideDetailPane'
 import StatusBadge from '@/components/status/StatusBadge'
 import { useFormValidation } from '@/hooks/useFormValidation'
 import { useLocale } from '@/hooks/useLocale'
@@ -133,6 +138,7 @@ export default function Ticketing({ tenantId, event, tickets }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const errors = validation.fieldErrors
   const [submitting, setSubmitting] = useState<'save' | string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const attendeeOptions = useMemo(
     () => ATTENDEE_TYPES.map((type) => ({
@@ -151,6 +157,7 @@ export default function Ticketing({ tenantId, event, tickets }: Props) {
   )
 
   const priceLabel = t('ticketTypePrice').replace(':currency', currencyLabel(form.currency, locale))
+  const selected = tickets.find((ticket) => ticket.id === selectedId) ?? null
 
   function extractErrors(body: unknown): FormErrors {
     if (typeof body !== 'object' || body === null) return {}
@@ -341,12 +348,15 @@ export default function Ticketing({ tenantId, event, tickets }: Props) {
                   <th>{t('ticketTypePrice')}</th>
                   <th>{t('ticketTypeInventory')}</th>
                   <th>{t('status')}</th>
-                  <th />
                 </tr>
               </thead>
               <tbody>
                 {tickets.map((ticket) => (
-                  <tr key={ticket.id}>
+                  <tr
+                    key={ticket.id}
+                    onClick={() => setSelectedId(ticket.id)}
+                    className={selectedId === ticket.id ? 'ta-table-row-selected cursor-pointer' : 'cursor-pointer'}
+                  >
                     <td className="font-medium">{ticket.name[locale]}</td>
                     <td>{ticket.code}</td>
                     <td>{attendeeOptions.find((option) => option.value === ticket.attendee_type)?.label ?? ticket.attendee_type}</td>
@@ -358,20 +368,6 @@ export default function Ticketing({ tenantId, event, tickets }: Props) {
                         <InventoryStatus state={ticket.state} locale={locale} />
                       </div>
                     </td>
-                    <td className="ta-table-actions">
-                      <button type="button" className="ta-table-action cursor-pointer" onClick={() => startEdit(ticket)}>
-                        {t('edit')}
-                      </button>
-                      {ticket.status === 'paused' ? (
-                        <button type="button" className="ta-table-action cursor-pointer" disabled={submitting === ticket.id} onClick={() => void toggleStatus(ticket, 'active')}>
-                          {t('activate')}
-                        </button>
-                      ) : (
-                        <button type="button" className="ta-table-action cursor-pointer" disabled={submitting === ticket.id} onClick={() => void toggleStatus(ticket, 'paused')}>
-                          {t('pause')}
-                        </button>
-                      )}
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -379,6 +375,83 @@ export default function Ticketing({ tenantId, event, tickets }: Props) {
           </div>
         )}
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? selected.name[locale] : ''}
+        subtitle={selected ? selected.code : null}
+        onClose={() => setSelectedId(null)}
+        onEdit={() => {
+          if (selected) {
+            startEdit(selected)
+            setSelectedId(null)
+          }
+        }}
+        footer={selected ? (
+          <SideDetailActions>
+            <button
+              type="button"
+              className={sideDetailActionClassName('primary')}
+              onClick={() => {
+                startEdit(selected)
+                setSelectedId(null)
+              }}
+            >
+              {t('edit')}
+            </button>
+            {selected.status === 'paused' ? (
+              <button
+                type="button"
+                className={sideDetailActionClassName()}
+                disabled={submitting === selected.id}
+                onClick={() => void toggleStatus(selected, 'active')}
+              >
+                {t('activate')}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={sideDetailActionClassName()}
+                disabled={submitting === selected.id}
+                onClick={() => void toggleStatus(selected, 'paused')}
+              >
+                {t('pause')}
+              </button>
+            )}
+          </SideDetailActions>
+        ) : null}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              { label: t('ticketTypeName'), value: selected.name[locale] },
+              { label: t('ticketTypeCode'), value: selected.code },
+              {
+                label: t('ticketTypeAttendeeType'),
+                value: attendeeOptions.find((option) => option.value === selected.attendee_type)?.label ?? selected.attendee_type,
+              },
+              {
+                label: t('ticketTypePrice'),
+                value: formatMoney(selected.price_minor, selected.currency, locale),
+              },
+              {
+                label: t('ticketTypeInventory'),
+                value: `${selected.remaining_quantity} / ${selected.capacity}`,
+              },
+              {
+                label: t('status'),
+                value: (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusBadge status={selected.status} />
+                    <InventoryStatus state={selected.state} locale={locale} />
+                  </div>
+                ),
+              },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
+
       <ValidationHintPopover {...validation.hintProps} />
     </DashboardLayout>
   )

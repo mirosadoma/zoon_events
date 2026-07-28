@@ -2,6 +2,11 @@ import { FormEvent, useState } from 'react'
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, {
+  SideDetailActions,
+  SideDetailInfoGrid,
+  sideDetailActionClassName,
+} from '@/components/layout/SideDetailPane'
 import StatusBadge from '@/components/status/StatusBadge'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { useLocale } from '@/hooks/useLocale'
@@ -49,6 +54,9 @@ export default function SubscriptionsIndex({ plans, canManage }: Props) {
   const { locale, t } = useLocale()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const selected = plans.find((plan) => plan.id === selectedId) ?? null
 
   async function deletePlan(plan: PlanRow) {
     const msg = t('subscriptionPlanConfirmDelete', { name: plan.name })
@@ -106,12 +114,15 @@ export default function SubscriptionsIndex({ plans, canManage }: Props) {
                     <th>{t('subscriptionPlanColumnLimits')}</th>
                     <th>{t('subscriptionPlanColumnSubscribers')}</th>
                     <th>{t('subscriptionPlanColumnStatus')}</th>
-                    {canManage && <th>{t('actions')}</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {plans.map((plan) => (
-                    <tr key={plan.id}>
+                    <tr
+                      key={plan.id}
+                      onClick={() => setSelectedId(plan.id)}
+                      className={selectedId === plan.id ? 'ta-table-row-selected cursor-pointer' : 'cursor-pointer'}
+                    >
                       <td className="font-medium text-[var(--ink)]">
                         {locale === 'ar' ? plan.name_ar || plan.name : plan.name}
                         {plan.is_trial && (
@@ -126,37 +137,9 @@ export default function SubscriptionsIndex({ plans, canManage }: Props) {
                         {plan.max_events ?? '∞'} events · {plan.max_attendees ?? '∞'} attendees · {plan.max_devices ?? '∞'} devices
                       </td>
                       <td>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-[var(--ink)]">{plan.tenant_count}</span>
-                          <LocalizedLink
-                            href={localizedPath(locale, `/platform/subscriptions/${plan.id}`)}
-                            className="ta-table-action"
-                          >
-                            {t('view')}
-                          </LocalizedLink>
-                        </div>
+                        <span className="text-sm font-medium text-[var(--ink)]">{plan.tenant_count}</span>
                       </td>
                       <td><StatusBadge status={plan.is_active ? 'active' : 'inactive'} /></td>
-                      {canManage && (
-                        <td>
-                          <div className="ta-table-actions">
-                            <LocalizedLink
-                              href={localizedPath(locale, `/platform/subscriptions/${plan.id}/edit`)}
-                              className="ta-table-action"
-                            >
-                              {t('edit')}
-                            </LocalizedLink>
-                            <button
-                              type="button"
-                              disabled={loading}
-                              className="ta-table-action !border-[var(--danger)]/30 !text-[var(--danger)] hover:!bg-[var(--danger-soft)]"
-                              onClick={() => void deletePlan(plan)}
-                            >
-                              {t('delete')}
-                            </button>
-                          </div>
-                        </td>
-                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -165,6 +148,52 @@ export default function SubscriptionsIndex({ plans, canManage }: Props) {
           </div>
         )}
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? (locale === 'ar' ? selected.name_ar || selected.name : selected.name) : ''}
+        onClose={() => setSelectedId(null)}
+        onEdit={canManage && selected ? () => window.location.href = localizedPath(locale, `/platform/subscriptions/${selected.id}/edit`) : null}
+        onDelete={canManage && selected ? () => void deletePlan(selected) : null}
+        footer={selected ? (
+          <SideDetailActions>
+            <LocalizedLink
+              href={localizedPath(locale, `/platform/subscriptions/${selected.id}`)}
+              className={sideDetailActionClassName('primary')}
+            >
+              {t('view')}
+            </LocalizedLink>
+            {canManage ? (
+              <button
+                type="button"
+                className={sideDetailActionClassName()}
+                onClick={() => { window.location.href = localizedPath(locale, `/platform/subscriptions/${selected.id}/edit`) }}
+              >
+                {t('edit')}
+              </button>
+            ) : null}
+          </SideDetailActions>
+        ) : null}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              { label: t('subscriptionPlanColumnPlan'), value: locale === 'ar' ? selected.name_ar || selected.name : selected.name },
+              {
+                label: t('subscriptionPlanColumnPrice'),
+                value: Number(selected.price) === 0 ? t('subscriptionPlanFree') : `${selected.price} ${selected.currency}`,
+              },
+              { label: t('subscriptionPlanColumnDuration'), value: `${selected.duration_days} ${t('subscriptionPlanDays')}` },
+              {
+                label: t('subscriptionPlanColumnLimits'),
+                value: `${selected.max_events ?? '∞'} events · ${selected.max_attendees ?? '∞'} attendees · ${selected.max_devices ?? '∞'} devices`,
+              },
+              { label: t('subscriptionPlanColumnSubscribers'), value: String(selected.tenant_count) },
+              { label: t('subscriptionPlanColumnStatus'), value: <StatusBadge status={selected.is_active ? 'active' : 'inactive'} /> },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
     </DashboardLayout>
   )
 }

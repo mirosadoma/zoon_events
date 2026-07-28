@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react'
 import { router } from '@inertiajs/react'
-import { KeyRound, Pencil, Plus, Trash2 } from 'lucide-react'
+import { KeyRound, Plus } from 'lucide-react'
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, {
+  SideDetailActions,
+  SideDetailInfoGrid,
+  sideDetailActionClassName,
+} from '@/components/layout/SideDetailPane'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
@@ -28,14 +33,27 @@ type Props = {
 }
 
 export default function PrivilegeIndex({ tenantId, privileges: initialPrivileges, canManage }: Props) {
-  const { locale, t } = useLocale()
+  const { locale, t, localizedPath } = useLocale()
   const { toast } = useToast()
   const [privileges, setPrivileges] = useState(initialPrivileges)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
     setPrivileges(initialPrivileges)
   }, [initialPrivileges])
+
+  const selected = privileges.find((priv) => priv.id === selectedId) ?? null
+  const notAvailable = t('notAvailable')
+
+  function closePane() {
+    setSelectedId(null)
+  }
+
+  function goToEdit() {
+    if (!selectedId) return
+    router.visit(localizedPath(`/tenant/privileges/${selectedId}/edit`))
+  }
 
   async function handleDelete(privilege: Privilege) {
     if (privilege.in_use || deletingId) {
@@ -99,7 +117,8 @@ export default function PrivilegeIndex({ tenantId, privileges: initialPrivileges
               return (
                 <article
                   key={privilege.id}
-                  className="state-panel flex flex-col gap-4 p-4"
+                  className="state-panel flex flex-col gap-4 p-4 cursor-pointer transition hover:border-[var(--brand)]/30"
+                  onClick={() => setSelectedId(privilege.id)}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
@@ -132,34 +151,59 @@ export default function PrivilegeIndex({ tenantId, privileges: initialPrivileges
                       </span>
                     ) : null}
                   </div>
-
-                  {canManage ? (
-                    <div className="mt-auto flex gap-2">
-                      <LocalizedLink
-                        href={`/tenant/privileges/${privilege.id}/edit`}
-                        className="button-secondary inline-flex flex-1 items-center justify-center gap-2"
-                      >
-                        <Pencil className="h-4 w-4" aria-hidden="true" />
-                        {t('edit')}
-                      </LocalizedLink>
-                      <button
-                        type="button"
-                        className="button-secondary inline-flex items-center justify-center gap-2 text-red-600 disabled:opacity-50"
-                        disabled={privilege.in_use || deletingId === privilege.id}
-                        onClick={() => handleDelete(privilege)}
-                        title={privilege.in_use ? t('privilegeInUseHint') : undefined}
-                      >
-                        <Trash2 className="h-4 w-4" aria-hidden="true" />
-                        {t('delete')}
-                      </button>
-                    </div>
-                  ) : null}
                 </article>
               )
             })}
           </div>
         )}
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? (locale === 'ar' ? (selected.label_ar || selected.label) : selected.label) : ''}
+        subtitle={selected?.key || null}
+        onClose={closePane}
+        onEdit={canManage ? goToEdit : null}
+        onDelete={!selected?.in_use && canManage ? () => handleDelete(selected) : null}
+        footer={selected && canManage ? (
+          <SideDetailActions>
+            <button type="button" className={sideDetailActionClassName('primary')} onClick={goToEdit}>
+              {t('edit')}
+            </button>
+          </SideDetailActions>
+        ) : null}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              {
+                label: t('privilegeLabel'),
+                value: locale === 'ar' ? (selected.label_ar || selected.label) : selected.label,
+              },
+              {
+                label: t('privilegeKey'),
+                value: <code className="font-mono text-sm">{selected.key}</code>,
+              },
+              {
+                label: t('privilegeEffect'),
+                value: selected.effect === 'allow' ? t('categoryPrivilegeAllow') : t('categoryPrivilegeDeny'),
+              },
+              {
+                label: t('privilegeTarget'),
+                value: selected.target_type || notAvailable,
+              },
+              {
+                label: t('privilegeInUse'),
+                value: selected.in_use ? t('yes') : t('no'),
+              },
+              {
+                label: t('privilegeSortOrder'),
+                value: String(selected.sort_order),
+              },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
     </DashboardLayout>
   )
 }

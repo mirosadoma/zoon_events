@@ -5,6 +5,7 @@ import { ZoneLaneEditor } from '@/components/acs/ZoneLaneEditor'
 import TextInput from '@/components/forms/TextInput'
 import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, { SideDetailInfoGrid } from '@/components/layout/SideDetailPane'
 import { useLocale } from '@/hooks/useLocale'
 import { ApiFetchError, apiFetch } from '@/lib/apiFetch'
 import type { AcsZone } from '@/types/phase4'
@@ -24,6 +25,9 @@ export default function AcsZones({ event, tenantId, zones: initialZones }: Props
   const [externalId, setExternalId] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const selected = zones.find((zone) => zone.id === selectedId) ?? null
 
   async function handleCreate(formEvent: FormEvent<HTMLFormElement>) {
     formEvent.preventDefault()
@@ -69,7 +73,7 @@ export default function AcsZones({ event, tenantId, zones: initialZones }: Props
         )}
       />
       <PageContent>
-        <ZoneLaneEditor zones={zones} lanes={[]} showLanes={false} />
+        <ZoneLaneEditor zones={zones} lanes={[]} showLanes={false} onZoneSelect={setSelectedId} />
 
         <form className="ta-card mt-6 space-y-4" onSubmit={handleCreate}>
           <div>
@@ -96,6 +100,22 @@ export default function AcsZones({ event, tenantId, zones: initialZones }: Props
           <SubmitButtonWithLoader loading={submitting} label={t('acsPageCreateZone')} />
         </form>
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? selected.name : ''}
+        subtitle={selected ? selected.external_acs_zone_id : null}
+        onClose={() => setSelectedId(null)}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              { label: t('name'), value: selected.name },
+              { label: t('acsPageExternalZoneId'), value: selected.external_acs_zone_id },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
     </DashboardLayout>
   )
 }

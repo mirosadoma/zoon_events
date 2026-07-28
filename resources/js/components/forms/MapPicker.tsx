@@ -29,7 +29,7 @@ type PlacePrediction = {
 
 const DEFAULT_CENTER = { lat: 30.0444, lng: 31.2357 }
 const MAP_CONTAINER_STYLE = { height: '30rem', width: '100%', minHeight: '30rem' }
-const MAP_LIBRARIES: Libraries = ['places']
+const MAP_LIBRARIES: Libraries = ['places', 'geometry']
 /** Wait until the user pauses typing before requesting place predictions. */
 const SEARCH_DEBOUNCE_MS = 550
 const SEARCH_MIN_CHARS = 1

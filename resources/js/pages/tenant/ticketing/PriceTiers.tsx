@@ -2,6 +2,11 @@ import { FormEvent, useMemo, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, {
+  SideDetailActions,
+  SideDetailInfoGrid,
+  sideDetailActionClassName,
+} from '@/components/layout/SideDetailPane'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
@@ -116,6 +121,7 @@ export default function PriceTiers({ tenantId, event, ticketTypes, priceTiers }:
   const [editingTier, setEditingTier] = useState<PriceTierRow | null>(null)
   const [formErrors, setFormErrors] = useState<FormErrors>({})
   const [submitting, setSubmitting] = useState<'save' | string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const currencyOptions = useMemo(
     () => CURRENCIES.map((currency) => ({
@@ -132,6 +138,8 @@ export default function PriceTiers({ tenantId, event, ticketTypes, priceTiers }:
     })),
     [ticketTypes, locale],
   )
+
+  const selected = priceTiers.find((tier) => tier.id === selectedId) ?? null
 
   function onTicketTypeChange(ticketTypeId: string, form: TierFormState, setForm: (value: TierFormState) => void) {
     const ticket = ticketTypes.find((row) => row.id === ticketTypeId)
@@ -294,6 +302,8 @@ export default function PriceTiers({ tenantId, event, ticketTypes, priceTiers }:
           <DataTable
             rows={priceTiers as unknown as Record<string, unknown>[]}
             getRowKey={(row) => String(row.id)}
+            selectedRowKey={selectedId}
+            onRowClick={(row) => setSelectedId(String(row.id))}
             columns={[
               { key: 'name', header: t('priceTierName') },
               { key: 'ticket_type_id', header: t('priceTierTicketType') },
@@ -313,33 +323,60 @@ export default function PriceTiers({ tenantId, event, ticketTypes, priceTiers }:
                 render: (row) => <StatusBadge status={row.is_active_now ? 'active' : 'inactive'} label={row.is_active_now ? t('yes') : t('no')} />,
               },
               { key: 'priority', header: t('priceTierPriority') },
-              {
-                key: 'actions',
-                header: t('actions'),
-                render: (row) => {
-                  const tier = row as unknown as PriceTierRow
-                  return (
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        className="button-secondary"
-                        onClick={() => startEdit(tier)}
-                      >
-                        {t('edit')}
-                      </button>
-                      {tier.status !== 'retired' && (
-                        <button type="button" className="button-secondary" disabled={submitting === tier.id} onClick={() => void retireTier(tier)}>
-                          {t('disable')}
-                        </button>
-                      )}
-                    </div>
-                  )
-                },
-              },
             ]}
           />
         )}
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? selected.name : ''}
+        subtitle={selected ? ticketTypeOptions.find((opt) => opt.value === selected.ticket_type_id)?.label ?? null : null}
+        onClose={() => setSelectedId(null)}
+        onEdit={() => {
+          if (selected) {
+            startEdit(selected)
+            setSelectedId(null)
+          }
+        }}
+        onDelete={selected && selected.status !== 'retired' ? () => void retireTier(selected) : null}
+        footer={selected ? (
+          <SideDetailActions>
+            <button
+              type="button"
+              className={sideDetailActionClassName('primary')}
+              onClick={() => {
+                startEdit(selected)
+                setSelectedId(null)
+              }}
+            >
+              {t('edit')}
+            </button>
+          </SideDetailActions>
+        ) : null}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              { label: t('priceTierName'), value: selected.name },
+              {
+                label: t('priceTierTicketType'),
+                value: ticketTypeOptions.find((opt) => opt.value === selected.ticket_type_id)?.label ?? selected.ticket_type_id,
+              },
+              {
+                label: t('priceTierPrice'),
+                value: formatMoney(selected.price_minor, selected.currency, locale),
+              },
+              { label: t('status'), value: <StatusBadge status={selected.status} /> },
+              {
+                label: t('priceTierActiveNow'),
+                value: <StatusBadge status={selected.is_active_now ? 'active' : 'inactive'} label={selected.is_active_now ? t('yes') : t('no')} />,
+              },
+              { label: t('priceTierPriority'), value: String(selected.priority) },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
     </DashboardLayout>
   )
 }

@@ -12,7 +12,7 @@ export function GateEventRow({ event }: GateEventRowProps) {
     : event.reason_code
 
   return (
-    <tr>
+    <>
       <td className="whitespace-nowrap text-[var(--muted)]">{event.occurred_at}</td>
       <td>{event.event_type}</td>
       <td>{event.direction}</td>
@@ -26,6 +26,6 @@ export function GateEventRow({ event }: GateEventRowProps) {
       <td>
         <span className="font-mono text-xs">{reasonLabel}</span>
       </td>
-    </tr>
+    </>
   )
 }

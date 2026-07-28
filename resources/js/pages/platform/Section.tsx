@@ -6,6 +6,11 @@ import TextInput from '@/components/forms/TextInput'
 import SelectInput from '@/components/forms/SelectInput'
 import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, {
+  SideDetailActions,
+  SideDetailInfoGrid,
+  sideDetailActionClassName,
+} from '@/components/layout/SideDetailPane'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import { useLocale } from '@/hooks/useLocale'
@@ -243,7 +248,16 @@ export default function PlatformSection({ section, rows, canManage, health, plat
   function TenantsSection() {
     const [showCreate, setShowCreate] = useState(false)
     const [editId, setEditId] = useState<string | null>(null)
+    const [selectedId, setSelectedId] = useState<string | null>(null)
     const tenants = rows as unknown as TenantRow[]
+    const selected = tenants.find((tenant) => tenant.id === selectedId) ?? null
+
+    function confirmDeleteTenant(tenant: TenantRow) {
+      const msg = t('platformSectionConfirmDelete', { name: tenant.name })
+      if (window.confirm(msg)) {
+        void deleteApi(`/api/v1/platform/tenants/${tenant.id}`)
+      }
+    }
 
     return (
       <>
@@ -284,12 +298,15 @@ export default function PlatformSection({ section, rows, canManage, health, plat
                     <th>{t('platformSectionPhone')}</th>
                     <th>{t('platformSectionStatus')}</th>
                     <th>{t('platformSectionCreated')}</th>
-                    {canManage && <th>{t('actions')}</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {tenants.map((tenant) => (
-                    <tr key={tenant.id}>
+                    <tr
+                      key={tenant.id}
+                      onClick={() => setSelectedId(tenant.id)}
+                      className={selectedId === tenant.id ? 'ta-table-row-selected cursor-pointer' : 'cursor-pointer'}
+                    >
                       <td className="font-medium text-[var(--ink)]">{tenant.name}</td>
                       <td className="text-[var(--ink)]">{tenant.admin?.name ?? '—'}</td>
                       <td className="text-sm text-[var(--muted)]">{tenant.admin?.email ?? '—'}</td>
@@ -298,31 +315,6 @@ export default function PlatformSection({ section, rows, canManage, health, plat
                       <td className="text-sm text-[var(--muted)]">
                         {tenant.created_at ? new Date(tenant.created_at).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB') : '—'}
                       </td>
-                      {canManage && (
-                        <td>
-                          <div className="ta-table-actions">
-                            <button
-                              type="button"
-                              onClick={() => { setEditId(tenant.id); setShowCreate(false) }}
-                              className="ta-table-action"
-                            >
-                              {t('edit')}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const msg = t('platformSectionConfirmDelete', { name: tenant.name })
-                                if (window.confirm(msg)) {
-                                  void deleteApi(`/api/v1/platform/tenants/${tenant.id}`)
-                                }
-                              }}
-                              className="ta-table-action !border-[var(--danger)]/30 !text-[var(--danger)] hover:!bg-[var(--danger-soft)]"
-                            >
-                              {t('delete')}
-                            </button>
-                          </div>
-                        </td>
-                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -330,6 +322,44 @@ export default function PlatformSection({ section, rows, canManage, health, plat
             </div>
           </div>
         )}
+
+        <SideDetailPane
+          open={selected !== null}
+          title={selected?.name ?? ''}
+          subtitle={selected?.admin?.email ?? null}
+          onClose={() => setSelectedId(null)}
+          onEdit={canManage && selected ? () => { setEditId(selected.id); setShowCreate(false); setSelectedId(null) } : null}
+          onDelete={canManage && selected ? () => confirmDeleteTenant(selected) : null}
+          footer={canManage && selected ? (
+            <SideDetailActions>
+              <button
+                type="button"
+                className={sideDetailActionClassName('primary')}
+                onClick={() => { setEditId(selected.id); setShowCreate(false); setSelectedId(null) }}
+              >
+                {t('edit')}
+              </button>
+            </SideDetailActions>
+          ) : null}
+        >
+          {selected ? (
+            <SideDetailInfoGrid
+              items={[
+                { label: t('platformSectionOrganization'), value: selected.name },
+                { label: t('platformSectionAdmin'), value: selected.admin?.name ?? '—' },
+                { label: t('platformSectionEmail'), value: selected.admin?.email ?? '—' },
+                { label: t('platformSectionPhone'), value: selected.admin?.phone ?? '—' },
+                { label: t('platformSectionStatus'), value: <StatusBadge status={selected.status} /> },
+                {
+                  label: t('platformSectionCreated'),
+                  value: selected.created_at
+                    ? new Date(selected.created_at).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB')
+                    : '—',
+                },
+              ]}
+            />
+          ) : null}
+        </SideDetailPane>
       </>
     )
   }
@@ -494,7 +524,9 @@ export default function PlatformSection({ section, rows, canManage, health, plat
 
   /* ========== All Events Section ========== */
   function EventsSection() {
+    const [selectedId, setSelectedId] = useState<string | null>(null)
     const events = rows as unknown as EventRow[]
+    const selected = events.find((event) => event.id === selectedId) ?? null
 
     return events.length === 0 ? (
       <EmptyState
@@ -502,6 +534,7 @@ export default function PlatformSection({ section, rows, canManage, health, plat
         detail={t('platformSectionNoEventsDetail')}
       />
     ) : (
+      <>
       <div className="ta-card overflow-hidden p-0">
         <div className="ta-table-wrap">
           <table className="ta-table w-full">
@@ -512,12 +545,15 @@ export default function PlatformSection({ section, rows, canManage, health, plat
                 <th>{t('platformSectionStatus')}</th>
                 <th>{t('platformSectionType')}</th>
                 <th>{t('platformSectionStartDate')}</th>
-                <th>{t('actions')}</th>
               </tr>
             </thead>
             <tbody>
               {events.map((event) => (
-                <tr key={event.id}>
+                <tr
+                  key={event.id}
+                  onClick={() => setSelectedId(event.id)}
+                  className={selectedId === event.id ? 'ta-table-row-selected cursor-pointer' : 'cursor-pointer'}
+                >
                   <td className="font-medium text-[var(--ink)]">{locale === 'ar' ? event.name_ar || event.name : event.name}</td>
                   <td className="text-sm text-[var(--ink)]">{event.organizer}</td>
                   <td><StatusBadge status={event.status} /></td>
@@ -525,27 +561,64 @@ export default function PlatformSection({ section, rows, canManage, health, plat
                   <td className="text-sm text-[var(--muted)]">
                     {event.start_at ? formatDateOnly(event.start_at, locale, event.timezone || undefined) : '—'}
                   </td>
-                  <td>
-                    <a
-                      href={`/${locale}/tenant/events/${event.id}`}
-                      className="ta-table-action"
-                    >
-                      {t('platformSectionManage')}
-                    </a>
-                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? (locale === 'ar' ? selected.name_ar || selected.name : selected.name) : ''}
+        subtitle={selected?.organizer ?? null}
+        onClose={() => setSelectedId(null)}
+        footer={selected ? (
+          <SideDetailActions>
+            <a
+              href={`/${locale}/tenant/events/${selected.id}`}
+              className={sideDetailActionClassName('primary')}
+            >
+              {t('platformSectionManage')}
+            </a>
+          </SideDetailActions>
+        ) : null}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              {
+                label: t('platformSectionEvent'),
+                value: locale === 'ar' ? selected.name_ar || selected.name : selected.name,
+              },
+              { label: t('platformSectionOrganizer'), value: selected.organizer },
+              { label: t('platformSectionStatus'), value: <StatusBadge status={selected.status} /> },
+              { label: t('platformSectionType'), value: selected.event_type?.replace(/_/g, ' ') ?? '—' },
+              {
+                label: t('platformSectionStartDate'),
+                value: selected.start_at ? formatDateOnly(selected.start_at, locale, selected.timezone || undefined) : '—',
+              },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
+      </>
     )
   }
 
   /* ========== Platform Users Section ========== */
   function UsersSection() {
     const [showCreate, setShowCreate] = useState(false)
+    const [selectedId, setSelectedId] = useState<string | null>(null)
     const users = rows as unknown as PlatformUserRow[]
+    const selected = users.find((user) => user.id === selectedId) ?? null
+
+    function confirmDeleteUser(user: PlatformUserRow) {
+      const msg = t('platformSectionConfirmDelete', { name: user.name })
+      if (window.confirm(msg)) {
+        void deleteApi(`/api/v1/platform/users/${user.id}`)
+      }
+    }
 
     return (
       <>
@@ -575,12 +648,15 @@ export default function PlatformSection({ section, rows, canManage, health, plat
                     <th>{t('platformSectionRole')}</th>
                     <th>{t('platformSectionStatus')}</th>
                     <th>{t('platformSectionCreated')}</th>
-                    {canManage && <th>{t('actions')}</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {users.map((user) => (
-                    <tr key={user.id}>
+                    <tr
+                      key={user.id}
+                      onClick={() => setSelectedId(user.id)}
+                      className={selectedId === user.id ? 'ta-table-row-selected cursor-pointer' : 'cursor-pointer'}
+                    >
                       <td className="font-medium text-[var(--ink)]">{user.name}</td>
                       <td className="text-sm text-[var(--muted)]">{user.email}</td>
                       <td className="text-sm text-[var(--ink)]">
@@ -590,24 +666,6 @@ export default function PlatformSection({ section, rows, canManage, health, plat
                       <td className="text-sm text-[var(--muted)]">
                         {user.created_at ? new Date(user.created_at).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB') : '—'}
                       </td>
-                      {canManage && (
-                        <td>
-                          <div className="ta-table-actions">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const msg = t('platformSectionConfirmDelete', { name: user.name })
-                                if (window.confirm(msg)) {
-                                  void deleteApi(`/api/v1/platform/users/${user.id}`)
-                                }
-                              }}
-                              className="ta-table-action !border-[var(--danger)]/30 !text-[var(--danger)] hover:!bg-[var(--danger-soft)]"
-                            >
-                              {t('delete')}
-                            </button>
-                          </div>
-                        </td>
-                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -615,6 +673,31 @@ export default function PlatformSection({ section, rows, canManage, health, plat
             </div>
           </div>
         )}
+
+        <SideDetailPane
+          open={selected !== null}
+          title={selected?.name ?? ''}
+          subtitle={selected?.email ?? null}
+          onClose={() => setSelectedId(null)}
+          onDelete={canManage && selected ? () => confirmDeleteUser(selected) : null}
+        >
+          {selected ? (
+            <SideDetailInfoGrid
+              items={[
+                { label: t('name'), value: selected.name },
+                { label: t('email'), value: selected.email },
+                { label: t('platformSectionRole'), value: selected.roles.map((r) => r.name).join(', ') || '—' },
+                { label: t('platformSectionStatus'), value: <StatusBadge status={selected.status} /> },
+                {
+                  label: t('platformSectionCreated'),
+                  value: selected.created_at
+                    ? new Date(selected.created_at).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB')
+                    : '—',
+                },
+              ]}
+            />
+          ) : null}
+        </SideDetailPane>
       </>
     )
   }
@@ -695,7 +778,16 @@ export default function PlatformSection({ section, rows, canManage, health, plat
   /* ========== Platform Roles Section ========== */
   function RolesSection() {
     const [showCreate, setShowCreate] = useState(false)
+    const [selectedId, setSelectedId] = useState<string | null>(null)
     const roles = rows as unknown as PlatformRoleRow[]
+    const selected = roles.find((role) => role.id === selectedId) ?? null
+
+    function confirmDeleteRole(role: PlatformRoleRow) {
+      const msg = t('platformSectionConfirmDelete', { name: role.name })
+      if (window.confirm(msg)) {
+        void deleteApi(`/api/v1/platform/roles/${role.id}`)
+      }
+    }
 
     return (
       <>
@@ -717,7 +809,14 @@ export default function PlatformSection({ section, rows, canManage, health, plat
         ) : (
           <div className="space-y-3">
             {roles.map((role) => (
-              <div key={role.id} className="ta-card">
+              <div
+                key={role.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedId(role.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelectedId(role.id) }}
+                className={`ta-card cursor-pointer transition ${selectedId === role.id ? 'ring-2 ring-[var(--brand)]' : 'hover:border-[var(--brand)]/30'}`}
+              >
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="font-semibold text-[var(--ink)]">{role.name}</h4>
@@ -743,26 +842,34 @@ export default function PlatformSection({ section, rows, canManage, health, plat
                         {t('platformSectionSystem')}
                       </span>
                     )}
-                    {canManage && !role.is_system && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const msg = t('platformSectionConfirmDelete', { name: role.name })
-                          if (window.confirm(msg)) {
-                            void deleteApi(`/api/v1/platform/roles/${role.id}`)
-                          }
-                        }}
-                        className="ta-table-action !border-[var(--danger)]/30 !text-[var(--danger)] hover:!bg-[var(--danger-soft)]"
-                      >
-                        {t('delete')}
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
             ))}
           </div>
         )}
+
+        <SideDetailPane
+          open={selected !== null}
+          title={selected?.name ?? ''}
+          subtitle={selected?.description?.trim() || null}
+          onClose={() => setSelectedId(null)}
+          onDelete={canManage && selected && !selected.is_system ? () => confirmDeleteRole(selected) : null}
+        >
+          {selected ? (
+            <SideDetailInfoGrid
+              items={[
+                { label: t('platformSectionRoleName'), value: selected.name },
+                { label: t('description'), value: selected.description?.trim() || '—' },
+                { label: t('platformSectionPermissions'), value: String(selected.permissions.length) },
+                {
+                  label: t('platformSectionStatus'),
+                  value: selected.is_system ? t('platformSectionSystem') : '—',
+                },
+              ]}
+            />
+          ) : null}
+        </SideDetailPane>
       </>
     )
   }

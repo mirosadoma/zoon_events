@@ -14,6 +14,7 @@ import { routeToDestination, type RoutingPath, type RoutingZone } from '@/compon
 import MapHoverTooltip from '@/components/venue-map/MapHoverTooltip'
 import RotatableFloorOverlay from '@/components/venue-map/RotatableFloorOverlay'
 import GeoMarkerOverlay, { isGeoMarkerShape } from '@/components/venue-map/GeoMarkerOverlay'
+import ZoneFillImageOverlay from '@/components/venue-map/ZoneFillImageOverlay'
 import { defaultFillForType, type MapPoint } from '@/components/venue-map/types'
 import { useLocale } from '@/hooks/useLocale'
 
@@ -24,6 +25,7 @@ type PublicZone = RoutingZone & {
   shape_rotation?: number | null
   shape_radius_y?: number | null
   fill_color: string | null
+  fill_image_url?: string | null
   stroke_color: string | null
   opacity: number | null
   stroke_width: number | null
@@ -67,7 +69,7 @@ type Props = {
   overlayRotation?: number | null
 }
 
-const MAP_LIBRARIES: Libraries = ['places']
+const MAP_LIBRARIES: Libraries = ['places', 'geometry']
 
 function asGeoPoints(points: MapPoint[] | null | undefined, bounds: OverlayBounds | null): GeoPoint[] {
   if (!points?.length) return []
@@ -126,7 +128,7 @@ export default function VenueMapViewer({
 }: Props) {
   const { t } = useLocale()
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [hoverTip, setHoverTip] = useState<{ name: string; position: GeoPoint } | null>(null)
+  const [hoverTip, setHoverTip] = useState<{ name: string; position: GeoPoint; zoneId?: string } | null>(null)
   const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null)
   const [currentLocation, setCurrentLocation] = useState<GeoPoint | null>(null)
   const [locationError, setLocationError] = useState<string | null>(null)
@@ -412,7 +414,10 @@ export default function VenueMapViewer({
             const isSelected = zone.id === selectedId || zone.id === endZoneId
             const fill = zone.fill_color ?? defaultFillForType(zone.type)
             const stroke = zone.stroke_color ?? '#111827'
-            const opacity = (zone.opacity ?? 45) / 100
+            const hasFillImage = Boolean(zone.fill_image_url)
+            const baseOpacity = (zone.opacity ?? 45) / 100
+            const emphasized = hoverTip?.zoneId === zone.id
+            const opacity = emphasized ? 1 : baseOpacity
             const tipName = zoneDisplayName(zone, locale)
             const common = {
               onClick: (event: google.maps.MapMouseEvent) => {
@@ -425,6 +430,7 @@ export default function VenueMapViewer({
                 setHoverTip({
                   name: tipName,
                   position: { lat: event.latLng.lat(), lng: event.latLng.lng() },
+                  zoneId: zone.id,
                 })
               },
               onMouseMove: (event: google.maps.MapMouseEvent) => {
@@ -432,27 +438,47 @@ export default function VenueMapViewer({
                 setHoverTip({
                   name: tipName,
                   position: { lat: event.latLng.lat(), lng: event.latLng.lng() },
+                  zoneId: zone.id,
                 })
               },
               onMouseOut: () => setHoverTip(null),
             }
+            const fillImage = mapInstance && hasFillImage && zone.fill_image_url ? (
+              <ZoneFillImageOverlay
+                map={mapInstance}
+                points={points}
+                radiusMeters={
+                  zone.shape_type === 'circle'
+                    || zone.shape_type === 'ellipse'
+                    || isGeoMarkerShape(zone.shape_type)
+                    ? resolveRadiusMeters(zone, overlayBounds)
+                    : null
+                }
+                imageUrl={zone.fill_image_url}
+                opacity={opacity}
+                rotation={Number(zone.shape_rotation ?? 0)}
+                zIndex={isSelected ? 7 : 2}
+              />
+            ) : null
 
             if (zone.shape_type === 'circle' || zone.shape_type === 'ellipse') {
               return (
-                <Circle
-                  key={zone.id}
-                  center={points[0]}
-                  radius={resolveRadiusMeters(zone, overlayBounds)}
-                  options={{
-                    fillColor: fill,
-                    fillOpacity: opacity,
-                    strokeColor: stroke,
-                    strokeWeight: isSelected ? 4 : (zone.stroke_width ?? 2),
-                    clickable: true,
-                    zIndex: isSelected ? 8 : 3,
-                  }}
-                  {...common}
-                />
+                <Fragment key={zone.id}>
+                  <Circle
+                    center={points[0]}
+                    radius={resolveRadiusMeters(zone, overlayBounds)}
+                    options={{
+                      fillColor: fill,
+                      fillOpacity: hasFillImage ? 0.05 : opacity,
+                      strokeColor: stroke,
+                      strokeWeight: isSelected ? 4 : (zone.stroke_width ?? 2),
+                      clickable: true,
+                      zIndex: isSelected ? 8 : 3,
+                    }}
+                    {...common}
+                  />
+                  {fillImage}
+                </Fragment>
               )
             }
 
@@ -474,6 +500,7 @@ export default function VenueMapViewer({
                     }}
                     {...common}
                   />
+                  {fillImage}
                   {mapInstance ? (
                     <GeoMarkerOverlay
                       map={mapInstance}
@@ -493,19 +520,21 @@ export default function VenueMapViewer({
             }
 
             return (
-              <Polygon
-                key={zone.id}
-                paths={points}
-                options={{
-                  fillColor: fill,
-                  fillOpacity: opacity,
-                  strokeColor: stroke,
-                  strokeWeight: isSelected ? 4 : (zone.stroke_width ?? 2),
-                  clickable: true,
-                  zIndex: isSelected ? 8 : 3,
-                }}
-                {...common}
-              />
+              <Fragment key={zone.id}>
+                <Polygon
+                  paths={points}
+                  options={{
+                    fillColor: fill,
+                    fillOpacity: hasFillImage ? 0.05 : opacity,
+                    strokeColor: stroke,
+                    strokeWeight: isSelected ? 4 : (zone.stroke_width ?? 2),
+                    clickable: true,
+                    zIndex: isSelected ? 8 : 3,
+                  }}
+                  {...common}
+                />
+                {fillImage}
+              </Fragment>
             )
           })}
 

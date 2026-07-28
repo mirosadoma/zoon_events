@@ -69,9 +69,10 @@ export default function DataTable<T extends Record<string, unknown>>({
                 <tr
                   key={rowKey}
                   className={[
-                    onRowClick ? 'cursor-pointer transition-colors hover:bg-[color-mix(in_srgb,var(--brand-soft)_55%,transparent)]' : '',
-                    selected ? 'bg-[color-mix(in_srgb,var(--brand-soft)_70%,transparent)]' : '',
-                  ].filter(Boolean).join(' ')}
+                    'transition-colors',
+                    onRowClick ? 'cursor-pointer' : '',
+                    selected ? 'ta-table-row-selected' : '',
+                  ].filter(Boolean).join(' ') || undefined}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                   aria-selected={onRowClick ? selected : undefined}
                 >

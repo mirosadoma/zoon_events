@@ -3,6 +3,7 @@ import { useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, { SideDetailInfoGrid } from '@/components/layout/SideDetailPane'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import FiltersBar from '@/components/tables/FiltersBar'
@@ -66,6 +67,9 @@ export default function ScanEvents({
   const [resultFilter, setResultFilter] = useState(filters.result)
   const [scannerFilter, setScannerFilter] = useState(filters.scanner_type)
   const [offlineOnly, setOfflineOnly] = useState(filters.offline)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const selected = scanEvents.find((scan) => scan.id === selectedId) ?? null
 
   function queryParams(overrides: Partial<Filters & { page?: number }> = {}): Record<string, string> {
     const nextResult = overrides.result ?? resultFilter
@@ -157,6 +161,8 @@ export default function ScanEvents({
             <DataTable
               rows={scanEvents as unknown as Record<string, unknown>[]}
               getRowKey={(row) => String(row.id)}
+              selectedRowKey={selectedId}
+              onRowClick={(row) => setSelectedId(String(row.id))}
               columns={[
                 {
                   key: 'result',
@@ -204,6 +210,26 @@ export default function ScanEvents({
           </>
         )}
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? `Scan #${selected.id}` : ''}
+        onClose={() => setSelectedId(null)}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              { label: t('scanEventsResult'), value: <StatusBadge status={selected.result} /> },
+              { label: t('scanner'), value: selected.scanner_type },
+              { label: t('scanEventsGate'), value: selected.gate_name ?? selected.gate_id ?? '—' },
+              { label: t('scanEventsZone'), value: selected.zone_name ?? selected.zone_id ?? '—' },
+              { label: t('scanEventsOffline'), value: selected.offline ? t('yes') : t('no') },
+              { label: t('scanEventsReason'), value: scanReasonLabel(selected.reason ?? '', locale) },
+              { label: t('scanEventsScannedAt'), value: selected.scanned_at ?? '—' },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
     </DashboardLayout>
   )
 }

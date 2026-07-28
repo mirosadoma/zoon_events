@@ -1,8 +1,14 @@
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import { FormEvent, useState } from 'react'
+import { router } from '@inertiajs/react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, {
+  SideDetailActions,
+  SideDetailInfoGrid,
+  sideDetailActionClassName,
+} from '@/components/layout/SideDetailPane'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import FiltersBar from '@/components/tables/FiltersBar'
@@ -12,6 +18,7 @@ import SelectInput from '@/components/forms/SelectInput'
 import { useLocale } from '@/hooks/useLocale'
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
 import { defaultPagination, type PaginationMeta, withPage } from '@/lib/pagination'
+import { ArrowUpRight } from 'lucide-react'
 
 type EventRow = {
   id: string
@@ -48,10 +55,23 @@ export default function Credentials({
   filters = { search: '', status: '' },
   pagination = defaultPagination,
 }: Props) {
-  const { locale, t } = useLocale()
+  const { locale, t, localizedPath } = useLocale()
   const localizedRouter = useLocalizedRouter()
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [search, setSearch] = useState(filters.search)
   const [statusFilter, setStatusFilter] = useState(filters.status)
+
+  const selected = credentials.find((cred) => cred.id === selectedId) ?? null
+  const notAvailable = t('notAvailable')
+
+  function closePane() {
+    setSelectedId(null)
+  }
+
+  function goToView() {
+    if (!selectedId) return
+    router.visit(localizedPath(`/tenant/events/${event.id}/credentials/${selectedId}`))
+  }
 
   function queryParams(overrides: Partial<Filters & { page?: number }> = {}): Record<string, string> {
     const nextSearch = overrides.search ?? search
@@ -125,6 +145,8 @@ export default function Credentials({
             <DataTable
               rows={credentials as unknown as Record<string, unknown>[]}
               getRowKey={(row) => String(row.id)}
+              selectedRowKey={selectedId}
+              onRowClick={(row) => setSelectedId(String(row.id))}
               columns={[
                 {
                   key: 'code',
@@ -172,6 +194,57 @@ export default function Credentials({
           </>
         )}
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? selected.code : ''}
+        subtitle={selected?.attendee_label || null}
+        onClose={closePane}
+        onEdit={goToView}
+        editLabel={t('view')}
+        footer={selected ? (
+          <SideDetailActions>
+            <LocalizedLink
+              href={`/tenant/events/${event.id}/credentials/${selected.id}`}
+              className={sideDetailActionClassName('primary')}
+            >
+              {t('view')}
+              <ArrowUpRight className="h-4 w-4" aria-hidden />
+            </LocalizedLink>
+          </SideDetailActions>
+        ) : null}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              {
+                label: t('credentialsCode'),
+                value: selected.code,
+              },
+              {
+                label: t('status'),
+                value: <StatusBadge status={selected.status} />,
+              },
+              {
+                label: t('credentialsProvider'),
+                value: selected.provider,
+              },
+              {
+                label: t('attendees'),
+                value: selected.attendee_label || selected.attendee_id || notAvailable,
+              },
+              {
+                label: t('credentialsIssued'),
+                value: selected.issued_at || notAvailable,
+              },
+              {
+                label: t('credentialsExpires'),
+                value: selected.expires_at || notAvailable,
+              },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
     </DashboardLayout>
   )
 }

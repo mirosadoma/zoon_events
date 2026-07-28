@@ -56,6 +56,10 @@ final class EventZonePresenter
                 ? (string) $zone->description_ar
                 : null,
             'type' => $type,
+            'floor_type' => $zone->floor_type !== null && $zone->floor_type !== ''
+                ? (string) $zone->floor_type
+                : null,
+            'floor_number' => $zone->floor_number !== null ? (int) $zone->floor_number : null,
             'capacity' => $zone->capacity !== null ? (int) $zone->capacity : null,
             'shape_type' => $shapeType,
             'coordinate_space' => (string) ($zone->coordinate_space ?? EventCoordinateSpace::Relative->value),
@@ -70,6 +74,10 @@ final class EventZonePresenter
             'lat' => $zone->lat !== null ? (float) $zone->lat : null,
             'lng' => $zone->lng !== null ? (float) $zone->lng : null,
             'fill_color' => $zone->fill_color,
+            'fill_image_path' => $zone->fill_image_path !== null && $zone->fill_image_path !== ''
+                ? (string) $zone->fill_image_path
+                : null,
+            'fill_image_url' => $zone->fillImageUrl(),
             'stroke_color' => $zone->stroke_color,
             'opacity' => $zone->opacity !== null ? (int) $zone->opacity : null,
             'stroke_width' => $zone->stroke_width !== null ? (int) $zone->stroke_width : null,
@@ -117,6 +125,8 @@ final class EventZonePresenter
                 'ar' => $base['description_ar'],
             ],
             'type' => $base['type'],
+            'floor_type' => $base['floor_type'] ?? null,
+            'floor_number' => $base['floor_number'] ?? null,
             'label' => $base['label'] ?? $base['name']['en'],
             'shape_type' => $base['shape_type'],
             'coordinate_space' => $base['coordinate_space'] ?? EventCoordinateSpace::Relative->value,
@@ -125,6 +135,7 @@ final class EventZonePresenter
             'shape_rotation' => $base['shape_rotation'],
             'shape_radius_y' => $base['shape_radius_y'],
             'fill_color' => $base['fill_color'],
+            'fill_image_url' => $base['fill_image_url'] ?? null,
             'stroke_color' => $base['stroke_color'],
             'opacity' => $base['opacity'],
             'stroke_width' => $base['stroke_width'],

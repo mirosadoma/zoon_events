@@ -5,10 +5,12 @@ namespace App\Modules\Events\Application\Actions;
 use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
 use App\Modules\Events\Application\Support\EventZonePresenter;
 use App\Modules\Events\Domain\EventCoordinateSpace;
+use App\Modules\Events\Domain\EventZoneFloorType;
 use App\Modules\Events\Domain\EventZoneShapeType;
 use App\Modules\Events\Domain\EventZoneType;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventZone;
+use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 
 final class SyncEventZones
@@ -33,6 +35,7 @@ final class SyncEventZones
         $keepIds = [];
         $allowedTypes = array_fill_keys(EventZoneType::values(), true);
         $allowedShapes = array_fill_keys(EventZoneShapeType::values(), true);
+        $allowedFloorTypes = array_fill_keys(EventZoneFloorType::values(), true);
 
         foreach (array_values($zones) as $zone) {
             if (! is_array($zone)) {
@@ -59,6 +62,24 @@ final class SyncEventZones
                 throw new InvalidArgumentException('Zone capacity must be zero or greater.');
             }
 
+            $floorType = array_key_exists('floor_type', $zone) && $zone['floor_type'] !== null && $zone['floor_type'] !== ''
+                ? trim((string) $zone['floor_type'])
+                : null;
+            if ($floorType !== null && ! isset($allowedFloorTypes[$floorType])) {
+                throw new InvalidArgumentException('Invalid zone floor type.');
+            }
+
+            $floorNumber = null;
+            if ($floorType === EventZoneFloorType::Floor->value) {
+                if (! array_key_exists('floor_number', $zone) || $zone['floor_number'] === null || $zone['floor_number'] === '') {
+                    throw new InvalidArgumentException('Floor number is required when floor type is floor.');
+                }
+                $floorNumber = (int) $zone['floor_number'];
+                if ($floorNumber < 0 || $floorNumber > 500) {
+                    throw new InvalidArgumentException('Floor number must be between 0 and 500.');
+                }
+            }
+
             $descriptionEn = array_key_exists('description_en', $zone) && $zone['description_en'] !== null
                 ? trim((string) $zone['description_en'])
                 : null;
@@ -78,6 +99,11 @@ final class SyncEventZones
                 'type' => $type,
                 'capacity' => $capacity,
             ];
+
+            if (array_key_exists('floor_type', $zone)) {
+                $payload['floor_type'] = $floorType;
+                $payload['floor_number'] = $floorNumber;
+            }
 
             if (array_key_exists('description_en', $zone)) {
                 $payload['description_en'] = $descriptionEn;
@@ -238,6 +264,11 @@ final class SyncEventZones
                     'opacity' => $opacity,
                     'stroke_width' => $strokeWidth,
                 ];
+
+                // Color mode clears image fill (mutually exclusive).
+                if ($fillColor !== null) {
+                    $payload['fill_image_path'] = null;
+                }
             }
 
             if (! empty($zone['id'])) {
@@ -249,6 +280,15 @@ final class SyncEventZones
                     ->first();
 
                 if ($model instanceof EventZone) {
+                    if (
+                        array_key_exists('fill_image_path', $payload)
+                        && $payload['fill_image_path'] === null
+                        && $model->fill_image_path !== null
+                        && $model->fill_image_path !== ''
+                    ) {
+                        Storage::disk('public')->delete($model->fill_image_path);
+                    }
+
                     $model->fill($payload)->save();
                     $keepIds[] = $model->id;
 
@@ -265,7 +305,13 @@ final class SyncEventZones
             ->where('event_id', $event->id)
             ->where('venue_id', $venueId)
             ->when($keepIds !== [], fn ($query) => $query->whereNotIn('id', $keepIds))
-            ->delete();
+            ->get()
+            ->each(function (EventZone $zone): void {
+                if ($zone->fill_image_path !== null && $zone->fill_image_path !== '') {
+                    Storage::disk('public')->delete($zone->fill_image_path);
+                }
+                $zone->delete();
+            });
     }
 
     private static function nullableColor(mixed $value): ?string

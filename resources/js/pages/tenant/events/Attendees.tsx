@@ -4,7 +4,11 @@ import { router } from '@inertiajs/react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
-import SideDetailPane, { SideDetailInfoGrid } from '@/components/layout/SideDetailPane'
+import SideDetailPane, {
+  SideDetailActions,
+  SideDetailInfoGrid,
+  sideDetailActionClassName,
+} from '@/components/layout/SideDetailPane'
 import PermissionGate from '@/components/layout/PermissionGate'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
@@ -437,13 +441,18 @@ export default function Attendees({
           </div>
         ) : null}
         footer={selectedDetailId ? (
-          <LocalizedLink
-            href={`/tenant/events/${event.id}/attendees/${selectedDetailId}`}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2.5 text-sm font-semibold text-[var(--ink)] transition hover:border-[color-mix(in_srgb,var(--brand)_35%,var(--border))] hover:bg-[var(--brand-soft)] hover:text-[var(--brand)]"
-          >
-            {t('showAttendeeDetails')}
-            <ArrowUpRight className="h-4 w-4" aria-hidden />
-          </LocalizedLink>
+          <SideDetailActions>
+            <LocalizedLink
+              href={`/tenant/events/${event.id}/attendees/${selectedDetailId}`}
+              className={sideDetailActionClassName('primary')}
+            >
+              {t('showAttendeeDetails')}
+              <ArrowUpRight className="h-4 w-4" aria-hidden />
+            </LocalizedLink>
+            <button type="button" className={sideDetailActionClassName()} onClick={goToEdit}>
+              {t('edit')}
+            </button>
+          </SideDetailActions>
         ) : (
           <div className="flex items-start gap-2 rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)]/60 px-3 py-3 text-sm text-[var(--muted)]">
             <UserRound className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />

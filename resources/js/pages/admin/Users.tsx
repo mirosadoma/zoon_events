@@ -5,6 +5,7 @@ import SelectInput from '@/components/forms/SelectInput'
 import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
 import TextInput from '@/components/forms/TextInput'
 import { PageContent, PageHeader, PermissionGate } from '@/components/layout'
+import SideDetailPane, { SideDetailInfoGrid } from '@/components/layout/SideDetailPane'
 import ValidationHintPopover from '@/components/feedback/ValidationHintPopover'
 import ReasonModal from '@/components/modals/ReasonModal'
 import StatusBadge from '@/components/status/StatusBadge'
@@ -91,6 +92,9 @@ export default function AdminUsers({ tenantId: pageTenantId, users: initialUsers
     password: '',
     preferred_locale: locale,
   })
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const selected = users.find((user) => user.id === selectedId) ?? null
 
   const filteredUsers = useMemo(() => {
     if (!statusFilter) {
@@ -293,6 +297,8 @@ export default function AdminUsers({ tenantId: pageTenantId, users: initialUsers
           <DataTable
             rows={filteredUsers as unknown as Record<string, unknown>[]}
             getRowKey={(row) => String(row.id)}
+            selectedRowKey={selectedId}
+            onRowClick={(row) => setSelectedId(String(row.id))}
             columns={[
               { key: 'name', header: messages.profileName },
               { key: 'email', header: messages.profileEmail },
@@ -326,65 +332,87 @@ export default function AdminUsers({ tenantId: pageTenantId, users: initialUsers
                 header: messages.adminAccountStatus,
                 render: (row) => <StatusBadge status={String(row.user_status)} />,
               },
-              {
-                key: 'actions',
-                header: messages.adminActions,
-                render: (row) => {
-                  const user = row as unknown as UserRow
-
-                  return (
-                    <div className="flex flex-col gap-2">
-                      <PermissionGate permission="role.assign">
-                        <div className="flex flex-wrap items-end gap-2">
-                          <SelectInput
-                            label={t('adminUsersAssignRole')}
-                            name={`role_${user.id}`}
-                            value={selectedRoleByUser[user.id] ?? ''}
-                            onChange={(event) =>
-                              setSelectedRoleByUser((current) => ({ ...current, [user.id]: event.target.value }))
-                            }
-                            options={[{ value: '', label: t('adminUsersSelectRole') }, ...roleOptions]}
-                          />
-                          <button
-                            type="button"
-                            className="button-secondary cursor-pointer text-sm"
-                            disabled={!selectedRoleByUser[user.id] || assigningFor === user.id}
-                            onClick={() => void assignRole(user)}
-                          >
-                            {t('adminUsersAssign')}
-                          </button>
-                        </div>
-                      </PermissionGate>
-                      <PermissionGate permission="membership.manage">
-                        <div className="flex flex-wrap gap-2">
-                          {user.status !== 'active' ? (
-                            <button
-                              type="button"
-                              className="button-secondary cursor-pointer text-sm"
-                              onClick={() => setPendingAction({ id: user.id, status: 'active' })}
-                            >
-                              {messages.adminActivateUser}
-                            </button>
-                          ) : null}
-                          {user.status === 'active' ? (
-                            <button
-                              type="button"
-                              className="button-secondary cursor-pointer text-sm"
-                              onClick={() => setPendingAction({ id: user.id, status: 'suspended' })}
-                            >
-                              {messages.adminSuspendUser}
-                            </button>
-                          ) : null}
-                        </div>
-                      </PermissionGate>
-                    </div>
-                  )
-                },
-              },
             ]}
           />
         )}
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? selected.name : ''}
+        subtitle={selected ? selected.email : null}
+        onClose={() => setSelectedId(null)}
+        footer={selected ? (
+          <div className="space-y-3">
+            <PermissionGate permission="role.assign">
+              <div className="flex flex-wrap items-end gap-2">
+                <SelectInput
+                  label={t('adminUsersAssignRole')}
+                  name={`role_${selected.id}`}
+                  value={selectedRoleByUser[selected.id] ?? ''}
+                  onChange={(event) => {
+                    setSelectedRoleByUser((current) => ({ ...current, [selected.id]: event.target.value }))
+                  }}
+                  options={[{ value: '', label: t('adminUsersSelectRole') }, ...roleOptions]}
+                />
+                <button
+                  type="button"
+                  className="button-secondary cursor-pointer text-sm"
+                  disabled={!selectedRoleByUser[selected.id] || assigningFor === selected.id}
+                  onClick={() => void assignRole(selected)}
+                >
+                  {t('adminUsersAssign')}
+                </button>
+              </div>
+            </PermissionGate>
+            <PermissionGate permission="membership.manage">
+              <div className="flex flex-wrap gap-2">
+                {selected.status !== 'active' ? (
+                  <button
+                    type="button"
+                    className="button-secondary flex-1 cursor-pointer text-sm"
+                    onClick={() => setPendingAction({ id: selected.id, status: 'active' })}
+                  >
+                    {messages.adminActivateUser}
+                  </button>
+                ) : null}
+                {selected.status === 'active' ? (
+                  <button
+                    type="button"
+                    className="button-secondary flex-1 cursor-pointer text-sm"
+                    onClick={() => setPendingAction({ id: selected.id, status: 'suspended' })}
+                  >
+                    {messages.adminSuspendUser}
+                  </button>
+                ) : null}
+              </div>
+            </PermissionGate>
+          </div>
+        ) : null}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              { label: messages.profileName, value: selected.name },
+              { label: messages.profileEmail, value: selected.email },
+              {
+                label: t('adminUsersRoles'),
+                value: (selected.roles ?? []).length > 0
+                  ? (
+                      <div className="flex flex-wrap gap-1">
+                        {(selected.roles ?? []).map((role) => (
+                          <span key={role.id} className="ta-badge ta-badge-neutral">{role.name}</span>
+                        ))}
+                      </div>
+                    )
+                  : '—',
+              },
+              { label: messages.orderStatus, value: <StatusBadge status={selected.status} /> },
+              { label: messages.adminAccountStatus, value: <StatusBadge status={selected.user_status} /> },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
 
       {addOpen ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="invite-user-title">

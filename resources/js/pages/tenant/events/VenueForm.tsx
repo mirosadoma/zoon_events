@@ -35,6 +35,8 @@ type ZoneDraft = {
   description_en: string
   description_ar: string
   type: string
+  floor_type: 'basement' | 'floor' | null
+  floor_number: string
   capacity: string
 }
 
@@ -75,6 +77,8 @@ function emptyZone(defaultType: string): ZoneDraft {
     description_en: '',
     description_ar: '',
     type: defaultType,
+    floor_type: null,
+    floor_number: '',
     capacity: '',
   }
 }
@@ -92,6 +96,12 @@ function zonesFromVenue(venue: EventVenueRow | null, defaultType: string): ZoneD
     description_en: zone.description_en ?? '',
     description_ar: zone.description_ar ?? '',
     type: zone.type || defaultType,
+    floor_type: zone.floor_type === 'basement' || zone.floor_type === 'floor'
+      ? zone.floor_type
+      : null,
+    floor_number: zone.floor_number !== null && zone.floor_number !== undefined
+      ? String(zone.floor_number)
+      : '',
     capacity: zone.capacity !== null && zone.capacity !== undefined ? String(zone.capacity) : '',
   }))
 }
@@ -210,6 +220,10 @@ export default function EventVenueFormPage({
             description_en: zone.description_en.trim() || null,
             description_ar: zone.description_ar.trim() || null,
             type: zone.type,
+            floor_type: zone.floor_type,
+            floor_number: zone.floor_type === 'floor' && zone.floor_number.trim() !== ''
+              ? Number(zone.floor_number)
+              : null,
             capacity: zone.capacity.trim() === '' ? null : Number(zone.capacity),
           })),
         },
@@ -340,6 +354,54 @@ export default function EventVenueFormPage({
                         rowIndex === index ? { ...row, capacity: e.target.value } : row
                       )))}
                     />
+                    <div className="sm:col-span-2 flex flex-wrap items-end gap-4">
+                      <fieldset className="min-w-0 flex-1 space-y-2">
+                        <legend className="text-sm font-medium text-[var(--ink)]">{t('eventZoneFloorType')}</legend>
+                        <div className="flex flex-wrap items-center gap-4">
+                          <label className="inline-flex items-center gap-2 text-sm">
+                            <input
+                              type="radio"
+                              name={`floor_type_${index}`}
+                              checked={zone.floor_type === 'basement'}
+                              onChange={() => setZones((current) => current.map((row, rowIndex) => (
+                                rowIndex === index
+                                  ? { ...row, floor_type: 'basement', floor_number: '' }
+                                  : row
+                              )))}
+                            />
+                            <span>{t('eventZoneFloorType_basement')}</span>
+                          </label>
+                          <label className="inline-flex items-center gap-2 text-sm">
+                            <input
+                              type="radio"
+                              name={`floor_type_${index}`}
+                              checked={zone.floor_type === 'floor'}
+                              onChange={() => setZones((current) => current.map((row, rowIndex) => (
+                                rowIndex === index
+                                  ? { ...row, floor_type: 'floor', floor_number: row.floor_number || '1' }
+                                  : row
+                              )))}
+                            />
+                            <span>{t('eventZoneFloorType_floor')}</span>
+                          </label>
+                        </div>
+                      </fieldset>
+                      {zone.floor_type === 'floor' ? (
+                        <div className="w-full max-w-md shrink-0">
+                          <TextInput
+                            label={t('eventZoneFloorNumber')}
+                            name={`floor_number_${index}`}
+                            type="number"
+                            min={0}
+                            max={500}
+                            value={zone.floor_number}
+                            onChange={(e) => setZones((current) => current.map((row, rowIndex) => (
+                              rowIndex === index ? { ...row, floor_number: e.target.value } : row
+                            )))}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
                     <TextareaInput
                       label={t('eventZoneDescriptionEn')}
                       name={`description_en_${index}`}

@@ -1,7 +1,14 @@
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import { Mail, ChevronRight } from 'lucide-react'
+import { useState } from 'react'
+import { router } from '@inertiajs/react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { PageHeader } from '@/components/layout'
+import SideDetailPane, {
+  SideDetailActions,
+  SideDetailInfoGrid,
+  sideDetailActionClassName,
+} from '@/components/layout/SideDetailPane'
 import { useLocale } from '@/hooks/useLocale'
 import SetupCompleteMark from '@/components/events/SetupCompleteMark'
 
@@ -35,9 +42,23 @@ export default function EmailTemplates({
   configuredCount,
   requiredCount = TEMPLATE_TYPES.length,
 }: Props) {
-  const { locale, t } = useLocale()
+  const { locale, t, localizedPath } = useLocale()
+  const [selectedType, setSelectedType] = useState<string | null>(null)
 
   const getTemplate = (type: string) => templates.find((template) => template.type === type)
+  const selectedConfig = TEMPLATE_TYPES.find((tc) => tc.type === selectedType)
+  const selectedTemplate = selectedType ? getTemplate(selectedType) : null
+  const notAvailable = t('notAvailable')
+
+  function closePane() {
+    setSelectedType(null)
+  }
+
+  function goToEdit() {
+    if (!selectedType) return
+    router.visit(localizedPath(`/tenant/events/${event.id}/email-templates/${selectedType}`))
+  }
+
   const done = configuredCount ?? templates.filter((template) =>
     TEMPLATE_TYPES.some((typeConfig) => typeConfig.type === template.type),
   ).length
@@ -90,6 +111,10 @@ export default function EmailTemplates({
                 className={`block rounded-xl border bg-[var(--surface-elevated)] p-5 transition hover:border-[var(--brand)]/30 hover:shadow-sm ${
                   template ? 'border-[var(--border)]' : 'border-[var(--warning)]/40'
                 }`}
+                onClick={(e) => {
+                  e.preventDefault()
+                  setSelectedType(typeConfig.type)
+                }}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
@@ -145,6 +170,45 @@ export default function EmailTemplates({
           </div>
         </div>
       </div>
+
+      <SideDetailPane
+        open={selectedType !== null}
+        title={selectedConfig ? (locale === 'ar' ? selectedConfig.label_ar : selectedConfig.label_en) : ''}
+        subtitle={selectedTemplate ? (locale === 'ar' ? selectedTemplate.subject_ar : selectedTemplate.subject_en) : null}
+        onClose={closePane}
+        onEdit={goToEdit}
+        editLabel={t('emailTemplatesCustomize')}
+        footer={selectedType ? (
+          <SideDetailActions>
+            <button type="button" className={sideDetailActionClassName('primary')} onClick={goToEdit}>
+              {t('emailTemplatesCustomize')}
+            </button>
+          </SideDetailActions>
+        ) : null}
+      >
+        {selectedConfig ? (
+          <SideDetailInfoGrid
+            items={[
+              {
+                label: t('emailTemplatesType'),
+                value: locale === 'ar' ? selectedConfig.label_ar : selectedConfig.label_en,
+              },
+              {
+                label: t('emailTemplatesConfigured'),
+                value: selectedTemplate ? t('yes') : t('no'),
+              },
+              {
+                label: t('emailTemplatesSubjectEn'),
+                value: selectedTemplate?.subject_en || notAvailable,
+              },
+              {
+                label: t('emailTemplatesSubjectAr'),
+                value: selectedTemplate?.subject_ar || notAvailable,
+              },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
     </DashboardLayout>
   )
 }

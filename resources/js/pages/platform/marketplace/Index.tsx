@@ -2,6 +2,11 @@ import LocalizedLink from '@/components/routing/LocalizedLink'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, {
+  SideDetailActions,
+  SideDetailInfoGrid,
+  sideDetailActionClassName,
+} from '@/components/layout/SideDetailPane'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import { useLocale } from '@/hooks/useLocale'
@@ -11,8 +16,13 @@ type Props = {
   rows?: PlatformMarketplaceRow[]
 }
 
+import { useState } from 'react'
+
 export default function PlatformMarketplaceIndex({ rows = [] }: Props) {
   const { t } = useLocale()
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const selected = rows.find((row) => row.id === selectedId) ?? null
 
   return (
     <DashboardLayout title={t('platformMarketplace')}>
@@ -33,6 +43,8 @@ export default function PlatformMarketplaceIndex({ rows = [] }: Props) {
             title={t('platformMarketplace')}
             rows={rows as unknown as Record<string, unknown>[]}
             getRowKey={(row) => String(row.id)}
+            selectedRowKey={selectedId}
+            onRowClick={(row) => setSelectedId(String(row.id))}
             columns={[
               { key: 'kind', header: t('assetType') },
               {
@@ -45,25 +57,40 @@ export default function PlatformMarketplaceIndex({ rows = [] }: Props) {
               { key: 'venue_name', header: t('venues') },
               { key: 'event_name', header: t('events') },
               { key: 'opened_at', header: t('updatedAt') },
-              {
-                key: 'actions',
-                header: t('actions'),
-                render: (row) => {
-                  const item = row as unknown as PlatformMarketplaceRow
-                  if (item.kind === 'dispute') {
-                    return (
-                      <LocalizedLink href={`/platform/marketplace/disputes/${item.id}`} className="ta-table-action">
-                        {t('platformDisputeDetails')}
-                      </LocalizedLink>
-                    )
-                  }
-                  return '—'
-                },
-              },
             ]}
           />
         )}
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? `${selected.kind} #${selected.id}` : ''}
+        onClose={() => setSelectedId(null)}
+        footer={selected?.kind === 'dispute' ? (
+          <SideDetailActions>
+            <LocalizedLink
+              href={`/platform/marketplace/disputes/${selected.id}`}
+              className={sideDetailActionClassName('primary')}
+            >
+              {t('platformDisputeDetails')}
+            </LocalizedLink>
+          </SideDetailActions>
+        ) : null}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              { label: t('assetType'), value: selected.kind },
+              { label: t('venueStatus'), value: <StatusBadge status={selected.status} /> },
+              { label: t('roleOwner'), value: selected.owner_name || '—' },
+              { label: t('roleOrganizer'), value: selected.organizer_name || '—' },
+              { label: t('venues'), value: selected.venue_name || '—' },
+              { label: t('events'), value: selected.event_name || '—' },
+              { label: t('updatedAt'), value: selected.opened_at || '—' },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
     </DashboardLayout>
   )
 }

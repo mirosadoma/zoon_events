@@ -1,8 +1,14 @@
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import { FormEvent, useState } from 'react'
+import { router } from '@inertiajs/react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, {
+  SideDetailActions,
+  SideDetailInfoGrid,
+  sideDetailActionClassName,
+} from '@/components/layout/SideDetailPane'
 import { NotificationStatus } from '@/components/orders/NotificationStatus'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
@@ -13,6 +19,7 @@ import SelectInput from '@/components/forms/SelectInput'
 import { useLocale } from '@/hooks/useLocale'
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
 import { defaultPagination, type PaginationMeta, withPage } from '@/lib/pagination'
+import { ArrowUpRight } from 'lucide-react'
 
 type EventRow = {
   id: string
@@ -48,10 +55,23 @@ export default function Orders({
   filters = { search: '', status: '' },
   pagination = defaultPagination,
 }: Props) {
-  const { locale, t } = useLocale()
+  const { locale, t, localizedPath } = useLocale()
   const localizedRouter = useLocalizedRouter()
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [search, setSearch] = useState(filters.search)
   const [statusFilter, setStatusFilter] = useState(filters.status)
+
+  const selected = orders.find((order) => order.id === selectedId) ?? null
+  const notAvailable = t('notAvailable')
+
+  function closePane() {
+    setSelectedId(null)
+  }
+
+  function goToView() {
+    if (!selectedId) return
+    router.visit(localizedPath(`/tenant/events/${event.id}/orders/${selectedId}`))
+  }
 
   function queryParams(overrides: Partial<Filters & { page?: number }> = {}): Record<string, string> {
     const nextSearch = overrides.search ?? search
@@ -125,6 +145,8 @@ export default function Orders({
             <DataTable
               rows={orders as unknown as Record<string, unknown>[]}
               getRowKey={(row) => String(row.id)}
+              selectedRowKey={selectedId}
+              onRowClick={(row) => setSelectedId(String(row.id))}
               columns={[
                 {
                   key: 'buyer_name',
@@ -174,6 +196,55 @@ export default function Orders({
           </>
         )}
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? (selected.buyer_name || selected.reference) : ''}
+        subtitle={selected?.reference || null}
+        onClose={closePane}
+        onEdit={goToView}
+        editLabel={t('view')}
+        footer={selected ? (
+          <SideDetailActions>
+            <LocalizedLink
+              href={`/tenant/events/${event.id}/orders/${selected.id}`}
+              className={sideDetailActionClassName('primary')}
+            >
+              {t('view')}
+              <ArrowUpRight className="h-4 w-4" aria-hidden />
+            </LocalizedLink>
+          </SideDetailActions>
+        ) : null}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              {
+                label: t('ordersOwner'),
+                value: selected.buyer_name || notAvailable,
+              },
+              {
+                label: t('ordersReference'),
+                value: selected.reference,
+              },
+              {
+                label: t('status'),
+                value: <StatusBadge status={selected.status} />,
+              },
+              {
+                label: t('ordersTotal'),
+                value: selected.total,
+              },
+              {
+                label: t('ordersDelivery'),
+                value: selected.notification_status
+                  ? <NotificationStatus status={selected.notification_status} locale={locale} />
+                  : '—',
+              },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
     </DashboardLayout>
   )
 }

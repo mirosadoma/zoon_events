@@ -1,8 +1,14 @@
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useState } from 'react'
+import { router } from '@inertiajs/react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, {
+  SideDetailActions,
+  SideDetailInfoGrid,
+  sideDetailActionClassName,
+} from '@/components/layout/SideDetailPane'
 import PermissionGate from '@/components/layout/PermissionGate'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
@@ -11,6 +17,7 @@ import { useLocale } from '@/hooks/useLocale'
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
 import { defaultPagination, type PaginationMeta } from '@/lib/pagination'
 import type { VenueRow } from '@/types/phase6'
+import { ArrowUpRight } from 'lucide-react'
 
 type Filters = {
   status?: string
@@ -31,13 +38,26 @@ export default function VenuesIndex({
   filters = {},
   pagination = defaultPagination,
 }: Props) {
-  const { locale, t } = useLocale()
+  const { locale, t, localizedPath } = useLocale()
   const localizedRouter = useLocalizedRouter()
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [localFilters, setLocalFilters] = useState({
     status: filters.status ?? '',
     country_code: filters.country_code ?? '',
     city_code: filters.city_code ?? '',
   })
+
+  const selected = venues.find((venue) => venue.id === selectedId) ?? null
+  const notAvailable = t('notAvailable')
+
+  function closePane() {
+    setSelectedId(null)
+  }
+
+  function goToView() {
+    if (!selectedId) return
+    router.visit(localizedPath(`/tenant/venues/${selectedId}`))
+  }
 
   const hasFilters = Boolean(localFilters.status || localFilters.country_code || localFilters.city_code)
   const filteredEmpty = venues.length === 0 && hasFilters
@@ -128,6 +148,8 @@ export default function VenuesIndex({
             title={t('venues')}
             rows={venues as unknown as Record<string, unknown>[]}
             getRowKey={(row) => String(row.id)}
+            selectedRowKey={selectedId}
+            onRowClick={(row) => setSelectedId(String(row.id))}
             columns={[
               {
                 key: 'name',
@@ -177,15 +199,6 @@ export default function VenuesIndex({
                 header: t('updatedAt'),
                 render: (row) => String(row.updated_at ?? '—'),
               },
-              {
-                key: 'actions',
-                header: t('actions'),
-                render: (row) => (
-                  <LocalizedLink href={`/tenant/venues/${String(row.id)}`} className="ta-table-action">
-                    {t('viewVenue')}
-                  </LocalizedLink>
-                ),
-              },
             ]}
           />
         )}
@@ -196,6 +209,57 @@ export default function VenuesIndex({
           </p>
         ) : null}
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? selected.name[locale] : ''}
+        subtitle={selected ? [selected.city_code, selected.country_code].filter(Boolean).join(', ') : null}
+        onClose={closePane}
+        onEdit={goToView}
+        editLabel={t('viewVenue')}
+        footer={selected ? (
+          <SideDetailActions>
+            <LocalizedLink
+              href={`/tenant/venues/${selected.id}`}
+              className={sideDetailActionClassName('primary')}
+            >
+              {t('viewVenue')}
+              <ArrowUpRight className="h-4 w-4" aria-hidden />
+            </LocalizedLink>
+          </SideDetailActions>
+        ) : null}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              {
+                label: t('venueName'),
+                value: selected.name[locale],
+              },
+              {
+                label: t('venueLocation'),
+                value: [selected.city_code, selected.country_code].filter(Boolean).join(', ') || notAvailable,
+              },
+              {
+                label: t('venueStatus'),
+                value: <StatusBadge status={selected.status} />,
+              },
+              {
+                label: t('activeAssets'),
+                value: String(selected.active_asset_count ?? 0),
+              },
+              {
+                label: t('publishedAssets'),
+                value: String(selected.published_asset_count ?? 0),
+              },
+              {
+                label: t('updatedAt'),
+                value: String(selected.updated_at ?? notAvailable),
+              },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
     </DashboardLayout>
   )
 }

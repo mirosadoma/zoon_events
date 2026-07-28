@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { AccessEvent } from '../../../types/phase4'
 import { GateEventRow } from '../../../components/gate-events/GateEventRow'
+import SideDetailPane, { SideDetailInfoGrid } from '@/components/layout/SideDetailPane'
 import { useLocale } from '@/hooks/useLocale'
 
 interface GateEventsIndexProps {
@@ -11,6 +12,9 @@ interface GateEventsIndexProps {
 export default function GateEventsIndex({ eventId, tenantId }: GateEventsIndexProps) {
   const { t } = useLocale()
   const [events, setEvents] = useState<AccessEvent[]>([])
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const selected = events.find((evt) => evt.id === selectedId) ?? null
 
   useEffect(() => {
     const poll = () => {
@@ -44,12 +48,36 @@ export default function GateEventsIndex({ eventId, tenantId }: GateEventsIndexPr
             </thead>
             <tbody>
               {events.map(event => (
-                <GateEventRow key={event.id} event={event} />
+                <tr
+                  key={event.id}
+                  onClick={() => setSelectedId(event.id)}
+                  className={selectedId === event.id ? 'ta-table-row-selected cursor-pointer' : 'cursor-pointer'}
+                >
+                  <GateEventRow event={event} />
+                </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? `Event #${selected.id}` : ''}
+        onClose={() => setSelectedId(null)}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              { label: t('gateEventsOccurred'), value: selected.occurred_at },
+              { label: t('gateEventsType'), value: selected.event_type },
+              { label: t('gateEventsDirection'), value: selected.direction },
+              { label: t('gateEventsDecision'), value: selected.decision },
+              { label: t('gateEventsReason'), value: selected.reason_code },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
     </div>
   )
 }

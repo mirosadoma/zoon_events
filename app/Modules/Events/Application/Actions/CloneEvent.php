@@ -272,6 +272,8 @@ final readonly class CloneEvent
                 'type' => $zone->type instanceof EventZoneType
                     ? $zone->type->value
                     : (string) $zone->type,
+                'floor_type' => $zone->floor_type,
+                'floor_number' => $zone->floor_number,
                 'capacity' => $zone->capacity,
                 'shape_type' => $zone->shape_type?->value ?? $zone->shape_type,
                 'coordinate_space' => $zone->coordinate_space ?? 'relative',
@@ -284,6 +286,7 @@ final readonly class CloneEvent
                 'lat' => $zone->lat,
                 'lng' => $zone->lng,
                 'fill_color' => $zone->fill_color,
+                'fill_image_path' => $zone->fill_image_path,
                 'stroke_color' => $zone->stroke_color,
                 'opacity' => $zone->opacity,
                 'stroke_width' => $zone->stroke_width,

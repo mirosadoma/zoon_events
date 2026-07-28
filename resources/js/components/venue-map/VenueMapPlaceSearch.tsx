@@ -14,7 +14,7 @@ type Props = {
   onPlaceResolved: (place: { latitude: number; longitude: number }) => void
 }
 
-const MAP_LIBRARIES: Libraries = ['places']
+const MAP_LIBRARIES: Libraries = ['places', 'geometry']
 const SEARCH_DEBOUNCE_MS = 550
 const SEARCH_MIN_CHARS = 1
 

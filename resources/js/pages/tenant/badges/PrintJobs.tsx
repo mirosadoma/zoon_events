@@ -5,6 +5,11 @@ import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
 import PermissionGate from '@/components/layout/PermissionGate'
+import SideDetailPane, {
+  SideDetailActions,
+  SideDetailInfoGrid,
+  sideDetailActionClassName,
+} from '@/components/layout/SideDetailPane'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import FiltersBar from '@/components/tables/FiltersBar'
@@ -60,8 +65,11 @@ export default function BadgePrintJobs({
   const localizedRouter = useLocalizedRouter()
   const { toast } = useToast()
   const [statusFilter, setStatusFilter] = useState(filters.status)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [reprintTarget, setReprintTarget] = useState<PrintJobRow | null>(null)
   const [reprinting, setReprinting] = useState(false)
+  const selected = printJobs.find((job) => job.id === selectedId) ?? null
+  const notAvailable = '—'
 
   function queryParams(overrides: Partial<Filters & { page?: number }> = {}): Record<string, string> {
     const nextStatus = overrides.status ?? statusFilter
@@ -165,6 +173,8 @@ export default function BadgePrintJobs({
             <DataTable
               rows={printJobs as unknown as Record<string, unknown>[]}
               getRowKey={(row) => String(row.id)}
+              selectedRowKey={selectedId}
+              onRowClick={(row) => setSelectedId(String(row.id))}
               columns={[
                 {
                   key: 'attendee_name',
@@ -172,13 +182,6 @@ export default function BadgePrintJobs({
                   render: (row) => {
                     const name = row.attendee_name ? String(row.attendee_name) : null
                     const attendeeId = row.attendee_id ? String(row.attendee_id) : null
-                    if (attendeeId && name) {
-                      return (
-                        <LocalizedLink className="font-medium text-blue-700 underline-offset-2 hover:underline" href={`/tenant/events/${event.id}/attendees/${attendeeId}`}>
-                          {name}
-                        </LocalizedLink>
-                      )
-                    }
                     return name || attendeeId || '—'
                   },
                 },
@@ -202,21 +205,6 @@ export default function BadgePrintJobs({
                   header: t('badgePrintPrintedAt'),
                   render: (row) => (row.printed_at ? new Date(String(row.printed_at)).toLocaleString() : '—'),
                 },
-                {
-                  key: 'actions',
-                  header: t('actions'),
-                  render: (row) => (
-                    <PermissionGate permission="badge.reprint">
-                      <button
-                        type="button"
-                        className="button-secondary"
-                        onClick={() => openReprint(printJobs.find((job) => job.id === row.id) ?? (row as unknown as PrintJobRow))}
-                      >
-                        {t('badgePrintReprintAction')}
-                      </button>
-                    </PermissionGate>
-                  ),
-                },
               ]}
             />
             <Pagination
@@ -230,6 +218,55 @@ export default function BadgePrintJobs({
           </>
         )}
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected?.attendee_name?.trim() || selected?.id || t('badgePrintJobs')}
+        subtitle={selected ? selected.status : null}
+        onClose={() => setSelectedId(null)}
+        footer={selected?.attendee_id && selected.credential_id ? (
+          <PermissionGate permission="badge.reprint">
+            <SideDetailActions>
+              <button
+                type="button"
+                className={sideDetailActionClassName()}
+                onClick={() => openReprint(selected)}
+              >
+                {t('badgePrintReprintAction')}
+              </button>
+            </SideDetailActions>
+          </PermissionGate>
+        ) : null}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              {
+                label: t('badgePrintAttendee'),
+                value: selected.attendee_name || selected.attendee_id || notAvailable,
+              },
+              {
+                label: t('status'),
+                value: <StatusBadge status={selected.status} />,
+              },
+              {
+                label: t('badgePrintReprint'),
+                value: selected.is_reprint ? t('yes') : t('no'),
+              },
+              {
+                label: t('badgePrintReason'),
+                value: selected.reprint_reason || notAvailable,
+              },
+              {
+                label: t('badgePrintPrintedAt'),
+                value: selected.printed_at
+                  ? new Date(selected.printed_at).toLocaleString()
+                  : notAvailable,
+              },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
 
       {reprintTarget?.attendee_id && reprintTarget.credential_id ? (
         <BadgePrintPreviewModal

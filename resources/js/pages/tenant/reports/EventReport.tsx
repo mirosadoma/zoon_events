@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, { SideDetailInfoGrid } from '@/components/layout/SideDetailPane'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import { useLocale } from '@/hooks/useLocale'
@@ -67,6 +69,13 @@ type Report = {
   // legacy flat keys kept for compatibility
   [key: string]: unknown
 }
+
+type ReportSelection =
+  | { table: 'orders'; key: string }
+  | { table: 'categories'; key: string }
+  | { table: 'ticketTypes'; key: string }
+  | { table: 'rejectReasons'; key: string }
+  | null
 
 type Props = {
   event: EventRow
@@ -137,6 +146,7 @@ function DayBars({ days }: { days: DayRow[] }) {
 
 export default function EventReport({ event, report }: Props) {
   const { locale, t } = useLocale()
+  const [selection, setSelection] = useState<ReportSelection>(null)
   const summary = report.summary ?? {}
   const currency = typeof summary.currency === 'string' ? summary.currency : 'EGP'
   const revenue = metricOf(summary, 'revenue_minor')
@@ -147,6 +157,30 @@ export default function EventReport({ event, report }: Props) {
   const rejectReasons = report.top_reject_reasons ?? []
   const badgeJobs = report.badge_jobs ?? { by_status: { queued: 0, printed: 0, failed: 0 }, reprints: 0 }
   const kiosks = report.kiosks ?? { total: 0, online: 0, offline: 0, degraded: 0, retired: 0, registered: 0 }
+
+  const selectedOrder = selection?.table === 'orders'
+    ? ordersByStatus.find((row) => row.status === selection.key) ?? null
+    : null
+  const selectedCategory = selection?.table === 'categories'
+    ? categories.find((row) => String(row.id ?? row.name ?? 'unassigned') === selection.key) ?? null
+    : null
+  const selectedTicketType = selection?.table === 'ticketTypes'
+    ? ticketTypes.find((row) => String(row.id ?? row.name ?? 'unassigned-ticket') === selection.key) ?? null
+    : null
+  const selectedRejectReason = selection?.table === 'rejectReasons'
+    ? rejectReasons.find((row) => row.reason === selection.key) ?? null
+    : null
+
+  const paneOpen = selectedOrder !== null || selectedCategory !== null || selectedTicketType !== null || selectedRejectReason !== null
+  const paneTitle = selectedOrder
+    ? String(selectedOrder.status)
+    : selectedCategory
+      ? (locale === 'ar' && selectedCategory.name_ar ? selectedCategory.name_ar : selectedCategory.name)
+      : selectedTicketType
+        ? (locale === 'ar' && selectedTicketType.name_ar ? selectedTicketType.name_ar : selectedTicketType.name)
+        : selectedRejectReason
+          ? selectedRejectReason.reason
+          : ''
 
   const summaryCards: Array<{ key: string; title: string; suffix?: string }> = [
     { key: 'registrations', title: t('reportRegistrations') },
@@ -209,6 +243,8 @@ export default function EventReport({ event, report }: Props) {
                 <DataTable
                   rows={ordersByStatus as unknown as Record<string, unknown>[]}
                   getRowKey={(row) => String(row.status)}
+                  selectedRowKey={selection?.table === 'orders' ? selection.key : null}
+                  onRowClick={(row) => setSelection({ table: 'orders', key: String(row.status) })}
                   columns={[
                     {
                       key: 'status',
@@ -238,6 +274,8 @@ export default function EventReport({ event, report }: Props) {
                 <DataTable
                   rows={categories as unknown as Record<string, unknown>[]}
                   getRowKey={(row) => String(row.id ?? row.name ?? 'unassigned')}
+                  selectedRowKey={selection?.table === 'categories' ? selection.key : null}
+                  onRowClick={(row) => setSelection({ table: 'categories', key: String(row.id ?? row.name ?? 'unassigned') })}
                   columns={[
                     {
                       key: 'name',
@@ -268,6 +306,8 @@ export default function EventReport({ event, report }: Props) {
               <DataTable
                 rows={ticketTypes as unknown as Record<string, unknown>[]}
                 getRowKey={(row) => String(row.id ?? row.name ?? 'unassigned-ticket')}
+                selectedRowKey={selection?.table === 'ticketTypes' ? selection.key : null}
+                onRowClick={(row) => setSelection({ table: 'ticketTypes', key: String(row.id ?? row.name ?? 'unassigned-ticket') })}
                 columns={[
                   {
                     key: 'name',
@@ -315,6 +355,8 @@ export default function EventReport({ event, report }: Props) {
               <DataTable
                 rows={rejectReasons as unknown as Record<string, unknown>[]}
                 getRowKey={(row) => String(row.reason)}
+                selectedRowKey={selection?.table === 'rejectReasons' ? selection.key : null}
+                onRowClick={(row) => setSelection({ table: 'rejectReasons', key: String(row.reason) })}
                 columns={[
                   {
                     key: 'reason',
@@ -380,6 +422,54 @@ export default function EventReport({ event, report }: Props) {
           </div>
         </Section>
       </PageContent>
+
+      <SideDetailPane
+        open={paneOpen}
+        title={paneTitle}
+        onClose={() => setSelection(null)}
+      >
+        {selectedOrder ? (
+          <SideDetailInfoGrid
+            items={[
+              { label: t('status'), value: <StatusBadge status={selectedOrder.status} /> },
+              { label: t('reportCount'), value: String(selectedOrder.count) },
+              { label: t('reportRevenue'), value: formatMoney(selectedOrder.revenue_minor, currency, locale) },
+            ]}
+          />
+        ) : null}
+        {selectedCategory ? (
+          <SideDetailInfoGrid
+            items={[
+              {
+                label: t('reportCategory'),
+                value: locale === 'ar' && selectedCategory.name_ar ? selectedCategory.name_ar : selectedCategory.name,
+              },
+              { label: t('reportRegistrations'), value: String(selectedCategory.attendees) },
+              { label: t('reportCheckedInAttendees'), value: String(selectedCategory.checked_in) },
+            ]}
+          />
+        ) : null}
+        {selectedTicketType ? (
+          <SideDetailInfoGrid
+            items={[
+              {
+                label: t('ticketTypes'),
+                value: locale === 'ar' && selectedTicketType.name_ar ? selectedTicketType.name_ar : selectedTicketType.name,
+              },
+              { label: t('reportRegistrations'), value: String(selectedTicketType.attendees) },
+              { label: t('reportCheckedInAttendees'), value: String(selectedTicketType.checked_in) },
+            ]}
+          />
+        ) : null}
+        {selectedRejectReason ? (
+          <SideDetailInfoGrid
+            items={[
+              { label: t('reportReason'), value: selectedRejectReason.reason },
+              { label: t('reportCount'), value: String(selectedRejectReason.count) },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
     </DashboardLayout>
   )
 }

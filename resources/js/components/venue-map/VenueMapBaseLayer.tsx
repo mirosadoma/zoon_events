@@ -16,7 +16,7 @@ type Props = {
   onHeadingChange?: (heading: number) => void
 }
 
-const MAP_LIBRARIES: Libraries = ['places']
+const MAP_LIBRARIES: Libraries = ['places', 'geometry']
 
 function isVenueBaseMapType(value: string): value is VenueBaseMapType {
   return value === 'roadmap' || value === 'satellite' || value === 'hybrid'

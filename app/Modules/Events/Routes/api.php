@@ -31,6 +31,8 @@ Route::prefix('tenant/events')
         Route::put('/{event_id}/agenda', [OrganizerAgendaController::class, 'sync'])->middleware(['permission:event.manage,tenant', 'idempotency']);
         Route::put('/{event_id}/venues', [OrganizerEventVenueController::class, 'sync'])->middleware(['permission:event.manage,tenant', 'idempotency']);
         Route::put('/{event_id}/zones', [OrganizerEventZoneController::class, 'sync'])->middleware(['permission:event.manage,tenant', 'idempotency']);
+        Route::post('/{event_id}/venues/{venue_id}/zones/{zone_id}/fill-image', [OrganizerEventZoneController::class, 'storeFillImage'])->middleware('permission:event.manage,tenant');
+        Route::delete('/{event_id}/venues/{venue_id}/zones/{zone_id}/fill-image', [OrganizerEventZoneController::class, 'destroyFillImage'])->middleware(['permission:event.manage,tenant', 'idempotency']);
         Route::put('/{event_id}/paths', [OrganizerEventPathController::class, 'sync'])->middleware(['permission:event.manage,tenant', 'idempotency']);
         Route::get('/{event_id}/venues/{venue_id}/map', [OrganizerEventVenueMapController::class, 'show'])->middleware('permission:event.view,tenant');
         Route::post('/{event_id}/venues/{venue_id}/map', [OrganizerEventVenueMapController::class, 'store'])->middleware('permission:event.manage,tenant');

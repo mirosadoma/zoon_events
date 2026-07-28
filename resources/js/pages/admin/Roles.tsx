@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useMemo, useRef, useState } from 'react'
 import { usePage } from '@inertiajs/react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
@@ -7,6 +7,11 @@ import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
 import TextInput from '@/components/forms/TextInput'
 import TextareaInput from '@/components/forms/TextareaInput'
 import { PageContent, PageHeader, PermissionGate } from '@/components/layout'
+import SideDetailPane, {
+  SideDetailActions,
+  SideDetailInfoGrid,
+  sideDetailActionClassName,
+} from '@/components/layout/SideDetailPane'
 import ValidationHintPopover from '@/components/feedback/ValidationHintPopover'
 import StatusBadge from '@/components/status/StatusBadge'
 import { useLocale } from '@/hooks/useLocale'
@@ -86,6 +91,8 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
   })
   const [saving, setSaving] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [paneOpen, setPaneOpen] = useState(false)
+  const detailPanelRef = useRef<HTMLDivElement>(null)
 
   const selectedRole = roles.find((role) => role.id === selectedRoleId) ?? null
   const isSystemRole = selectedRole?.is_system === true
@@ -96,11 +103,19 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
     [availablePermissions, locale],
   )
 
-  function selectRole(role: RoleRow) {
+  function selectRole(role: RoleRow, openPane = true) {
     const normalized = normalizeRole(role)
     setSelectedRoleId(normalized.id)
     setDraftPermissions(normalized.permissions)
     setEditNames({ name_en: normalized.name_en ?? normalized.name, name_ar: normalized.name_ar ?? normalized.name })
+    if (openPane) {
+      setPaneOpen(true)
+    }
+  }
+
+  function focusDetailPanel() {
+    setPaneOpen(false)
+    detailPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }
 
   function togglePermission(key: string) {
@@ -222,14 +237,16 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
 
       const remaining = roles.filter((item) => item.id !== role.id)
       setRoles(remaining)
+      setPaneOpen(false)
 
       if (selectedRoleId === role.id) {
         const nextRole = remaining[0] ?? null
         if (nextRole) {
-          selectRole(nextRole)
+          selectRole(nextRole, false)
         } else {
           setSelectedRoleId(null)
           setDraftPermissions([])
+          setPaneOpen(false)
         }
       }
 
@@ -318,7 +335,7 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
             </div>
 
             {selectedRole ? (
-              <div className="flex max-h-[calc(100vh-14rem)] flex-col rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
+              <div ref={detailPanelRef} className="flex max-h-[calc(100vh-14rem)] flex-col rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 className="text-lg font-semibold">{roleDisplayName(selectedRole, locale)}</h2>
                   {!selectedRole.is_system && (
@@ -394,6 +411,49 @@ export default function AdminRoles({ scope = 'tenant', tenantId: tenantIdProp, r
         <ValidationHintPopover {...createValidation.hintProps} />
         <ValidationHintPopover {...editValidation.hintProps} />
       </PageContent>
+
+      <SideDetailPane
+        open={paneOpen && selectedRole !== null}
+        title={selectedRole ? roleDisplayName(selectedRole, locale) : ''}
+        subtitle={selectedRole?.description?.trim() || null}
+        onClose={() => setPaneOpen(false)}
+        onEdit={canManageRoles ? focusDetailPanel : null}
+        onDelete={canManageRoles && selectedRole && !selectedRole.is_system ? () => void deleteRole(selectedRole) : null}
+        footer={canManageRoles && selectedRole ? (
+          <SideDetailActions>
+            <button type="button" className={sideDetailActionClassName('primary')} onClick={focusDetailPanel}>
+              {t('edit')}
+            </button>
+          </SideDetailActions>
+        ) : null}
+      >
+        {selectedRole ? (
+          <SideDetailInfoGrid
+            items={[
+              {
+                label: isPlatform ? t('adminRolesRoleName') : t('adminRolesEnglishName'),
+                value: selectedRole.name_en ?? selectedRole.name,
+              },
+              ...(!isPlatform ? [{
+                label: t('adminRolesArabicName'),
+                value: selectedRole.name_ar ?? selectedRole.name,
+              }] : []),
+              {
+                label: t('adminRolesFieldDescription'),
+                value: selectedRole.description?.trim() || '—',
+              },
+              {
+                label: t('adminRolesPermissions'),
+                value: String(selectedRole.permissions.length),
+              },
+              {
+                label: t('status'),
+                value: selectedRole.is_system ? <StatusBadge status="system" /> : '—',
+              },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
     </DashboardLayout>
   )
 }

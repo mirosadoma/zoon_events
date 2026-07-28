@@ -3,6 +3,11 @@ import { useState } from 'react'
 import ConfirmModal from '@/components/modals/ConfirmModal'
 import ReasonModal from '@/components/modals/ReasonModal'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, {
+  SideDetailActions,
+  SideDetailInfoGrid,
+  sideDetailActionClassName,
+} from '@/components/layout/SideDetailPane'
 import PermissionGate from '@/components/layout/PermissionGate'
 import StatusBadge from '@/components/status/StatusBadge'
 import DashboardLayout from '@/layouts/DashboardLayout'
@@ -32,11 +37,19 @@ type Props = {
 }
 
 export default function IdentityReviewQueuePage({ tenantId, event, items, canReview }: Props) {
-  const { locale, t } = useLocale()
+  const { locale, t, localizedPath } = useLocale()
   const { toast } = useToast()
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [approveId, setApproveId] = useState<string | null>(null)
   const [rejectId, setRejectId] = useState<string | null>(null)
+
+  const selected = items.find((item) => item.id === selectedId) ?? null
+  const notAvailable = t('notAvailable')
+
+  function closePane() {
+    setSelectedId(null)
+  }
 
   function extractError(error: unknown, fallback: string): string {
     if (error instanceof ApiFetchError) {
@@ -87,40 +100,78 @@ export default function IdentityReviewQueuePage({ tenantId, event, items, canRev
         ) : (
           <ul className="space-y-4">
             {items.map((item) => (
-              <li key={item.id} className="state-panel">
+              <li
+                key={item.id}
+                className="state-panel cursor-pointer transition hover:border-[var(--brand)]/30"
+                onClick={() => setSelectedId(item.id)}
+              >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="font-medium">{item.attendee_id.slice(-8)}</p>
                     <p className="text-sm text-slate-600">{item.method}</p>
                     <StatusBadge status={item.status} />
                   </div>
-                  <PermissionGate permission="identity.review">
-                    {canReview ? (
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          className="button-primary"
-                          disabled={busyId !== null}
-                          onClick={() => setApproveId(item.id)}
-                        >
-                          {t('identityReviewApprove')}
-                        </button>
-                        <button
-                          type="button"
-                          className="button-secondary"
-                          disabled={busyId !== null}
-                          onClick={() => setRejectId(item.id)}
-                        >
-                          {t('identityReviewReject')}
-                        </button>
-                      </div>
-                    ) : null}
-                  </PermissionGate>
                 </div>
               </li>
             ))}
           </ul>
         )}
+
+        <SideDetailPane
+          open={selected !== null}
+          title={selected ? selected.attendee_id.slice(-8) : ''}
+          subtitle={selected?.method || null}
+          onClose={closePane}
+          footer={selected && canReview ? (
+            <PermissionGate permission="identity.review">
+              <SideDetailActions>
+                <button
+                  type="button"
+                  className={sideDetailActionClassName('primary')}
+                  disabled={busyId !== null}
+                  onClick={() => setApproveId(selected.id)}
+                >
+                  {t('identityReviewApprove')}
+                </button>
+                <button
+                  type="button"
+                  className={sideDetailActionClassName()}
+                  disabled={busyId !== null}
+                  onClick={() => setRejectId(selected.id)}
+                >
+                  {t('identityReviewReject')}
+                </button>
+              </SideDetailActions>
+            </PermissionGate>
+          ) : null}
+        >
+          {selected ? (
+            <SideDetailInfoGrid
+              items={[
+                {
+                  label: t('attendees'),
+                  value: selected.attendee_id.slice(-8),
+                },
+                {
+                  label: t('identityReviewMethod'),
+                  value: selected.method,
+                },
+                {
+                  label: t('status'),
+                  value: <StatusBadge status={selected.status} />,
+                },
+                {
+                  label: t('identityReviewProviderReference'),
+                  value: selected.provider_reference || notAvailable,
+                },
+                {
+                  label: t('identityReviewSubmittedAt'),
+                  value: selected.submitted_at || notAvailable,
+                },
+              ]}
+            />
+          ) : null}
+        </SideDetailPane>
 
         <ConfirmModal
           open={approveId !== null}

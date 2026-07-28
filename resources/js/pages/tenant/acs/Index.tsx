@@ -1,8 +1,10 @@
 import LocalizedLink from '@/components/routing/LocalizedLink'
+import { useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmergencyControls } from '@/components/acs/EmergencyControls'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
+import SideDetailPane, { SideDetailInfoGrid } from '@/components/layout/SideDetailPane'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import { useLocale } from '@/hooks/useLocale'
@@ -31,6 +33,9 @@ type Props = {
 
 export default function AcsOverview({ event, tenantId, overview }: Props) {
   const { locale, t } = useLocale()
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const selected = overview.latest_gate_events.find((evt) => evt.id === selectedId) ?? null
 
   const stats = [
     {
@@ -122,6 +127,8 @@ export default function AcsOverview({ event, tenantId, overview }: Props) {
               title={t('acsPageLatestEvents')}
               rows={overview.latest_gate_events as unknown as Record<string, unknown>[]}
               getRowKey={(row) => String(row.id)}
+              selectedRowKey={selectedId}
+              onRowClick={(row) => setSelectedId(String(row.id))}
               columns={[
                 { key: 'event_type', header: t('acsPageType') },
                 { key: 'decision', header: t('acsPageDecision') },
@@ -132,6 +139,23 @@ export default function AcsOverview({ event, tenantId, overview }: Props) {
           )}
         </section>
       </PageContent>
+
+      <SideDetailPane
+        open={selected !== null}
+        title={selected ? `Event #${selected.id}` : ''}
+        onClose={() => setSelectedId(null)}
+      >
+        {selected ? (
+          <SideDetailInfoGrid
+            items={[
+              { label: t('acsPageType'), value: selected.event_type },
+              { label: t('acsPageDecision'), value: selected.decision },
+              { label: t('reason'), value: selected.reason_code },
+              { label: t('time'), value: selected.occurred_at },
+            ]}
+          />
+        ) : null}
+      </SideDetailPane>
     </DashboardLayout>
   )
 }
