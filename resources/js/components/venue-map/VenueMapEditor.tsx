@@ -667,8 +667,28 @@ export default function VenueMapEditor({
       const camera = mapCameraRef.current
       const center = camera.center ?? resolvedBaseCenter
       const zoom = camera.zoom
-      const bounds = overlayBounds
-        ?? (center ? insetOverlayBounds(boundsFromCamera(center.lat, center.lng, zoom, aspect), 0.4) : null)
+
+      // Always attach the uploaded image to the position you're currently viewing.
+      // If the overlay bounds were modified/resolved earlier, we preserve overlay size
+      // but translate it so its center matches the current camera center.
+      let bounds: OverlayBounds | null = null
+      if (center) {
+        if (overlayBounds) {
+          const oldCenterLat = (overlayBounds.north + overlayBounds.south) / 2
+          const oldCenterLng = (overlayBounds.east + overlayBounds.west) / 2
+          const halfLat = overlayBounds.north - oldCenterLat
+          const halfLng = overlayBounds.east - oldCenterLng
+
+          bounds = {
+            north: center.lat + halfLat,
+            south: center.lat - halfLat,
+            east: center.lng + halfLng,
+            west: center.lng - halfLng,
+          }
+        } else {
+          bounds = insetOverlayBounds(boundsFromCamera(center.lat, center.lng, zoom, aspect), 0.4)
+        }
+      }
 
       if (center) {
         body.append('map_center_lat', String(center.lat))
@@ -744,6 +764,54 @@ export default function VenueMapEditor({
     } finally {
       setUploading(false)
     }
+  }
+
+  function recenterToUploadedMap() {
+    // Use the actual overlay bounds center (where the image sits on the map),
+    // not map_center_lat/lng which is the camera position at upload time.
+    let center: { lat: number; lng: number } | null = null
+
+    if (overlayBounds) {
+      center = {
+        lat: (overlayBounds.north + overlayBounds.south) / 2,
+        lng: (overlayBounds.east + overlayBounds.west) / 2,
+      }
+    } else if (map?.map_center_lat != null && map?.map_center_lng != null) {
+      center = { lat: Number(map.map_center_lat), lng: Number(map.map_center_lng) }
+    }
+
+    if (!center) return
+
+    // Calculate zoom level that fits the overlay bounds nicely
+    let nextZoom = map?.map_zoom != null ? Number(map.map_zoom) : baseMapZoom
+    if (overlayBounds) {
+      const latSpan = overlayBounds.north - overlayBounds.south
+      if (latSpan > 0) {
+        const fitZoom = Math.log2(180 / latSpan) + 1
+        nextZoom = Math.min(Math.max(Math.round(fitZoom), 14), 21)
+      }
+    }
+
+    const nextHeading = map?.map_heading != null ? Number(map.map_heading) : baseMapHeading
+    const nextType = (map?.map_type != null ? map.map_type : baseMapType) as VenueBaseMapType
+
+    mapCameraRef.current = {
+      ...mapCameraRef.current,
+      center,
+      zoom: nextZoom,
+      heading: nextHeading,
+      mapType: nextType,
+    }
+
+    // Force React to re-render even if the target center is the same as current state
+    // by briefly nulling the center, then restoring in the next frame.
+    setBaseMapCenter(null)
+    requestAnimationFrame(() => {
+      setBaseMapCenter(center)
+      setBaseMapZoom(nextZoom)
+      setBaseMapHeading(nextHeading)
+      setBaseMapType(nextType)
+    })
   }
 
   async function deleteFloorPlanImage() {
@@ -1215,6 +1283,15 @@ export default function VenueMapEditor({
                 />
                 <span>{t('venueMapRemoveBackground')}</span>
               </label>
+              <button
+                type="button"
+                className="button-secondary inline-flex w-full items-center justify-center gap-2"
+                disabled={!overlayBounds && (map?.map_center_lat == null || map?.map_center_lng == null)}
+                onClick={() => recenterToUploadedMap()}
+              >
+                <Route size={16} />
+                {t('venueMapCurrentImage')}
+              </button>
               <button
                 type="button"
                 className="button-secondary inline-flex w-full items-center justify-center gap-2"

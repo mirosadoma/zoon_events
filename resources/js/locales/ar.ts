@@ -2320,6 +2320,7 @@ export default {
   venueMapFloorOpacity: 'شفافية الصورة',
   venueMapOverlaySaving: 'جاري الحفظ…',
   venueMapRemoveBackground: 'إزالة الخلفية البيضاء',
+  venueMapCurrentImage: 'Current',
   editVenues: 'تعديل المواقع',
   addVenue: 'إضافة موقع',
   startAt: 'يبدأ في',

@@ -2320,6 +2320,7 @@ export default {
   venueMapFloorOpacity: 'Image plan opacity',
   venueMapOverlaySaving: 'Saving…',
   venueMapRemoveBackground: 'Remove white background',
+  venueMapCurrentImage: 'Current',
   editVenues: 'Edit venues',
   addVenue: 'Add venue',
   startAt: 'Starts at',
