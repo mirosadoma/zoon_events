@@ -177,11 +177,11 @@ export default function EmailTemplates({
         subtitle={selectedTemplate ? (locale === 'ar' ? selectedTemplate.subject_ar : selectedTemplate.subject_en) : null}
         onClose={closePane}
         onEdit={goToEdit}
-        editLabel={t('emailTemplatesCustomize')}
+        editLabel={t('emailTemplatesCustomized')}
         footer={selectedType ? (
           <SideDetailActions>
             <button type="button" className={sideDetailActionClassName('primary')} onClick={goToEdit}>
-              {t('emailTemplatesCustomize')}
+              {t('emailTemplatesCustomized')}
             </button>
           </SideDetailActions>
         ) : null}
