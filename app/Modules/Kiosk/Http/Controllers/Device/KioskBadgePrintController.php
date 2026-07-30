@@ -9,6 +9,7 @@ use App\Modules\BadgePrinting\Application\Actions\CreateBadgePrintJobAction;
 use App\Modules\BadgePrinting\Http\Resources\BadgePrintJobResource;
 use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgeTemplate;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
+use App\Modules\Kiosk\Application\Actions\BuildKioskAttendeeScanDetailsAction;
 use App\Modules\Kiosk\Domain\Context\KioskSessionContextStore;
 use App\Modules\Kiosk\Http\Requests\KioskBadgePrintRequest;
 use App\Modules\Shared\Http\Problems\Phase3Problem;
@@ -22,6 +23,7 @@ final class KioskBadgePrintController extends Controller
     public function __construct(
         private readonly KioskSessionContextStore $kioskContexts,
         private readonly BuildBadgePrintDocumentAction $printDocuments,
+        private readonly BuildKioskAttendeeScanDetailsAction $attendeeDetails,
     ) {}
 
     public function preview(KioskBadgePrintRequest $request): JsonResponse
@@ -45,10 +47,19 @@ final class KioskBadgePrintController extends Controller
             throw Phase3Problem::make('badge_template_not_active');
         }
 
+        $details = $this->attendeeDetails->execute(
+            (string) $context->tenantId,
+            (string) $context->eventId,
+            (string) $attendee->id,
+        );
+
         return $this->success([
             'print_html' => $document['html'],
             'fields' => $document['fields'],
             'editable_fields' => $document['editable_fields'],
+            'event' => $details['event'],
+            'assigned_venue' => $details['assigned_venue'],
+            'registration' => $details['registration'],
         ]);
     }
 

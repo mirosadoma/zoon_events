@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Kiosk\Http\Controllers\Device\KioskAttendeesController;
 use App\Modules\Kiosk\Http\Controllers\Device\KioskBadgePrintController;
 use App\Modules\Kiosk\Http\Controllers\Device\KioskHeartbeatController;
 use App\Modules\Kiosk\Http\Controllers\Device\KioskLookupController;
@@ -46,6 +47,9 @@ Route::prefix('kiosk/v1')
 
         Route::post('/lookups', [KioskLookupController::class, 'store'])
             ->name('api.v1.kiosk.lookups');
+
+        Route::get('/attendees', [KioskAttendeesController::class, 'index'])
+            ->name('api.v1.kiosk.attendees');
 
         Route::post('/scans', [KioskScanController::class, 'store'])
             ->middleware(['idempotency'])

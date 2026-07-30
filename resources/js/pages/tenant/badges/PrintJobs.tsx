@@ -33,6 +33,7 @@ type PrintJobRow = {
   credential_id: string | null
   attendee_name: string | null
   status: string
+  print_count: number
   failure_reason: string | null
   is_reprint: boolean
   reprint_reason: string | null
@@ -182,8 +183,22 @@ export default function BadgePrintJobs({
                   render: (row) => {
                     const name = row.attendee_name ? String(row.attendee_name) : null
                     const attendeeId = row.attendee_id ? String(row.attendee_id) : null
-                    return name || attendeeId || '—'
+                    const label = name || attendeeId || '—'
+                    const count = Number(row.print_count ?? 1)
+                    return (
+                      <span className="inline-flex items-center gap-2">
+                        <span>{label}</span>
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                          ×{Number.isFinite(count) && count > 0 ? count : 1}
+                        </span>
+                      </span>
+                    )
                   },
+                },
+                {
+                  key: 'print_count',
+                  header: t('badgePrintCount'),
+                  render: (row) => String(Number(row.print_count ?? 1) || 1),
                 },
                 {
                   key: 'status',
@@ -243,7 +258,18 @@ export default function BadgePrintJobs({
             items={[
               {
                 label: t('badgePrintAttendee'),
-                value: selected.attendee_name || selected.attendee_id || notAvailable,
+                value: (
+                  <span className="inline-flex items-center gap-2">
+                    <span>{selected.attendee_name || selected.attendee_id || notAvailable}</span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                      ×{selected.print_count || 1}
+                    </span>
+                  </span>
+                ),
+              },
+              {
+                label: t('badgePrintCount'),
+                value: String(selected.print_count || 1),
               },
               {
                 label: t('status'),

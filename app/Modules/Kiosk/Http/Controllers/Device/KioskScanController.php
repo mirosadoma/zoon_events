@@ -3,6 +3,7 @@
 namespace App\Modules\Kiosk\Http\Controllers\Device;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Kiosk\Application\Actions\BuildKioskAttendeeScanDetailsAction;
 use App\Modules\Kiosk\Domain\Context\KioskSessionContextStore;
 use App\Modules\Kiosk\Http\Requests\KioskScanRequest;
 use App\Modules\Scanning\Application\Actions\SubmitScanAction;
@@ -22,6 +23,7 @@ final class KioskScanController extends Controller
     public function __construct(
         private readonly KioskSessionContextStore $kioskContexts,
         private readonly ScanPayloadResolver $payloads,
+        private readonly BuildKioskAttendeeScanDetailsAction $attendeeDetails,
     ) {}
 
     public function store(KioskScanRequest $request, SubmitScanAction $action): JsonResponse
@@ -68,6 +70,18 @@ final class KioskScanController extends Controller
             actorCanOverride: false,
         ));
 
-        return $this->success((new ScanResultResource($submission))->resolve());
+        $payload = (new ScanResultResource($submission))->resolve();
+        $details = $this->attendeeDetails->execute(
+            (string) $context->tenantId,
+            (string) $context->eventId,
+            isset($payload['attendee_id']) ? (string) $payload['attendee_id'] : null,
+        );
+
+        return $this->success([
+            ...$payload,
+            'event' => $details['event'],
+            'assigned_venue' => $details['assigned_venue'],
+            'registration' => $details['registration'],
+        ]);
     }
 }

@@ -63,6 +63,7 @@ final readonly class BadgePrintJobsViewModel
                     'credential_id' => $job->credential_id !== null ? (string) $job->credential_id : null,
                     'attendee_name' => $displayName,
                     'status' => $job->status,
+                    'print_count' => max(1, (int) ($job->print_count ?? 1)),
                     'failure_reason' => $job->failure_reason,
                     'is_reprint' => $job->is_reprint,
                     'reprint_reason' => $job->reprint_reason,

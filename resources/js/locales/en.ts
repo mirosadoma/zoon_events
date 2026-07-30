@@ -1782,6 +1782,7 @@ export default {
   // Badge Templates & Print Jobs
   badgePrintNoJobs: 'No print jobs yet',
   badgePrintAttendee: 'Attendee',
+  badgePrintCount: 'Prints',
   badgePrintReprint: 'Reprint',
   badgePrintPrintedAt: 'Printed at',
   badgePrintReprintAction: 'Reprint',

@@ -43,17 +43,31 @@ final readonly class CreateBadgePrintJobAction
 
         return $this->transaction->run(
             mutation: function () use ($tenantId, $eventId, $attendeeId, $credentialId, $template, $payload, $kioskId, $printedByUserId): BadgePrintJob {
-                $job = BadgePrintJob::create([
+                $existing = BadgePrintJob::query()
+                    ->where('tenant_id', $tenantId)
+                    ->where('event_id', $eventId)
+                    ->where('attendee_id', $attendeeId)
+                    ->orderByDesc('created_at')
+                    ->orderByDesc('id')
+                    ->first();
+
+                $isReprint = $existing !== null;
+                $previousCount = (int) ($existing?->print_count ?? 0);
+
+                $job = $existing ?? new BadgePrintJob;
+                $job->forceFill([
                     'tenant_id' => $tenantId,
                     'event_id' => $eventId,
                     'attendee_id' => $attendeeId,
                     'credential_id' => $credentialId,
                     'badge_template_id' => $template->id,
-                    'kiosk_id' => $kioskId,
-                    'printed_by_user_id' => $printedByUserId,
+                    'kiosk_id' => $kioskId ?? $existing?->kiosk_id,
+                    'printed_by_user_id' => $printedByUserId ?? $existing?->printed_by_user_id,
                     'status' => 'queued',
-                    'is_reprint' => false,
-                ]);
+                    'failure_reason' => null,
+                    'is_reprint' => $isReprint,
+                    'print_count' => max(0, $previousCount),
+                ])->save();
 
                 try {
                     $result = $this->printer->print($payload);
@@ -65,10 +79,13 @@ final readonly class CreateBadgePrintJobAction
                     );
                 }
 
+                $printed = $result->status === 'printed';
                 $job->forceFill([
-                    'status' => $result->status === 'printed' ? 'printed' : 'failed',
-                    'failure_reason' => $result->status !== 'printed' ? ($result->reasonCode ?? 'unknown') : null,
-                    'printed_at' => $result->status === 'printed' ? CarbonImmutable::now() : null,
+                    'status' => $printed ? 'printed' : 'failed',
+                    'failure_reason' => $printed ? null : ($result->reasonCode ?? 'unknown'),
+                    'printed_at' => $printed ? CarbonImmutable::now() : $job->printed_at,
+                    'print_count' => $printed ? $previousCount + 1 : $previousCount,
+                    'is_reprint' => $isReprint,
                 ])->save();
 
                 return $job;

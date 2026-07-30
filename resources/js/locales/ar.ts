@@ -2120,6 +2120,7 @@ export default {
   // Badge Templates & Print Jobs
   badgePrintNoJobs: 'لا توجد مهام طباعة',
   badgePrintAttendee: 'الحاضر',
+  badgePrintCount: 'مرات الطباعة',
   badgePrintReprint: 'إعادة طباعة',
   badgePrintPrintedAt: 'وقت الطباعة',
   badgePrintReprintAction: 'إعادة طباعة',

@@ -10,7 +10,7 @@ final class BadgePrintJob extends Model
     protected $fillable = [
         'id', 'tenant_id', 'event_id', 'attendee_id', 'credential_id',
         'badge_template_id', 'kiosk_id', 'printed_by_user_id',
-        'status', 'failure_reason', 'is_reprint', 'reprint_reason',
+        'status', 'print_count', 'failure_reason', 'is_reprint', 'reprint_reason',
         'original_print_job_id', 'printed_at',
     ];
 
@@ -18,6 +18,7 @@ final class BadgePrintJob extends Model
     {
         return [
             'is_reprint' => 'boolean',
+            'print_count' => 'integer',
             'printed_at' => 'datetime',
         ];
     }
