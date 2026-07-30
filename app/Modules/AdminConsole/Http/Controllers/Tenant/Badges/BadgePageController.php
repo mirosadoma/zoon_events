@@ -69,23 +69,63 @@ final class BadgePageController extends Controller
             $status = '';
         }
 
-        $query = BadgePrintJob::query()
+        $perPage = InertiaListPaginator::PER_PAGE;
+        $page = max(1, (int) $request->integer('page', 1));
+
+        $groupedQuery = BadgePrintJob::query()
             ->where('tenant_id', $context->tenant->id)
             ->where('event_id', $event->id)
             ->when($status !== '', fn ($builder) => $builder->where('status', $status))
-            ->latest('created_at')
-            ->orderByDesc('id');
+            ->selectRaw('attendee_id')
+            ->selectRaw('MAX(id) as latest_id')
+            ->selectRaw('MAX(printed_at) as last_printed_at')
+            ->selectRaw(
+                "SUM(CASE WHEN status = 'printed' THEN GREATEST(COALESCE(print_count, 1), 1) ELSE 0 END) as total_prints"
+            )
+            ->groupBy('attendee_id')
+            ->orderByDesc('last_printed_at')
+            ->orderByDesc('latest_id');
 
-        $result = InertiaListPaginator::paginate($query, $request);
+        $total = (int) BadgePrintJob::query()
+            ->where('tenant_id', $context->tenant->id)
+            ->where('event_id', $event->id)
+            ->when($status !== '', fn ($builder) => $builder->where('status', $status))
+            ->distinct()
+            ->count('attendee_id');
+
+        $groups = $groupedQuery->forPage($page, $perPage)->get();
+
+        $jobsById = BadgePrintJob::query()
+            ->whereIn('id', $groups->pluck('latest_id')->filter()->all())
+            ->get()
+            ->keyBy(fn (BadgePrintJob $job): string => (string) $job->id);
+
+        $items = $groups->map(function (object $group) use ($jobsById): ?BadgePrintJob {
+            $job = $jobsById->get((string) $group->latest_id);
+            if ($job === null) {
+                return null;
+            }
+
+            $totalPrints = max(0, (int) ($group->total_prints ?? 0));
+            $job->setAttribute('print_count', max($totalPrints, (int) ($job->print_count ?? 0), $job->status === 'printed' ? 1 : 0));
+            $job->setAttribute('is_reprint', $job->print_count > 1);
+
+            return $job;
+        })->filter()->values();
 
         return Inertia::render(
             'tenant/badges/PrintJobs',
             $this->printJobs->index(
                 $event,
                 $context->tenant->id,
-                $result['items'],
+                $items,
                 ['status' => $status],
-                $result['pagination'],
+                [
+                    'page' => $page,
+                    'per_page' => $perPage,
+                    'total' => $total,
+                    'last_page' => max(1, (int) ceil($total / $perPage)),
+                ],
             ),
         );
     }

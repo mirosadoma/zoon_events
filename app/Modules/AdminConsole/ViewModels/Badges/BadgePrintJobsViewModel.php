@@ -65,7 +65,7 @@ final readonly class BadgePrintJobsViewModel
                     'status' => $job->status,
                     'print_count' => max(1, (int) ($job->print_count ?? 1)),
                     'failure_reason' => $job->failure_reason,
-                    'is_reprint' => $job->is_reprint,
+                    'is_reprint' => ((int) ($job->print_count ?? 1)) > 1 || (bool) $job->is_reprint,
                     'reprint_reason' => $job->reprint_reason,
                     'original_print_job_id' => $job->original_print_job_id,
                     'printed_at' => $job->printed_at?->toIso8601String(),

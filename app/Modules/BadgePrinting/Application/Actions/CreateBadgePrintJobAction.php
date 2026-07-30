@@ -43,16 +43,35 @@ final readonly class CreateBadgePrintJobAction
 
         return $this->transaction->run(
             mutation: function () use ($tenantId, $eventId, $attendeeId, $credentialId, $template, $payload, $kioskId, $printedByUserId): BadgePrintJob {
-                $existing = BadgePrintJob::query()
+                $siblings = BadgePrintJob::query()
                     ->where('tenant_id', $tenantId)
                     ->where('event_id', $eventId)
                     ->where('attendee_id', $attendeeId)
-                    ->orderByDesc('created_at')
                     ->orderByDesc('id')
-                    ->first();
+                    ->get();
 
-                $isReprint = $existing !== null;
-                $previousCount = (int) ($existing?->print_count ?? 0);
+                $existing = $siblings->first();
+                $previousCount = 0;
+
+                if ($siblings->isNotEmpty()) {
+                    $previousCount = (int) $siblings->sum(function (BadgePrintJob $job): int {
+                        if ($job->status !== 'printed') {
+                            return 0;
+                        }
+
+                        $count = (int) ($job->print_count ?? 0);
+
+                        return $count > 0 ? $count : 1;
+                    });
+
+                    if ($siblings->count() > 1) {
+                        BadgePrintJob::query()
+                            ->whereIn('id', $siblings->skip(1)->pluck('id')->all())
+                            ->delete();
+                    }
+                }
+
+                $isReprint = $previousCount > 0;
 
                 $job = $existing ?? new BadgePrintJob;
                 $job->forceFill([
