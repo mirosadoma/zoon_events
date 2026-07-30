@@ -9,6 +9,8 @@ use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgePrintJob;
 use App\Modules\Credentials\Application\Presentation\CredentialPresentationToken;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
 use App\Modules\Ticketing\Infrastructure\Persistence\Models\TicketType;
+use App\Modules\Orders\Infrastructure\Persistence\Models\Order;
+use App\Modules\Orders\Infrastructure\Persistence\Models\OrderItem;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
@@ -66,7 +68,13 @@ final readonly class ListKioskAttendeesAction
             ->get()
             ->keyBy(fn (object $row): string => (string) $row->attendee_id);
 
-        $rows = $attendees->map(function (Attendee $attendee) use ($credentials, $ticketTypes, $venues, $printCounts): array {
+        $orderReferences = $this->orderReferencesByAttendee(
+            $tenantId,
+            $eventId,
+            $attendees->pluck('id')->map(fn ($id): string => (string) $id)->all(),
+        );
+
+        $rows = $attendees->map(function (Attendee $attendee) use ($credentials, $ticketTypes, $venues, $printCounts, $orderReferences): array {
             /** @var Collection<int, Credential> $attendeeCredentials */
             $attendeeCredentials = $credentials->get((string) $attendee->id, collect());
             /** @var Credential|null $credential */
@@ -107,6 +115,7 @@ final readonly class ListKioskAttendeesAction
                     ? CarbonImmutable::parse((string) $print->last_printed_at)->toIso8601String()
                     : null,
                 'qr_payload' => $qrPayload,
+                'order_reference' => $orderReferences[(string) $attendee->id] ?? null,
                 'credential_status' => $credential !== null ? (string) $credential->status : null,
                 'credential_expires_at' => $credential?->expires_at?->toIso8601String(),
             ];
@@ -117,5 +126,48 @@ final readonly class ListKioskAttendeesAction
             'synced_at' => CarbonImmutable::now()->toIso8601String(),
             'attendees' => $rows,
         ];
+    }
+
+    /**
+     * @param  list<string>  $attendeeIds
+     * @return array<string, string>
+     */
+    private function orderReferencesByAttendee(string $tenantId, string $eventId, array $attendeeIds): array
+    {
+        if ($attendeeIds === []) {
+            return [];
+        }
+
+        $items = OrderItem::query()
+            ->where('tenant_id', $tenantId)
+            ->whereIn('attendee_id', $attendeeIds)
+            ->whereNotNull('order_id')
+            ->get(['attendee_id', 'order_id']);
+
+        if ($items->isEmpty()) {
+            return [];
+        }
+
+        $orders = Order::query()
+            ->where('tenant_id', $tenantId)
+            ->where('event_id', $eventId)
+            ->whereIn('id', $items->pluck('order_id')->unique()->all())
+            ->get(['id', 'public_reference'])
+            ->keyBy(fn (Order $order): string => (string) $order->id);
+
+        $map = [];
+        foreach ($items as $item) {
+            $attendeeId = (string) $item->attendee_id;
+            if (isset($map[$attendeeId])) {
+                continue;
+            }
+            $order = $orders->get((string) $item->order_id);
+            $reference = is_string($order?->public_reference) ? trim($order->public_reference) : '';
+            if ($reference !== '') {
+                $map[$attendeeId] = $reference;
+            }
+        }
+
+        return $map;
     }
 }
