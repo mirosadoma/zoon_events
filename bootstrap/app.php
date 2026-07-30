@@ -43,6 +43,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: null,
         then: function (): void {
             require __DIR__.'/../routes/health.php';
+            require __DIR__.'/../routes/kiosk.php';
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
