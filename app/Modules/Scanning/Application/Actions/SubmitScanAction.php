@@ -77,6 +77,7 @@ final readonly class SubmitScanAction
             'credential_id' => $decision->credentialId,
             'scanner_type' => $context->scannerType,
             'scanner_id' => $context->scannerId,
+            'zone_id' => $context->zoneId,
             'direction' => 'in',
             'result' => $decision->result,
             'reason' => $decision->reasonCode,

@@ -12,16 +12,16 @@ import SideDetailPane, {
 } from '@/components/layout/SideDetailPane'
 import ConfirmModal from '@/components/modals/ConfirmModal'
 import StatusBadge from '@/components/status/StatusBadge'
-import { DataTable } from '@/components/tables'
+import DataTable from '@/components/tables/DataTable'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
 import { labelForEventTier, requiresTicketing } from '@/lib/eventOptions'
 import type { PublishReadinessContext } from '@/lib/publishReadinessCatalog'
-import { ArrowUpRight } from 'lucide-react'
+import { ArrowUpRight, Copy } from 'lucide-react'
 
 type EventRow = {
-  id: string
+  id: string | number
   name: { en: string; ar: string }
   status: string
   tier: string
@@ -29,8 +29,10 @@ type EventRow = {
   registration_mode?: string
   timezone: string
   start_at?: string | null
+  end_at?: string | null
   registration_url?: string | null
   readiness?: string[]
+  code?: string | null
 }
 
 type Props = {
@@ -45,6 +47,22 @@ function readinessContextFor(event: EventRow): PublishReadinessContext {
   }
 }
 
+function formatDateTime(value: string | null | undefined, locale: string): string | null {
+  if (!value) {
+    return null
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  return date.toLocaleString(locale === 'ar' ? 'ar' : 'en', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+}
+
 export default function EventList({ events, tenantId: tenantIdProp }: Props) {
   const { locale, t, localizedPath } = useLocale()
   const { toast } = useToast()
@@ -56,8 +74,12 @@ export default function EventList({ events, tenantId: tenantIdProp }: Props) {
   const [copyNameAr, setCopyNameAr] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  const selected = events.find((event) => event.id === selectedId) ?? null
+  const selected = events.find((event) => String(event.id) === selectedId) ?? null
   const notAvailable = t('notAvailable')
+
+  function openPane(eventId: string | number) {
+    setSelectedId(String(eventId))
+  }
 
   function closePane() {
     setSelectedId(null)
@@ -66,6 +88,11 @@ export default function EventList({ events, tenantId: tenantIdProp }: Props) {
   function goToEdit() {
     if (!selectedId) return
     router.visit(localizedPath(`/tenant/events/${selectedId}/edit`))
+  }
+
+  function goToView() {
+    if (!selectedId) return
+    router.visit(localizedPath(`/tenant/events/${selectedId}`))
   }
 
   function openCopyModal(event: EventRow) {
@@ -92,7 +119,7 @@ export default function EventList({ events, tenantId: tenantIdProp }: Props) {
     setSubmitting(true)
 
     try {
-      const cloned = await apiFetch<{ id: string }>(`/api/v1/tenant/events/${copying.id}/copy`, {
+      const cloned = await apiFetch<{ id: string | number }>(`/api/v1/tenant/events/${copying.id}/copy`, {
         method: 'POST',
         tenantId,
         idempotency: true,
@@ -108,12 +135,21 @@ export default function EventList({ events, tenantId: tenantIdProp }: Props) {
       setCopying(null)
       setCopyNameEn('')
       setCopyNameAr('')
-      router.visit(localizedPath(`/tenant/events/${cloned.id}`))
+      router.visit(localizedPath(`/tenant/events/${String(cloned.id)}`))
     } catch (error) {
       const message = error instanceof ApiFetchError ? error.message : t('eventListCopyFailed')
       toast(message, 'error')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function copyRegistrationLink(url: string) {
+    try {
+      await navigator.clipboard.writeText(url)
+      toast(t('copied'), 'success')
+    } catch {
+      toast(t('eventDetailCouldNotCopyLink'), 'error')
     }
   }
 
@@ -137,7 +173,7 @@ export default function EventList({ events, tenantId: tenantIdProp }: Props) {
             rows={events as unknown as Record<string, unknown>[]}
             getRowKey={(row) => String(row.id)}
             selectedRowKey={selectedId}
-            onRowClick={(row) => setSelectedId(String(row.id))}
+            onRowClick={(row) => openPane(row.id)}
             columns={[
               {
                 key: 'name',
@@ -145,7 +181,11 @@ export default function EventList({ events, tenantId: tenantIdProp }: Props) {
                 render: (row) => {
                   const event = row as unknown as EventRow
 
-                  return <LocalizedLink href={`/tenant/events/${event.id}`} className="font-medium text-sky-700 hover:underline">{event.name[locale]}</LocalizedLink>
+                  return (
+                    <span className="font-medium text-[var(--ink)]">
+                      {event.name[locale] || event.name.en || event.name.ar}
+                    </span>
+                  )
                 },
               },
               {
@@ -182,34 +222,51 @@ export default function EventList({ events, tenantId: tenantIdProp }: Props) {
 
       <SideDetailPane
         open={selected !== null}
-        title={selected ? selected.name[locale] : ''}
+        title={selected ? (selected.name[locale] || selected.name.en || selected.name.ar) : ''}
         subtitle={selected ? labelForEventTier(selected.tier, locale) : null}
         onClose={closePane}
         onEdit={goToEdit}
+        hero={selected ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge status={selected.status} />
+            <PublishReadinessBadge
+              readiness={selected.readiness ?? []}
+              context={readinessContextFor(selected)}
+            />
+          </div>
+        ) : null}
         footer={selected ? (
           <SideDetailActions>
-            <LocalizedLink
-              href={`/tenant/events/${selected.id}`}
-              className={sideDetailActionClassName('primary')}
-            >
-              {t('view')}
+            <button type="button" className={sideDetailActionClassName('primary')} onClick={goToView}>
+              {t('eventListOpenEvent')}
               <ArrowUpRight className="h-4 w-4" aria-hidden />
-            </LocalizedLink>
+            </button>
             <button type="button" className={sideDetailActionClassName()} onClick={goToEdit}>
               {t('edit')}
             </button>
             <button type="button" className={sideDetailActionClassName()} onClick={() => openCopyModal(selected)}>
+              <Copy className="h-4 w-4" aria-hidden />
               {t('eventListCopy')}
             </button>
+            {selected.registration_url ? (
+              <button
+                type="button"
+                className={sideDetailActionClassName()}
+                onClick={() => void copyRegistrationLink(selected.registration_url!)}
+              >
+                {t('eventListCopyRegistrationLink')}
+              </button>
+            ) : null}
           </SideDetailActions>
         ) : null}
       >
         {selected ? (
           <SideDetailInfoGrid
+            title={t('eventListDetails')}
             items={[
               {
                 label: t('eventListName'),
-                value: selected.name[locale],
+                value: selected.name[locale] || selected.name.en || selected.name.ar,
               },
               {
                 label: t('eventListTier'),
@@ -228,8 +285,29 @@ export default function EventList({ events, tenantId: tenantIdProp }: Props) {
                 value: <StatusBadge status={selected.status} />,
               },
               {
+                label: t('startAt'),
+                value: formatDateTime(selected.start_at, locale) || notAvailable,
+              },
+              {
+                label: t('endAt'),
+                value: formatDateTime(selected.end_at, locale) || notAvailable,
+              },
+              {
                 label: t('eventListTimezone'),
                 value: selected.timezone || notAvailable,
+              },
+              {
+                label: t('eventListPublishReadiness'),
+                value: (
+                  <PublishReadinessBadge
+                    readiness={selected.readiness ?? []}
+                    context={readinessContextFor(selected)}
+                  />
+                ),
+              },
+              {
+                label: t('eventListCode'),
+                value: selected.code || notAvailable,
               },
             ]}
           />

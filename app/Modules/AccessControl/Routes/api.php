@@ -26,6 +26,10 @@ Route::prefix('tenant/events/{event_id}')
             ->middleware(['idempotency'])
             ->name('api.v1.tenant.acs.zones.update');
 
+        Route::delete('/acs/zones/{zone_id}', [AcsZoneController::class, 'destroy'])
+            ->middleware(['idempotency'])
+            ->name('api.v1.tenant.acs.zones.destroy');
+
         Route::post('/acs/lanes', [AcsLaneController::class, 'store'])
             ->middleware(['idempotency'])
             ->name('api.v1.tenant.acs.lanes.store');

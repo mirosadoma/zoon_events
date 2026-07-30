@@ -33,6 +33,7 @@ export type EventZoneRow = {
   floor_type?: 'basement' | 'floor' | null
   floor_number?: number | null
   capacity: number | null
+  scanner_code?: string | null
   shape_type?: string | null
   polygon_coordinates?: Array<{ x: number; y: number }> | null
   shape_radius?: number | null

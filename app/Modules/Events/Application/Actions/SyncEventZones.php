@@ -4,6 +4,7 @@ namespace App\Modules\Events\Application\Actions;
 
 use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
 use App\Modules\Events\Application\Support\EventZonePresenter;
+use App\Modules\Events\Application\Support\ZoneScannerCode;
 use App\Modules\Events\Domain\EventCoordinateSpace;
 use App\Modules\Events\Domain\EventZoneFloorType;
 use App\Modules\Events\Domain\EventZoneShapeType;
@@ -99,6 +100,10 @@ final class SyncEventZones
                 'type' => $type,
                 'capacity' => $capacity,
             ];
+
+            $incomingCode = ZoneScannerCode::normalize(
+                array_key_exists('scanner_code', $zone) ? (string) ($zone['scanner_code'] ?? '') : null,
+            );
 
             if (array_key_exists('floor_type', $zone)) {
                 $payload['floor_type'] = $floorType;
@@ -280,6 +285,13 @@ final class SyncEventZones
                     ->first();
 
                 if ($model instanceof EventZone) {
+                    if ($incomingCode !== null) {
+                        ZoneScannerCode::assertUnique($tenantId, (string) $event->id, $incomingCode, (int) $model->id);
+                        $payload['scanner_code'] = $incomingCode;
+                    } elseif ($model->scanner_code === null || $model->scanner_code === '') {
+                        $payload['scanner_code'] = ZoneScannerCode::uniqueForEvent($tenantId, (string) $event->id, (int) $model->id);
+                    }
+
                     if (
                         array_key_exists('fill_image_path', $payload)
                         && $payload['fill_image_path'] === null
@@ -294,6 +306,13 @@ final class SyncEventZones
 
                     continue;
                 }
+            }
+
+            if ($incomingCode !== null) {
+                ZoneScannerCode::assertUnique($tenantId, (string) $event->id, $incomingCode);
+                $payload['scanner_code'] = $incomingCode;
+            } else {
+                $payload['scanner_code'] = ZoneScannerCode::uniqueForEvent($tenantId, (string) $event->id);
             }
 
             $created = EventZone::query()->create($payload);

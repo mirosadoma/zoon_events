@@ -93,10 +93,7 @@ export default function Sidebar() {
         className={clsx(
           'ta-sidebar',
           sidebarCollapsed && 'ta-sidebar-collapsed',
-          mobileSidebarOpen
-            ? 'max-lg:fixed max-lg:inset-y-0 max-lg:start-0 max-lg:z-50 max-lg:flex max-lg:w-[min(260px,88vw)] max-lg:shadow-2xl ta-sidebar-mobile-open'
-            : 'ta-sidebar-mobile hidden',
-          'lg:flex',
+          mobileSidebarOpen ? 'ta-sidebar-mobile-open' : 'ta-sidebar-mobile',
         )}
       >
         <div className="ta-sidebar-mobile-header">

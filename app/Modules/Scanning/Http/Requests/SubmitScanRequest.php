@@ -20,6 +20,7 @@ final class SubmitScanRequest extends FormRequest
             'qr_payload' => ['sometimes', 'string', 'max:512'],
             'credential_id' => ['sometimes', 'string'],
             'scanner_type' => ['required', 'string', Rule::in(['staff_phone', 'handheld_scanner', 'manual_desk'])],
+            'zone_id' => ['sometimes', 'nullable', 'integer'],
             'override' => ['sometimes', 'boolean'],
             'override_reason' => ['sometimes', 'nullable', 'string', 'max:500'],
             'offline_mode' => ['sometimes', 'boolean'],
@@ -30,7 +31,7 @@ final class SubmitScanRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
-            $allowed = ['qr_payload', 'credential_id', 'scanner_type', 'override', 'override_reason', 'offline_mode', 'scanned_at'];
+            $allowed = ['qr_payload', 'credential_id', 'scanner_type', 'zone_id', 'override', 'override_reason', 'offline_mode', 'scanned_at'];
             $unknown = array_diff(array_keys($this->all()), $allowed);
             if ($unknown !== []) {
                 $validator->errors()->add('body', 'Unknown fields are not permitted.');

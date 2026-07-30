@@ -23,6 +23,7 @@ final class EventZone extends Model
         'floor_type',
         'floor_number',
         'capacity',
+        'scanner_code',
         'shape_type',
         'coordinate_space',
         'polygon_coordinates',

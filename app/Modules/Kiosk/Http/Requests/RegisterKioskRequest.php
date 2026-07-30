@@ -17,8 +17,10 @@ final class RegisterKioskRequest extends FormRequest
         return [
             'device_name' => ['required', 'string', 'max:120'],
             'location_label' => ['sometimes', 'nullable', 'string', 'max:160'],
+            // Always required on create; confirmation_required checkbox removed from UI.
+            'confirmation_code' => ['required', 'string', 'max:12'],
+            // Accepted but ignored if sent; create path always enables confirmation.
             'confirmation_required' => ['sometimes', 'boolean'],
-            'confirmation_code' => ['sometimes', 'required_if:confirmation_required,true', 'string', 'max:12'],
         ];
     }
 }

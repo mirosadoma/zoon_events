@@ -21,6 +21,7 @@ final readonly class AttendeeDetailViewModel
     /**
      * @param  Collection<int, Attendee>  $attendees
      * @param  array<string, string>  $credentialStatuses
+     * @param  array<string, array{id: string, name: array{en: string, ar: string}}>  $currentZones
      * @param  array{search?: string|null, status?: string|null, registration_type?: string|null}  $filters
      * @param  array{page: int, per_page: int, total: int, last_page: int}  $pagination
      * @return array{
@@ -36,12 +37,14 @@ final readonly class AttendeeDetailViewModel
         array $credentialStatuses = [],
         array $filters = [],
         array $pagination = ['page' => 1, 'per_page' => 15, 'total' => 0, 'last_page' => 1],
+        array $currentZones = [],
     ): array {
         return [
             'event' => $this->eventRow($event),
             'attendees' => $attendees->map(fn (Attendee $attendee): array => $this->attendeeRow(
                 $attendee,
                 $credentialStatuses[$attendee->id] ?? null,
+                $currentZones[(string) $attendee->id] ?? null,
             ))->values()->all(),
             'filters' => [
                 'search' => (string) ($filters['search'] ?? ''),
@@ -122,8 +125,11 @@ final readonly class AttendeeDetailViewModel
         ];
     }
 
-    /** @return array<string, mixed> */
-    private function attendeeRow(Attendee $attendee, ?string $credentialStatus): array
+    /**
+     * @param  array{id: string, name: array{en: string, ar: string}}|null  $currentZone
+     * @return array<string, mixed>
+     */
+    private function attendeeRow(Attendee $attendee, ?string $credentialStatus, ?array $currentZone = null): array
     {
         $displayName = $this->personalData->attendeeDisplayName($attendee);
         $email = $this->personalData->attendeeEmail($attendee);
@@ -139,6 +145,7 @@ final readonly class AttendeeDetailViewModel
             'display_name' => $displayName,
             'email' => $email,
             'phone' => $phone,
+            'current_zone' => $currentZone,
         ];
     }
 }

@@ -73,7 +73,7 @@ final class CheckInSummaryTest extends Phase2MySqlTestCase
                 'duplicate_count' => 0,
             ]);
 
-        $this->artisan('zonetec:checkin:refresh-summary', ['--event' => $eventId])->assertSuccessful();
+        $this->artisan('zonetec:checkin:refresh-summary', ['--event' => (string) $eventId])->assertSuccessful();
 
         $summary = EventCheckInSummary::query()
             ->where('tenant_id', $scan['fixture']['tenant']->id)

@@ -19,4 +19,6 @@ return [
     'override_not_permitted' => 'You do not have permission to override scan results.',
     'online_endpoint_does_not_accept_offline_mode' => 'Use the offline batch endpoint for offline scans.',
     'offline_batch_conflict' => 'Offline scan batch conflict detected.',
+    'scanner_app_session_invalid' => 'Scanner app session is invalid or expired. Login again with the zone code.',
+    'scanner_app_zone_not_found' => 'No zone matches this scanner code for the event.',
 ];

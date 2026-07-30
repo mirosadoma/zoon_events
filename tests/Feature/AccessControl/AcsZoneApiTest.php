@@ -87,6 +87,15 @@ final class AcsZoneApiTest extends Phase4MySqlTestCase
         )->assertOk()
             ->assertJsonPath('data.name', 'Main Hall Updated')
             ->assertJsonPath('data.status', 'inactive');
+
+        $this->deleteJson(
+            "{$base}/{$zoneId}",
+            [],
+            $this->acsTenantHeaders($scan, 'acs-zone-delete-'.Str::ulid()),
+        )->assertOk()
+            ->assertJsonPath('data.deleted', true);
+
+        self::assertDatabaseMissing('acs_zones', ['id' => $zoneId]);
     }
 
     public function test_zone_mutations_require_acs_configure_permission(): void
@@ -122,6 +131,16 @@ final class AcsZoneApiTest extends Phase4MySqlTestCase
                 "{$base}/{$zone->id}",
                 ['name' => 'Denied'],
                 $this->acsTenantHeaders($scan, 'acs-zone-patch-forbidden-'.Str::ulid()),
+            ),
+            403,
+            'acs_config_not_permitted',
+        );
+
+        $this->assertProblemDetails(
+            $this->deleteJson(
+                "{$base}/{$zone->id}",
+                [],
+                $this->acsTenantHeaders($scan, 'acs-zone-delete-forbidden-'.Str::ulid()),
             ),
             403,
             'acs_config_not_permitted',

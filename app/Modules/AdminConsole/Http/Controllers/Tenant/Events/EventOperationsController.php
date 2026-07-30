@@ -23,6 +23,7 @@ use App\Modules\IdentityVerification\Application\Queries\IdentityGate;
 use App\Modules\Notifications\Infrastructure\Persistence\Models\Notification;
 use App\Modules\Orders\Infrastructure\Persistence\Models\Order;
 use App\Modules\Orders\Infrastructure\Persistence\Models\OrderItem;
+use App\Modules\Scanning\Application\Queries\GetAttendeeCurrentZonesQuery;
 use App\Modules\Shared\Application\DataProtection\PersonalDataGuard;
 use App\Modules\Tenancy\Domain\Context\TenantContext;
 use Illuminate\Http\Request;
@@ -45,6 +46,7 @@ final class EventOperationsController extends Controller
         private readonly AttendeesExcelExport $attendeesExcelExport,
         private readonly PublicRegistrationUrlBuilder $registrationUrls,
         private readonly PersonalDataGuard $guard,
+        private readonly GetAttendeeCurrentZonesQuery $attendeeCurrentZones,
     ) {}
 
     public function orders(Request $request, string $eventId): Response
@@ -133,10 +135,16 @@ final class EventOperationsController extends Controller
             (int) $request->integer('page', 1),
             'public',
         );
+        $attendeeIds = $result['attendees']->pluck('id')->all();
         $credentialStatuses = $this->credentialStatusesForAttendees(
             $context,
             $event->id,
-            $result['attendees']->pluck('id')->all(),
+            $attendeeIds,
+        );
+        $currentZones = $this->attendeeCurrentZones->forAttendees(
+            (string) $context->tenant->id,
+            (string) $event->id,
+            $attendeeIds,
         );
 
         $payload = $this->attendees->index(
@@ -150,6 +158,7 @@ final class EventOperationsController extends Controller
                 'total' => $result['total'],
                 'last_page' => $result['last_page'],
             ],
+            $currentZones,
         );
 
         $canSendPrivateInvites = in_array($event->tier, ['private', 'both'], true);
@@ -228,13 +237,19 @@ final class EventOperationsController extends Controller
                 ->get()
                 ->keyBy('email_index');
 
+        $attendeeIds = $attendeesByEmailIndex->pluck('id')->all();
         $credentialStatuses = $this->credentialStatusesForAttendees(
             $context,
             (string) $event->id,
-            $attendeesByEmailIndex->pluck('id')->all(),
+            $attendeeIds,
+        );
+        $currentZones = $this->attendeeCurrentZones->forAttendees(
+            (string) $event->tenant_id,
+            (string) $event->id,
+            $attendeeIds,
         );
 
-        $rows = $invites->map(function (EventRegistrationInvite $invite) use ($attendeesByEmailIndex, $credentialStatuses): array {
+        $rows = $invites->map(function (EventRegistrationInvite $invite) use ($attendeesByEmailIndex, $credentialStatuses, $currentZones): array {
             $email = $invite->resolvedEmail($this->guard);
             $emailIndex = filled($invite->email_index)
                 ? (string) $invite->email_index
@@ -263,6 +278,7 @@ final class EventOperationsController extends Controller
                 'display_name' => $displayName,
                 'email' => $email !== '' ? $email : null,
                 'phone' => $phone,
+                'current_zone' => $attendeeId !== null ? ($currentZones[$attendeeId] ?? null) : null,
             ];
         })->values()->all();
 
@@ -401,9 +417,6 @@ final class EventOperationsController extends Controller
         return $context;
     }
 
-    /**
-     * @return array<string, mixed>
-     */
     private function order(TenantContext $context, Event $event, string $orderId): Order
     {
         return Order::query()

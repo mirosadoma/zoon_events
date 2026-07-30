@@ -15,13 +15,10 @@ final readonly class PairKioskAction
      */
     public function execute(Kiosk $kiosk): array
     {
-        $secretLength = (int) config('printing.kiosk.session_secret_length', 40);
         $ttlHours = (int) config('printing.kiosk.session_ttl_hours', 168);
 
-        $rawSecret = sodium_bin2base64(
-            random_bytes($secretLength),
-            SODIUM_BASE64_VARIANT_URLSAFE_NO_PADDING,
-        );
+        // 8-digit numeric pairing code (zero-padded). Easy to type into the kiosk app.
+        $rawSecret = str_pad((string) random_int(0, 99_999_999), 8, '0', STR_PAD_LEFT);
 
         $expiresAt = now()->addHours($ttlHours);
 

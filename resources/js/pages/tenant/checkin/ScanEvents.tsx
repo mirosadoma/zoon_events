@@ -9,7 +9,7 @@ import DataTable from '@/components/tables/DataTable'
 import FiltersBar from '@/components/tables/FiltersBar'
 import Pagination from '@/components/tables/Pagination'
 import SelectInput from '@/components/forms/SelectInput'
-import CheckboxInput from '@/components/forms/CheckboxInput'
+// import CheckboxInput from '@/components/forms/CheckboxInput'
 import { useLocale } from '@/hooks/useLocale'
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
 import { defaultPagination, type PaginationMeta, withPage } from '@/lib/pagination'
@@ -66,7 +66,7 @@ export default function ScanEvents({
   const localizedRouter = useLocalizedRouter()
   const [resultFilter, setResultFilter] = useState(filters.result)
   const [scannerFilter, setScannerFilter] = useState(filters.scanner_type)
-  const [offlineOnly, setOfflineOnly] = useState(filters.offline)
+//   const [offlineOnly, setOfflineOnly] = useState(filters.offline)
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const selected = scanEvents.find((scan) => scan.id === selectedId) ?? null
@@ -74,13 +74,13 @@ export default function ScanEvents({
   function queryParams(overrides: Partial<Filters & { page?: number }> = {}): Record<string, string> {
     const nextResult = overrides.result ?? resultFilter
     const nextScanner = overrides.scanner_type ?? scannerFilter
-    const nextOffline = overrides.offline ?? offlineOnly
+    // const nextOffline = overrides.offline ?? offlineOnly
     const nextPage = overrides.page ?? pagination.page
     const query: Record<string, string> = {}
 
     if (nextResult !== '') query.result = nextResult
     if (nextScanner !== '') query.scanner_type = nextScanner
-    if (nextOffline) query.offline = '1'
+    // if (nextOffline) query.offline = '1'
 
     return withPage(query, nextPage)
   }
@@ -139,7 +139,7 @@ export default function ScanEvents({
             }}
             options={scannerOptions}
           />
-          <CheckboxInput
+          {/* <CheckboxInput
             label={t('offlineOnly')}
             name="offline"
             checked={offlineOnly}
@@ -148,7 +148,7 @@ export default function ScanEvents({
               setOfflineOnly(next)
               applyFilters({ offline: next, page: 1 })
             }}
-          />
+          /> */}
         </FiltersBar>
 
         {scanEvents.length === 0 ? (
@@ -170,14 +170,14 @@ export default function ScanEvents({
                   render: (row) => <StatusBadge status={String(row.result)} />,
                 },
                 { key: 'scanner_type', header: t('scanner') },
-                {
-                  key: 'gate_id',
-                  header: t('scanEventsGate'),
-                  render: (row) => {
-                    const scan = row as unknown as ScanEventRow
-                    return scan.gate_name ?? scan.gate_id ?? '—'
-                  },
-                },
+                // {
+                //   key: 'gate_id',
+                //   header: t('scanEventsGate'),
+                //   render: (row) => {
+                //     const scan = row as unknown as ScanEventRow
+                //     return scan.gate_name ?? scan.gate_id ?? '—'
+                //   },
+                // },
                 {
                   key: 'zone_id',
                   header: t('scanEventsZone'),
@@ -186,11 +186,11 @@ export default function ScanEvents({
                     return scan.zone_name ?? scan.zone_id ?? '—'
                   },
                 },
-                {
-                  key: 'offline',
-                  header: t('scanEventsOffline'),
-                  render: (row) => (row.offline ? t('yes') : '—'),
-                },
+                // {
+                //   key: 'offline',
+                //   header: t('scanEventsOffline'),
+                //   render: (row) => (row.offline ? t('yes') : '—'),
+                // },
                 {
                   key: 'reason',
                   header: t('scanEventsReason'),

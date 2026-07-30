@@ -7,6 +7,7 @@ return [
     'acs_lane_unmapped' => 'The requested ACS lane is not mapped for this event.',
     'acs_event_out_of_scope' => 'The access event is outside the integration scope.',
     'acs_duplicate_external_id' => 'An ACS entity with this external identifier already exists.',
+    'acs_zone_in_use' => 'This ACS zone cannot be deleted while lanes or rules still reference it.',
     'acs_invalid_time_window' => 'The authorization rule time window is invalid.',
     'acs_config_not_permitted' => 'You do not have permission to configure ACS settings.',
     'acs_events_not_permitted' => 'You do not have permission to view gate events.',

@@ -10,6 +10,7 @@ use App\Modules\AdminConsole\Application\Support\InertiaListPaginator;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\CheckIn\Concerns\AuthorizesTenantEventPage;
 use App\Modules\AdminConsole\ViewModels\CheckIn\ScanEventsViewModel;
 use App\Modules\Authorization\Application\PermissionEvaluator;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventZone;
 use App\Modules\Scanning\Infrastructure\Persistence\Models\ScanEvent;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -56,12 +57,23 @@ final class ScanEventsController extends Controller
             ->pluck('name', 'id')
             ->all();
 
-        $zoneNames = $zoneIds === [] ? [] : AcsZone::query()
+        $eventZoneNames = $zoneIds === [] ? [] : EventZone::query()
+            ->where('tenant_id', $context->tenant->id)
+            ->where('event_id', $event->id)
+            ->whereIn('id', $zoneIds)
+            ->get(['id', 'zone_name_en'])
+            ->mapWithKeys(fn (EventZone $zone): array => [(string) $zone->id => (string) $zone->zone_name_en])
+            ->all();
+
+        $acsZoneNames = $zoneIds === [] ? [] : AcsZone::query()
             ->where('tenant_id', $context->tenant->id)
             ->where('event_id', $event->id)
             ->whereIn('id', $zoneIds)
             ->pluck('name', 'id')
+            ->mapWithKeys(fn ($name, $id): array => [(string) $id => (string) $name])
             ->all();
+
+        $zoneNames = $acsZoneNames + $eventZoneNames;
 
         return Inertia::render(
             'tenant/checkin/ScanEvents',

@@ -23,6 +23,7 @@ export type MapZone = {
   floor_type: 'basement' | 'floor' | null
   floor_number: number | null
   capacity: number | null
+  scanner_code: string | null
   shape_type: ZoneShapeType | null
   coordinate_space?: 'relative' | 'geo'
   polygon_coordinates: MapPoint[] | null
