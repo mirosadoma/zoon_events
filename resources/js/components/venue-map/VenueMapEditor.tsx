@@ -69,6 +69,17 @@ type Props = {
   zoneTypes: string[]
 }
 
+function generateScannerCode(used: Set<string> = new Set()): string {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const code = String(Math.floor(Math.random() * 100_000_000)).padStart(8, '0')
+    if (!used.has(code)) {
+      return code
+    }
+  }
+
+  return String(Date.now() % 100_000_000).padStart(8, '0')
+}
+
 function toDraft(zones: Array<Record<string, unknown>>): MapZone[] {
   return zones.map((zone) => ({
     key: String(zone.id ?? crypto.randomUUID()),
@@ -85,6 +96,7 @@ function toDraft(zones: Array<Record<string, unknown>>): MapZone[] {
       ? null
       : Number(zone.floor_number),
     capacity: zone.capacity === null || zone.capacity === undefined ? null : Number(zone.capacity),
+    scanner_code: zone.scanner_code == null || zone.scanner_code === '' ? null : String(zone.scanner_code),
     shape_type: (zone.shape_type as MapZone['shape_type']) ?? null,
     coordinate_space: (zone.coordinate_space as MapZone['coordinate_space']) ?? undefined,
     polygon_coordinates: (zone.polygon_coordinates as MapZone['polygon_coordinates']) ?? null,
@@ -902,6 +914,7 @@ export default function VenueMapEditor({
                 floor_type: zone.floor_type,
                 floor_number: zone.floor_type === 'floor' ? zone.floor_number : null,
                 capacity: zone.capacity,
+                scanner_code: zone.scanner_code && /^\d{8}$/.test(zone.scanner_code) ? zone.scanner_code : undefined,
                 shape_type,
                 coordinate_space: zone.coordinate_space ?? 'geo',
                 polygon_coordinates,
@@ -1352,6 +1365,12 @@ export default function VenueMapEditor({
             className="button-secondary w-full"
             onClick={() => {
               const key = crypto.randomUUID()
+              const used = new Set(
+                history.zones
+                  .map((zone) => zone.scanner_code)
+                  .filter((code): code is string => typeof code === 'string' && /^\d{8}$/.test(code)),
+              )
+              const scannerCode = generateScannerCode(used)
               commitZones([
                 ...history.zones,
                 {
@@ -1364,6 +1383,7 @@ export default function VenueMapEditor({
                   floor_type: null,
                   floor_number: null,
                   capacity: null,
+                  scanner_code: scannerCode,
                   coordinate_space: 'geo',
                   shape_type: null,
                   polygon_coordinates: null,
@@ -1576,6 +1596,44 @@ export default function VenueMapEditor({
                 })}
               />
             ) : null}
+            <TextInput
+              label={t('eventZoneCapacity')}
+              name="capacity"
+              type="number"
+              min={0}
+              value={selected.capacity == null ? '' : String(selected.capacity)}
+              onChange={(e) => updateSelected({
+                capacity: e.target.value.trim() === '' ? null : Number(e.target.value),
+              })}
+            />
+            <TextInput
+              label={t('eventZoneScannerCode')}
+              name="scanner_code"
+              inputMode="numeric"
+              maxLength={8}
+              pattern="\d{8}"
+              value={selected.scanner_code ?? ''}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, '').slice(0, 8)
+                updateSelected({ scanner_code: digits === '' ? null : digits })
+              }}
+              hint={t('eventZoneScannerCodeHint')}
+            />
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() => {
+                const used = new Set(
+                  history.zones
+                    .filter((zone) => zone.key !== selected.key)
+                    .map((zone) => zone.scanner_code)
+                    .filter((code): code is string => typeof code === 'string' && /^\d{8}$/.test(code)),
+                )
+                updateSelected({ scanner_code: generateScannerCode(used) })
+              }}
+            >
+              {t('eventZoneScannerCodeRegenerate')}
+            </button>
             <TextInput
               label={t('venueMapLabel')}
               name="label"

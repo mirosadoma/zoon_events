@@ -61,6 +61,9 @@ final class EventZonePresenter
                 : null,
             'floor_number' => $zone->floor_number !== null ? (int) $zone->floor_number : null,
             'capacity' => $zone->capacity !== null ? (int) $zone->capacity : null,
+            'scanner_code' => $zone->scanner_code !== null && $zone->scanner_code !== ''
+                ? (string) $zone->scanner_code
+                : null,
             'shape_type' => $shapeType,
             'coordinate_space' => (string) ($zone->coordinate_space ?? EventCoordinateSpace::Relative->value),
             'polygon_coordinates' => self::normalizeCoordinates($zone->polygon_coordinates),

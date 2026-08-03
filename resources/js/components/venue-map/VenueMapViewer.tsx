@@ -16,12 +16,14 @@ import RotatableFloorOverlay from '@/components/venue-map/RotatableFloorOverlay'
 import GeoMarkerOverlay, { isGeoMarkerShape } from '@/components/venue-map/GeoMarkerOverlay'
 import ZoneFillImageOverlay from '@/components/venue-map/ZoneFillImageOverlay'
 import { defaultFillForType, type MapPoint } from '@/components/venue-map/types'
+import LocalizedLink from '@/components/routing/LocalizedLink'
 import { useLocale } from '@/hooks/useLocale'
 
 type PublicZone = RoutingZone & {
   name: { en: string; ar: string }
   description?: { en: string | null; ar: string | null } | null
   label: string | null
+  hover_detail?: string | null
   shape_rotation?: number | null
   shape_radius_y?: number | null
   fill_color: string | null
@@ -52,6 +54,7 @@ type Props = {
   locale: 'en' | 'ar'
   navigateLabel: string
   navigateHint?: string
+  enableRouting?: boolean
   overlayOpacity?: number
   removeBackground?: boolean
   showBaseMap?: boolean
@@ -67,6 +70,10 @@ type Props = {
   overlayEast?: number | null
   overlayWest?: number | null
   overlayRotation?: number | null
+}
+
+function isExternalUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url)
 }
 
 const MAP_LIBRARIES: Libraries = ['places', 'geometry']
@@ -111,6 +118,7 @@ export default function VenueMapViewer({
   locale,
   navigateLabel,
   navigateHint,
+  enableRouting = true,
   overlayOpacity = 0.85,
   removeBackground = false,
   venueLatitude = null,
@@ -128,7 +136,12 @@ export default function VenueMapViewer({
 }: Props) {
   const { t } = useLocale()
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [hoverTip, setHoverTip] = useState<{ name: string; position: GeoPoint; zoneId?: string } | null>(null)
+  const [hoverTip, setHoverTip] = useState<{
+    name: string
+    detail?: string | null
+    position: GeoPoint
+    zoneId?: string
+  } | null>(null)
   const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null)
   const [currentLocation, setCurrentLocation] = useState<GeoPoint | null>(null)
   const [locationError, setLocationError] = useState<string | null>(null)
@@ -190,7 +203,8 @@ export default function VenueMapViewer({
 
   const selected = zones.find((zone) => zone.id === selectedId) ?? null
   const endZone = zones.find((zone) => zone.id === endZoneId) ?? null
-  const endZoneName = endZone ? zoneDisplayName(endZone, locale) : null
+  const panelZone = enableRouting ? endZone : selected
+  const panelZoneName = panelZone ? zoneDisplayName(panelZone, locale) : null
   const zoneOptions = useMemo(
     () => zones
       .filter((zone) => zone.shape_type)
@@ -273,7 +287,10 @@ export default function VenueMapViewer({
     [endZoneId, zones],
   )
 
+  const panelNavigateUrl = panelZone?.navigate_url ?? null
+
   const routeNotice = useMemo(() => {
+    if (!enableRouting) return null
     if (!endZoneId) return t('venueMapRoutePickDestination')
     if (!activeRoute && routeError) return routeError
     if (!activeRoute) return t('venueMapRoutePressDraw')
@@ -283,7 +300,35 @@ export default function VenueMapViewer({
       return t('venueMapRouteViaGate').replace(':gate', gateName)
     }
     return t('venueMapRouteReady')
-  }, [activeRoute, endZoneId, locale, routeError, t, zones])
+  }, [activeRoute, enableRouting, endZoneId, locale, routeError, t, zones])
+
+  function renderNavigateAction(url: string | null, className: string) {
+    if (!url) {
+      return (
+        <a
+          className={className}
+          href="#"
+          onClick={(event) => event.preventDefault()}
+        >
+          {navigateLabel}
+        </a>
+      )
+    }
+
+    if (isExternalUrl(url)) {
+      return (
+        <a className={className} href={url} target="_blank" rel="noreferrer">
+          {navigateLabel}
+        </a>
+      )
+    }
+
+    return (
+      <LocalizedLink className={className} href={url}>
+        {navigateLabel}
+      </LocalizedLink>
+    )
+  }
 
   if (centerLat == null || centerLng == null) {
     return <p className="text-[var(--muted)]">{t('venueMapPublicEmpty')}</p>
@@ -301,78 +346,68 @@ export default function VenueMapViewer({
 
   return (
     <div className="venue-map-viewer">
-      <div className="venue-map-viewer__controls">
-        <button type="button" className="button-secondary" onClick={requestCurrentLocation}>
-          {t('venueMapRouteUseMyLocation')}
-        </button>
-        <label>
-          <span>{t('venueMapRouteStart')}</span>
-          <select
-            className="venue-map-viewer__select"
-            value={startZoneId}
-            onChange={(event) => {
-              setStartZoneId(event.target.value)
+      {enableRouting ? (
+        <div className="venue-map-viewer__controls">
+          <button type="button" className="button-secondary" onClick={requestCurrentLocation}>
+            {t('venueMapRouteUseMyLocation')}
+          </button>
+          <label>
+            <span>{t('venueMapRouteStart')}</span>
+            <select
+              className="venue-map-viewer__select"
+              value={startZoneId}
+              onChange={(event) => {
+                setStartZoneId(event.target.value)
+                setActiveRoute(null)
+                setRouteError(null)
+              }}
+            >
+              <option value="">{t('venueMapRouteCurrentLocation')}</option>
+              {zoneOptions.map((zone) => (
+                <option key={zone.value} value={zone.value}>{zone.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>{t('venueMapRouteEnd')}</span>
+            <select
+              className="venue-map-viewer__select"
+              value={endZoneId}
+              onChange={(event) => {
+                setEndZoneId(event.target.value)
+                setSelectedId(event.target.value || null)
+                setActiveRoute(null)
+                setRouteError(null)
+              }}
+            >
+              <option value="">{t('venueMapRouteSelectDestination')}</option>
+              {zoneOptions.map((zone) => (
+                <option key={zone.value} value={zone.value}>{zone.label}</option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className="button-primary"
+            onClick={drawRoute}
+          >
+            {t('venueMapRouteDraw')}
+          </button>
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={() => {
+              setEndZoneId('')
+              setSelectedId(null)
               setActiveRoute(null)
               setRouteError(null)
             }}
           >
-            <option value="">{t('venueMapRouteCurrentLocation')}</option>
-            {zoneOptions.map((zone) => (
-              <option key={zone.value} value={zone.value}>{zone.label}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>{t('venueMapRouteEnd')}</span>
-          <select
-            className="venue-map-viewer__select"
-            value={endZoneId}
-            onChange={(event) => {
-              setEndZoneId(event.target.value)
-              setSelectedId(event.target.value || null)
-              setActiveRoute(null)
-              setRouteError(null)
-            }}
-          >
-            <option value="">{t('venueMapRouteSelectDestination')}</option>
-            {zoneOptions.map((zone) => (
-              <option key={zone.value} value={zone.value}>{zone.label}</option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="button"
-          className="button-primary"
-          onClick={drawRoute}
-        >
-          {t('venueMapRouteDraw')}
-        </button>
-        <button
-          type="button"
-          className="button-secondary"
-          onClick={() => {
-            setEndZoneId('')
-            setSelectedId(null)
-            setActiveRoute(null)
-            setRouteError(null)
-          }}
-        >
-          {t('venueMapRouteClear')}
-        </button>
-        <a
-          className="button-secondary"
-          href={destinationNavigateUrl ?? '#'}
-          target="_blank"
-          rel="noreferrer"
-          onClick={(event) => {
-            if (!destinationNavigateUrl) {
-              event.preventDefault()
-            }
-          }}
-        >
-          {navigateLabel}
-        </a>
-      </div>
+            {t('venueMapRouteClear')}
+          </button>
+          {renderNavigateAction(destinationNavigateUrl, 'button-secondary')}
+        </div>
+      ) : null}
 
       <div className="venue-map-geo-canvas venue-map-viewer__canvas">
         <GoogleMap
@@ -411,7 +446,9 @@ export default function VenueMapViewer({
           {zones.map((zone) => {
             const points = asGeoPoints(zone.polygon_coordinates, overlayBounds)
             if (!zone.shape_type || points.length === 0) return null
-            const isSelected = zone.id === selectedId || zone.id === endZoneId
+            const isSelected = enableRouting
+              ? (zone.id === selectedId || zone.id === endZoneId)
+              : zone.id === selectedId
             const fill = zone.fill_color ?? defaultFillForType(zone.type)
             const stroke = zone.stroke_color ?? '#111827'
             const hasFillImage = Boolean(zone.fill_image_url)
@@ -419,16 +456,20 @@ export default function VenueMapViewer({
             const emphasized = hoverTip?.zoneId === zone.id
             const opacity = emphasized ? 1 : baseOpacity
             const tipName = zoneDisplayName(zone, locale)
+            const tipDetail = zone.hover_detail ?? null
             const common = {
               onClick: (event: google.maps.MapMouseEvent) => {
                 event.stop()
                 setSelectedId(zone.id)
-                setEndZoneId(zone.id)
+                if (enableRouting) {
+                  setEndZoneId(zone.id)
+                }
               },
               onMouseOver: (event: google.maps.MapMouseEvent) => {
                 if (!tipName || !event.latLng) return
                 setHoverTip({
                   name: tipName,
+                  detail: tipDetail,
                   position: { lat: event.latLng.lat(), lng: event.latLng.lng() },
                   zoneId: zone.id,
                 })
@@ -437,6 +478,7 @@ export default function VenueMapViewer({
                 if (!tipName || !event.latLng) return
                 setHoverTip({
                   name: tipName,
+                  detail: tipDetail,
                   position: { lat: event.latLng.lat(), lng: event.latLng.lng() },
                   zoneId: zone.id,
                 })
@@ -538,7 +580,7 @@ export default function VenueMapViewer({
             )
           })}
 
-          {currentLocation ? (
+          {enableRouting && currentLocation ? (
             <Circle
               center={currentLocation}
               radius={5}
@@ -553,7 +595,7 @@ export default function VenueMapViewer({
             />
           ) : null}
 
-          {activeRoute?.approachRoute.length === 2 ? (
+          {enableRouting && activeRoute?.approachRoute.length === 2 ? (
             <Polyline
               path={activeRoute.approachRoute}
               options={{
@@ -575,7 +617,7 @@ export default function VenueMapViewer({
             />
           ) : null}
 
-          {activeRoute?.indoorRoute.length ? (
+          {enableRouting && activeRoute?.indoorRoute.length ? (
             <>
               <Polyline
                 path={activeRoute.indoorRoute}
@@ -617,30 +659,33 @@ export default function VenueMapViewer({
               map={mapInstance}
               position={hoverTip.position}
               label={hoverTip.name}
+              detail={hoverTip.detail}
             />
           ) : null}
         </GoogleMap>
       </div>
 
-      <div className="venue-map-viewer__panel">
-        <h2>{endZoneName || t('venueMapRouteTitle')}</h2>
-        <p className="text-sm text-[var(--muted)]">{routeNotice}</p>
-        {activeRoute ? (
-          <p className="text-sm">
-            {t('venueMapRouteDistance').replace(':distance', `${Math.round(activeRoute.distanceMeters)}m`)}
-          </p>
-        ) : null}
-        {locationError ? (
-          <p className="text-sm text-[var(--danger)]">{locationError}</p>
-        ) : null}
-        {selected?.navigate_url ? (
-          <a className="button-primary" href={selected.navigate_url} target="_blank" rel="noreferrer">
-            {navigateLabel}
-          </a>
-        ) : navigateHint ? (
-          <p className="text-sm text-[var(--muted)]">{navigateHint}</p>
-        ) : null}
-      </div>
+      {enableRouting ? (
+        <div className="venue-map-viewer__panel">
+          <h2>{panelZoneName || t('venueMapRouteTitle')}</h2>
+          {routeNotice ? (
+            <p className="text-sm text-[var(--muted)]">{routeNotice}</p>
+          ) : null}
+          {activeRoute ? (
+            <p className="text-sm">
+              {t('venueMapRouteDistance').replace(':distance', `${Math.round(activeRoute.distanceMeters)}m`)}
+            </p>
+          ) : null}
+          {locationError ? (
+            <p className="text-sm text-[var(--danger)]">{locationError}</p>
+          ) : null}
+          {panelNavigateUrl ? (
+            renderNavigateAction(panelNavigateUrl, 'button-primary')
+          ) : navigateHint ? (
+            <p className="text-sm text-[var(--muted)]">{navigateHint}</p>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   )
 }

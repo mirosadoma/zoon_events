@@ -5,16 +5,34 @@ type Props = {
   map: google.maps.Map
   position: GeoPoint
   label: string
+  detail?: string | null
 }
 
 /** Lightweight name tooltip above the map, follows hover position. */
-export default function MapHoverTooltip({ map, position, label }: Props) {
+export default function MapHoverTooltip({ map, position, label, detail = null }: Props) {
   const overlayRef = useRef<google.maps.OverlayView | null>(null)
   const elRef = useRef<HTMLDivElement | null>(null)
   const positionRef = useRef(position)
   const labelRef = useRef(label)
+  const detailRef = useRef(detail)
   positionRef.current = position
   labelRef.current = label
+  detailRef.current = detail
+
+  function renderContent(el: HTMLDivElement) {
+    el.replaceChildren()
+    const title = document.createElement('div')
+    title.className = 'venue-map-hover-tooltip__title'
+    title.textContent = labelRef.current
+    el.appendChild(title)
+
+    if (detailRef.current) {
+      const meta = document.createElement('div')
+      meta.className = 'venue-map-hover-tooltip__detail'
+      meta.textContent = detailRef.current
+      el.appendChild(meta)
+    }
+  }
 
   useEffect(() => {
     const el = document.createElement('div')
@@ -34,7 +52,7 @@ export default function MapHoverTooltip({ map, position, label }: Props) {
           new google.maps.LatLng(positionRef.current.lat, positionRef.current.lng),
         )
         if (!point) return
-        el.textContent = labelRef.current
+        renderContent(el)
         el.style.left = `${point.x}px`
         el.style.top = `${point.y}px`
       }
@@ -56,9 +74,9 @@ export default function MapHoverTooltip({ map, position, label }: Props) {
   }, [map])
 
   useEffect(() => {
-    if (elRef.current) elRef.current.textContent = label
+    if (elRef.current) renderContent(elRef.current)
     overlayRef.current?.draw()
-  }, [position.lat, position.lng, label])
+  }, [position.lat, position.lng, label, detail])
 
   return null
 }
