@@ -7,6 +7,7 @@ use App\Modules\Audit\Application\AuditWriter;
 use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgeTemplate;
 use App\Modules\Events\Application\Support\EventSlug;
 use App\Modules\Events\Application\Support\ResolvesEventOrganizer;
+use App\Modules\Events\Application\Support\ZoneScannerCode;
 use App\Modules\Events\Domain\EventZoneType;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventAgendaItem;
@@ -275,6 +276,7 @@ final readonly class CloneEvent
                 'floor_type' => $zone->floor_type,
                 'floor_number' => $zone->floor_number,
                 'capacity' => $zone->capacity,
+                'scanner_code' => ZoneScannerCode::uniqueForEvent((string) $clone->tenant_id, (string) $clone->id),
                 'shape_type' => $zone->shape_type?->value ?? $zone->shape_type,
                 'coordinate_space' => $zone->coordinate_space ?? 'relative',
                 'polygon_coordinates' => $zone->polygon_coordinates,

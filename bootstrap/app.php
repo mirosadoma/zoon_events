@@ -63,6 +63,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'apple-pass-auth' => AuthenticateApplePass::class,
             'kiosk.session' => ResolveKioskSession::class,
             'kiosk.session.clear' => ClearKioskSession::class,
+            'scanner.app' => \App\Modules\Scanning\Http\Middleware\ResolveScannerAppSession::class,
+            'scanner.app.clear' => \App\Modules\Scanning\Http\Middleware\ClearScannerAppSession::class,
             'acs.integration' => ResolveAcsIntegration::class,
             'acs.integration.clear' => ClearAcsIntegration::class,
             'acs.capability' => RequireAcsCapability::class,

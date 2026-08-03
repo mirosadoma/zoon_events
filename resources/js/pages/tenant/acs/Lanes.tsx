@@ -83,7 +83,7 @@ export default function AcsLanes({ event, tenantId, zones, lanes: initialLanes }
         )}
       />
       <PageContent>
-        <ZoneLaneEditor zones={zones} lanes={lanes} showZones={false} onLaneSelect={setSelectedId} />
+        <ZoneLaneEditor zones={zones} lanes={lanes} showZones={false} selectedLaneId={selectedId} onLaneSelect={setSelectedId} />
 
         {zones.length === 0 ? (
           <div className="mt-6">

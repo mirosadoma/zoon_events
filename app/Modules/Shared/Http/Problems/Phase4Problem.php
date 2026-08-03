@@ -14,6 +14,7 @@ final class Phase4Problem
         'acs_lane_unmapped' => 404,
         'acs_event_out_of_scope' => 404,
         'acs_duplicate_external_id' => 409,
+        'acs_zone_in_use' => 409,
         'acs_invalid_time_window' => 422,
         'acs_config_not_permitted' => 403,
         'acs_events_not_permitted' => 403,

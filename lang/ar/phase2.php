@@ -19,4 +19,6 @@ return [
     'override_not_permitted' => 'ليس لديك صلاحية تجاوز نتائج المسح.',
     'online_endpoint_does_not_accept_offline_mode' => 'استخدم نقطة نهاية الدُفعة دون اتصال للمسح غير المتصل.',
     'offline_batch_conflict' => 'تم اكتشاف تعارض في دفعة المسح دون اتصال.',
+    'scanner_app_session_invalid' => 'جلسة تطبيق الماسح غير صالحة أو منتهية. سجّل الدخول مرة أخرى برمز المنطقة.',
+    'scanner_app_zone_not_found' => 'لا توجد منطقة تطابق رمز الماسح لهذا الحدث.',
 ];

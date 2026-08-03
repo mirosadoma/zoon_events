@@ -4,6 +4,7 @@ namespace App\Modules\AccessControl\Http\Controllers\Management;
 
 use App\Http\Controllers\Controller;
 use App\Modules\AccessControl\Application\Actions\CreateAcsZoneAction;
+use App\Modules\AccessControl\Application\Actions\DeleteAcsZoneAction;
 use App\Modules\AccessControl\Application\Actions\UpdateAcsZoneAction;
 use App\Modules\AccessControl\Http\Requests\AcsZoneRequest;
 use App\Modules\AccessControl\Http\Requests\UpdateAcsZoneRequest;
@@ -72,6 +73,26 @@ final class AcsZoneController extends Controller
         $updated = $action->execute($zone, $request->validated());
 
         return $this->success((new AcsZoneResource($updated))->resolve());
+    }
+
+    public function destroy(
+        Request $request,
+        string $eventId,
+        string $zoneId,
+        DeleteAcsZoneAction $action,
+    ): JsonResponse {
+        $this->authorizeConfigure($request);
+        $this->scopedEvent->assertExists($eventId);
+
+        $context = $this->contexts->current();
+        $zone = AcsZone::query()
+            ->where('tenant_id', $context->tenant->id)
+            ->where('event_id', $eventId)
+            ->findOrFail($zoneId);
+
+        $action->execute($zone);
+
+        return $this->success(['deleted' => true]);
     }
 
     private function authorizeConfigure(Request $request): void

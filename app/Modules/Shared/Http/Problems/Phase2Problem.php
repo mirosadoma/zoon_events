@@ -16,6 +16,8 @@ final class Phase2Problem
         'override_not_permitted' => 403,
         'online_endpoint_does_not_accept_offline_mode' => 422,
         'offline_batch_conflict' => 409,
+        'scanner_app_session_invalid' => 401,
+        'scanner_app_zone_not_found' => 404,
     ];
 
     public static function make(string $code): FoundationException
@@ -26,6 +28,7 @@ final class Phase2Problem
             $status === 404 => 'Not found',
             $status === 409 => 'Conflict',
             $status === 403 => 'Forbidden',
+            $status === 401 => 'Unauthorized',
             default => 'Validation failed',
         };
 

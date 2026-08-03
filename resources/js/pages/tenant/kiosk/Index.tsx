@@ -56,7 +56,6 @@ export default function KioskIndex({
   const [registering, setRegistering] = useState(false)
   const [deviceName, setDeviceName] = useState('')
   const [locationLabel, setLocationLabel] = useState('')
-  const [confirmationRequired, setConfirmationRequired] = useState(false)
   const [confirmationCode, setConfirmationCode] = useState('')
   const [registerError, setRegisterError] = useState<string | null>(null)
 
@@ -86,7 +85,6 @@ export default function KioskIndex({
   function resetRegisterForm() {
     setDeviceName('')
     setLocationLabel('')
-    setConfirmationRequired(false)
     setConfirmationCode('')
     setRegisterError(null)
   }
@@ -104,8 +102,7 @@ export default function KioskIndex({
         body: {
           device_name: deviceName.trim(),
           location_label: locationLabel.trim() || null,
-          confirmation_required: confirmationRequired,
-          confirmation_code: confirmationRequired ? confirmationCode.trim() : null,
+          confirmation_code: confirmationCode.trim(),
         },
       })
 
@@ -408,23 +405,13 @@ export default function KioskIndex({
                 onChange={(inputEvent) => setLocationLabel(inputEvent.target.value)}
                 placeholder={t('kioskPageLocationPlaceholder')}
               />
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={confirmationRequired}
-                  onChange={(inputEvent) => setConfirmationRequired(inputEvent.target.checked)}
-                />
-                <span>{t('kioskPageConfirmationRequired')}</span>
-              </label>
-              {confirmationRequired ? (
-                <TextInput
-                  label={t('kioskPageConfirmationCode')}
-                  name="confirmation_code"
-                  value={confirmationCode}
-                  required
-                  onChange={(inputEvent) => setConfirmationCode(inputEvent.target.value)}
-                />
-              ) : null}
+              <TextInput
+                label={t('kioskPageConfirmationCode')}
+                name="confirmation_code"
+                value={confirmationCode}
+                required
+                onChange={(inputEvent) => setConfirmationCode(inputEvent.target.value)}
+              />
               {registerError ? <p className="text-sm text-red-600">{registerError}</p> : null}
             </div>
 
@@ -440,7 +427,7 @@ export default function KioskIndex({
               >
                 {t('cancel')}
               </button>
-              <button type="submit" className="button-primary" disabled={registering || deviceName.trim() === ''}>
+              <button type="submit" className="button-primary" disabled={registering || deviceName.trim() === '' || confirmationCode.trim() === ''}>
                 {registering ? t('kioskPageRegistering') : t('kioskPageAdd')}
               </button>
             </div>

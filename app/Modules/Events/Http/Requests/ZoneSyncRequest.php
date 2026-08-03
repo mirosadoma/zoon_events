@@ -31,6 +31,7 @@ final class ZoneSyncRequest extends FormRequest
             'zones.*.floor_type' => ['nullable', 'string', Rule::in(EventZoneFloorType::values())],
             'zones.*.floor_number' => ['nullable', 'integer', 'min:0', 'max:500', 'required_if:zones.*.floor_type,floor'],
             'zones.*.capacity' => ['nullable', 'integer', 'min:0'],
+            'zones.*.scanner_code' => ['nullable', 'string', 'regex:/^\d{8}$/'],
             'zones.*.shape_type' => ['nullable', 'string', Rule::in(EventZoneShapeType::values())],
             'zones.*.coordinate_space' => ['nullable', 'string', Rule::in(EventCoordinateSpace::values())],
             'zones.*.polygon_coordinates' => ['nullable', 'array'],

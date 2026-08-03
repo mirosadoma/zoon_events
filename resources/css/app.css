@@ -67,7 +67,7 @@ body {
 }
 
 .ta-sidebar {
-  @apply flex h-screen max-h-screen flex-col overflow-hidden border-e px-2.5 py-3 sm:px-3 sm:py-3.5 lg:fixed lg:inset-y-0 lg:z-50 lg:w-[260px] transition-[width,transform] duration-300 ease-out;
+  @apply hidden h-screen max-h-screen flex-col overflow-hidden border-e px-2.5 py-3 sm:px-3 sm:py-3.5 lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-[260px] transition-[width,transform] duration-300 ease-out;
   border-color: var(--sidebar-border);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--brand-soft) 35%, var(--sidebar)), var(--sidebar));
@@ -79,21 +79,10 @@ body {
 }
 
 @media (max-width: 1023px) {
-  .ta-sidebar-mobile {
-    transform: translateX(calc(-100% - 1rem));
-  }
-
-  [dir="rtl"] .ta-sidebar-mobile {
-    transform: translateX(calc(100% + 1rem));
-  }
-
   .ta-sidebar-mobile-open {
-    transform: translateX(0);
+    @apply fixed inset-y-0 start-0 z-50 flex w-[min(260px,88vw)] shadow-2xl;
+    transform: none;
   }
-}
-
-.ta-sidebar-mobile-open {
-  transform: none;
 }
 
 .ta-sidebar-mobile-header {
@@ -5703,21 +5692,33 @@ html:not(.dark) .event-detail-metric {
   position: absolute;
   z-index: 20;
   transform: translate(-50%, calc(-100% - 10px));
-  max-width: 220px;
-  padding: 0.35rem 0.55rem;
+  max-width: 240px;
+  padding: 0.4rem 0.6rem;
   border-radius: 0.4rem;
   border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
   background: color-mix(in srgb, var(--surface) 94%, white);
   color: var(--text);
   font-size: 0.8rem;
   font-weight: 600;
-  line-height: 1.25;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.3;
+  white-space: normal;
   box-shadow: 0 6px 18px color-mix(in srgb, black 14%, transparent);
   pointer-events: none;
   user-select: none;
+}
+
+.venue-map-hover-tooltip__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.venue-map-hover-tooltip__detail {
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 .venue-map-floor-overlay {

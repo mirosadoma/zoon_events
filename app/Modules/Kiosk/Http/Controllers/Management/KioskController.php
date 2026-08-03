@@ -47,8 +47,7 @@ final class KioskController extends Controller
             eventId: $eventId,
             deviceName: $request->string('device_name')->toString(),
             locationLabel: $request->input('location_label'),
-            confirmationRequired: $request->boolean('confirmation_required'),
-            plainConfirmationCode: $request->input('confirmation_code'),
+            plainConfirmationCode: (string) $request->input('confirmation_code'),
         );
 
         return $this->success($this->kioskToArray($kiosk, $eventId, $context->tenant->id), 201);

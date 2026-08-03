@@ -44,6 +44,10 @@ type AttendeeRow = {
   attendee_id?: string | null
   locale: string
   credential_status?: string | null
+  current_zone?: {
+    id: string
+    name: { en: string; ar: string }
+  } | null
 }
 
 type Filters = {
@@ -395,6 +399,18 @@ export default function Attendees({
                   },
                 },
                 {
+                  key: 'current_zone',
+                  header: t('attendeeCurrentZone'),
+                  render: (row) => {
+                    const zone = (row as unknown as AttendeeRow).current_zone
+                    if (!zone) {
+                      return '—'
+                    }
+
+                    return zone.name[locale] || zone.name.en || zone.name.ar || '—'
+                  },
+                },
+                {
                   key: 'credential_status',
                   header: t('attendeesCredential'),
                   render: (row) => {
@@ -479,6 +495,14 @@ export default function Attendees({
               {
                 label: t('inviteStatus'),
                 value: inviteStatus ? <StatusBadge status={inviteStatus} /> : notAvailable,
+              },
+              {
+                label: t('attendeeCurrentZone'),
+                value: selected.current_zone
+                  ? (selected.current_zone.name[locale]
+                    || selected.current_zone.name.en
+                    || selected.current_zone.name.ar)
+                  : notAvailable,
               },
               {
                 label: t('attendeesCredential'),

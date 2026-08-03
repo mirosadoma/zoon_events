@@ -7,6 +7,7 @@ return [
     'acs_lane_unmapped' => 'مسار ACS المطلوب غير مرتبط بهذا الحدث.',
     'acs_event_out_of_scope' => 'حدث الوصول خارج نطاق التكامل.',
     'acs_duplicate_external_id' => 'يوجد كيان ACS بهذا المعرف الخارجي بالفعل.',
+    'acs_zone_in_use' => 'لا يمكن حذف منطقة ACS هذه بينما ما زالت هناك مسارات أو قواعد مرتبطة بها.',
     'acs_invalid_time_window' => 'نافذة وقت قاعدة التفويض غير صالحة.',
     'acs_config_not_permitted' => 'ليس لديك صلاحية تكوين إعدادات ACS.',
     'acs_events_not_permitted' => 'ليس لديك صلاحية عرض أحداث البوابة.',

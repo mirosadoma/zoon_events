@@ -1,8 +1,10 @@
 import LocalizedLink from '@/components/routing/LocalizedLink'
-import { FormEvent, useRef, useState } from 'react'
+import { FormEvent, useMemo, useRef, useState } from 'react'
+import { router } from '@inertiajs/react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { ScanResultCard, type ScanResultView } from '@/components/checkin/ScanResultCard'
 import QrCameraScanner from '@/components/checkin/QrCameraScanner'
+import TextInput from '@/components/forms/TextInput'
 import TextareaInput from '@/components/forms/TextareaInput'
 import SubmitButtonWithLoader from '@/components/forms/SubmitButtonWithLoader'
 import { PageContent, PageHeader } from '@/components/layout'
@@ -15,23 +17,72 @@ type EventRow = {
   name: { en: string; ar: string }
 }
 
+type ZoneRow = {
+  id: string
+  name: { en: string; ar: string }
+  scanner_code: string | null
+  capacity: number | null
+}
+
 type Props = {
   event: EventRow
   tenantId: string
+  zones: ZoneRow[]
+  selectedZone: ZoneRow | null
+  codeError: string | null
 }
 
-export default function CheckInScanner({ event, tenantId }: Props) {
-  const { locale, t } = useLocale()
+export default function CheckInScanner({
+  event,
+  tenantId,
+  zones,
+  selectedZone: initialZone,
+  codeError,
+}: Props) {
+  const { locale, t, localizedPath } = useLocale()
   const [payload, setPayload] = useState('')
   const [result, setResult] = useState<ScanResultView | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [codeInput, setCodeInput] = useState('')
+  const [selectedZone, setSelectedZone] = useState<ZoneRow | null>(initialZone)
   const idempotencyKey = useRef<string | null>(null)
+
+  const zoneLabel = useMemo(() => {
+    if (!selectedZone) {
+      return null
+    }
+    const name = selectedZone.name[locale] || selectedZone.name.en
+    return selectedZone.scanner_code
+      ? `${name} · ${selectedZone.scanner_code}`
+      : name
+  }, [locale, selectedZone])
+
+  function bindZoneByCode(rawCode: string) {
+    const code = rawCode.replace(/\D/g, '').slice(0, 8)
+    setCodeInput(code)
+    if (code.length !== 8) {
+      return
+    }
+    router.get(
+      localizedPath(`/tenant/events/${event.id}/scanner`),
+      { code },
+      { preserveState: false, preserveScroll: false },
+    )
+  }
+
+  function clearZone() {
+    setSelectedZone(null)
+    router.get(localizedPath(`/tenant/events/${event.id}/scanner`), {}, {
+      preserveState: false,
+      preserveScroll: false,
+    })
+  }
 
   async function submitPayload(rawPayload: string) {
     const trimmed = normalizeScanPayload(rawPayload)
 
-    if (submitting || trimmed === '') {
+    if (submitting || trimmed === '' || !selectedZone) {
       return
     }
 
@@ -50,6 +101,7 @@ export default function CheckInScanner({ event, tenantId }: Props) {
         body: {
           qr_payload: trimmed,
           scanner_type: 'staff_phone',
+          zone_id: Number(selectedZone.id),
         },
       })
 
@@ -91,6 +143,7 @@ export default function CheckInScanner({ event, tenantId }: Props) {
       credential_expired: t('scanErrorExpired'),
       credential_revoked: t('scanErrorRevoked'),
       scan_failed: t('scanErrorFailed'),
+      invalid_scanner_code: t('scannerPageInvalidCode'),
     }
 
     return messages[code] ?? code
@@ -110,39 +163,92 @@ export default function CheckInScanner({ event, tenantId }: Props) {
         actions={<LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/check-in-dashboard`}>{t('checkInDashboard')}</LocalizedLink>}
       />
       <PageContent>
-        <div className="state-panel scanner-workspace space-y-4">
-          <p className="text-sm text-[var(--muted)]">{t('scanPayloadHelp')}</p>
-
-          <div className="scanner-workspace-grid">
-            <QrCameraScanner
-              active
-              onScan={handleCameraScan}
-              unavailableLabel={t('scanCameraUnavailable')}
-              startingLabel={t('scanCameraStarting')}
-              restartLabel={t('scanCameraRestart')}
+        {!selectedZone ? (
+          <div className="ta-card mx-auto max-w-md space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-[var(--ink)]">{t('scannerPageEnterCodeTitle')}</h2>
+              <p className="mt-1 text-sm text-[var(--muted)]">{t('scannerPageEnterCodeHelp')}</p>
+            </div>
+            <TextInput
+              label={t('scannerPageZoneCode')}
+              name="scanner_code"
+              inputMode="numeric"
+              maxLength={8}
+              value={codeInput}
+              onChange={(e) => bindZoneByCode(e.target.value)}
+              required
             />
+            {codeError ? (
+              <p role="alert" className="text-sm text-red-700 dark:text-red-300">
+                {scanErrorMessage(codeError)}
+              </p>
+            ) : null}
+            {zones.length > 0 ? (
+              <div className="space-y-2 border-t border-[var(--line)] pt-4">
+                <p className="text-sm font-medium text-[var(--ink)]">{t('scannerPageOrPickZone')}</p>
+                <ul className="space-y-2">
+                  {zones.map((zone) => (
+                    <li key={zone.id}>
+                      <LocalizedLink
+                        className="button-secondary inline-flex w-full justify-between"
+                        href={`/tenant/events/${event.id}/scanner?code=${zone.scanner_code ?? ''}`}
+                      >
+                        <span>{zone.name[locale] || zone.name.en}</span>
+                        <span className="font-mono text-xs">{zone.scanner_code ?? '—'}</span>
+                      </LocalizedLink>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--muted)]">{t('scannerPageNoZones')}</p>
+            )}
+          </div>
+        ) : (
+          <div className="state-panel scanner-workspace space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-[var(--muted)]">{t('scannerPageBoundZone')}</p>
+                <p className="text-base font-semibold text-[var(--ink)]">{zoneLabel}</p>
+              </div>
+              <button type="button" className="button-secondary" onClick={clearZone}>
+                {t('scannerPageChangeZone')}
+              </button>
+            </div>
 
-            <form className="scanner-entry-form" onSubmit={submitScan}>
-              <TextareaInput
-                label={t('qrPayload')}
-                name="qr_payload"
-                value={payload}
-                required
-                onChange={(changeEvent) => setPayload(changeEvent.target.value)}
+            <p className="text-sm text-[var(--muted)]">{t('scanPayloadHelp')}</p>
+
+            <div className="scanner-workspace-grid">
+              <QrCameraScanner
+                active
+                onScan={handleCameraScan}
+                unavailableLabel={t('scanCameraUnavailable')}
+                startingLabel={t('scanCameraStarting')}
+                restartLabel={t('scanCameraRestart')}
               />
 
-              <ScanResultCard result={result} />
-
-              <div className="scanner-entry-form__actions">
-                <SubmitButtonWithLoader
-                  label={t('submitScan')}
-                  loading={submitting}
-                  disabled={payload.trim() === ''}
+              <form className="scanner-entry-form" onSubmit={submitScan}>
+                <TextareaInput
+                  label={t('qrPayload')}
+                  name="qr_payload"
+                  value={payload}
+                  required
+                  onChange={(changeEvent) => setPayload(changeEvent.target.value)}
                 />
-              </div>
-            </form>
+
+                <ScanResultCard result={result} />
+
+                <div className="scanner-entry-form__actions">
+                  <SubmitButtonWithLoader
+                    label={t('submitScan')}
+                    loading={submitting}
+                    disabled={payload.trim() === ''}
+                  />
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
+        )}
 
         {error ? (
           <p role="alert" className="mt-4 text-xs font-medium text-red-700 dark:text-red-300">

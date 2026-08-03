@@ -38,6 +38,7 @@ type ZoneDraft = {
   floor_type: 'basement' | 'floor' | null
   floor_number: string
   capacity: string
+  scanner_code: string
 }
 
 type Props = {
@@ -69,7 +70,21 @@ function toFormRow(venue: EventVenueRow): VenueFormRow {
   }])[0] ?? emptyVenueRow()
 }
 
-function emptyZone(defaultType: string): ZoneDraft {
+function generateScannerCode(used: Set<string> = new Set()): string {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const code = String(Math.floor(Math.random() * 100_000_000)).padStart(8, '0')
+    if (!used.has(code)) {
+      return code
+    }
+  }
+
+  return String(Date.now() % 100_000_000).padStart(8, '0')
+}
+
+function emptyZone(defaultType: string, usedCodes: Set<string> = new Set()): ZoneDraft {
+  const scanner_code = generateScannerCode(usedCodes)
+  usedCodes.add(scanner_code)
+
   return {
     key: crypto.randomUUID(),
     zone_name_en: '',
@@ -80,6 +95,7 @@ function emptyZone(defaultType: string): ZoneDraft {
     floor_type: null,
     floor_number: '',
     capacity: '',
+    scanner_code,
   }
 }
 
@@ -88,22 +104,32 @@ function zonesFromVenue(venue: EventVenueRow | null, defaultType: string): ZoneD
     return []
   }
 
-  return venue.zones.map((zone: EventZoneRow) => ({
-    key: zone.id,
-    id: zone.id,
-    zone_name_en: zone.zone_name_en ?? zone.name?.en ?? '',
-    zone_name_ar: zone.zone_name_ar ?? zone.name?.ar ?? '',
-    description_en: zone.description_en ?? '',
-    description_ar: zone.description_ar ?? '',
-    type: zone.type || defaultType,
-    floor_type: zone.floor_type === 'basement' || zone.floor_type === 'floor'
-      ? zone.floor_type
-      : null,
-    floor_number: zone.floor_number !== null && zone.floor_number !== undefined
-      ? String(zone.floor_number)
-      : '',
-    capacity: zone.capacity !== null && zone.capacity !== undefined ? String(zone.capacity) : '',
-  }))
+  const usedCodes = new Set<string>()
+
+  return venue.zones.map((zone: EventZoneRow) => {
+    const existing = zone.scanner_code && /^\d{8}$/.test(zone.scanner_code)
+      ? zone.scanner_code
+      : generateScannerCode(usedCodes)
+    usedCodes.add(existing)
+
+    return {
+      key: zone.id,
+      id: zone.id,
+      zone_name_en: zone.zone_name_en ?? zone.name?.en ?? '',
+      zone_name_ar: zone.zone_name_ar ?? zone.name?.ar ?? '',
+      description_en: zone.description_en ?? '',
+      description_ar: zone.description_ar ?? '',
+      type: zone.type || defaultType,
+      floor_type: zone.floor_type === 'basement' || zone.floor_type === 'floor'
+        ? zone.floor_type
+        : null,
+      floor_number: zone.floor_number !== null && zone.floor_number !== undefined
+        ? String(zone.floor_number)
+        : '',
+      capacity: zone.capacity !== null && zone.capacity !== undefined ? String(zone.capacity) : '',
+      scanner_code: existing,
+    }
+  })
 }
 
 function remapErrorsForIndex(errors: Record<string, string>, index: number): Record<string, string> {
@@ -187,6 +213,14 @@ export default function EventVenueFormPage({
         return
       }
 
+      const invalidScannerCode = zones.find((zone) => !/^\d{8}$/.test(zone.scanner_code.trim()))
+      if (invalidScannerCode) {
+        const message = t('eventZoneScannerCodeInvalid')
+        setErrors({ zones: message })
+        toast(message, 'error')
+        return
+      }
+
       const venueResult = await apiFetch<{ venues: EventVenueRow[] }>(`/api/v1/tenant/events/${event.id}/venues`, {
         method: 'PUT',
         tenantId,
@@ -225,6 +259,7 @@ export default function EventVenueFormPage({
               ? Number(zone.floor_number)
               : null,
             capacity: zone.capacity.trim() === '' ? null : Number(zone.capacity),
+            scanner_code: zone.scanner_code.trim(),
           })),
         },
       })
@@ -298,7 +333,10 @@ export default function EventVenueFormPage({
               <button
                 type="button"
                 className="button-secondary"
-                onClick={() => setZones((current) => [...current, emptyZone(defaultType)])}
+                onClick={() => setZones((current) => {
+                  const used = new Set(current.map((row) => row.scanner_code).filter(Boolean))
+                  return [...current, emptyZone(defaultType, used)]
+                })}
               >
                 {t('eventZonesAdd')}
               </button>
@@ -354,6 +392,42 @@ export default function EventVenueFormPage({
                         rowIndex === index ? { ...row, capacity: e.target.value } : row
                       )))}
                     />
+                    <TextInput
+                      label={t('eventZoneScannerCode')}
+                      name={`zone_scanner_code_${index}`}
+                      inputMode="numeric"
+                      maxLength={8}
+                      pattern="\d{8}"
+                      required
+                      value={zone.scanner_code}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, '').slice(0, 8)
+                        setZones((current) => current.map((row, rowIndex) => (
+                          rowIndex === index ? { ...row, scanner_code: digits } : row
+                        )))
+                      }}
+                      hint={t('eventZoneScannerCodeHint')}
+                    />
+                    <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        className="button-secondary"
+                        onClick={() => setZones((current) => {
+                          const used = new Set(
+                            current
+                              .filter((_, rowIndex) => rowIndex !== index)
+                              .map((row) => row.scanner_code)
+                              .filter(Boolean),
+                          )
+                          const nextCode = generateScannerCode(used)
+                          return current.map((row, rowIndex) => (
+                            rowIndex === index ? { ...row, scanner_code: nextCode } : row
+                          ))
+                        })}
+                      >
+                        {t('eventZoneScannerCodeRegenerate')}
+                      </button>
+                    </div>
                     <div className="sm:col-span-2 flex flex-wrap items-end gap-4">
                       <fieldset className="min-w-0 flex-1 space-y-2">
                         <legend className="text-sm font-medium text-[var(--ink)]">{t('eventZoneFloorType')}</legend>

@@ -9,6 +9,10 @@ type ZoneLaneEditorProps = {
   lanes: AcsLane[]
   showZones?: boolean
   showLanes?: boolean
+  selectedZoneId?: string | null
+  selectedLaneId?: string | null
+  onZoneSelect?: (zoneId: string) => void
+  onLaneSelect?: (laneId: string) => void
 }
 
 export function ZoneLaneEditor({
@@ -16,9 +20,12 @@ export function ZoneLaneEditor({
   lanes,
   showZones = true,
   showLanes = true,
+  selectedZoneId = null,
+  selectedLaneId = null,
+  onZoneSelect,
+  onLaneSelect,
 }: ZoneLaneEditorProps) {
-  const { locale, t } = useLocale()
-  const ar = locale === 'ar'
+  const { t } = useLocale()
   const zoneNameById = Object.fromEntries(zones.map((zone) => [zone.id, zone.name]))
 
   return (
@@ -40,6 +47,10 @@ export function ZoneLaneEditor({
             <DataTable
               rows={zones as unknown as Record<string, unknown>[]}
               getRowKey={(row) => String(row.id)}
+              selectedRowKey={selectedZoneId}
+              onRowClick={onZoneSelect
+                ? (row) => onZoneSelect(String(row.id))
+                : undefined}
               columns={[
                 {
                   key: 'name',
@@ -79,6 +90,10 @@ export function ZoneLaneEditor({
             <DataTable
               rows={lanes as unknown as Record<string, unknown>[]}
               getRowKey={(row) => String(row.id)}
+              selectedRowKey={selectedLaneId}
+              onRowClick={onLaneSelect
+                ? (row) => onLaneSelect(String(row.id))
+                : undefined}
               columns={[
                 {
                   key: 'name',

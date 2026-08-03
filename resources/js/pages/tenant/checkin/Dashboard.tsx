@@ -93,6 +93,7 @@ export default function CheckInDashboard({
         actions={(
           <div className="flex flex-wrap gap-2">
             <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/scanner`}>{t('scanner')}</LocalizedLink>
+            <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/occupancy-map`}>{t('occupancyMapTitle')}</LocalizedLink>
             <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/scan-events`}>{t('scanEvents')}</LocalizedLink>
           </div>
         )}

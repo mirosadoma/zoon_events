@@ -16,5 +16,6 @@ final readonly class ScanContext
         public bool $actorCanOverride = false,
         public bool $offlineMode = false,
         public ?\DateTimeInterface $scannedAt = null,
+        public ?string $zoneId = null,
     ) {}
 }

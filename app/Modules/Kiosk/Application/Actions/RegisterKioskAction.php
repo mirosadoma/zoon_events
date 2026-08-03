@@ -13,11 +13,14 @@ final readonly class RegisterKioskAction
         string $eventId,
         string $deviceName,
         ?string $locationLabel,
-        bool $confirmationRequired,
-        ?string $plainConfirmationCode,
+        string $plainConfirmationCode,
     ): Kiosk {
-        if ($confirmationRequired && ($plainConfirmationCode === null || trim($plainConfirmationCode) === '')) {
-            throw ValidationException::withMessages(['confirmation_code' => 'A confirmation code is required when confirmation_required is true.']);
+        $code = trim($plainConfirmationCode);
+
+        if ($code === '') {
+            throw ValidationException::withMessages([
+                'confirmation_code' => 'A confirmation code is required.',
+            ]);
         }
 
         $deviceCode = $this->generateUniqueDeviceCode($tenantId, $eventId);
@@ -30,10 +33,8 @@ final readonly class RegisterKioskAction
             'location_label' => $locationLabel,
             'status' => 'registered',
             'printer_status' => 'unknown',
-            'confirmation_required' => $confirmationRequired,
-            'confirmation_code_hash' => $confirmationRequired
-                ? hash('sha256', (string) $plainConfirmationCode)
-                : null,
+            'confirmation_required' => true,
+            'confirmation_code_hash' => hash('sha256', $code),
         ]);
     }
 

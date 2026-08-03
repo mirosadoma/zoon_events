@@ -5,6 +5,7 @@ namespace App\Modules\Scanning\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Authorization\Policies\Phase2\Phase2Policy;
 use App\Modules\Authorization\Policies\Phase3\Phase3Policy;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventZone;
 use App\Modules\Scanning\Application\Actions\SubmitScanAction;
 use App\Modules\Scanning\Application\Support\ScanPayloadResolver;
 use App\Modules\Scanning\Domain\ValueObjects\ScanContext;
@@ -15,6 +16,7 @@ use App\Modules\Shared\Http\Problems\Phase3Problem;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
 use App\Modules\Tenancy\Domain\Context\TenantContextStore;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Validation\ValidationException;
 
 final class ScanController extends Controller
 {
@@ -57,6 +59,8 @@ final class ScanController extends Controller
         }
 
         $context = $this->contexts->current();
+        $zoneId = $this->resolveZoneId($context->tenant->id, $eventId, $request->input('zone_id'));
+
         $resolvedPayload = $request->filled('credential_id')
             ? [
                 'qr_payload' => '',
@@ -80,8 +84,30 @@ final class ScanController extends Controller
             actorCanOverride: $this->policy->allows($user, 'overrideScan'),
             offlineMode: false,
             scannedAt: null,
+            zoneId: $zoneId,
         ));
 
         return $this->success((new ScanResultResource($submission))->resolve());
+    }
+
+    private function resolveZoneId(string $tenantId, string $eventId, mixed $zoneId): ?string
+    {
+        if ($zoneId === null || $zoneId === '') {
+            return null;
+        }
+
+        $zone = EventZone::query()
+            ->where('tenant_id', $tenantId)
+            ->where('event_id', $eventId)
+            ->whereKey((int) $zoneId)
+            ->first();
+
+        if ($zone === null) {
+            throw ValidationException::withMessages([
+                'zone_id' => 'The selected zone is invalid for this event.',
+            ]);
+        }
+
+        return (string) $zone->id;
     }
 }

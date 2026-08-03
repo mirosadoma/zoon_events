@@ -17,6 +17,8 @@ final class ResolveKioskSession
     private const UNCONFIRMED_ALLOWED_ROUTES = [
         'api.v1.kiosk.session.confirm',
         'api.v1.kiosk.heartbeat',
+        'kiosk.v1.session.confirm',
+        'kiosk.v1.heartbeat',
     ];
 
     public function __construct(

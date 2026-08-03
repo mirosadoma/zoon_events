@@ -24,6 +24,7 @@ use App\Modules\AdminConsole\Http\Controllers\Tenant\Admin\AdminPageController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Badges\BadgePageController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\CategoryPageController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\CheckIn\DashboardController as CheckInDashboardController;
+use App\Modules\AdminConsole\Http\Controllers\Tenant\CheckIn\OccupancyMapController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\CheckIn\ScanEventsController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\CheckIn\ScannerController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\CheckIn\WalletPassesController;
@@ -273,6 +274,7 @@ Route::prefix('{locale}')
                 Route::get('/{event_id}/wallet-passes/{pass_id}', [WalletPassesController::class, 'show'])->name('tenant.wallet-passes.show');
                 Route::get('/{event_id}/scanner', [ScannerController::class, 'show'])->name('tenant.checkin.scanner');
                 Route::get('/{event_id}/check-in-dashboard', [CheckInDashboardController::class, 'show'])->name('tenant.checkin.dashboard');
+                Route::get('/{event_id}/occupancy-map', [OccupancyMapController::class, 'show'])->name('tenant.checkin.occupancy-map');
                 Route::get('/{event_id}/scan-events', [ScanEventsController::class, 'index'])->name('tenant.scan-events.index');
                 Route::get('/{event_id}/kiosks', [EventKioskController::class, 'index'])->name('tenant.kiosks.index');
                 Route::get('/{event_id}/kiosks/{kiosk_id}', [EventKioskController::class, 'show'])->name('tenant.kiosks.show');
