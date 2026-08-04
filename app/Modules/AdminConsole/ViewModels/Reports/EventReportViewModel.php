@@ -3,11 +3,14 @@
 namespace App\Modules\AdminConsole\ViewModels\Reports;
 
 use App\Modules\AccessControl\Infrastructure\Persistence\Models\AccessEvent;
+use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgePrintJob;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
+use App\Modules\Events\Domain\RegistrationMode;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventCategory;
+use App\Modules\Events\Infrastructure\Persistence\Models\EventRegistrationInvite;
 use App\Modules\Kiosk\Domain\KioskStatusDeriver;
 use App\Modules\Kiosk\Infrastructure\Persistence\Models\Kiosk;
 use App\Modules\Orders\Infrastructure\Persistence\Models\Order;
@@ -144,6 +147,23 @@ final readonly class EventReportViewModel
             ? round(($checkedInAttendees / $registrations) * 100, 1)
             : null;
         $kioskCounts = $this->kioskCounts($tenantId, (string) $eventId);
+        $categories = $this->categoryBreakdown($tenantId, (string) $eventId);
+        $ticketTypes = $this->ticketTypeBreakdown($tenantId, (string) $eventId);
+        $rejectReasons = $this->topRejectReasons($tenantId, (string) $eventId, $rejectedScans);
+        $checkinsByHour = $this->checkinsByHour($tenantId, (string) $eventId, $timezone, $event);
+        $peakHour = collect($checkinsByHour)
+            ->sortByDesc(fn (array $row): int => $row['accepted_scans'])
+            ->first();
+        $funnel = $this->funnel(
+            $event,
+            $tenantId,
+            (string) $eventId,
+            $registrations,
+            $paidOrderCount,
+            $credentialsIssued,
+            $checkedInAttendees,
+        );
+        $venueMarkers = $this->venueMarkers($tenantId, (string) $eventId);
 
         return [
             'event' => [
@@ -190,6 +210,16 @@ final readonly class EventReportViewModel
                     'acs_entries_rejected' => $this->metric($acsRejected),
                     'kiosks_online' => $this->metric($kioskCounts['online']),
                     'kiosks_total' => $this->metric($kioskCounts['total']),
+                    'peak_hour' => $this->metric(
+                        is_array($peakHour) && ($peakHour['accepted_scans'] ?? 0) > 0
+                            ? $peakHour['hour']
+                            : null,
+                        is_array($peakHour) && ($peakHour['accepted_scans'] ?? 0) > 0,
+                    ),
+                    'peak_hour_scans' => $this->metric(
+                        is_array($peakHour) ? (int) $peakHour['accepted_scans'] : null,
+                        is_array($peakHour) && ($peakHour['accepted_scans'] ?? 0) > 0,
+                    ),
                 ],
                 // Backward-compatible flat keys used by older UI expectations / tests.
                 'registrations' => $this->metric($registrations),
@@ -217,9 +247,12 @@ final readonly class EventReportViewModel
                 'acs_entries_accepted' => $this->metric($acsAccepted),
                 'acs_entries_rejected' => $this->metric($acsRejected),
                 'orders_by_status' => $ordersByStatus,
-                'categories' => $this->categoryBreakdown($tenantId, (string) $eventId),
-                'ticket_types' => $this->ticketTypeBreakdown($tenantId, (string) $eventId),
+                'categories' => $categories,
+                'ticket_types' => $ticketTypes,
                 'checkins_by_day' => $this->checkinsByDay($tenantId, (string) $eventId, $timezone, $event),
+                'checkins_by_hour' => $checkinsByHour,
+                'funnel' => $funnel,
+                'venue_markers' => $venueMarkers,
                 'badge_jobs' => [
                     'by_status' => [
                         'queued' => (int) ($badgeByStatus['queued'] ?? 0),
@@ -228,7 +261,7 @@ final readonly class EventReportViewModel
                     ],
                     'reprints' => $badgeReprints,
                 ],
-                'top_reject_reasons' => $this->topRejectReasons($tenantId, (string) $eventId),
+                'top_reject_reasons' => $rejectReasons,
                 'kiosks' => $kioskCounts,
             ],
         ];
@@ -320,9 +353,19 @@ final readonly class EventReportViewModel
                 ->get()
                 ->keyBy('id');
 
-        return $rows->map(function ($row) use ($categories): array {
+        $revenueByCategory = Order::query()
+            ->where('tenant_id', $tenantId)
+            ->where('event_id', $eventId)
+            ->where('status', 'paid')
+            ->selectRaw('event_category_id as category_id, COALESCE(SUM(total_minor), 0) as revenue_minor')
+            ->groupBy('event_category_id')
+            ->pluck('revenue_minor', 'category_id');
+
+        return $rows->map(function ($row) use ($categories, $revenueByCategory): array {
             $id = $row->category_id !== null ? (string) $row->category_id : null;
             $category = $id !== null ? $categories->get($id) : null;
+            $attendees = (int) $row->attendees_count;
+            $checkedIn = (int) $row->checked_in_count;
 
             return [
                 'id' => $id,
@@ -330,8 +373,10 @@ final readonly class EventReportViewModel
                     ? (string) ($category->name ?: $category->name_ar ?: ('#'.$id))
                     : 'Unassigned',
                 'name_ar' => $category ? (string) ($category->name_ar ?: $category->name ?: '') : 'غير معيّن',
-                'attendees' => (int) $row->attendees_count,
-                'checked_in' => (int) $row->checked_in_count,
+                'attendees' => $attendees,
+                'checked_in' => $checkedIn,
+                'checkin_rate' => $attendees > 0 ? round(($checkedIn / $attendees) * 100, 1) : null,
+                'revenue_minor' => (int) ($revenueByCategory[$row->category_id] ?? 0),
             ];
         })->values()->all();
     }
@@ -365,9 +410,29 @@ final readonly class EventReportViewModel
                 ->get()
                 ->keyBy('id');
 
-        return $rows->map(function ($row) use ($tickets): array {
+        $revenueByTicket = collect();
+        try {
+            $revenueByTicket = DB::table('order_items')
+                ->join('orders', function ($join) use ($tenantId, $eventId): void {
+                    $join->on('orders.id', '=', 'order_items.order_id')
+                        ->where('orders.tenant_id', '=', $tenantId)
+                        ->where('orders.event_id', '=', $eventId)
+                        ->where('orders.status', '=', 'paid');
+                })
+                ->where('order_items.tenant_id', $tenantId)
+                ->where('order_items.event_id', $eventId)
+                ->selectRaw('order_items.ticket_type_id, COALESCE(SUM(order_items.total_minor), 0) as revenue_minor')
+                ->groupBy('order_items.ticket_type_id')
+                ->pluck('revenue_minor', 'ticket_type_id');
+        } catch (\Throwable) {
+            $revenueByTicket = collect();
+        }
+
+        return $rows->map(function ($row) use ($tickets, $revenueByTicket): array {
             $id = $row->ticket_type_id !== null ? (string) $row->ticket_type_id : null;
             $ticket = $id !== null ? $tickets->get($id) : null;
+            $attendees = (int) $row->attendees_count;
+            $checkedIn = (int) $row->checked_in_count;
 
             return [
                 'id' => $id,
@@ -377,8 +442,10 @@ final readonly class EventReportViewModel
                 'name_ar' => $ticket
                     ? (string) ($ticket->name_ar ?: $ticket->name_en ?: $ticket->code)
                     : 'غير معيّن',
-                'attendees' => (int) $row->attendees_count,
-                'checked_in' => (int) $row->checked_in_count,
+                'attendees' => $attendees,
+                'checked_in' => $checkedIn,
+                'checkin_rate' => $attendees > 0 ? round(($checkedIn / $attendees) * 100, 1) : null,
+                'revenue_minor' => (int) ($revenueByTicket[$row->ticket_type_id] ?? 0),
             ];
         })->values()->all();
     }
@@ -469,9 +536,9 @@ final readonly class EventReportViewModel
     }
 
     /**
-     * @return list<array{reason: string, count: int}>
+     * @return list<array{reason: string, count: int, percent: float|null}>
      */
-    private function topRejectReasons(string $tenantId, string $eventId): array
+    private function topRejectReasons(string $tenantId, string $eventId, int $rejectedTotal = 0): array
     {
         return ScanEvent::query()
             ->where('tenant_id', $tenantId)
@@ -487,9 +554,207 @@ final readonly class EventReportViewModel
             ->map(fn ($row): array => [
                 'reason' => (string) $row->reason,
                 'count' => (int) $row->aggregate_count,
+                'percent' => $rejectedTotal > 0
+                    ? round(((int) $row->aggregate_count / $rejectedTotal) * 100, 1)
+                    : null,
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * @return list<array{key: string, count: int, conversion_from_previous: float|null}>
+     */
+    private function funnel(
+        Event $event,
+        string $tenantId,
+        string $eventId,
+        int $registrations,
+        int $paidOrders,
+        int $credentialsIssued,
+        int $checkedIn,
+    ): array {
+        $steps = [];
+
+        $isPrivate = in_array((string) $event->tier, ['private', 'both'], true);
+        if ($isPrivate) {
+            $invited = EventRegistrationInvite::query()
+                ->where('tenant_id', $tenantId)
+                ->where('event_id', $eventId)
+                ->count();
+            $steps[] = ['key' => 'invited', 'count' => $invited, 'conversion_from_previous' => null];
+        }
+
+        $isFree = (string) $event->registration_mode === RegistrationMode::FreeRegistration->value;
+        $paidCount = $isFree ? $registrations : $paidOrders;
+
+        $base = [
+            ['key' => 'registered', 'count' => $registrations],
+            ['key' => 'paid', 'count' => $paidCount],
+            ['key' => 'credentialed', 'count' => $credentialsIssued],
+            ['key' => 'checked_in', 'count' => $checkedIn],
+        ];
+
+        foreach ($base as $step) {
+            $previous = $steps === [] ? null : $steps[array_key_last($steps)]['count'];
+            $steps[] = [
+                'key' => $step['key'],
+                'count' => $step['count'],
+                'conversion_from_previous' => $previous !== null && $previous > 0
+                    ? round(($step['count'] / $previous) * 100, 1)
+                    : null,
+            ];
+        }
+
+        return $steps;
+    }
+
+    /**
+     * @return list<array{hour: string, accepted_scans: int, unique_attendees: int}>
+     */
+    private function checkinsByHour(string $tenantId, string $eventId, string $timezone, Event $event): array
+    {
+        $now = CarbonImmutable::now($timezone);
+        if ($event->start_at !== null && $event->end_at !== null) {
+            $start = CarbonImmutable::parse($event->start_at)->timezone($timezone)->startOfDay();
+            $end = CarbonImmutable::parse($event->end_at)->timezone($timezone)->endOfDay();
+            if ($start->diffInHours($end) > 72) {
+                $end = $start->addHours(72)->endOfHour();
+            }
+        } else {
+            $end = $now->endOfHour();
+            $start = $end->subHours(23)->startOfHour();
+        }
+
+        $driver = DB::connection()->getDriverName();
+
+        try {
+            if ($driver === 'sqlite') {
+                $rows = DB::select("
+                    SELECT
+                        strftime('%Y-%m-%d %H:00:00', scanned_at) as hour_bucket,
+                        COUNT(*) as accepted_scans,
+                        COUNT(DISTINCT attendee_id) as unique_attendees
+                    FROM scan_events
+                    WHERE tenant_id = ?
+                      AND event_id = ?
+                      AND result IN ('accepted', 'manual_override')
+                      AND scanned_at BETWEEN ? AND ?
+                    GROUP BY hour_bucket
+                    ORDER BY hour_bucket ASC
+                ", [$tenantId, $eventId, $start->utc()->toDateTimeString(), $end->utc()->toDateTimeString()]);
+            } else {
+                $rows = DB::select("
+                    SELECT
+                        DATE_FORMAT(CONVERT_TZ(scanned_at, '+00:00', ?), '%Y-%m-%d %H:00:00') as hour_bucket,
+                        COUNT(*) as accepted_scans,
+                        COUNT(DISTINCT attendee_id) as unique_attendees
+                    FROM scan_events
+                    WHERE tenant_id = ?
+                      AND event_id = ?
+                      AND result IN ('accepted', 'manual_override')
+                      AND scanned_at BETWEEN ? AND ?
+                    GROUP BY hour_bucket
+                    ORDER BY hour_bucket ASC
+                ", [
+                    $timezone,
+                    $tenantId,
+                    $eventId,
+                    $start->utc()->toDateTimeString(),
+                    $end->utc()->toDateTimeString(),
+                ]);
+            }
+        } catch (\Throwable) {
+            $rows = DB::select("
+                SELECT
+                    DATE_FORMAT(scanned_at, '%Y-%m-%d %H:00:00') as hour_bucket,
+                    COUNT(*) as accepted_scans,
+                    COUNT(DISTINCT attendee_id) as unique_attendees
+                FROM scan_events
+                WHERE tenant_id = ?
+                  AND event_id = ?
+                  AND result IN ('accepted', 'manual_override')
+                  AND scanned_at BETWEEN ? AND ?
+                GROUP BY hour_bucket
+                ORDER BY hour_bucket ASC
+            ", [$tenantId, $eventId, $start->utc()->toDateTimeString(), $end->utc()->toDateTimeString()]);
+        }
+
+        $byHour = collect($rows)->keyBy(fn ($row): string => (string) $row->hour_bucket);
+        $hours = [];
+        for ($cursor = $start->startOfHour(); $cursor->lessThanOrEqualTo($end); $cursor = $cursor->addHour()) {
+            $key = $cursor->format('Y-m-d H:00:00');
+            $row = $byHour->get($key);
+            $hours[] = [
+                'hour' => $key,
+                'accepted_scans' => (int) ($row->accepted_scans ?? 0),
+                'unique_attendees' => (int) ($row->unique_attendees ?? 0),
+            ];
+        }
+
+        return $hours;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function venueMarkers(string $tenantId, string $eventId): array
+    {
+        $venues = EventVenue::query()
+            ->where('tenant_id', $tenantId)
+            ->where('event_id', $eventId)
+            ->whereNotNull('latitude')
+            ->whereNotNull('longitude')
+            ->orderBy('sort_order')
+            ->get();
+
+        if ($venues->isEmpty()) {
+            return [];
+        }
+
+        $stats = Attendee::query()
+            ->where('tenant_id', $tenantId)
+            ->where('event_id', $eventId)
+            ->selectRaw("
+                event_venue_id,
+                COUNT(*) as registered,
+                SUM(CASE
+                    WHEN checkin_status = 'checked_in' OR first_checked_in_at IS NOT NULL THEN 1
+                    ELSE 0
+                END) as checked_in
+            ")
+            ->groupBy('event_venue_id')
+            ->get()
+            ->keyBy(fn ($row) => $row->event_venue_id !== null ? (string) $row->event_venue_id : 'null');
+
+        $palette = [
+            '#0ea5e9', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444',
+            '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1',
+        ];
+
+        return $venues->values()->map(function (EventVenue $venue, int $index) use ($stats, $palette): array {
+            $id = (string) $venue->id;
+            $row = $stats->get($id);
+            $registered = (int) ($row->registered ?? 0);
+            $checkedIn = (int) ($row->checked_in ?? 0);
+
+            return [
+                'venue_id' => $id,
+                'venue_name' => [
+                    'en' => (string) ($venue->name_en ?: $venue->name_ar ?: ''),
+                    'ar' => (string) ($venue->name_ar ?: $venue->name_en ?: ''),
+                ],
+                'latitude' => (float) $venue->latitude,
+                'longitude' => (float) $venue->longitude,
+                'start_at' => $venue->start_at?->toIso8601String(),
+                'end_at' => $venue->end_at?->toIso8601String(),
+                'address' => $venue->location_address ? (string) $venue->location_address : null,
+                'registered' => $registered,
+                'checked_in' => $checkedIn,
+                'checkin_rate' => $registered > 0 ? round(($checkedIn / $registered) * 100, 1) : null,
+                'color' => $palette[$index % count($palette)],
+            ];
+        })->all();
     }
 
     /**

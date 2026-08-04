@@ -157,6 +157,14 @@ final class EventReportViewModelTest extends Phase1MySqlTestCase
         self::assertNotNull($ticketType);
         self::assertSame(2, $ticketType['attendees']);
         self::assertSame(1, $ticketType['checked_in']);
+        self::assertSame(50.0, $ticketType['checkin_rate']);
+        self::assertArrayHasKey('revenue_minor', $ticketType);
+
+        self::assertNotEmpty($report['funnel']);
+        self::assertSame('registered', $report['funnel'][0]['key']);
+        self::assertIsArray($report['checkins_by_hour']);
+        self::assertIsArray($report['venue_markers']);
+        self::assertArrayHasKey('percent', $report['top_reject_reasons'][0]);
     }
 
     /** @param array{actor:User,tenant:Tenant,event:Event,form:RegistrationFormVersion,ticket:TicketType} $fixture */

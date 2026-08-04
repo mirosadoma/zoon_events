@@ -291,6 +291,7 @@ Route::prefix('{locale}')
                 Route::get('/{event_id}/acs/access-logs', [AcsPageController::class, 'accessLogs'])->name('tenant.acs.access-logs');
                 Route::get('/{event_id}/acs/gate-health', [AcsPageController::class, 'gateHealth'])->name('tenant.acs.gate-health');
                 Route::get('/{event_id}/reports', [EventReportController::class, 'show'])->name('tenant.reports.show');
+                Route::get('/{event_id}/reports/export', [EventReportController::class, 'export'])->name('tenant.reports.export');
             });
             });
         });

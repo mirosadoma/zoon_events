@@ -271,6 +271,7 @@ export default function OccupancyMapPage({
               overlayEast={map?.overlay_east ?? null}
               overlayWest={map?.overlay_west ?? null}
               overlayRotation={map?.overlay_rotation ?? 0}
+              persistentZoneLabels
             />
           </div>
         ) : (

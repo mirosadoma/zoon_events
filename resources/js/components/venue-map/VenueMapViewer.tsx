@@ -3,6 +3,7 @@ import type { Libraries } from '@react-google-maps/api'
 import { Fragment, useMemo, useState } from 'react'
 import {
   boundsFromCamera,
+  centroidGeo,
   isGeoPoint,
   isRelativePoint,
   relativePointsToGeo,
@@ -70,6 +71,8 @@ type Props = {
   overlayEast?: number | null
   overlayWest?: number | null
   overlayRotation?: number | null
+  /** Always show zone name/detail labels at zone centers (e.g. occupancy heatmap). */
+  persistentZoneLabels?: boolean
 }
 
 function isExternalUrl(url: string): boolean {
@@ -133,6 +136,7 @@ export default function VenueMapViewer({
   overlayEast = null,
   overlayWest = null,
   overlayRotation = 0,
+  persistentZoneLabels = false,
 }: Props) {
   const { t } = useLocale()
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -214,6 +218,30 @@ export default function VenueMapViewer({
       })),
     [zones, locale],
   )
+
+  const persistentTips = useMemo(() => {
+    if (!persistentZoneLabels) return []
+
+    return zones.flatMap((zone) => {
+      const points = asGeoPoints(zone.polygon_coordinates, overlayBounds)
+      if (!zone.shape_type || points.length === 0) return []
+
+      const name = zoneDisplayName(zone, locale)
+      if (!name) return []
+
+      const useCenterPoint = zone.shape_type === 'circle'
+        || zone.shape_type === 'ellipse'
+        || isGeoMarkerShape(zone.shape_type)
+      const position = useCenterPoint ? points[0] : centroidGeo(points)
+
+      return [{
+        zoneId: zone.id,
+        name,
+        detail: zone.hover_detail ?? null,
+        position,
+      }]
+    })
+  }, [persistentZoneLabels, zones, overlayBounds, locale])
 
   function requestCurrentLocation() {
     if (!('geolocation' in navigator)) {
@@ -466,6 +494,19 @@ export default function VenueMapViewer({
                 }
               },
               onMouseOver: (event: google.maps.MapMouseEvent) => {
+                if (persistentZoneLabels) {
+                  if (tipName) {
+                    setHoverTip({
+                      name: tipName,
+                      detail: tipDetail,
+                      position: event.latLng
+                        ? { lat: event.latLng.lat(), lng: event.latLng.lng() }
+                        : (asGeoPoints(zone.polygon_coordinates, overlayBounds)[0] ?? { lat: 0, lng: 0 }),
+                      zoneId: zone.id,
+                    })
+                  }
+                  return
+                }
                 if (!tipName || !event.latLng) return
                 setHoverTip({
                   name: tipName,
@@ -475,6 +516,7 @@ export default function VenueMapViewer({
                 })
               },
               onMouseMove: (event: google.maps.MapMouseEvent) => {
+                if (persistentZoneLabels) return
                 if (!tipName || !event.latLng) return
                 setHoverTip({
                   name: tipName,
@@ -483,7 +525,11 @@ export default function VenueMapViewer({
                   zoneId: zone.id,
                 })
               },
-              onMouseOut: () => setHoverTip(null),
+              onMouseOut: () => {
+                if (!persistentZoneLabels) {
+                  setHoverTip(null)
+                }
+              },
             }
             const fillImage = mapInstance && hasFillImage && zone.fill_image_url ? (
               <ZoneFillImageOverlay
@@ -654,14 +700,26 @@ export default function VenueMapViewer({
             </>
           ) : null}
 
-          {mapInstance && hoverTip ? (
-            <MapHoverTooltip
-              map={mapInstance}
-              position={hoverTip.position}
-              label={hoverTip.name}
-              detail={hoverTip.detail}
-            />
-          ) : null}
+          {mapInstance && persistentZoneLabels
+            ? persistentTips.map((tip) => (
+              <MapHoverTooltip
+                key={tip.zoneId}
+                map={mapInstance}
+                position={tip.position}
+                label={tip.name}
+                detail={tip.detail}
+              />
+            ))
+            : mapInstance && hoverTip
+              ? (
+                <MapHoverTooltip
+                  map={mapInstance}
+                  position={hoverTip.position}
+                  label={hoverTip.name}
+                  detail={hoverTip.detail}
+                />
+              )
+              : null}
         </GoogleMap>
       </div>
 

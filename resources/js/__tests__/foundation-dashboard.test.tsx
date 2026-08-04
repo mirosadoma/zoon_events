@@ -12,7 +12,19 @@ vi.mock('@/layouts/DashboardLayout', () => ({
 }))
 
 vi.mock('@/hooks/useLocale', () => ({
-  useLocale: () => ({ locale: 'en', direction: 'ltr' }),
+  useLocale: () => ({ locale: 'en', direction: 'ltr', t: (key: string) => key }),
+}))
+
+vi.mock('@/hooks/useLocalizedRouter', () => ({
+  useLocalizedRouter: () => ({ visit: vi.fn() }),
+}))
+
+vi.mock('@/components/dashboard/PublishedVenuesMap', () => ({
+  default: () => <div>Published venues map</div>,
+}))
+
+vi.mock('@/components/routing/LocalizedLink', () => ({
+  default: ({ href, children }: PropsWithChildren<{ href: string }>) => <a href={href}>{children}</a>,
 }))
 
 describe('FoundationDashboard', () => {
@@ -36,13 +48,32 @@ describe('FoundationDashboard', () => {
           gates_active: 0,
           scans_failed: 0,
           recent_audit_events: [],
+          registrations_by_day: Array.from({ length: 14 }, (_, i) => ({ date: `2026-08-${String(i + 1).padStart(2, '0')}`, count: i === 0 ? 2 : 0 })),
+          checkins_by_day: Array.from({ length: 14 }, (_, i) => ({ date: `2026-08-${String(i + 1).padStart(2, '0')}`, count: 0 })),
+          funnel: { registered: 10, paid: 5, credentialed: 8, checked_in: 3 },
+          events_comparison: [
+            {
+              id: 'evt_1',
+              name: { en: 'Summit', ar: 'القمة' },
+              status: 'published',
+              attendees: 10,
+              checked_in: 3,
+              checkin_rate: 30,
+              revenue_minor: 150000,
+              currency: 'EGP',
+            },
+          ],
+          published_venue_markers: [],
         }}
       />,
     )
 
     expect(screen.getByRole('heading', { name: 'Dashboard overview' })).toBeInTheDocument()
     expect(screen.getByText('Hello, Demo User')).toBeInTheDocument()
-    expect(screen.getByText('2')).toBeInTheDocument()
-    expect(screen.getByText('10')).toBeInTheDocument()
+    expect(screen.getByText('Published venues map')).toBeInTheDocument()
+    expect(screen.getByText('Activity trends')).toBeInTheDocument()
+    expect(screen.getByText('Tenant conversion funnel')).toBeInTheDocument()
+    expect(screen.getByText('Events comparison')).toBeInTheDocument()
+    expect(screen.getByText('Summit')).toBeInTheDocument()
   })
 })

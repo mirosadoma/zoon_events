@@ -3,6 +3,7 @@
 namespace App\Modules\AdminConsole\Http\Controllers\Tenant\Reports;
 
 use App\Http\Controllers\Controller;
+use App\Modules\AdminConsole\Application\Exports\StreamEventReportCsv;
 use App\Modules\AdminConsole\Application\SessionContextBuilder;
 use App\Modules\AdminConsole\Http\Controllers\Concerns\ResolvesRouteParam;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Admin\Concerns\AuthorizesTenantAdminPage;
@@ -11,6 +12,7 @@ use App\Modules\Authorization\Application\PermissionEvaluator;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class EventReportController extends Controller
 {
@@ -21,6 +23,7 @@ final class EventReportController extends Controller
         private readonly SessionContextBuilder $sessions,
         private readonly PermissionEvaluator $permissions,
         private readonly EventReportViewModel $viewModel,
+        private readonly StreamEventReportCsv $csvExport,
     ) {}
 
     public function show(string $eventId): Response
@@ -32,5 +35,18 @@ final class EventReportController extends Controller
             ->findOrFail($this->routeParam('event_id'));
 
         return Inertia::render('tenant/reports/EventReport', $this->viewModel->make($event, $context->tenant->id));
+    }
+
+    public function export(string $eventId): StreamedResponse
+    {
+        $context = $this->authorizeTenantAdmin($this->sessions, $this->permissions, 'event.view');
+
+        $event = Event::query()
+            ->where('tenant_id', $context->tenant->id)
+            ->findOrFail($this->routeParam('event_id'));
+
+        $locale = app()->getLocale() === 'ar' ? 'ar' : 'en';
+
+        return $this->csvExport->execute($event, (string) $context->tenant->id, $locale);
     }
 }

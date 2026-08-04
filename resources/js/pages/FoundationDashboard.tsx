@@ -13,11 +13,38 @@ import {
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { StatCard } from '@/components/cards'
 import { PageContent, PageHeader } from '@/components/layout'
-import { AuditTimeline } from '@/components/feedback'
+import { AuditTimeline, EmptyState } from '@/components/feedback'
 import { PageSkeleton as PageSkeletonLoader } from '@/components/loaders'
+import LocalizedLink from '@/components/routing/LocalizedLink'
+import StatusBadge from '@/components/status/StatusBadge'
+import DataTable from '@/components/tables/DataTable'
+import {
+  DashboardSection,
+  DaySeriesBars,
+  FunnelStrip,
+} from '@/components/dashboard/DashboardCharts'
+import PublishedVenuesMap, {
+  type PublishedVenueMarker,
+} from '@/components/dashboard/PublishedVenuesMap'
 import { useLocale } from '@/hooks/useLocale'
+import { formatMoney } from '@/lib/formatMoney'
 import en from '@/locales/en'
 import ar from '@/locales/ar'
+
+type DayPoint = { date: string; count: number }
+
+type EventComparisonRow = {
+  id: string
+  name: { en: string; ar: string }
+  status: string
+  start_at?: string | null
+  end_at?: string | null
+  attendees: number
+  checked_in: number
+  checkin_rate: number | null
+  revenue_minor: number
+  currency: string
+}
 
 type Overview = {
   events_total: number
@@ -36,6 +63,16 @@ type Overview = {
     outcome: string
     occurred_at: string
   }>
+  registrations_by_day?: DayPoint[]
+  checkins_by_day?: DayPoint[]
+  funnel?: {
+    registered: number
+    paid: number
+    credentialed: number
+    checked_in: number
+  }
+  events_comparison?: EventComparisonRow[]
+  published_venue_markers?: PublishedVenueMarker[]
 }
 
 type Props = {
@@ -62,6 +99,12 @@ export default function FoundationDashboard({ overview, title }: Props) {
   const publishRate = overview.events_total > 0
     ? Math.round((overview.events_published / overview.events_total) * 100)
     : 0
+
+  const registrationsByDay = overview.registrations_by_day ?? []
+  const checkinsByDay = overview.checkins_by_day ?? []
+  const funnel = overview.funnel ?? { registered: 0, paid: 0, credentialed: 0, checked_in: 0 }
+  const eventsComparison = overview.events_comparison ?? []
+  const publishedMarkers = overview.published_venue_markers ?? []
 
   const primaryCards = [
     {
@@ -187,6 +230,89 @@ export default function FoundationDashboard({ overview, title }: Props) {
             />
           ))}
         </section>
+
+        <DashboardSection title={messages.overviewMapTitle} description={messages.overviewMapHint}>
+          <PublishedVenuesMap
+            markers={publishedMarkers}
+            emptyLabel={messages.overviewMapEmpty}
+            missingApiKeyLabel={messages.mapPickerMissingApiKey}
+          />
+        </DashboardSection>
+
+        <DashboardSection title={messages.overviewChartsTitle} description={messages.overviewChartsHint}>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div>
+              <h3 className="mb-3 text-sm font-semibold text-[var(--ink)]">{messages.overviewRegistrationsTrend}</h3>
+              <DaySeriesBars days={registrationsByDay} emptyLabel={messages.overviewNoChartData} barClassName="bg-violet-500/80" />
+            </div>
+            <div>
+              <h3 className="mb-3 text-sm font-semibold text-[var(--ink)]">{messages.overviewCheckinsTrend}</h3>
+              <DaySeriesBars days={checkinsByDay} emptyLabel={messages.overviewNoChartData} barClassName="bg-amber-500/80" />
+            </div>
+          </div>
+        </DashboardSection>
+
+        <DashboardSection title={messages.overviewFunnelTitle} description={messages.overviewFunnelHint}>
+          <FunnelStrip
+            steps={[
+              { key: 'registered', label: messages.overviewFunnelRegistered, count: funnel.registered },
+              { key: 'paid', label: messages.overviewFunnelPaid, count: funnel.paid },
+              { key: 'credentialed', label: messages.overviewFunnelCredentialed, count: funnel.credentialed },
+              { key: 'checked_in', label: messages.overviewFunnelCheckedIn, count: funnel.checked_in },
+            ]}
+          />
+        </DashboardSection>
+
+        <DashboardSection title={messages.overviewComparisonTitle} description={messages.overviewComparisonHint}>
+          {eventsComparison.length === 0 ? (
+            <EmptyState title={messages.overviewComparisonEmpty} />
+          ) : (
+            <DataTable
+              rows={eventsComparison as unknown as Record<string, unknown>[]}
+              getRowKey={(row) => String(row.id)}
+              columns={[
+                {
+                  key: 'name',
+                  header: messages.overviewEvents,
+                  render: (row) => {
+                    const name = row.name as { en: string; ar: string }
+                    const label = locale === 'ar' ? (name.ar || name.en) : (name.en || name.ar)
+                    return (
+                      <LocalizedLink className="font-medium text-[var(--brand)] hover:underline" href={`/tenant/events/${row.id}`}>
+                        {label}
+                      </LocalizedLink>
+                    )
+                  },
+                },
+                {
+                  key: 'status',
+                  header: messages.status,
+                  render: (row) => <StatusBadge status={String(row.status)} />,
+                },
+                {
+                  key: 'attendees',
+                  header: messages.overviewAttendees,
+                  render: (row) => String(row.attendees),
+                },
+                {
+                  key: 'checked_in',
+                  header: messages.overviewCheckedIn,
+                  render: (row) => String(row.checked_in),
+                },
+                {
+                  key: 'checkin_rate',
+                  header: messages.overviewCheckinRate,
+                  render: (row) => (row.checkin_rate === null || row.checkin_rate === undefined ? '—' : `${row.checkin_rate}%`),
+                },
+                {
+                  key: 'revenue_minor',
+                  header: messages.reportRevenue,
+                  render: (row) => formatMoney(Number(row.revenue_minor ?? 0), String(row.currency ?? 'EGP'), locale),
+                },
+              ]}
+            />
+          )}
+        </DashboardSection>
 
         <section className="ta-card ta-dashboard-audit mt-6">
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--border)] pb-4">
