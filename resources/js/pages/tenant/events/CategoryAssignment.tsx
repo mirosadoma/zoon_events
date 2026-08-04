@@ -109,9 +109,7 @@ function toRows(
       }),
     }))
 
-    const isComplete = category.enabled && venues.some(
-      (venue) => venue.event_venue_id !== '' && venue.days.length > 0,
-    )
+    const isComplete = category.enabled && isCategoryComplete(venues)
 
     return {
       id: category.id,
@@ -138,6 +136,12 @@ function emptyVenueBlock(eventDates: string[]): VenueBlock {
     event_venue_id: '',
     days: eventDates.map((date) => ({ date, capacity: '' })),
   }
+}
+
+function isCategoryComplete(venues: Array<{ event_venue_id: string; days: DayRow[] }>): boolean {
+  return venues.some(
+    (venue) => venue.event_venue_id !== '' && venue.days.length > 0,
+  )
 }
 
 export default function CategoryAssignment({
@@ -182,14 +186,16 @@ export default function CategoryAssignment({
       }
 
       if (row.enabled) {
-        return { ...row, enabled: false, is_complete: false, is_paid: false, venues: [] }
+        return { ...row, enabled: false }
       }
+
+      const venues = row.venues.length > 0 ? row.venues : [emptyVenueBlock(eventDates)]
 
       return {
         ...row,
         enabled: true,
-        is_complete: false,
-        venues: row.venues.length > 0 ? row.venues : [emptyVenueBlock(eventDates)],
+        venues,
+        is_complete: isCategoryComplete(venues),
       }
     }))
   }
