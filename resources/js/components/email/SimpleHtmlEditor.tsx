@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect, type MouseEvent as ReactMouseEvent } from 'react'
-import { Bold, Italic, Link as LinkIcon, List, ListOrdered, Palette, ImagePlus, Columns2 } from 'lucide-react'
+import { Bold, Italic, Link as LinkIcon, List, ListOrdered, Palette, ImagePlus, Columns2, Code2 } from 'lucide-react'
 import { useLocale } from '@/hooks/useLocale'
 
 export type PlaceholderStyle = {
@@ -487,6 +487,8 @@ export default function SimpleHtmlEditor({
   const imageInsertModeRef = useRef<'block' | 'beside'>('block')
   const [showPlaceholders, setShowPlaceholders] = useState(false)
   const [showStylePanel, setShowStylePanel] = useState(false)
+  const [showSource, setShowSource] = useState(false)
+  const [sourceHtml, setSourceHtml] = useState(value)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [imageFrame, setImageFrame] = useState<ImageFrame | null>(null)
   const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null)
@@ -533,10 +535,21 @@ export default function SimpleHtmlEditor({
     editorRef.current.querySelectorAll('.isSelectedEnd').forEach((el) => {
       el.classList.remove('isSelectedEnd')
     })
-      onChange(editorRef.current.innerHTML)
+    onChange(editorRef.current.innerHTML)
     if (selected && editorRef.current.contains(selected)) {
       selected.classList.add('is-selected')
     }
+  }, [onChange])
+
+  const applyHtmlToEditor = useCallback((html: string) => {
+    const root = editorRef.current
+    if (!root) return
+
+    root.innerHTML = html
+    normalizeEditorImages(root)
+    const normalized = root.innerHTML
+    onChange(normalized)
+    setSourceHtml(normalized)
   }, [onChange])
 
   const clearImageSelection = useCallback(() => {
@@ -545,6 +558,23 @@ export default function SimpleHtmlEditor({
     setImageFrame(null)
     setImageSize(null)
   }, [])
+
+  const toggleSourceMode = useCallback(() => {
+    if (showSource) {
+      applyHtmlToEditor(sourceHtml)
+      setShowSource(false)
+      return
+    }
+
+    clearImageSelection()
+    setShowPlaceholders(false)
+    setShowStylePanel(false)
+
+    const html = editorRef.current?.innerHTML ?? value
+    setSourceHtml(html)
+    onChange(html)
+    setShowSource(true)
+  }, [applyHtmlToEditor, clearImageSelection, onChange, showSource, sourceHtml, value])
 
   const refreshImageFrame = useCallback(() => {
     const img = selectedImageRef.current
@@ -1097,7 +1127,8 @@ export default function SimpleHtmlEditor({
         <button
           type="button"
           onClick={() => execCommand('bold')}
-          className="rounded p-1.5 text-[var(--muted)] transition hover:bg-[var(--surface-elevated)] hover:text-[var(--ink)]"
+          disabled={showSource}
+          className="rounded p-1.5 text-[var(--muted)] transition hover:bg-[var(--surface-elevated)] hover:text-[var(--ink)] disabled:opacity-40"
           title={t('emailEditorBold')}
         >
           <Bold size={16} />
@@ -1105,7 +1136,8 @@ export default function SimpleHtmlEditor({
         <button
           type="button"
           onClick={() => execCommand('italic')}
-          className="rounded p-1.5 text-[var(--muted)] transition hover:bg-[var(--surface-elevated)] hover:text-[var(--ink)]"
+          disabled={showSource}
+          className="rounded p-1.5 text-[var(--muted)] transition hover:bg-[var(--surface-elevated)] hover:text-[var(--ink)] disabled:opacity-40"
           title={t('emailEditorItalic')}
         >
           <Italic size={16} />
@@ -1114,7 +1146,8 @@ export default function SimpleHtmlEditor({
         <button
           type="button"
           onClick={() => execCommand('insertUnorderedList')}
-          className="rounded p-1.5 text-[var(--muted)] transition hover:bg-[var(--surface-elevated)] hover:text-[var(--ink)]"
+          disabled={showSource}
+          className="rounded p-1.5 text-[var(--muted)] transition hover:bg-[var(--surface-elevated)] hover:text-[var(--ink)] disabled:opacity-40"
           title={t('emailEditorBulletList')}
         >
           <List size={16} />
@@ -1122,7 +1155,8 @@ export default function SimpleHtmlEditor({
         <button
           type="button"
           onClick={() => execCommand('insertOrderedList')}
-          className="rounded p-1.5 text-[var(--muted)] transition hover:bg-[var(--surface-elevated)] hover:text-[var(--ink)]"
+          disabled={showSource}
+          className="rounded p-1.5 text-[var(--muted)] transition hover:bg-[var(--surface-elevated)] hover:text-[var(--ink)] disabled:opacity-40"
           title={t('emailEditorNumberedList')}
         >
           <ListOrdered size={16} />
@@ -1135,7 +1169,8 @@ export default function SimpleHtmlEditor({
               execCommand('createLink', url)
             }
           }}
-          className="rounded p-1.5 text-[var(--muted)] transition hover:bg-[var(--surface-elevated)] hover:text-[var(--ink)]"
+          disabled={showSource}
+          className="rounded p-1.5 text-[var(--muted)] transition hover:bg-[var(--surface-elevated)] hover:text-[var(--ink)] disabled:opacity-40"
           title={t('emailEditorInsertLink')}
         >
           <LinkIcon size={16} />
@@ -1143,8 +1178,8 @@ export default function SimpleHtmlEditor({
         <button
           type="button"
           onClick={handleInsertImageClick}
-          disabled={uploadingImage}
-          className="rounded p-1.5 text-[var(--muted)] transition hover:bg-[var(--surface-elevated)] hover:text-[var(--ink)] disabled:opacity-50"
+          disabled={uploadingImage || showSource}
+          className="rounded p-1.5 text-[var(--muted)] transition hover:bg-[var(--surface-elevated)] hover:text-[var(--ink)] disabled:opacity-40"
           title={t('emailEditorInsertImage')}
         >
           <ImagePlus size={16} />
@@ -1152,8 +1187,8 @@ export default function SimpleHtmlEditor({
         <button
           type="button"
           onClick={handleInsertImageBesideClick}
-          disabled={uploadingImage || !imageFrame}
-          className="rounded p-1.5 text-[var(--muted)] transition hover:bg-[var(--surface-elevated)] hover:text-[var(--ink)] disabled:opacity-50"
+          disabled={uploadingImage || !imageFrame || showSource}
+          className="rounded p-1.5 text-[var(--muted)] transition hover:bg-[var(--surface-elevated)] hover:text-[var(--ink)] disabled:opacity-40"
           title={t('emailEditorInsertImageBeside')}
         >
           <Columns2 size={16} />
@@ -1172,15 +1207,16 @@ export default function SimpleHtmlEditor({
             <div className="relative" ref={placeholderMenuRef}>
               <button
                 type="button"
+                disabled={showSource}
                 onClick={() => {
                   setShowPlaceholders((open) => !open)
                   setShowStylePanel(false)
                 }}
-                className="rounded bg-[var(--brand-soft)] px-2.5 py-1 text-xs font-medium text-[var(--brand)] transition hover:bg-[var(--brand)]/10"
+                className="rounded bg-[var(--brand-soft)] px-2.5 py-1 text-xs font-medium text-[var(--brand)] transition hover:bg-[var(--brand)]/10 disabled:opacity-40"
               >
                 {t('emailTemplateInsertPlaceholder')}
               </button>
-              {showPlaceholders && (
+              {showPlaceholders && !showSource && (
                 <div className="absolute start-0 top-full z-10 mt-1 min-w-[200px] rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] shadow-lg">
                   {availablePlaceholders.map((token) => (
                     <button
@@ -1197,11 +1233,12 @@ export default function SimpleHtmlEditor({
             </div>
             <button
               type="button"
+              disabled={showSource}
               onClick={() => {
                 setShowStylePanel((open) => !open)
                 setShowPlaceholders(false)
               }}
-              className={`inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition ${
+              className={`inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition disabled:opacity-40 ${
                 showStylePanel
                   ? 'bg-[var(--brand)] text-white'
                   : 'bg-[var(--surface-elevated)] text-[var(--muted)] hover:text-[var(--ink)]'
@@ -1213,9 +1250,24 @@ export default function SimpleHtmlEditor({
             </button>
           </>
         )}
+
+        <div className="mx-1 h-5 w-px bg-[var(--border)]" />
+        <button
+          type="button"
+          onClick={toggleSourceMode}
+          className={`inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition ${
+            showSource
+              ? 'bg-[var(--brand)] text-white'
+              : 'bg-[var(--surface-elevated)] text-[var(--muted)] hover:text-[var(--ink)]'
+          }`}
+          title={showSource ? t('emailEditorShowVisual') : t('emailEditorShowSource')}
+        >
+          <Code2 size={14} />
+          {showSource ? t('emailEditorShowVisual') : t('emailEditorShowSource')}
+        </button>
       </div>
 
-      {showStylePanel && availablePlaceholders.length > 0 && (
+      {showStylePanel && availablePlaceholders.length > 0 && !showSource && (
         <div className="space-y-3 border-b border-[var(--border)] bg-[var(--surface)] p-3">
           <div>
             <p className="mb-2 text-xs font-medium text-[var(--ink)]">{t('emailPlaceholderTarget')}</p>
@@ -1389,25 +1441,40 @@ export default function SimpleHtmlEditor({
       )}
 
       <div ref={editorShellRef} className="relative">
-      <div
-        ref={editorRef}
-        contentEditable
-        onInput={handleInput}
+        <div
+          ref={editorRef}
+          contentEditable={!showSource}
+          onInput={handleInput}
           onClick={handleEditorClick}
           suppressContentEditableWarning
-        className="min-h-[300px] p-4 text-sm text-[var(--ink)] focus:outline-none"
+          className={`min-h-[300px] p-4 text-sm text-[var(--ink)] focus:outline-none ${showSource ? 'hidden' : ''}`}
           data-placeholder={resolvedPlaceholder}
           dir={contentDirection}
           lang={contentLocale}
-        style={{
-          fontFamily: 'system-ui, -apple-system, sans-serif',
+          style={{
+            fontFamily: 'system-ui, -apple-system, sans-serif',
             direction: contentDirection,
             unicodeBidi: 'isolate',
             textAlign: contentLocale === 'ar' ? 'right' : 'left',
           }}
         />
 
-        {dropIndicator && (
+        {showSource ? (
+          <textarea
+            value={sourceHtml}
+            onChange={(e) => {
+              setSourceHtml(e.target.value)
+              onChange(e.target.value)
+            }}
+            spellCheck={false}
+            dir="ltr"
+            lang="en"
+            placeholder={t('emailEditorSourcePlaceholder')}
+            className="min-h-[300px] w-full resize-y border-0 bg-[var(--surface)] p-4 font-mono text-xs leading-relaxed text-[var(--ink)] outline-none focus:ring-0"
+          />
+        ) : null}
+
+        {!showSource && dropIndicator && (
           <div
             className="pointer-events-none absolute z-30 rounded-full bg-[var(--brand)] shadow"
             style={{
@@ -1420,7 +1487,7 @@ export default function SimpleHtmlEditor({
           />
         )}
 
-        {imageFrame && !isMovingImage && (
+        {!showSource && imageFrame && !isMovingImage && (
           <div
             className="pointer-events-none absolute z-20"
             style={{
@@ -1462,12 +1529,12 @@ export default function SimpleHtmlEditor({
         )}
       </div>
 
-      {imageFrame && !isMovingImage && (
+      {!showSource && imageFrame && !isMovingImage && (
         <p className="border-t border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-xs text-[var(--muted)]">
           {t('emailEditorDragImage')} — {t('emailEditorResizeImage')} — {t('emailEditorInsertImageBeside')}
         </p>
       )}
-      {isMovingImage && (
+      {!showSource && isMovingImage && (
         <p className="border-t border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-xs text-[var(--muted)]">
           {dropIndicator?.orientation === 'vertical'
             ? t('emailEditorDropBesideHint')
