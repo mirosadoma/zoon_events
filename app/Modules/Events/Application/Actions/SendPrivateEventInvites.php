@@ -68,7 +68,6 @@ final readonly class SendPrivateEventInvites
         foreach ($normalized as $invitee) {
             $email = $invitee['email'];
             $name = $invitee['name'];
-            $phone = $invitee['phone'];
             $emailIndex = $this->guard->emailIndex($email);
             $encryptedEmail = $this->guard->encryptString($email, $scope);
             $encryptedName = $name !== null ? $this->guard->encryptString($name, $scope) : null;
@@ -137,12 +136,10 @@ final readonly class SendPrivateEventInvites
                     \App\Modules\Events\Application\Support\ResolveEventEmailTemplate::TYPE_INVITATION,
                     $resolvedLocale,
                     [
-                        'name' => $name ?? '',
-                        'email' => $email,
-                        'phone' => $phone,
-                        'event' => $eventName,
+                        'user_name' => $name ?? '',
+                        'user_email' => $email,
+                        'event_name' => $eventName,
                         'registration_url' => $url,
-                        'qr' => '',
                     ],
                 );
 

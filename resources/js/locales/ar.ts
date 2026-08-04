@@ -2396,7 +2396,7 @@ export default {
   emailTemplateEnglish: 'الإنجليزية',
   emailTemplateArabic: 'العربية',
   emailTemplateLanguageTabs: 'لغة القالب',
-  emailTemplateNote: 'العناصر النائبة مثل {{name}} و {{event}} تُستبدل ببيانات حقيقية عند إرسال البريد.',
+  emailTemplateNote: 'العناصر النائبة مثل {{user_name}} و {{event_name}} تُستبدل ببيانات حقيقية عند إرسال البريد.',
   emailEditorBold: 'عريض',
   emailEditorItalic: 'مائل',
   emailEditorBulletList: 'قائمة نقطية',

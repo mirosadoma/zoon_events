@@ -67,14 +67,12 @@ final readonly class SendCustomConfirmationEmail
             ResolveEventEmailTemplate::TYPE_CONFIRMATION,
             $resolvedLocale,
             [
-                'name' => $attendeeName,
-                'email' => $email,
-                'phone' => $phone,
-                'event' => $eventName,
-                'qr' => $qrPlaceholder,
-                'registration_url' => '',
+                'user_name' => $attendeeName,
+                'user_email' => $email,
+                'user_phone' => $phone,
+                'event_name' => $eventName,
+                'qr_code' => $qrPlaceholder,
                 'entry_card_url' => $entryCardUrl,
-                'credential_url' => $entryCardUrl,
             ],
         );
 

@@ -1417,7 +1417,7 @@ export default function SimpleHtmlEditor({
                 outline: '1px dashed color-mix(in srgb, var(--brand) 45%, transparent)',
               }}
             >
-              {styleTarget ?? '{{name}}'}
+              {styleTarget ?? '{{user_name}}'}
             </span>
             <button
               type="button"

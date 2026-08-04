@@ -31,9 +31,9 @@ const TYPE_LABELS: Record<string, { en: string; ar: string }> = {
 }
 
 const PLACEHOLDERS_BY_TYPE: Record<string, string[]> = {
-  invitation: ['{{name}}', '{{event}}', '{{email}}', '{{registration_url}}'],
+  invitation: ['{{user_name}}', '{{user_email}}', '{{event_name}}', '{{registration_url}}'],
   otp: ['{{otp}}'],
-  confirmation: ['{{name}}', '{{event}}', '{{email}}', '{{phone}}', '{{qr}}', '{{entry_card_url}}'],
+  confirmation: ['{{user_name}}', '{{user_email}}', '{{user_phone}}', '{{event_name}}', '{{qr_code}}', '{{entry_card_url}}'],
 }
 
 export default function EmailTemplateEditor({ event, type, template, tenantId }: Props & { tenantId?: string }) {

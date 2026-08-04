@@ -148,9 +148,9 @@ export default function EmailTemplates({
           <h4 className="mb-3 text-sm font-semibold text-[var(--ink)]">{t('emailTemplatesAvailablePlaceholders')}</h4>
           <div className="space-y-3 text-sm">
             {[
-              { type: 'invitation', keys: ['{{name}}', '{{event}}', '{{email}}', '{{registration_url}}'] },
+              { type: 'invitation', keys: ['{{user_name}}', '{{user_email}}', '{{event_name}}', '{{registration_url}}'] },
               { type: 'otp', keys: ['{{otp}}'] },
-              { type: 'confirmation', keys: ['{{name}}', '{{event}}', '{{email}}', '{{phone}}', '{{qr}}', '{{entry_card_url}}'] },
+              { type: 'confirmation', keys: ['{{user_name}}', '{{user_email}}', '{{user_phone}}', '{{event_name}}', '{{qr_code}}', '{{entry_card_url}}'] },
             ].map((row) => (
               <div key={row.type}>
                 <p className="mb-1.5 text-xs font-medium text-[var(--muted)]">

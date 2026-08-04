@@ -2396,7 +2396,7 @@ export default {
   emailTemplateEnglish: 'English',
   emailTemplateArabic: 'Arabic',
   emailTemplateLanguageTabs: 'Template language',
-  emailTemplateNote: 'Placeholders like {{name}} and {{event}} are replaced with live data when the email is sent.',
+  emailTemplateNote: 'Placeholders like {{user_name}} and {{event_name}} are replaced with live data when the email is sent.',
   emailEditorBold: 'Bold',
   emailEditorItalic: 'Italic',
   emailEditorBulletList: 'Bullet list',

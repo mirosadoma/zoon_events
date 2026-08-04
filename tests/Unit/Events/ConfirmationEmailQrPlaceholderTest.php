@@ -16,10 +16,10 @@ final class ConfirmationEmailQrPlaceholderTest extends TestCase
         $qr = app(QrCodeImageDataUri::class)->pngBytesFromPayload('zt1.test-payload', 200);
         self::assertNotNull($qr);
 
-        $html = '<p>Hello {{name}}</p><p>{{qr}}</p>';
+        $html = '<p>Hello {{user_name}}</p><p>{{qr_code}}</p>';
         $rendered = strtr($html, [
-            '{{name}}' => 'Amr Mohamed',
-            '{{qr}}' => '<img src="cid:'.SendCustomConfirmationEmail::QR_CONTENT_ID.'" alt="QR Code" width="200" height="200" />',
+            '{{user_name}}' => 'Amr Mohamed',
+            '{{qr_code}}' => '<img src="cid:'.SendCustomConfirmationEmail::QR_CONTENT_ID.'" alt="QR Code" width="200" height="200" />',
         ]);
 
         $mailable = new CustomEventEmailMail(
