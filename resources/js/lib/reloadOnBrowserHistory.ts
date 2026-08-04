@@ -36,7 +36,6 @@ export function installReloadOnBrowserHistory(): void {
     reloading = true
 
     router.reload({
-      preserveScroll: true,
       onFinish: () => {
         reloading = false
       },

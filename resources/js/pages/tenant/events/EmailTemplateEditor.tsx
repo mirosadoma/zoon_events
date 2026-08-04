@@ -98,7 +98,7 @@ export default function EmailTemplateEditor({ event, type, template, tenantId }:
       })
 
       toast(t('emailTemplateSaved'), 'success')
-      router.reload({ only: ['template'], preserveScroll: true, preserveUrl: true })
+      router.reload({ only: ['template'], preserveUrl: true })
     } catch (caught) {
       const msg = caught instanceof ApiFetchError ? caught.message : t('requestFailed')
       toast(msg, 'error')
