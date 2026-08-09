@@ -2,7 +2,6 @@
 
 namespace App\Modules\Events\Application\Publication;
 
-use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgeTemplate;
 use App\Modules\Events\Domain\EventEmailTemplateTypes;
 use App\Modules\Events\Domain\EventRegistrationProfile;
 use App\Modules\Events\Domain\EventStatus;
@@ -16,7 +15,7 @@ final class PublicationReadiness
      * @param array{
      *   name_en?:string,name_ar?:string,timezone?:string,
      *   agenda_items?:int,active_form_version_id?:string,active_ticket_types?:int,branding_active?:bool,
-     *   active_badge_template?:bool,configured_email_templates?:int,tier?:string,registration_mode?:string,
+     *   configured_email_templates?:int,tier?:string,registration_mode?:string,
      *   configured_categories?:int,event_venues?:int
      * } $event
      * @return list<string>
@@ -57,10 +56,6 @@ final class PublicationReadiness
             $missing[] = 'active_branding';
         }
 
-        if (($event['active_badge_template'] ?? false) !== true) {
-            $missing[] = 'active_badge_template';
-        }
-
         if (($event['configured_email_templates'] ?? 0) < EventEmailTemplateTypes::requiredCount()) {
             $missing[] = 'email_templates';
         }
@@ -89,11 +84,6 @@ final class PublicationReadiness
             'agenda_items' => $event->agendaItems()->count(),
             'active_ticket_types' => $activeTicketTypes,
             'branding_active' => $event->branding()->where('status', 'active')->exists(),
-            'active_badge_template' => BadgeTemplate::query()
-                ->where('tenant_id', $event->tenant_id)
-                ->where('event_id', $event->id)
-                ->where('status', 'active')
-                ->exists(),
             'configured_email_templates' => EventEmailTemplateTypes::configuredCount(
                 (string) $event->tenant_id,
                 $event->id,

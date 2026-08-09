@@ -176,6 +176,7 @@ export default function EventNextSteps({
     description: t('eventNextBadgeTemplatesDescription'),
     href: `${base}/badge-templates`,
     icon: BadgeCheck,
+    optional: true,
   })
 
   steps.push({

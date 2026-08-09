@@ -2,6 +2,7 @@
 
 namespace App\Modules\AdminConsole\ViewModels\Events;
 
+use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgeTemplate;
 use App\Modules\Events\Application\Actions\UnpublishEvent;
 use App\Modules\Events\Application\Publication\PublicationReadiness;
 use App\Modules\Events\Application\Support\EventWallClockDateTime;
@@ -206,7 +207,11 @@ final readonly class EventDashboardViewModel
                     ->exists(),
             'agenda' => ! in_array('published_agenda', $missing, true),
             'categories' => ! in_array('event_categories', $missing, true),
-            'badge_templates' => ! in_array('active_badge_template', $missing, true),
+            'badge_templates' => BadgeTemplate::query()
+                ->where('tenant_id', $event->tenant_id)
+                ->where('event_id', $event->id)
+                ->where('status', 'active')
+                ->exists(),
             'email_templates' => ! in_array('email_templates', $missing, true),
             'email_templates_configured' => $emailTemplatesConfigured,
             'email_templates_required' => $emailTemplatesRequired,

@@ -46,7 +46,6 @@ final class EventLifecycleTest extends TestCase
             'active_form_version_id' => '01TESTFORMVERSION0000000000',
             'active_ticket_types' => 0,
             'branding_active' => true,
-            'active_badge_template' => true,
             'configured_email_templates' => 3,
             'tier' => 'public',
             'registration_mode' => 'free_registration',
@@ -55,8 +54,8 @@ final class EventLifecycleTest extends TestCase
 
         self::assertTrue($readiness->isReady($valid));
         self::assertEqualsCanonicalizing(
-            ['published_agenda', 'active_form_version_id', 'active_branding', 'active_badge_template', 'email_templates'],
-            $readiness->missing([...$valid, 'agenda_items' => 0, 'active_form_version_id' => '', 'branding_active' => false, 'active_badge_template' => false, 'configured_email_templates' => 0]),
+            ['published_agenda', 'active_form_version_id', 'active_branding', 'email_templates'],
+            $readiness->missing([...$valid, 'agenda_items' => 0, 'active_form_version_id' => '', 'branding_active' => false, 'configured_email_templates' => 0]),
         );
         self::assertContains('event_categories', $readiness->missing([...$valid, 'configured_categories' => 0]));
         self::assertNotContains('event_categories', $readiness->missing([...$valid, 'configured_categories' => 1]));
@@ -77,7 +76,6 @@ final class EventLifecycleTest extends TestCase
             'active_form_version_id' => '01TESTFORMVERSION0000000000',
             'active_ticket_types' => 0,
             'branding_active' => true,
-            'active_badge_template' => true,
             'configured_email_templates' => 3,
             'tier' => 'private',
             'registration_mode' => 'free_registration',
@@ -86,7 +84,7 @@ final class EventLifecycleTest extends TestCase
 
         self::assertTrue($readiness->isReady($valid));
         self::assertNotContains('active_ticket_type', $readiness->missing($valid));
-        self::assertContains('active_badge_template', $readiness->missing([...$valid, 'active_badge_template' => false]));
+        self::assertNotContains('active_badge_template', $readiness->missing($valid));
     }
 
     public function test_event_not_publishable_problem_includes_missing_requirements(): void

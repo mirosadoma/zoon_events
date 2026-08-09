@@ -120,7 +120,7 @@ export default function EventDetail({
     price_tiers: false,
     agenda: !effectiveReadiness.includes('published_agenda'),
     categories: !effectiveReadiness.includes('event_categories'),
-    badge_templates: !effectiveReadiness.includes('active_badge_template'),
+    badge_templates: false,
     email_templates: !effectiveReadiness.includes('email_templates'),
     email_templates_configured: emailTemplatesConfigured,
     email_templates_required: emailTemplatesRequired,
