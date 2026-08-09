@@ -10,6 +10,8 @@ use App\Modules\Registration\Http\Requests\RegistrationFormWriteRequest;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationFormVersion;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
 use App\Modules\Tenancy\Domain\Context\TenantContextStore;
+use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 
 final class OrganizerRegistrationFormController extends Controller
 {
@@ -29,21 +31,28 @@ final class OrganizerRegistrationFormController extends Controller
         $this->event($eventId);
         $data = $request->validated();
         $context = $this->contexts->current();
-        $version = $save->execute(
-            $context,
-            $eventId,
-            $data['name'],
-            $data['fields'],
-            $data['privacy_notice_version'],
-            $data['terms_version'],
-        );
-        $version = $publish->execute(
-            $context,
-            $eventId,
-            $version,
-            $data['privacy_notice_version'],
-            $data['terms_version'],
-        );
+
+        try {
+            $version = $save->execute(
+                $context,
+                $eventId,
+                $data['name'],
+                $data['fields'],
+                $data['privacy_notice_version'],
+                $data['terms_version'],
+            );
+            $version = $publish->execute(
+                $context,
+                $eventId,
+                $version,
+                $data['privacy_notice_version'],
+                $data['terms_version'],
+            );
+        } catch (InvalidArgumentException $exception) {
+            throw ValidationException::withMessages([
+                'fields' => [$exception->getMessage()],
+            ]);
+        }
 
         return $this->success($this->map($version), 201);
     }

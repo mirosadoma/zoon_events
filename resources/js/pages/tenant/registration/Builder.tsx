@@ -335,6 +335,39 @@ function slugify(label: string): string {
   return base.length >= 2 ? base : `field_${Date.now()}`
 }
 
+function uniqueFieldKey(labelOrType: string, existingKeys: Set<string>): string {
+  const base = slugify(labelOrType)
+  if (!existingKeys.has(base)) {
+    return base
+  }
+
+  let suffix = 2
+  while (existingKeys.has(`${base}_${suffix}`)) {
+    suffix += 1
+  }
+
+  return `${base}_${suffix}`
+}
+
+function ensureUniqueCustomFieldKeys(fields: FormField[]): FormField[] {
+  const seen = new Set<string>()
+
+  return fields.map((field) => {
+    if (field.system || isRegistrationSystemFieldKey(field.key) || EVENT_DISPLAY_TYPES.has(field.type)) {
+      seen.add(field.key)
+      return field
+    }
+
+    let key = field.key
+    if (!/^[a-z][a-z0-9_]{1,63}$/.test(key) || seen.has(key)) {
+      key = uniqueFieldKey(field.label_en || field.type, seen)
+    }
+    seen.add(key)
+
+    return key === field.key ? field : { ...field, key }
+  })
+}
+
 const DEFAULT_EVENT_IMAGE = 'data:image/svg+xml,' + encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
   <defs>
@@ -683,11 +716,10 @@ export default function RegistrationBuilder({
 
     const labelEn = TYPE_LABELS[type]?.en ?? type
     const labelAr = TYPE_LABELS[type]?.ar ?? type
+    const existingKeys = new Set(fields.map((field) => field.key))
     const key = EVENT_DISPLAY_TYPES.has(type)
       ? type
-      : LAYOUT_TYPES.has(type)
-        ? `${type}_${Date.now()}_${++fieldIdCounter}`
-        : slugify(labelEn)
+      : uniqueFieldKey(labelEn, existingKeys)
     const newField: FormField = {
       id: nextFieldId(),
       key,
@@ -721,9 +753,14 @@ export default function RegistrationBuilder({
 
   const handleSave = async () => {
     setSubmitting(true)
+    const uniqueFields = ensureUniqueCustomFieldKeys(fields)
+    if (uniqueFields.some((field, index) => field.key !== fields[index]?.key)) {
+      setFields(uniqueFields)
+    }
+
     const payload = {
       name: formName,
-      fields: fields.map((f) => {
+      fields: uniqueFields.map((f) => {
         const row: Record<string, unknown> = {
           key: f.key,
           type: f.type,
