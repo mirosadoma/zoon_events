@@ -61,6 +61,11 @@ type AttendeeRow = {
     id: string
     name: { en: string; ar: string }
   } | null
+  registration_fields?: Array<{
+    key: string
+    label: { en: string; ar: string }
+    value: string | { en: string; ar: string }
+  }>
 }
 
 type Filters = {
@@ -680,49 +685,71 @@ export default function Attendees({
         ) : null}
       >
         {selected ? (
-          <SideDetailInfoGrid
-            title={t('attendeePaneBasicInfo')}
-            items={[
-              {
-                label: t('attendeeName'),
-                value: displayValue(selected.display_name, notAvailable),
-              },
-              {
-                label: t('attendeeEmail'),
-                value: displayValue(selected.email, notAvailable),
-              },
-              {
-                label: t('attendeePhone'),
-                value: displayValue(selected.phone, notAvailable),
-              },
-              {
-                label: t('attendeesVenueDateFilter'),
-                value: venueLabelFor(selected),
-              },
-              {
-                label: t('inviteStatus'),
-                value: inviteStatus ? <StatusBadge status={inviteStatus} /> : notAvailable,
-              },
-              {
-                label: t('attendeeCurrentZone'),
-                value: selected.current_zone
-                  ? (selected.current_zone.name[locale]
-                    || selected.current_zone.name.en
-                    || selected.current_zone.name.ar)
-                  : notAvailable,
-              },
-              {
-                label: t('attendeesCredential'),
-                value: selected.credential_status
-                  ? <StatusBadge status={selected.credential_status} />
-                  : notAvailable,
-              },
-              {
-                label: t('attendeeDetailLocale'),
-                value: (selected.locale || notAvailable).toUpperCase(),
-              },
-            ]}
-          />
+          <div className="space-y-8">
+            <SideDetailInfoGrid
+              title={t('attendeePaneBasicInfo')}
+              items={[
+                {
+                  label: t('attendeeName'),
+                  value: displayValue(selected.display_name, notAvailable),
+                },
+                {
+                  label: t('attendeeEmail'),
+                  value: displayValue(selected.email, notAvailable),
+                },
+                {
+                  label: t('attendeePhone'),
+                  value: displayValue(selected.phone, notAvailable),
+                },
+                {
+                  label: t('attendeesVenueDateFilter'),
+                  value: venueLabelFor(selected),
+                },
+                {
+                  label: t('inviteStatus'),
+                  value: inviteStatus ? <StatusBadge status={inviteStatus} /> : notAvailable,
+                },
+                {
+                  label: t('attendeeCurrentZone'),
+                  value: selected.current_zone
+                    ? (selected.current_zone.name[locale]
+                      || selected.current_zone.name.en
+                      || selected.current_zone.name.ar)
+                    : notAvailable,
+                },
+                {
+                  label: t('attendeesCredential'),
+                  value: selected.credential_status
+                    ? <StatusBadge status={selected.credential_status} />
+                    : notAvailable,
+                },
+                {
+                  label: t('attendeeDetailLocale'),
+                  value: (selected.locale || notAvailable).toUpperCase(),
+                },
+              ]}
+            />
+
+            <SideDetailInfoGrid
+              title={t('attendeePaneRegistrationForm')}
+              scrollable
+              items={
+                (selected.registration_fields ?? []).length > 0
+                  ? (selected.registration_fields ?? []).map((field) => ({
+                      id: field.key,
+                      label: field.label[locale] || field.label.en || field.label.ar || field.key,
+                      value: typeof field.value === 'string'
+                        ? field.value
+                        : (field.value[locale] || field.value.en || field.value.ar),
+                    }))
+                  : [{
+                      label: t('attendeePaneRegistrationForm'),
+                      value: t('attendeePaneNoRegistrationData'),
+                      valueClassName: 'font-medium text-[var(--muted)]',
+                    }]
+              }
+            />
+          </div>
         ) : null}
       </SideDetailPane>
 

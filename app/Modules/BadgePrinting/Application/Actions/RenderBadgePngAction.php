@@ -429,7 +429,17 @@ final readonly class RenderBadgePngAction
                 return $image === false ? null : $image;
             }
 
+            // Prefer local public-disk files for absolute /storage URLs so badge
+            // downloads work when server-side HTTP to APP_URL fails (e.g. zoon.test TLS).
             if (preg_match('#^https?://#i', $src) === 1) {
+                $path = parse_url($src, PHP_URL_PATH);
+                if (is_string($path) && $path !== '') {
+                    $fromStorage = $this->loadImageFromStoragePath($path);
+                    if ($fromStorage !== null) {
+                        return $fromStorage;
+                    }
+                }
+
                 $response = Http::timeout(5)->get($src);
                 if (! $response->successful()) {
                     return null;
@@ -439,21 +449,26 @@ final readonly class RenderBadgePngAction
                 return $image === false ? null : $image;
             }
 
-            $relative = ltrim($src, '/');
-            if (str_starts_with($relative, 'storage/')) {
-                $relative = substr($relative, strlen('storage/'));
-            }
-            $absolute = Storage::disk('public')->path($relative);
-            if (! is_file($absolute)) {
-                return null;
-            }
-
-            $image = imagecreatefromstring((string) file_get_contents($absolute));
-
-            return $image === false ? null : $image;
+            return $this->loadImageFromStoragePath($src);
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    private function loadImageFromStoragePath(string $path): ?GdImage
+    {
+        $relative = ltrim($path, '/');
+        if (str_starts_with($relative, 'storage/')) {
+            $relative = substr($relative, strlen('storage/'));
+        }
+        $absolute = Storage::disk('public')->path($relative);
+        if (! is_file($absolute)) {
+            return null;
+        }
+
+        $image = imagecreatefromstring((string) file_get_contents($absolute));
+
+        return $image === false ? null : $image;
     }
 
     /** @return array{0:int,1:int} */

@@ -181,7 +181,17 @@ final readonly class BuildBadgePrintDocumentAction
         }
 
         try {
+            // Prefer local public-disk files for absolute /storage URLs so badge
+            // downloads work when server-side HTTP to APP_URL fails (e.g. zoon.test TLS).
             if (preg_match('#^https?://#i', $src) === 1) {
+                $path = parse_url($src, PHP_URL_PATH);
+                if (is_string($path) && $path !== '') {
+                    $fromStorage = $this->embedImageFromStoragePath($path);
+                    if ($fromStorage !== null) {
+                        return $fromStorage;
+                    }
+                }
+
                 $response = Http::timeout(5)->get($src);
                 if (! $response->successful()) {
                     return null;
@@ -192,23 +202,27 @@ final readonly class BuildBadgePrintDocumentAction
                 return 'data:'.$mime.';base64,'.base64_encode($response->body());
             }
 
-            $path = parse_url($src, PHP_URL_PATH);
-            if (! is_string($path) || $path === '') {
-                return null;
-            }
-
-            $relative = ltrim(preg_replace('#^/storage/#', '', $path) ?? $path, '/');
-            $absolute = Storage::disk('public')->path($relative);
-            if (! is_file($absolute)) {
-                return null;
-            }
-
-            $mime = mime_content_type($absolute) ?: 'image/png';
-
-            return 'data:'.$mime.';base64,'.base64_encode((string) file_get_contents($absolute));
+            return $this->embedImageFromStoragePath($src);
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    private function embedImageFromStoragePath(string $path): ?string
+    {
+        $relative = ltrim($path, '/');
+        if (str_starts_with($relative, 'storage/')) {
+            $relative = substr($relative, strlen('storage/'));
+        }
+
+        $absolute = Storage::disk('public')->path($relative);
+        if (! is_file($absolute)) {
+            return null;
+        }
+
+        $mime = mime_content_type($absolute) ?: 'image/png';
+
+        return 'data:'.$mime.';base64,'.base64_encode((string) file_get_contents($absolute));
     }
 
     private function wrapDocument(string $badgeHtml, string $title, bool $autoPrint): string

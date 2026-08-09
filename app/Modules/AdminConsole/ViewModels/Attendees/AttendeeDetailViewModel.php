@@ -3,6 +3,7 @@
 namespace App\Modules\AdminConsole\ViewModels\Attendees;
 
 use App\Modules\AdminConsole\Application\PersonalDataReader;
+use App\Modules\AdminConsole\Application\Support\AttendeeRegistrationAnswersPresenter;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
 use App\Modules\Events\Application\Support\PublicRegistrationUrlBuilder;
@@ -16,6 +17,7 @@ final readonly class AttendeeDetailViewModel
     public function __construct(
         private PersonalDataReader $personalData,
         private PublicRegistrationUrlBuilder $registrationUrls,
+        private AttendeeRegistrationAnswersPresenter $registrationAnswers,
     ) {}
 
     /**
@@ -39,12 +41,15 @@ final readonly class AttendeeDetailViewModel
         array $pagination = ['page' => 1, 'per_page' => 15, 'total' => 0, 'last_page' => 1],
         array $currentZones = [],
     ): array {
+        $registrationByAttendee = $this->registrationAnswers->forAttendees($event, $attendees);
+
         return [
             'event' => $this->eventRow($event),
             'attendees' => $attendees->map(fn (Attendee $attendee): array => $this->attendeeRow(
                 $attendee,
                 $credentialStatuses[$attendee->id] ?? null,
                 $currentZones[(string) $attendee->id] ?? null,
+                $registrationByAttendee[(string) $attendee->id] ?? [],
             ))->values()->all(),
             'filters' => [
                 'search' => (string) ($filters['search'] ?? ''),
@@ -69,7 +74,12 @@ final readonly class AttendeeDetailViewModel
         return [
             'event' => $this->eventRow($event),
             'attendee' => [
-                ...$this->attendeeRow($attendee, $credential?->status),
+                ...$this->attendeeRow(
+                    $attendee,
+                    $credential?->status,
+                    null,
+                    $this->registrationAnswers->forAttendee($event, $attendee),
+                ),
                 'order_id' => $attendee->order_id !== null ? (string) $attendee->order_id : null,
                 'ticket_type_id' => $attendee->ticket_type_id !== null ? (string) $attendee->ticket_type_id : null,
                 'registered_at' => $attendee->registered_at?->toIso8601String(),
@@ -128,10 +138,15 @@ final readonly class AttendeeDetailViewModel
 
     /**
      * @param  array{id: string, name: array{en: string, ar: string}}|null  $currentZone
+     * @param  list<array{key: string, label: array{en: string, ar: string}, value: string}>  $registrationFields
      * @return array<string, mixed>
      */
-    private function attendeeRow(Attendee $attendee, ?string $credentialStatus, ?array $currentZone = null): array
-    {
+    private function attendeeRow(
+        Attendee $attendee,
+        ?string $credentialStatus,
+        ?array $currentZone = null,
+        array $registrationFields = [],
+    ): array {
         $displayName = $this->personalData->attendeeDisplayName($attendee);
         $email = $this->personalData->attendeeEmail($attendee);
         $phone = $this->personalData->attendeePhone($attendee);
@@ -148,6 +163,7 @@ final readonly class AttendeeDetailViewModel
             'phone' => $phone,
             'event_venue_id' => $attendee->event_venue_id !== null ? (string) $attendee->event_venue_id : null,
             'current_zone' => $currentZone,
+            'registration_fields' => $registrationFields,
         ];
     }
 }

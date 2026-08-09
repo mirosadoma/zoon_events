@@ -2273,6 +2273,8 @@ export default {
   inviteEmail: 'Email',
   showAttendeeDetails: 'Show details',
   attendeePaneBasicInfo: 'Basic info',
+  attendeePaneRegistrationForm: 'Registration form',
+  attendeePaneNoRegistrationData: 'No registration answers for this attendee.',
   attendeePaneEditUnavailable: 'This invite has not registered yet, so there is no profile to edit.',
   attendeePaneDeleteUnavailable: 'Unable to delete this row.',
   attendeePaneDeleted: 'Removed successfully.',

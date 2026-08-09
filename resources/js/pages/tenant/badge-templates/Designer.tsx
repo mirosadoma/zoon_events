@@ -15,6 +15,8 @@ type EventRow = {
   start_at?: string | null
   end_at?: string | null
   main_image?: string | null
+  logo_url?: string | null
+  sponsor_logo_url?: string | null
   venues?: Array<{ id: string; name: { en: string; ar: string } }>
   tier?: string
 }

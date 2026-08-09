@@ -2273,6 +2273,8 @@ export default {
   inviteEmail: 'البريد الإلكتروني',
   showAttendeeDetails: 'عرض التفاصيل',
   attendeePaneBasicInfo: 'معلومات أساسية',
+  attendeePaneRegistrationForm: 'نموذج التسجيل',
+  attendeePaneNoRegistrationData: 'لا توجد إجابات تسجيل لهذا الحضور.',
   attendeePaneEditUnavailable: 'هذه الدعوة لم تُسجَّل بعد، لذا لا يوجد ملف يمكن تعديله.',
   attendeePaneDeleteUnavailable: 'تعذر حذف هذا الصف.',
   attendeePaneDeleted: 'تم الحذف بنجاح.',

@@ -72,14 +72,14 @@ export default function Confirmation({
           ) : null}
 
           {(badgeDownloadPngUrl || badgeDownloadPdfUrl) ? (
-            <div className="registration-success-meta flex flex-wrap gap-3">
+            <div className="mt-6 flex flex-nowrap items-center justify-center gap-3">
               {badgeDownloadPngUrl ? (
-                <a className="button-primary" href={badgeDownloadPngUrl} download>
+                <a className="button-primary whitespace-nowrap" href={badgeDownloadPngUrl} download>
                   {t('downloadBadgeImage')}
                 </a>
               ) : null}
               {badgeDownloadPdfUrl ? (
-                <a className="button-secondary" href={badgeDownloadPdfUrl} download>
+                <a className="button-secondary whitespace-nowrap" href={badgeDownloadPdfUrl} download>
                   {t('downloadBadgePdf')}
                 </a>
               ) : null}
@@ -93,7 +93,7 @@ export default function Confirmation({
             </div>
           </div>
 
-          {showWallet ? (
+          {/* {showWallet ? (
             <div className="registration-confirmation-wallet">
               <AddToWalletButtons
                 locale={locale}
@@ -106,7 +106,7 @@ export default function Confirmation({
 
           <p className="registration-invite-footnote">
             {t('publicRegistrationEmailFootnote')}
-          </p>
+          </p> */}
         </div>
       </main>
     </>

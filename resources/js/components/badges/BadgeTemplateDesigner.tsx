@@ -77,6 +77,8 @@ interface BadgeTemplateDesignerProps {
     start_at?: string | null
     end_at?: string | null
     main_image?: string | null
+    logo_url?: string | null
+    sponsor_logo_url?: string | null
     venues?: Array<{ id: string; name: { en: string; ar: string } }>
     tier?: string
   }
@@ -454,13 +456,15 @@ function FieldPreview({
   canvasH,
   fieldLabels,
   previewValues,
-  eventImageUrl,
+  organizerLogoUrl,
+  sponsorLogoUrl,
 }: {
   item: BadgeFieldLayout
   canvasH: number
   fieldLabels: Record<string, string>
   previewValues: Record<string, string>
-  eventImageUrl?: string | null
+  organizerLogoUrl?: string | null
+  sponsorLogoUrl?: string | null
 }) {
   const horizontal = resolveHorizontalAlign(item.textAlign)
   const fieldKey = item.field
@@ -487,10 +491,11 @@ function FieldPreview({
   }
 
   if (isEventLogo) {
-    if (eventImageUrl) {
+    const logoUrl = fieldKey === 'sponsor_logo_ref' ? sponsorLogoUrl : organizerLogoUrl
+    if (logoUrl) {
       return (
         <img
-          src={eventImageUrl}
+          src={logoUrl}
           alt=""
           className="max-h-full max-w-full object-contain"
           draggable={false}
@@ -626,7 +631,8 @@ export default function BadgeTemplateDesigner({
     () => buildCanvasPreviewValues(event, locale, fields.map((f) => f.field)),
     [event, locale, fields],
   )
-  const eventImageUrl = event?.main_image ?? null
+  const organizerLogoUrl = event?.logo_url ?? event?.main_image ?? null
+  const sponsorLogoUrl = event?.sponsor_logo_url ?? null
 
   const canvasRef = useRef<HTMLDivElement>(null)
   const interactionRef = useRef<{
@@ -1349,7 +1355,8 @@ export default function BadgeTemplateDesigner({
                         canvasH={canvasH}
                         fieldLabels={dynamicFieldLabels}
                         previewValues={canvasPreviewValues}
-                        eventImageUrl={eventImageUrl}
+                        organizerLogoUrl={organizerLogoUrl}
+                        sponsorLogoUrl={sponsorLogoUrl}
                       />
                     </div>
 

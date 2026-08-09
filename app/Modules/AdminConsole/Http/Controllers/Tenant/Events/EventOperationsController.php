@@ -8,6 +8,7 @@ use App\Modules\AdminConsole\Application\Exports\AttendeesExcelExport;
 use App\Modules\AdminConsole\Application\PersonalDataReader;
 use App\Modules\AdminConsole\Application\Queries\ListEventAttendeesQuery;
 use App\Modules\AdminConsole\Application\SessionContextBuilder;
+use App\Modules\AdminConsole\Application\Support\AttendeeRegistrationAnswersPresenter;
 use App\Modules\AdminConsole\Application\Support\InertiaListPaginator;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\Events\Concerns\ResolvesTenantEventFromRoute;
 use App\Modules\AdminConsole\ViewModels\Attendees\AttendeeDetailViewModel;
@@ -48,6 +49,7 @@ final class EventOperationsController extends Controller
         private readonly PublicRegistrationUrlBuilder $registrationUrls,
         private readonly EventVenuePresenter $eventVenues,
         private readonly PersonalDataGuard $guard,
+        private readonly AttendeeRegistrationAnswersPresenter $registrationAnswers,
         private readonly GetAttendeeCurrentZonesQuery $attendeeCurrentZones,
     ) {}
 
@@ -270,7 +272,17 @@ final class EventOperationsController extends Controller
             $attendeeIds,
         );
 
-        $rows = $invites->map(function (EventRegistrationInvite $invite) use ($attendeesByEmailIndex, $credentialStatuses, $currentZones): array {
+        $registrationByAttendee = $this->registrationAnswers->forAttendees(
+            $event,
+            $attendeesByEmailIndex->values(),
+        );
+
+        $rows = $invites->map(function (EventRegistrationInvite $invite) use (
+            $attendeesByEmailIndex,
+            $credentialStatuses,
+            $currentZones,
+            $registrationByAttendee,
+        ): array {
             $email = $invite->resolvedEmail($this->guard);
             $emailIndex = filled($invite->email_index)
                 ? (string) $invite->email_index
@@ -301,6 +313,9 @@ final class EventOperationsController extends Controller
                 'phone' => $phone,
                 'event_venue_id' => $attendee?->event_venue_id !== null ? (string) $attendee->event_venue_id : null,
                 'current_zone' => $attendeeId !== null ? ($currentZones[$attendeeId] ?? null) : null,
+                'registration_fields' => $attendeeId !== null
+                    ? ($registrationByAttendee[$attendeeId] ?? [])
+                    : [],
             ];
         })->values()->all();
 

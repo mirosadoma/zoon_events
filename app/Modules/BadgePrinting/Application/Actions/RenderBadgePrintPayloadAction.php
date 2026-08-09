@@ -8,6 +8,7 @@ use App\Modules\BadgePrinting\Domain\ValueObjects\PrintPayload;
 use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgeTemplate;
 use App\Modules\Credentials\Application\Presentation\CredentialPresentationToken;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
+use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventBranding;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventCategory;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventCategoryVenue;
@@ -109,9 +110,32 @@ final readonly class RenderBadgePrintPayloadAction
             'tier' => $this->resolveTierLabel($category, $locale),
             'zone' => $this->resolveZone($category, $attendee, $locale),
             'color_code' => $category?->color,
-            'organizer_logo_ref' => $this->publicUrl(is_string($theme['logo_path'] ?? null) ? $theme['logo_path'] : null),
+            'organizer_logo_ref' => $this->resolveOrganizerLogoUrl($tenantId, $eventId, $theme),
             'sponsor_logo_ref' => $this->publicUrl(is_string($theme['sponsor_logo_path'] ?? null) ? $theme['sponsor_logo_path'] : null),
         ];
+    }
+
+    /**
+     * Prefer uploaded brand logo; fall back to event main image so badge print
+     * matches the template designer preview when no brand logo is configured.
+     *
+     * @param  array<string, mixed>  $theme
+     */
+    private function resolveOrganizerLogoUrl(string $tenantId, string $eventId, array $theme): ?string
+    {
+        $logoPath = is_string($theme['logo_path'] ?? null) ? $theme['logo_path'] : null;
+        if (is_string($logoPath) && trim($logoPath) !== '') {
+            return $this->publicUrl($logoPath);
+        }
+
+        $event = Event::query()
+            ->where('tenant_id', $tenantId)
+            ->where('id', $eventId)
+            ->first(['main_image_path']);
+
+        $mainImagePath = is_string($event?->main_image_path) ? $event->main_image_path : null;
+
+        return $this->publicUrl($mainImagePath);
     }
 
     private function resolveAttendeePhone(string $tenantId, string $eventId, ?Attendee $attendee): ?string

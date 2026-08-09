@@ -4,6 +4,7 @@ namespace Tests\Unit\BadgePrinting;
 
 use App\Modules\BadgePrinting\Application\Actions\RenderBadgePngAction;
 use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgeTemplate;
+use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Group;
 use Tests\TestCase;
 
@@ -149,5 +150,61 @@ final class RenderBadgePngActionTest extends TestCase
 
         imagedestroy($image);
         imagedestroy($transparentImage);
+    }
+
+    public function test_loads_organizer_logo_from_absolute_storage_url_without_http(): void
+    {
+        if (! extension_loaded('gd')) {
+            $this->markTestSkipped('GD extension is required.');
+        }
+
+        Storage::fake('public');
+
+        $logo = imagecreatetruecolor(20, 20);
+        self::assertNotFalse($logo);
+        $red = imagecolorallocate($logo, 220, 20, 60);
+        imagefilledrectangle($logo, 0, 0, 19, 19, $red);
+        ob_start();
+        imagepng($logo);
+        $logoBytes = (string) ob_get_clean();
+        imagedestroy($logo);
+
+        Storage::disk('public')->put('badges/organizer.png', $logoBytes);
+
+        $template = new BadgeTemplate([
+            'name' => 'Logo Badge',
+            'paper_size' => 'custom',
+            'printer_type' => 'thermal',
+            'background_color' => '#ffffff',
+            'canvas_width' => 100,
+            'canvas_height' => 100,
+            'layout' => [
+                [
+                    'field' => 'organizer_logo_ref',
+                    'x' => 20,
+                    'y' => 20,
+                    'width' => 60,
+                    'height' => 60,
+                ],
+            ],
+        ]);
+
+        // Absolute APP_URL-style link that would fail over HTTP on local TLS hosts.
+        $png = app(RenderBadgePngAction::class)->execute(
+            $template,
+            ['organizer_logo_ref' => 'https://zoon.test/storage/badges/organizer.png'],
+            null,
+        );
+
+        self::assertIsString($png);
+        $image = imagecreatefromstring($png);
+        self::assertNotFalse($image);
+
+        $pixel = imagecolorat($image, 50, 50);
+        self::assertSame(220, ($pixel >> 16) & 0xFF);
+        self::assertSame(20, ($pixel >> 8) & 0xFF);
+        self::assertSame(60, $pixel & 0xFF);
+
+        imagedestroy($image);
     }
 }

@@ -124,6 +124,7 @@ export default function SideDetailPane({
 }
 
 type InfoGridItem = {
+  id?: string
   label: string
   value: ReactNode
   valueClassName?: string
@@ -132,23 +133,31 @@ type InfoGridItem = {
 export function SideDetailInfoGrid({
   title,
   items,
+  scrollable = false,
 }: {
   title?: string
   items: InfoGridItem[]
+  scrollable?: boolean
 }) {
   const { t } = useLocale()
 
   return (
-    <section>
+    <section className={scrollable ? 'flex min-h-0 flex-col' : undefined}>
       <div className="mb-4 flex items-center gap-3">
         <h3 className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-[var(--muted)]">
           {title ?? t('attendeePaneBasicInfo')}
         </h3>
         <div className="h-px flex-1 bg-[var(--border)]" />
       </div>
-      <dl className="grid grid-cols-2 gap-x-5 gap-y-5">
-        {items.map((item) => (
-          <div key={item.label} className="min-w-0">
+      <dl
+        className={
+          scrollable
+            ? 'grid max-h-[min(22rem,45vh)] grid-cols-2 gap-x-5 gap-y-5 overflow-y-auto pe-1'
+            : 'grid grid-cols-2 gap-x-5 gap-y-5'
+        }
+      >
+        {items.map((item, index) => (
+          <div key={item.id ?? `${item.label}-${index}`} className="min-w-0">
             <dt className="text-[0.7rem] font-medium uppercase tracking-[0.06em] text-[var(--muted)]">
               {item.label}
             </dt>
