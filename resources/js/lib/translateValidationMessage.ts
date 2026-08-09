@@ -141,7 +141,7 @@ const RULE_PATTERNS: RulePattern[] = [
     translate: (g, locale) => (locale === 'ar' ? ar : en).validationMustNotBeGreaterThanKilobytes.replace(':count', g[1]),
   },
   {
-    match: /^must be a valid phone number\.?$/i,
+    match: /^must be a (?:valid phone number|10-digit phone number starting with 05)\.?$/i,
     translate: (_g, locale) => (locale === 'ar' ? ar : en).validationMustBeValidPhoneNumber,
   },
   {

@@ -2,6 +2,10 @@
 
 namespace App\Modules\Registration\Application\Support;
 
+/**
+ * Public registration phones must be a local Saudi mobile:
+ * exactly 10 digits starting with 05 (e.g. 0512312312).
+ */
 final class RegistrationPhoneNormalizer
 {
     public static function normalize(string $value): string
@@ -17,11 +21,11 @@ final class RegistrationPhoneNormalizer
         }
 
         if (str_starts_with($digits, '00')) {
-            return '+'.substr($digits, 2);
+            $digits = substr($digits, 2);
         }
 
-        if (str_starts_with($trimmed, '+')) {
-            return '+'.$digits;
+        if (str_starts_with($digits, '9665') && strlen($digits) === 12) {
+            return '0'.substr($digits, 3);
         }
 
         return $digits;
@@ -31,6 +35,6 @@ final class RegistrationPhoneNormalizer
     {
         $normalized = self::normalize($value);
 
-        return $normalized !== '' && preg_match('/^\+?[0-9]{8,15}$/', $normalized) === 1;
+        return preg_match('/^05[0-9]{8}$/', $normalized) === 1;
     }
 }

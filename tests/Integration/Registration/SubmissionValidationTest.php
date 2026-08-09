@@ -29,7 +29,7 @@ final class SubmissionValidationTest extends Phase1MySqlTestCase
             'synthetic-key', [
                 'full_name' => 'Synthetic Attendee',
                 'email' => 'attendee@example.test',
-                'phone' => '+966501234567',
+                'phone' => '0501234567',
             ], ['terms' => true, 'privacy' => true, 'marketing' => false], 'en',
         );
         $submission = RegistrationSubmission::query()->findOrFail($record->id);
@@ -42,7 +42,7 @@ final class SubmissionValidationTest extends Phase1MySqlTestCase
         self::assertSame([
             'email' => 'attendee@example.test',
             'full_name' => 'Synthetic Attendee',
-            'phone' => '+966501234567',
+            'phone' => '0501234567',
         ], json_decode($plaintext, true));
     }
 
@@ -76,7 +76,7 @@ final class SubmissionValidationTest extends Phase1MySqlTestCase
             'server-owned', [
                 'full_name' => 'Synthetic Attendee',
                 'email' => 'attendee@example.test',
-                'phone' => '+966501234567',
+                'phone' => '0501234567',
             ], ['terms' => true, 'privacy' => true, 'marketing' => false], 'en',
         );
         $submission = RegistrationSubmission::query()->findOrFail($record->id);
@@ -87,7 +87,7 @@ final class SubmissionValidationTest extends Phase1MySqlTestCase
         self::assertSame([
             'email' => 'attendee@example.test',
             'full_name' => 'Synthetic Attendee',
-            'phone' => '+966501234567',
+            'phone' => '0501234567',
             'source' => 'public-form',
         ], json_decode($plaintext, true));
 
@@ -98,7 +98,7 @@ final class SubmissionValidationTest extends Phase1MySqlTestCase
             [
                 'full_name' => 'Synthetic Attendee',
                 'email' => 'attendee@example.test',
-                'phone' => '+966501234567',
+                'phone' => '0501234567',
                 'source' => 'forged',
             ],
             ['terms' => true, 'privacy' => true, 'marketing' => false],

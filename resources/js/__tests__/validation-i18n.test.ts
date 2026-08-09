@@ -17,8 +17,8 @@ describe('translateValidationMessage', () => {
     ).toBe('يجب أن يكون بريداً إلكترونياً صالحاً.')
 
     expect(
-      translateValidationMessage('must be a valid phone number.', 'ar'),
-    ).toBe('يجب أن يكون رقم جوال صالحاً.')
+      translateValidationMessage('must be a 10-digit phone number starting with 05.', 'ar'),
+    ).toBe('يجب أن يكون رقم الجوال 10 أرقام ويبدأ بـ 05.')
   })
 
   it('translates custom agenda validation to Arabic', () => {

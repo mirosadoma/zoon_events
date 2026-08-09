@@ -129,7 +129,8 @@ export default function PublicRegistrationOtp({
       setSubmitting(false)
     } catch (caught) {
       if (caught instanceof ApiFetchError) {
-        setError(caught.message || t('publicRegistrationOtpInvalid'))
+        const fieldError = Object.values(caught.errors)[0]
+        setError(fieldError || caught.message || t('publicRegistrationOtpInvalid'))
       } else {
         setError(t('publicRegistrationOtpInvalid'))
       }
@@ -149,7 +150,12 @@ export default function PublicRegistrationOtp({
       setResendSuccess(true)
       setTimeout(() => setResendSuccess(false), 5000)
     } catch (caught) {
-      setError(caught instanceof ApiFetchError ? caught.message : t('publicRegistrationOtpResendFailed'))
+      if (caught instanceof ApiFetchError) {
+        const fieldError = Object.values(caught.errors)[0]
+        setError(fieldError || caught.message || t('publicRegistrationOtpResendFailed'))
+      } else {
+        setError(t('publicRegistrationOtpResendFailed'))
+      }
     } finally {
       setResending(false)
     }

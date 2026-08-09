@@ -194,7 +194,7 @@ final readonly class EncryptedSubmissionCreator implements SubmissionCreator
         if (! $valid) {
             return match ($type) {
                 FormFieldType::Email => 'must be a valid email address.',
-                FormFieldType::Phone => 'must be a valid phone number.',
+            FormFieldType::Phone => 'must be a 10-digit phone number starting with 05.',
                 default => 'is invalid.',
             };
         }

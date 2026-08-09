@@ -53,6 +53,19 @@ function choiceFieldStyle(color?: string | null): CSSProperties | undefined {
   return { ['--choice-accent' as string]: color }
 }
 
+function fieldPlaceholder(field: PublicFormField, messages: typeof en): string | undefined {
+  if (field.type === 'phone' || field.key === 'phone') {
+    return messages.publicRegistrationPlaceholderPhone
+  }
+  if (field.key === 'full_name' || field.key === 'name') {
+    return messages.publicRegistrationPlaceholderFullName
+  }
+  if (field.type === 'email' || field.key === 'email') {
+    return messages.publicRegistrationPlaceholderEmail
+  }
+  return undefined
+}
+
 export function RegistrationField({
   field,
   locale,
@@ -259,6 +272,10 @@ export function RegistrationField({
         id={inputId}
         name={field.key}
         type={inputType}
+        inputMode={field.type === 'phone' ? 'numeric' : undefined}
+        maxLength={field.type === 'phone' ? 10 : undefined}
+        pattern={field.type === 'phone' ? '05[0-9]{8}' : undefined}
+        placeholder={fieldPlaceholder(field, messages)}
         className={invalidClass}
         required={required}
         aria-required={required || showRequiredMark}

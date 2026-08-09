@@ -64,12 +64,12 @@ final class PublicEventRegistrationSubmitTest extends Phase1MySqlTestCase
             ->postJson("/en/events/{$fixture['event']->slug}/register", [
                 'form_version_id' => (string) $form->id,
                 'event_category_id' => $category->id,
-                'buyer' => ['first_name' => 'Amr', 'last_name' => 'Sadoma', 'email' => 'amr@example.test', 'phone' => '01276069689'],
-                'attendee' => ['first_name' => 'Amr', 'last_name' => 'Sadoma', 'email' => 'amr@example.test', 'phone' => '01276069689'],
+                'buyer' => ['first_name' => 'Amr', 'last_name' => 'Sadoma', 'email' => 'amr@example.test', 'phone' => '0512312312'],
+                'attendee' => ['first_name' => 'Amr', 'last_name' => 'Sadoma', 'email' => 'amr@example.test', 'phone' => '0512312312'],
                 'answers' => [
                     'full_name' => 'Amr Sadoma',
                     'email' => 'amr@example.test',
-                    'phone' => '01276069689',
+                    'phone' => '0512312312',
                     'company' => 'sadoma',
                 ],
                 'consents' => ['terms' => true, 'privacy' => true, 'marketing' => false],

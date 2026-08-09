@@ -124,7 +124,12 @@ final class PublicEventRegistrationController extends Controller
     public function showOtp(string $locale, string $eventSlug, string $token): Response
     {
         $event = $this->shareableEvents->findBySlug($eventSlug);
-        $otp = $this->findActiveOtp($event, $token);
+        $otp = $this->findOtpRecord($event, $token);
+
+        if ($otp->isVerified() || $otp->isExpired()) {
+            abort(404);
+        }
+
         $resolvedLocale = $locale === 'ar' ? 'ar' : 'en';
 
         /** @var array<string, mixed> $payload */
@@ -933,15 +938,34 @@ final class PublicEventRegistrationController extends Controller
         }
     }
 
-    private function findActiveOtp(Event $event, string $token): RegistrationOtp
+    private function findOtpRecord(Event $event, string $token): RegistrationOtp
     {
         $otp = RegistrationOtp::query()
             ->where('event_id', $event->id)
             ->where('token', $token)
             ->first();
 
-        if ($otp === null || $otp->isVerified() || $otp->isExpired()) {
+        if ($otp === null) {
             abort(404);
+        }
+
+        return $otp;
+    }
+
+    private function findActiveOtp(Event $event, string $token): RegistrationOtp
+    {
+        $otp = $this->findOtpRecord($event, $token);
+
+        if ($otp->isVerified()) {
+            throw ValidationException::withMessages([
+                'code' => ['This verification code was already used. Please start registration again.'],
+            ]);
+        }
+
+        if ($otp->isExpired()) {
+            throw ValidationException::withMessages([
+                'code' => ['This verification code has expired. Please request a new code.'],
+            ]);
         }
 
         return $otp;

@@ -1,7 +1,7 @@
 import type { PublicFormField } from '@/components/registration/RegistrationField'
 import type { FieldLabelMap } from '@/lib/formatValidationErrors'
 import { formFieldProps, formFieldSelector } from '@/lib/formatValidationErrors'
-import { normalizeRegistrationPhone } from '@/lib/normalizeRegistrationPhone'
+import { isValidRegistrationPhone } from '@/lib/normalizeRegistrationPhone'
 
 export function buildPublicRegistrationFieldLabels(
   fields: PublicFormField[],
@@ -126,9 +126,8 @@ export function collectPublicRegistrationClientErrors(
     }
 
     if (field.type === 'phone' && typeof value === 'string' && value.trim() !== '') {
-      const normalized = normalizeRegistrationPhone(value)
-      if (!/^\+?[0-9]{8,15}$/.test(normalized)) {
-        errors[field.key] = 'must be a valid phone number.'
+      if (!isValidRegistrationPhone(value)) {
+        errors[field.key] = 'must be a 10-digit phone number starting with 05.'
       }
     }
   }
