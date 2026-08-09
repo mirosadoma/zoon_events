@@ -36,7 +36,24 @@ import { registrationFontFamily, REGISTRATION_FONT_OPTIONS } from '@/lib/registr
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-type FieldOptionRow = { id: string; label_en: string; label_ar: string }
+type FieldOptionRow = { id: string; label_en: string; label_ar: string; value?: string }
+
+function normalizeFieldOptions(options: Array<Partial<FieldOptionRow> & { value?: string }> | undefined): FieldOptionRow[] | undefined {
+  if (!options) {
+    return undefined
+  }
+
+  return options.map((option, index) => {
+    const id = String(option.id ?? option.value ?? `opt_${index + 1}`)
+
+    return {
+      id,
+      value: String(option.value ?? id),
+      label_en: option.label_en ?? '',
+      label_ar: option.label_ar ?? '',
+    }
+  })
+}
 
 type FormField = {
   id: string
@@ -577,7 +594,7 @@ export default function RegistrationBuilder({
         required: f.required,
         width: (f.width as 'full' | 'half' | 'third') ?? 'full',
         system: f.system,
-        options: f.options,
+        options: normalizeFieldOptions(f.options),
         content: f.content ?? '',
         choice_style: f.choice_style ?? (STYLED_CHOICE_TYPES.has(f.type) ? defaultChoiceStyle(f.type) : null),
         choice_color: f.choice_color ?? null,
@@ -595,7 +612,7 @@ export default function RegistrationBuilder({
       required: Boolean(field.required),
       width: (field.width as 'full' | 'half' | 'third') ?? 'full',
       system: Boolean(field.system) || isRegistrationSystemFieldKey(field.key),
-      options: field.options as FieldOptionRow[] | undefined,
+      options: normalizeFieldOptions(field.options as FieldOptionRow[] | undefined),
       content: field.content ?? '',
       choice_style: field.choice_style ?? (STYLED_CHOICE_TYPES.has(field.type) ? defaultChoiceStyle(field.type) : null),
       choice_color: field.choice_color ?? null,
@@ -725,9 +742,15 @@ export default function RegistrationBuilder({
           row.choice_color = f.choice_color || '#2563EB'
         }
         if (CHOICE_TYPES.has(f.type) && f.options) {
-          row.options = f.options.map((o) => ({
-            value: o.id, label_en: o.label_en, label_ar: o.label_ar,
-          }))
+          row.options = f.options.map((o, index) => {
+            const value = String(o.id || o.value || `opt_${index + 1}`)
+
+            return {
+              value,
+              label_en: o.label_en,
+              label_ar: o.label_ar,
+            }
+          })
         }
         return row
       }),
@@ -766,8 +789,12 @@ export default function RegistrationBuilder({
       toast(t('registrationBuilderSavedPublished'), 'success')
       router.reload()
     } catch (caught) {
-      const msg = caught instanceof ApiFetchError ? caught.message : 'Failed to save'
-      toast(msg, 'error')
+      if (caught instanceof ApiFetchError) {
+        const firstError = Object.values(caught.errors)[0]
+        toast(firstError || caught.message, 'error')
+      } else {
+        toast('Failed to save', 'error')
+      }
     } finally {
       setSubmitting(false)
     }
