@@ -3,15 +3,15 @@
 namespace App\Providers;
 
 use App\Modules\AccessControl\Providers\AccessControlServiceProvider;
-use App\Modules\Subscriptions\Providers\SubscriptionsServiceProvider;
-use App\Modules\VenueMarketplace\Providers\VenueMarketplaceServiceProvider;
 use App\Modules\AdminConsole\Providers\AdminConsoleServiceProvider;
+use App\Modules\Ai\Providers\AiServiceProvider;
 use App\Modules\Attendees\Providers\AttendeesServiceProvider;
 use App\Modules\Audit\Providers\AuditServiceProvider;
 use App\Modules\Authorization\Providers\AuthorizationServiceProvider;
 use App\Modules\BadgePrinting\Providers\BadgePrintingServiceProvider;
 use App\Modules\Credentials\Providers\CredentialsServiceProvider;
 use App\Modules\Events\Providers\EventsServiceProvider;
+use App\Modules\EventSites\Providers\EventSitesServiceProvider;
 use App\Modules\FeatureFlags\Providers\FeatureFlagsServiceProvider;
 use App\Modules\Identity\Providers\IdentityServiceProvider;
 use App\Modules\IdentityVerification\Providers\IdentityVerificationServiceProvider;
@@ -24,8 +24,10 @@ use App\Modules\Payments\Providers\PaymentsServiceProvider;
 use App\Modules\Registration\Providers\RegistrationServiceProvider;
 use App\Modules\Scanning\Providers\ScanningServiceProvider;
 use App\Modules\Shared\Providers\SharedServiceProvider;
+use App\Modules\Subscriptions\Providers\SubscriptionsServiceProvider;
 use App\Modules\Tenancy\Providers\TenancyServiceProvider;
 use App\Modules\Ticketing\Providers\TicketingServiceProvider;
+use App\Modules\VenueMarketplace\Providers\VenueMarketplaceServiceProvider;
 use App\Modules\WalletPasses\Providers\WalletPassesServiceProvider;
 use Illuminate\Support\ServiceProvider;
 
@@ -60,6 +62,8 @@ class ModuleServiceProvider extends ServiceProvider
         AccessControlServiceProvider::class,
         VenueMarketplaceServiceProvider::class,
         SubscriptionsServiceProvider::class,
+        EventSitesServiceProvider::class,
+        AiServiceProvider::class,
     ];
 
     public function register(): void

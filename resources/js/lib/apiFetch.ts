@@ -56,6 +56,7 @@ export class ApiFetchError extends Error {
     public readonly code?: string,
     public readonly errors: Record<string, string> = {},
     public readonly missing: string[] = [],
+    public readonly publishBlockers: string[] = [],
   ) {
     super(message)
     this.name = 'ApiFetchError'
@@ -141,12 +142,16 @@ export async function apiFetch<T = unknown>(
     const missing = Array.isArray(payload.missing)
       ? payload.missing.map((item) => String(item)).filter(Boolean)
       : []
+    const publishBlockers = Array.isArray(payload.publish_blockers)
+      ? payload.publish_blockers.map((item) => String(item)).filter(Boolean)
+      : []
     throw new ApiFetchError(
       detail,
       response.status,
       typeof payload.code === 'string' ? payload.code : undefined,
       mapValidationErrors(payload),
       missing,
+      publishBlockers,
     )
   }
 

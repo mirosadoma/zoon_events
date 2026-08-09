@@ -10,6 +10,8 @@ final class Phase1Problem
     public const STATUS = [
         'event_not_publishable' => 409,
         'event_not_unpublishable' => 409,
+        'event_site.stale_revision' => 409,
+        'event_site.publish_blocked' => 422,
         'registration_closed' => 409,
         'ticket_unavailable' => 409,
         'inventory_conflict' => 409,

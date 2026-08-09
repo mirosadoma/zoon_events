@@ -1,0 +1,48 @@
+<?php
+
+return [
+    'builder.title' => 'Event website',
+    'builder.description' => 'Compose the public page for this event.',
+    'builder.draft' => 'Draft',
+    'builder.published' => 'Published',
+    'builder.unpublished' => 'Unpublished',
+    'builder.save' => 'Save draft',
+    'builder.publish' => 'Publish',
+    'builder.unpublish' => 'Unpublish',
+    'builder.preview' => 'Preview',
+    'builder.versions' => 'Version history',
+    'builder.restore' => 'Restore this version',
+    'builder.add_block' => 'Add section',
+    'builder.empty' => 'No sections yet. Add your first section to start.',
+    'builder.saved' => 'Draft saved.',
+    'builder.stale' => 'Someone else saved this site. Reload to get the latest draft.',
+
+    'blocks.hero' => 'Hero',
+    'blocks.about' => 'About',
+    'blocks.agenda' => 'Agenda',
+    'blocks.speakers' => 'Speakers',
+    'blocks.venue' => 'Venue and location',
+    'blocks.faq' => 'Frequently asked questions',
+    'blocks.sponsors' => 'Sponsors',
+    'blocks.gallery' => 'Gallery',
+    'blocks.section' => 'Grid section',
+    'blocks.header' => 'Header',
+    'blocks.footer' => 'Footer',
+    'blocks.register_cta' => 'Registration call to action',
+
+    'blockers.hero_title_missing' => 'Add a hero title in Arabic or English before publishing.',
+    'blockers.hero_missing' => 'Add a visible hero section before publishing.',
+    'blockers.register_target_invalid' => 'The registration call to action does not point at an open registration page.',
+    'blockers.no_visible_blocks' => 'At least one visible section is required before publishing.',
+
+    'validation.unknown_block_type' => 'This section type is not supported.',
+    'validation.duplicate_block_id' => 'Section identifiers must be unique.',
+    'validation.unknown_option' => 'This section option is not supported.',
+    'validation.too_many_blocks' => 'A site can contain at most :max sections.',
+    'validation.block_too_long' => 'This section contains too much text.',
+
+    'public.register' => 'Register now',
+    'public.agenda_empty' => 'The agenda will be published soon.',
+    'public.speakers_empty' => 'Speakers will be announced soon.',
+    'public.not_available' => 'This event page is not available.',
+];

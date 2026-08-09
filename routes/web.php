@@ -2,7 +2,6 @@
 
 use App\Modules\AdminConsole\Http\Controllers\Auth\ForgotPasswordController;
 use App\Modules\AdminConsole\Http\Controllers\Auth\SessionController;
-use App\Modules\AdminConsole\Http\Controllers\Visitor\VisitorPortalController;
 use App\Modules\AdminConsole\Http\Controllers\DashboardController;
 use App\Modules\AdminConsole\Http\Controllers\GeographyAdminController;
 use App\Modules\AdminConsole\Http\Controllers\Kiosk\KioskModeController;
@@ -37,6 +36,11 @@ use App\Modules\AdminConsole\Http\Controllers\Tenant\Reports\EventReportControll
 use App\Modules\AdminConsole\Http\Controllers\Tenant\TenantMarketplacePageController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\TenantStatementPageController;
 use App\Modules\AdminConsole\Http\Controllers\Tenant\TenantVenuePageController;
+use App\Modules\AdminConsole\Http\Controllers\Visitor\VisitorPortalController;
+use App\Modules\Ai\Http\Controllers\PlatformChatPageController;
+use App\Modules\BadgePrinting\Http\Controllers\PublicBadgeDownloadController;
+use App\Modules\Events\Http\Controllers\EmailTemplateController;
+use App\Modules\EventSites\Http\Controllers\EventSitePageController;
 use App\Modules\IdentityVerification\Http\Controllers\Public\IdentityVerifyPageController;
 use App\Modules\Notifications\Http\Controllers\InAppNotificationController;
 use App\Modules\Notifications\Http\Controllers\Public\UnsubscribePageController;
@@ -84,6 +88,26 @@ Route::prefix('{locale}')
         Route::get('/public/orders/{public_reference}/wallet-passes/google', [PublicOrderSignedWalletController::class, 'google'])
             ->middleware('signed')
             ->name('public.order.wallet.google');
+        Route::get('/e/{event_slug}', [EventSitePageController::class, 'publicShow'])
+            ->where('event_slug', '[\p{L}\p{N}-]+')
+            ->middleware('throttle:public-event')
+            ->name('public.events.site.short');
+        Route::get('/e/{event_slug}/p/{page_slug}', [EventSitePageController::class, 'publicShow'])
+            ->where(['event_slug' => '[\p{L}\p{N}-]+', 'page_slug' => '[\p{L}\p{N}-]+'])
+            ->middleware('throttle:public-event')
+            ->name('public.events.site.short.page');
+        Route::get('/e/{event_slug}/{page_slug}', [EventSitePageController::class, 'publicShow'])
+            ->where(['event_slug' => '[\p{L}\p{N}-]+', 'page_slug' => '(?!p$)[\p{L}\p{N}-]+'])
+            ->middleware('throttle:public-event')
+            ->name('public.events.site.short.page.pretty');
+        Route::get('/events/{event_slug}', [EventSitePageController::class, 'publicShow'])
+            ->where('event_slug', '[\p{L}\p{N}-]+')
+            ->middleware('throttle:public-event')
+            ->name('public.events.site');
+        Route::get('/events/{event_slug}/p/{page_slug}', [EventSitePageController::class, 'publicShow'])
+            ->where(['event_slug' => '[\p{L}\p{N}-]+', 'page_slug' => '[\p{L}\p{N}-]+'])
+            ->middleware('throttle:public-event')
+            ->name('public.events.site.page');
         Route::get('/events/{event_slug}/agenda/{invite_code}', [PublicEventAgendaController::class, 'show'])
             ->where('event_slug', '[\p{L}\p{N}-]+')
             ->where('invite_code', '\d{10}')
@@ -143,11 +167,18 @@ Route::prefix('{locale}')
             ->where('event_slug', '[\p{L}\p{N}-]+')
             ->middleware('throttle:public-event')
             ->name('public.events.register.confirmation');
-        Route::get('/events/{event_slug}/register/badge/{public_reference}/{format}', [\App\Modules\BadgePrinting\Http\Controllers\PublicBadgeDownloadController::class, 'download'])
+        Route::get('/events/{event_slug}/register/badge/{public_reference}/{format}', [PublicBadgeDownloadController::class, 'download'])
             ->where('event_slug', '[\p{L}\p{N}-]+')
             ->where('format', 'png|pdf|image')
             ->middleware('throttle:public-event')
             ->name('public.events.register.badge.download');
+        Route::get('/events/{event_slug}/{page_slug}', [EventSitePageController::class, 'publicShow'])
+            ->where([
+                'event_slug' => '[\p{L}\p{N}-]+',
+                'page_slug' => '(?!agenda$|venues$|register$|p$)[\p{L}\p{N}-]+',
+            ])
+            ->middleware('throttle:public-event')
+            ->name('public.events.site.page.pretty');
         Route::get('/notifications/unsubscribe', [UnsubscribePageController::class, 'show'])
             ->name('public.notifications.unsubscribe');
         Route::post('/notifications/unsubscribe', [UnsubscribePageController::class, 'store'])
@@ -179,120 +210,123 @@ Route::prefix('{locale}')
             });
 
             Route::middleware('not.visitor')->group(function (): void {
-            Route::get('/dashboard', DashboardController::class)->name('dashboard');
-            Route::get('/dashboard/search', SearchController::class)->name('dashboard.search');
-            Route::get('/profile', [DashboardController::class, 'profile'])->name('profile');
-            Route::patch('/profile', [DashboardController::class, 'updateProfile'])->name('profile.update');
-            Route::get('/platform/site-settings', [SiteSettingsController::class, 'edit'])->name('platform.site-settings');
-            Route::patch('/platform/site-settings', [SiteSettingsController::class, 'update'])->name('platform.site-settings.update');
-            Route::get('/platform/geography', [GeographyAdminController::class, 'index'])->name('platform.geography');
-            Route::post('/platform/geography/countries', [GeographyAdminController::class, 'storeCountry'])->name('platform.geography.countries.store');
-            Route::patch('/platform/geography/countries/{country}', [GeographyAdminController::class, 'updateCountry'])->name('platform.geography.countries.update');
-            Route::delete('/platform/geography/countries/{country}', [GeographyAdminController::class, 'destroyCountry'])->name('platform.geography.countries.destroy');
-            Route::post('/platform/geography/cities', [GeographyAdminController::class, 'storeCity'])->name('platform.geography.cities.store');
-            Route::patch('/platform/geography/cities/{city}', [GeographyAdminController::class, 'updateCity'])->name('platform.geography.cities.update');
-            Route::delete('/platform/geography/cities/{city}', [GeographyAdminController::class, 'destroyCity'])->name('platform.geography.cities.destroy');
-            Route::get('/platform/configuration', [PlatformPageController::class, 'configuration'])->name('platform.configuration');
-            Route::get('/platform/marketplace', [PlatformMarketplacePageController::class, 'index'])->name('platform.marketplace.index');
-            Route::get('/platform/marketplace/disputes/{dispute_public_id}', [PlatformMarketplacePageController::class, 'disputeShow'])->name('platform.marketplace.disputes.show');
-            Route::get('/platform/subscriptions', [PlatformSubscriptionsController::class, 'index'])->name('platform.subscriptions.index');
-            Route::get('/platform/subscriptions/create', [PlatformSubscriptionsController::class, 'create'])->name('platform.subscriptions.create');
-            Route::get('/platform/subscriptions/{plan}/edit', [PlatformSubscriptionsController::class, 'edit'])->name('platform.subscriptions.edit');
-            Route::get('/platform/subscriptions/{plan}', [PlatformSubscriptionsController::class, 'show'])->name('platform.subscriptions.show');
-            Route::get('/platform/{section}', [PlatformPageController::class, 'show'])->name('dashboard.platform.section');
-            Route::get('/notifications', [InAppNotificationController::class, 'index'])->name('notifications.index');
-            Route::get('/api/notifications/unread-count', [InAppNotificationController::class, 'unreadCount'])->name('notifications.unread-count');
-            Route::get('/api/notifications/recent', [InAppNotificationController::class, 'recent'])->name('notifications.recent');
-            Route::patch('/api/notifications/{id}/read', [InAppNotificationController::class, 'markRead'])->name('notifications.mark-read');
-            Route::patch('/api/notifications/read-all', [InAppNotificationController::class, 'markAllRead'])->name('notifications.mark-all-read');
+                Route::get('/dashboard', DashboardController::class)->name('dashboard');
+                Route::get('/tenant/chat', PlatformChatPageController::class)->name('tenant.chat');
+                Route::get('/dashboard/search', SearchController::class)->name('dashboard.search');
+                Route::get('/profile', [DashboardController::class, 'profile'])->name('profile');
+                Route::patch('/profile', [DashboardController::class, 'updateProfile'])->name('profile.update');
+                Route::get('/platform/site-settings', [SiteSettingsController::class, 'edit'])->name('platform.site-settings');
+                Route::patch('/platform/site-settings', [SiteSettingsController::class, 'update'])->name('platform.site-settings.update');
+                Route::get('/platform/geography', [GeographyAdminController::class, 'index'])->name('platform.geography');
+                Route::post('/platform/geography/countries', [GeographyAdminController::class, 'storeCountry'])->name('platform.geography.countries.store');
+                Route::patch('/platform/geography/countries/{country}', [GeographyAdminController::class, 'updateCountry'])->name('platform.geography.countries.update');
+                Route::delete('/platform/geography/countries/{country}', [GeographyAdminController::class, 'destroyCountry'])->name('platform.geography.countries.destroy');
+                Route::post('/platform/geography/cities', [GeographyAdminController::class, 'storeCity'])->name('platform.geography.cities.store');
+                Route::patch('/platform/geography/cities/{city}', [GeographyAdminController::class, 'updateCity'])->name('platform.geography.cities.update');
+                Route::delete('/platform/geography/cities/{city}', [GeographyAdminController::class, 'destroyCity'])->name('platform.geography.cities.destroy');
+                Route::get('/platform/configuration', [PlatformPageController::class, 'configuration'])->name('platform.configuration');
+                Route::get('/platform/marketplace', [PlatformMarketplacePageController::class, 'index'])->name('platform.marketplace.index');
+                Route::get('/platform/marketplace/disputes/{dispute_public_id}', [PlatformMarketplacePageController::class, 'disputeShow'])->name('platform.marketplace.disputes.show');
+                Route::get('/platform/subscriptions', [PlatformSubscriptionsController::class, 'index'])->name('platform.subscriptions.index');
+                Route::get('/platform/subscriptions/create', [PlatformSubscriptionsController::class, 'create'])->name('platform.subscriptions.create');
+                Route::get('/platform/subscriptions/{plan}/edit', [PlatformSubscriptionsController::class, 'edit'])->name('platform.subscriptions.edit');
+                Route::get('/platform/subscriptions/{plan}', [PlatformSubscriptionsController::class, 'show'])->name('platform.subscriptions.show');
+                Route::get('/platform/{section}', [PlatformPageController::class, 'show'])->name('dashboard.platform.section');
+                Route::get('/notifications', [InAppNotificationController::class, 'index'])->name('notifications.index');
+                Route::get('/api/notifications/unread-count', [InAppNotificationController::class, 'unreadCount'])->name('notifications.unread-count');
+                Route::get('/api/notifications/recent', [InAppNotificationController::class, 'recent'])->name('notifications.recent');
+                Route::patch('/api/notifications/{id}/read', [InAppNotificationController::class, 'markRead'])->name('notifications.mark-read');
+                Route::patch('/api/notifications/read-all', [InAppNotificationController::class, 'markAllRead'])->name('notifications.mark-all-read');
 
-            Route::get('/docs/api/openapi.yaml', ApiDocsController::class)->name('api.docs');
+                Route::get('/docs/api/openapi.yaml', ApiDocsController::class)->name('api.docs');
 
-            Route::prefix('tenant/venues')->group(function (): void {
-                Route::get('/', [TenantVenuePageController::class, 'index'])->name('tenant.venues.index');
-                Route::get('/create', [TenantVenuePageController::class, 'create'])->name('tenant.venues.create');
-                Route::get('/{venue_public_id}', [TenantVenuePageController::class, 'show'])->name('tenant.venues.show');
-            });
+                Route::prefix('tenant/venues')->group(function (): void {
+                    Route::get('/', [TenantVenuePageController::class, 'index'])->name('tenant.venues.index');
+                    Route::get('/create', [TenantVenuePageController::class, 'create'])->name('tenant.venues.create');
+                    Route::get('/{venue_public_id}', [TenantVenuePageController::class, 'show'])->name('tenant.venues.show');
+                });
 
-            Route::prefix('tenant/marketplace')->group(function (): void {
-                Route::get('/', [TenantMarketplacePageController::class, 'index'])->name('tenant.marketplace.index');
-                Route::get('/rentals', [TenantMarketplacePageController::class, 'rentalsIndex'])->name('tenant.marketplace.rentals.index');
-                Route::get('/rentals/{rental_public_id}', [TenantMarketplacePageController::class, 'rentalShow'])->name('tenant.marketplace.rentals.show');
-                Route::get('/statements', [TenantStatementPageController::class, 'index'])->name('tenant.marketplace.statements.index');
-                Route::get('/statements/{statement_public_id}', [TenantStatementPageController::class, 'show'])->name('tenant.marketplace.statements.show');
-            });
+                Route::prefix('tenant/marketplace')->group(function (): void {
+                    Route::get('/', [TenantMarketplacePageController::class, 'index'])->name('tenant.marketplace.index');
+                    Route::get('/rentals', [TenantMarketplacePageController::class, 'rentalsIndex'])->name('tenant.marketplace.rentals.index');
+                    Route::get('/rentals/{rental_public_id}', [TenantMarketplacePageController::class, 'rentalShow'])->name('tenant.marketplace.rentals.show');
+                    Route::get('/statements', [TenantStatementPageController::class, 'index'])->name('tenant.marketplace.statements.index');
+                    Route::get('/statements/{statement_public_id}', [TenantStatementPageController::class, 'show'])->name('tenant.marketplace.statements.show');
+                });
 
-            Route::prefix('admin')->group(function (): void {
-                Route::get('/users', [AdminPageController::class, 'users'])->name('admin.users');
-                Route::get('/roles', [AdminPageController::class, 'roles'])->name('admin.roles');
-                Route::get('/tenant-settings', [AdminPageController::class, 'tenantSettings'])->name('admin.tenant-settings');
-                Route::get('/audit-logs', [AdminPageController::class, 'auditLogs'])->name('admin.audit-logs');
-            });
+                Route::prefix('admin')->group(function (): void {
+                    Route::get('/users', [AdminPageController::class, 'users'])->name('admin.users');
+                    Route::get('/roles', [AdminPageController::class, 'roles'])->name('admin.roles');
+                    Route::get('/tenant-settings', [AdminPageController::class, 'tenantSettings'])->name('admin.tenant-settings');
+                    Route::get('/audit-logs', [AdminPageController::class, 'auditLogs'])->name('admin.audit-logs');
+                });
 
-            Route::prefix('tenant/privileges')->group(function (): void {
-                Route::get('/', [PrivilegePageController::class, 'index'])->name('tenant.privileges.index');
-                Route::get('/create', [PrivilegePageController::class, 'create'])->name('tenant.privileges.create');
-                Route::get('/{privilege_id}/edit', [PrivilegePageController::class, 'edit'])->where('privilege_id', '[0-9]+')->name('tenant.privileges.edit');
-            });
+                Route::prefix('tenant/privileges')->group(function (): void {
+                    Route::get('/', [PrivilegePageController::class, 'index'])->name('tenant.privileges.index');
+                    Route::get('/create', [PrivilegePageController::class, 'create'])->name('tenant.privileges.create');
+                    Route::get('/{privilege_id}/edit', [PrivilegePageController::class, 'edit'])->where('privilege_id', '[0-9]+')->name('tenant.privileges.edit');
+                });
 
-            Route::prefix('tenant/categories')->group(function (): void {
-                Route::get('/', [CategoryPageController::class, 'index'])->name('tenant.categories.index');
-                Route::get('/create', [CategoryPageController::class, 'create'])->name('tenant.categories.create');
-                Route::get('/{category_id}/edit', [CategoryPageController::class, 'edit'])->where('category_id', '[0-9]+')->name('tenant.categories.edit');
-            });
+                Route::prefix('tenant/categories')->group(function (): void {
+                    Route::get('/', [CategoryPageController::class, 'index'])->name('tenant.categories.index');
+                    Route::get('/create', [CategoryPageController::class, 'create'])->name('tenant.categories.create');
+                    Route::get('/{category_id}/edit', [CategoryPageController::class, 'edit'])->where('category_id', '[0-9]+')->name('tenant.categories.edit');
+                });
 
-            Route::prefix('tenant/events')->group(function (): void {
-                Route::get('/', [EventDashboardController::class, 'index'])->name('tenant.events.index');
-                Route::get('/create', [EventDashboardController::class, 'create'])->name('tenant.events.create');
-                Route::get('/{event_id}', [EventDashboardController::class, 'show'])->where('event_id', '[0-9]+')->name('tenant.events.show');
+                Route::prefix('tenant/events')->group(function (): void {
+                    Route::get('/', [EventDashboardController::class, 'index'])->name('tenant.events.index');
+                    Route::get('/create', [EventDashboardController::class, 'create'])->name('tenant.events.create');
+                    Route::get('/{event_id}', [EventDashboardController::class, 'show'])->where('event_id', '[0-9]+')->name('tenant.events.show');
 
-                Route::get('/{event_id}/edit', [EventDashboardController::class, 'edit'])->where('event_id', '[0-9]+')->name('tenant.events.edit');
-                Route::get('/{event_id}/registration-form', [EventDashboardController::class, 'registrationForm'])->name('tenant.registration.builder');
-                Route::get('/{event_id}/agenda/create', [EventDashboardController::class, 'createAgenda'])->where('event_id', '[0-9]+')->name('tenant.events.agenda.create');
-                Route::get('/{event_id}/agenda/{item_id}/edit', [EventDashboardController::class, 'editAgenda'])->where(['event_id' => '[0-9]+', 'item_id' => '[0-9]+'])->name('tenant.events.agenda.edit');
-                Route::get('/{event_id}/agenda', [EventDashboardController::class, 'agenda'])->where('event_id', '[0-9]+')->name('tenant.events.agenda');
-                Route::get('/{event_id}/venues/create', [EventDashboardController::class, 'createVenue'])->where('event_id', '[0-9]+')->name('tenant.events.venues.create');
-                Route::get('/{event_id}/venues/{venue_id}/map', [EventDashboardController::class, 'venueMap'])->where(['event_id' => '[0-9]+', 'venue_id' => '[0-9]+'])->name('tenant.events.venues.map');
-                Route::get('/{event_id}/venues/{venue_id}/edit', [EventDashboardController::class, 'editVenue'])->where(['event_id' => '[0-9]+', 'venue_id' => '[0-9]+'])->name('tenant.events.venues.edit');
-                Route::get('/{event_id}/venues', [EventDashboardController::class, 'venues'])->where('event_id', '[0-9]+')->name('tenant.events.venues');
-                Route::get('/{event_id}/categories', [EventDashboardController::class, 'categories'])->where('event_id', '[0-9]+')->name('tenant.events.categories');
-                Route::get('/{event_id}/identity', [EventDashboardController::class, 'identityRequirements'])->name('tenant.identity.requirements');
-                Route::get('/{event_id}/identity/review', [EventDashboardController::class, 'identityReview'])->name('tenant.identity.review');
-                Route::get('/{event_id}/identity/verifications/{verification_id}', [EventDashboardController::class, 'identityVerificationDetail'])->name('tenant.identity.verification');
-                Route::get('/{event_id}/registration-preview', [EventDashboardController::class, 'registrationPreview'])->name('tenant.registration.preview');
-                Route::get('/{event_id}/agenda-preview', [EventDashboardController::class, 'agendaPreview'])->where('event_id', '[0-9]+')->name('tenant.agenda.preview');
-                Route::get('/{event_id}/ticket-types', [EventDashboardController::class, 'ticketTypes'])->name('tenant.ticket-types.index');
-                Route::get('/{event_id}/price-tiers', [EventDashboardController::class, 'priceTiers'])->name('tenant.price-tiers.index');
-                Route::get('/{event_id}/orders', [EventOperationsController::class, 'orders'])->name('tenant.orders.index');
-                Route::get('/{event_id}/orders/{order_id}', [EventOperationsController::class, 'orderShow'])->name('tenant.orders.show');
-                Route::get('/{event_id}/attendees/export', [EventOperationsController::class, 'attendeesExport'])->name('tenant.attendees.export');
-                Route::get('/{event_id}/attendees', [EventOperationsController::class, 'attendees'])->name('tenant.attendees.index');
-                Route::get('/{event_id}/attendees/{attendee_id}', [EventOperationsController::class, 'attendeeShow'])->name('tenant.attendees.show');
-                Route::get('/{event_id}/credentials', [EventOperationsController::class, 'credentials'])->name('tenant.credentials.index');
-                Route::get('/{event_id}/credentials/{credential_id}', [EventOperationsController::class, 'credentialShow'])->name('tenant.credentials.show');
-                Route::get('/{event_id}/wallet-passes', [WalletPassesController::class, 'index'])->name('tenant.wallet-passes.index');
-                Route::get('/{event_id}/wallet-passes/{pass_id}', [WalletPassesController::class, 'show'])->name('tenant.wallet-passes.show');
-                Route::get('/{event_id}/scanner', [ScannerController::class, 'show'])->name('tenant.checkin.scanner');
-                Route::get('/{event_id}/check-in-dashboard', [CheckInDashboardController::class, 'show'])->name('tenant.checkin.dashboard');
-                Route::get('/{event_id}/occupancy-map', [OccupancyMapController::class, 'show'])->name('tenant.checkin.occupancy-map');
-                Route::get('/{event_id}/scan-events', [ScanEventsController::class, 'index'])->name('tenant.scan-events.index');
-                Route::get('/{event_id}/kiosks', [EventKioskController::class, 'index'])->name('tenant.kiosks.index');
-                Route::get('/{event_id}/kiosks/{kiosk_id}', [EventKioskController::class, 'show'])->name('tenant.kiosks.show');
-                Route::get('/{event_id}/badge-templates', [BadgePageController::class, 'templates'])->name('tenant.badge-templates.index');
-                Route::get('/{event_id}/email-templates', [\App\Modules\Events\Http\Controllers\EmailTemplateController::class, 'index'])->name('tenant.email-templates.index');
-                Route::get('/{event_id}/email-templates/{type}', [\App\Modules\Events\Http\Controllers\EmailTemplateController::class, 'edit'])->name('tenant.email-templates.edit');
-                Route::get('/{event_id}/badge-print-jobs', [BadgePageController::class, 'printJobs'])->name('tenant.badge-print-jobs.index');
-                Route::get('/{event_id}/manual-desk', [ManualDeskController::class, 'index'])->name('tenant.manual-desk.index');
-                Route::get('/{event_id}/manual-desk/walk-up', [ManualDeskController::class, 'walkUp'])->name('tenant.manual-desk.walk-up');
-                Route::get('/{event_id}/acs', [AcsPageController::class, 'overview'])->name('tenant.acs.overview');
-                Route::get('/{event_id}/acs/zones', [AcsPageController::class, 'zones'])->name('tenant.acs.zones');
-                Route::get('/{event_id}/acs/lanes', [AcsPageController::class, 'lanes'])->name('tenant.acs.lanes');
-                Route::get('/{event_id}/acs/rules', [AcsPageController::class, 'rules'])->name('tenant.acs.rules');
-                Route::get('/{event_id}/acs/access-logs', [AcsPageController::class, 'accessLogs'])->name('tenant.acs.access-logs');
-                Route::get('/{event_id}/acs/gate-health', [AcsPageController::class, 'gateHealth'])->name('tenant.acs.gate-health');
-                Route::get('/{event_id}/reports', [EventReportController::class, 'show'])->name('tenant.reports.show');
-                Route::get('/{event_id}/reports/export', [EventReportController::class, 'export'])->name('tenant.reports.export');
-            });
+                    Route::get('/{event_id}/edit', [EventDashboardController::class, 'edit'])->where('event_id', '[0-9]+')->name('tenant.events.edit');
+                    Route::get('/{event_id}/registration-form', [EventDashboardController::class, 'registrationForm'])->name('tenant.registration.builder');
+                    Route::get('/{event_id}/agenda/create', [EventDashboardController::class, 'createAgenda'])->where('event_id', '[0-9]+')->name('tenant.events.agenda.create');
+                    Route::get('/{event_id}/agenda/{item_id}/edit', [EventDashboardController::class, 'editAgenda'])->where(['event_id' => '[0-9]+', 'item_id' => '[0-9]+'])->name('tenant.events.agenda.edit');
+                    Route::get('/{event_id}/agenda', [EventDashboardController::class, 'agenda'])->where('event_id', '[0-9]+')->name('tenant.events.agenda');
+                    Route::get('/{event_id}/venues/create', [EventDashboardController::class, 'createVenue'])->where('event_id', '[0-9]+')->name('tenant.events.venues.create');
+                    Route::get('/{event_id}/venues/{venue_id}/map', [EventDashboardController::class, 'venueMap'])->where(['event_id' => '[0-9]+', 'venue_id' => '[0-9]+'])->name('tenant.events.venues.map');
+                    Route::get('/{event_id}/venues/{venue_id}/edit', [EventDashboardController::class, 'editVenue'])->where(['event_id' => '[0-9]+', 'venue_id' => '[0-9]+'])->name('tenant.events.venues.edit');
+                    Route::get('/{event_id}/venues', [EventDashboardController::class, 'venues'])->where('event_id', '[0-9]+')->name('tenant.events.venues');
+                    Route::get('/{event_id}/categories', [EventDashboardController::class, 'categories'])->where('event_id', '[0-9]+')->name('tenant.events.categories');
+                    Route::get('/{event_id}/identity', [EventDashboardController::class, 'identityRequirements'])->name('tenant.identity.requirements');
+                    Route::get('/{event_id}/identity/review', [EventDashboardController::class, 'identityReview'])->name('tenant.identity.review');
+                    Route::get('/{event_id}/identity/verifications/{verification_id}', [EventDashboardController::class, 'identityVerificationDetail'])->name('tenant.identity.verification');
+                    Route::get('/{event_id}/registration-preview', [EventDashboardController::class, 'registrationPreview'])->name('tenant.registration.preview');
+                    Route::get('/{event_id}/agenda-preview', [EventDashboardController::class, 'agendaPreview'])->where('event_id', '[0-9]+')->name('tenant.agenda.preview');
+                    Route::get('/{event_id}/ticket-types', [EventDashboardController::class, 'ticketTypes'])->name('tenant.ticket-types.index');
+                    Route::get('/{event_id}/price-tiers', [EventDashboardController::class, 'priceTiers'])->name('tenant.price-tiers.index');
+                    Route::get('/{event_id}/orders', [EventOperationsController::class, 'orders'])->name('tenant.orders.index');
+                    Route::get('/{event_id}/orders/{order_id}', [EventOperationsController::class, 'orderShow'])->name('tenant.orders.show');
+                    Route::get('/{event_id}/attendees/export', [EventOperationsController::class, 'attendeesExport'])->name('tenant.attendees.export');
+                    Route::get('/{event_id}/attendees', [EventOperationsController::class, 'attendees'])->name('tenant.attendees.index');
+                    Route::get('/{event_id}/attendees/{attendee_id}', [EventOperationsController::class, 'attendeeShow'])->name('tenant.attendees.show');
+                    Route::get('/{event_id}/credentials', [EventOperationsController::class, 'credentials'])->name('tenant.credentials.index');
+                    Route::get('/{event_id}/credentials/{credential_id}', [EventOperationsController::class, 'credentialShow'])->name('tenant.credentials.show');
+                    Route::get('/{event_id}/wallet-passes', [WalletPassesController::class, 'index'])->name('tenant.wallet-passes.index');
+                    Route::get('/{event_id}/wallet-passes/{pass_id}', [WalletPassesController::class, 'show'])->name('tenant.wallet-passes.show');
+                    Route::get('/{event_id}/scanner', [ScannerController::class, 'show'])->name('tenant.checkin.scanner');
+                    Route::get('/{event_id}/check-in-dashboard', [CheckInDashboardController::class, 'show'])->name('tenant.checkin.dashboard');
+                    Route::get('/{event_id}/occupancy-map', [OccupancyMapController::class, 'show'])->name('tenant.checkin.occupancy-map');
+                    Route::get('/{event_id}/scan-events', [ScanEventsController::class, 'index'])->name('tenant.scan-events.index');
+                    Route::get('/{event_id}/kiosks', [EventKioskController::class, 'index'])->name('tenant.kiosks.index');
+                    Route::get('/{event_id}/kiosks/{kiosk_id}', [EventKioskController::class, 'show'])->name('tenant.kiosks.show');
+                    Route::get('/{event_id}/badge-templates', [BadgePageController::class, 'templates'])->name('tenant.badge-templates.index');
+                    Route::get('/{event_id}/email-templates', [EmailTemplateController::class, 'index'])->name('tenant.email-templates.index');
+                    Route::get('/{event_id}/email-templates/{type}', [EmailTemplateController::class, 'edit'])->name('tenant.email-templates.edit');
+                    Route::get('/{event_id}/badge-print-jobs', [BadgePageController::class, 'printJobs'])->name('tenant.badge-print-jobs.index');
+                    Route::get('/{event_id}/manual-desk', [ManualDeskController::class, 'index'])->name('tenant.manual-desk.index');
+                    Route::get('/{event_id}/manual-desk/walk-up', [ManualDeskController::class, 'walkUp'])->name('tenant.manual-desk.walk-up');
+                    Route::get('/{event_id}/acs', [AcsPageController::class, 'overview'])->name('tenant.acs.overview');
+                    Route::get('/{event_id}/acs/zones', [AcsPageController::class, 'zones'])->name('tenant.acs.zones');
+                    Route::get('/{event_id}/acs/lanes', [AcsPageController::class, 'lanes'])->name('tenant.acs.lanes');
+                    Route::get('/{event_id}/acs/rules', [AcsPageController::class, 'rules'])->name('tenant.acs.rules');
+                    Route::get('/{event_id}/acs/access-logs', [AcsPageController::class, 'accessLogs'])->name('tenant.acs.access-logs');
+                    Route::get('/{event_id}/acs/gate-health', [AcsPageController::class, 'gateHealth'])->name('tenant.acs.gate-health');
+                    Route::get('/{event_id}/reports', [EventReportController::class, 'show'])->name('tenant.reports.show');
+                    Route::get('/{event_id}/reports/export', [EventReportController::class, 'export'])->name('tenant.reports.export');
+                    Route::get('/{event_id}/site', [EventSitePageController::class, 'builder'])->where('event_id', '[0-9]+')->name('tenant.events.site');
+                    Route::get('/{event_id}/site/insights', [EventSitePageController::class, 'insights'])->where('event_id', '[0-9]+')->name('tenant.events.site.insights');
+                });
             });
         });
     });

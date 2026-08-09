@@ -275,6 +275,7 @@ final readonly class EventDashboardViewModel
         ];
         $setupTabs[] = ['label' => 'Badge templates', 'href' => "{$base}/badge-templates", 'key' => 'badge_templates', 'completed' => $setupProgress['badge_templates']];
         $setupTabs[] = ['label' => 'Kiosks', 'href' => "{$base}/kiosks", 'key' => 'kiosks', 'completed' => $setupProgress['kiosks']];
+        $setupTabs[] = ['label' => 'Website', 'href' => "{$base}/site", 'key' => 'website', 'completed' => false];
 
         return [
             'setupTabs' => $setupTabs,
@@ -298,6 +299,7 @@ final readonly class EventDashboardViewModel
                 ['label' => 'Access logs', 'href' => "{$base}/acs/access-logs", 'key' => 'acs_access_logs', 'completed' => false],
                 ['label' => 'Gate health', 'href' => "{$base}/acs/gate-health", 'key' => 'acs_gate_health', 'completed' => false],
                 ['label' => 'Reports', 'href' => "{$base}/reports", 'key' => 'reports', 'completed' => false],
+                ['label' => 'AI insights', 'href' => "{$base}/site/insights", 'key' => 'ai_insights', 'completed' => false],
             ],
         ];
     }

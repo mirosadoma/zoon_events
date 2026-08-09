@@ -279,6 +279,9 @@ export default function EventReport({ event, report }: Props) {
         ]}
         actions={(
           <div className="flex flex-wrap gap-2">
+            <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}/site/insights`}>
+              {t('aiInsights') || 'AI insights'}
+            </LocalizedLink>
             <a className="button-secondary" href={exportHref}>{t('reportExportCsv')}</a>
             <LocalizedLink className="button-secondary" href={`/tenant/events/${event.id}`}>{t('eventDetail')}</LocalizedLink>
           </div>

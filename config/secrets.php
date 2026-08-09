@@ -7,7 +7,6 @@
  * Runtime code must use EnvironmentValue::get() / config('secrets.*'),
  * never rely on env()/Env::get() alone outside this file.
  */
-
 $referenceNames = [];
 
 $push = static function (?string $name) use (&$referenceNames): void {
@@ -45,6 +44,9 @@ $push(env('UNIFONIC_APP_SID_REFERENCE'));
 $push(env('WALLET_APPLE_CERT_SECRET_REF'));
 $push(env('WALLET_APPLE_KEY_SECRET_REF'));
 $push(env('WALLET_GOOGLE_SERVICE_ACCOUNT_SECRET_REF'));
+
+$push(env('AI_HOSTED_SECRET_REFERENCE'));
+$push(env('AI_SELF_HOSTED_SECRET_REFERENCE'));
 
 // Always include the common local credential private key name when present.
 $push('CREDENTIAL_TEST_PRIVATE_KEY');

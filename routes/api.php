@@ -33,6 +33,8 @@ Route::prefix('v1')->group(function (): void {
     require base_path('app/Modules/AccessControl/Routes/api.php');
     require base_path('app/Modules/VenueMarketplace/Routes/api.php');
     require base_path('app/Modules/Subscriptions/Routes/api.php');
+    require base_path('app/Modules/Ai/Routes/api.php');
+    require base_path('app/Modules/EventSites/Routes/api.php');
 
     Route::post('/auth/token', [AuthController::class, 'issueToken'])
         ->middleware('throttle:auth')

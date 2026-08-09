@@ -72,6 +72,8 @@ class AppServiceProvider extends ServiceProvider
             ->by(($request->user()?->id ?? 'guest').'|'.($request->header('X-Tenant-ID') ?? 'none')));
         RateLimiter::for('apple-wallet-webservice', fn (Request $request): Limit => Limit::perMinute(120)
             ->by(hash('sha256', 'apple-wallet|'.($request->header('Authorization') ?? $request->ip()))));
+        RateLimiter::for('public-assistant', fn (Request $request): Limit => Limit::perMinute((int) config('ai.assistant.visitor_questions_per_minute', 6))
+            ->by($this->publicKey($request, 'assistant')));
     }
 
     private function publicKey(Request $request, string $operation): string

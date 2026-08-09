@@ -1,0 +1,48 @@
+<?php
+
+return [
+    'builder.title' => 'موقع الحدث',
+    'builder.description' => 'قم بتصميم الصفحة العامة لهذا الحدث.',
+    'builder.draft' => 'مسودة',
+    'builder.published' => 'منشور',
+    'builder.unpublished' => 'غير منشور',
+    'builder.save' => 'حفظ المسودة',
+    'builder.publish' => 'نشر',
+    'builder.unpublish' => 'إلغاء النشر',
+    'builder.preview' => 'معاينة',
+    'builder.versions' => 'سجل الإصدارات',
+    'builder.restore' => 'استعادة هذا الإصدار',
+    'builder.add_block' => 'إضافة قسم',
+    'builder.empty' => 'لا توجد أقسام بعد. أضف قسمك الأول للبدء.',
+    'builder.saved' => 'تم حفظ المسودة.',
+    'builder.stale' => 'قام شخص آخر بحفظ هذا الموقع. أعد تحميل الصفحة للحصول على أحدث مسودة.',
+
+    'blocks.hero' => 'البطل',
+    'blocks.about' => 'حول',
+    'blocks.agenda' => 'جدول الأعمال',
+    'blocks.speakers' => 'المتحدثون',
+    'blocks.venue' => 'الموقع والمكان',
+    'blocks.faq' => 'الأسئلة الشائعة',
+    'blocks.sponsors' => 'الرعاة',
+    'blocks.gallery' => 'المعرض',
+    'blocks.section' => 'قسم شبكي',
+    'blocks.header' => 'رأس الصفحة',
+    'blocks.footer' => 'تذييل',
+    'blocks.register_cta' => 'دعوة للتسجيل',
+
+    'blockers.hero_title_missing' => 'أضف عنوان البطل بالعربية أو الإنجليزية قبل النشر.',
+    'blockers.hero_missing' => 'أضف قسم بطل مرئي قبل النشر.',
+    'blockers.register_target_invalid' => 'دعوة التسجيل لا تشير إلى صفحة تسجيل مفتوحة.',
+    'blockers.no_visible_blocks' => 'مطلوب قسم مرئي واحد على الأقل قبل النشر.',
+
+    'validation.unknown_block_type' => 'نوع هذا القسم غير مدعوم.',
+    'validation.duplicate_block_id' => 'يجب أن تكون معرفات الأقسام فريدة.',
+    'validation.unknown_option' => 'خيار هذا القسم غير مدعوم.',
+    'validation.too_many_blocks' => 'يمكن أن يحتوي الموقع على :max قسم كحد أقصى.',
+    'validation.block_too_long' => 'يحتوي هذا القسم على نص كثير جداً.',
+
+    'public.register' => 'سجّل الآن',
+    'public.agenda_empty' => 'سيتم نشر جدول الأعمال قريباً.',
+    'public.speakers_empty' => 'سيتم الإعلان عن المتحدثين قريباً.',
+    'public.not_available' => 'هذه الصفحة غير متاحة.',
+];

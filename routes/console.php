@@ -18,3 +18,4 @@ Schedule::command('zonetec:attendees:mark-not-attended')->hourly()->withoutOverl
 Schedule::command('marketplace:activate-rentals')->everyMinute()->withoutOverlapping();
 Schedule::command('marketplace:expire-rentals')->everyMinute()->withoutOverlapping();
 Schedule::command('marketplace:finalize-statements')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('zonetec:ai:purge-transcripts')->daily()->withoutOverlapping();

@@ -4,6 +4,11 @@ namespace App\Modules\Shared\Http\Problems;
 
 final readonly class ProblemDetails
 {
+    /**
+     * @param  array<string, list<string>>  $errors
+     * @param  list<string>  $missing
+     * @param  list<string>  $publishBlockers
+     */
     public function __construct(
         public string $type,
         public string $title,
@@ -14,6 +19,7 @@ final readonly class ProblemDetails
         public string $correlationId,
         public array $errors = [],
         public array $missing = [],
+        public array $publishBlockers = [],
     ) {}
 
     public function toArray(): array
@@ -28,6 +34,7 @@ final readonly class ProblemDetails
             'correlation_id' => $this->correlationId,
             'errors' => $this->errors === [] ? null : $this->errors,
             'missing' => $this->missing === [] ? null : $this->missing,
+            'publish_blockers' => $this->publishBlockers === [] ? null : $this->publishBlockers,
         ], static fn ($value) => $value !== null);
     }
 }

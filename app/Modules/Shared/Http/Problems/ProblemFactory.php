@@ -29,6 +29,10 @@ final class ProblemFactory
                     $throwable->meta['missing'] ?? [],
                     static fn ($item): bool => is_string($item) && $item !== '',
                 )),
+                publishBlockers: array_values(array_filter(
+                    $throwable->meta['publish_blockers'] ?? [],
+                    static fn ($item): bool => is_string($item) && $item !== '',
+                )),
             ),
             $throwable instanceof AuthenticationException => new ProblemDetails(
                 type: self::typeFor('unauthenticated'),
