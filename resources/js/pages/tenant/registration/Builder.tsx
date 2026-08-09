@@ -26,6 +26,7 @@ import { PageHeader } from '@/components/layout'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
+import { formatDateOnly } from '@/lib/formatters'
 import {
   isRegistrationSystemFieldKey,
   mergeRegistrationFieldsWithSystemOrder,
@@ -385,15 +386,10 @@ function localizedPreview(
   return text && text.trim() !== '' ? text : fallback
 }
 
-function formatPreviewDate(value?: string | null, locale: 'en' | 'ar' = 'en'): string | null {
+function formatPreviewDate(value?: string | null, locale: 'en' | 'ar' = 'en', timeZone?: string): string | null {
   if (!value) return null
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-  return date.toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
+  const formatted = formatDateOnly(value, locale, timeZone)
+  return formatted || null
 }
 
 /* ------------------------------------------------------------------ */
@@ -433,10 +429,10 @@ function SortableFieldCard({
   const mainImage = eventPreview?.main_image || gallery[0] || DEFAULT_EVENT_IMAGE
   const venues = eventPreview?.venues ?? []
   const categories = eventPreview?.categories ?? []
-  const startLabel = formatPreviewDate(eventPreview?.start_at, locale)
-    ?? formatPreviewDate(venues[0]?.start_at, locale)
-  const endLabel = formatPreviewDate(eventPreview?.end_at, locale)
-    ?? formatPreviewDate(venues[0]?.end_at, locale)
+  const startLabel = formatPreviewDate(eventPreview?.start_at, locale, eventPreview?.timezone)
+    ?? formatPreviewDate(venues[0]?.start_at, locale, eventPreview?.timezone)
+  const endLabel = formatPreviewDate(eventPreview?.end_at, locale, eventPreview?.timezone)
+    ?? formatPreviewDate(venues[0]?.end_at, locale, eventPreview?.timezone)
 
   return (
     <div ref={setNodeRef} style={style} className={`${widthClass} p-1`}>

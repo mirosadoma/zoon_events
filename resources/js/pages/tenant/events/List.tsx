@@ -17,6 +17,7 @@ import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
 import { labelForEventTier, requiresTicketing } from '@/lib/eventOptions'
+import { formatDateTime } from '@/lib/formatters'
 import type { PublishReadinessContext } from '@/lib/publishReadinessCatalog'
 import { ArrowUpRight, Copy } from 'lucide-react'
 
@@ -47,21 +48,6 @@ function readinessContextFor(event: EventRow): PublishReadinessContext {
   }
 }
 
-function formatDateTime(value: string | null | undefined, locale: string): string | null {
-  if (!value) {
-    return null
-  }
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-
-  return date.toLocaleString(locale === 'ar' ? 'ar' : 'en', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  })
-}
 
 export default function EventList({ events, tenantId: tenantIdProp }: Props) {
   const { locale, t, localizedPath } = useLocale()
@@ -286,11 +272,15 @@ export default function EventList({ events, tenantId: tenantIdProp }: Props) {
               },
               {
                 label: t('startAt'),
-                value: formatDateTime(selected.start_at, locale) || notAvailable,
+                value: selected.start_at
+                  ? formatDateTime(selected.start_at, locale, selected.timezone || undefined)
+                  : notAvailable,
               },
               {
                 label: t('endAt'),
-                value: formatDateTime(selected.end_at, locale) || notAvailable,
+                value: selected.end_at
+                  ? formatDateTime(selected.end_at, locale, selected.timezone || undefined)
+                  : notAvailable,
               },
               {
                 label: t('eventListTimezone'),

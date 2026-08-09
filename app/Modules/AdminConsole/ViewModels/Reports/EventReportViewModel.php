@@ -7,6 +7,7 @@ use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\BadgePrinting\Infrastructure\Persistence\Models\BadgePrintJob;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
+use App\Modules\Events\Application\Support\EventWallClockDateTime;
 use App\Modules\Events\Domain\RegistrationMode;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventCategory;
@@ -171,8 +172,8 @@ final readonly class EventReportViewModel
                 'name' => ['en' => $event->name_en, 'ar' => $event->name_ar],
                 'timezone' => $timezone,
                 'status' => $event->status,
-                'start_at' => $event->start_at?->toIso8601String(),
-                'end_at' => $event->end_at?->toIso8601String(),
+                'start_at' => EventWallClockDateTime::toIso8601($event->start_at, $timezone),
+                'end_at' => EventWallClockDateTime::toIso8601($event->end_at, $timezone),
             ],
             'tenantId' => $tenantId,
             'report' => [
@@ -459,8 +460,8 @@ final readonly class EventReportViewModel
         $start = $end->subDays(13)->startOfDay();
 
         if ($event->start_at !== null) {
-            $eventStart = CarbonImmutable::parse($event->start_at)->timezone($timezone)->startOfDay();
-            if ($eventStart->greaterThan($start) && $eventStart->lessThanOrEqualTo($end)) {
+            $eventStart = EventWallClockDateTime::asEventLocal($event->start_at, $timezone)?->startOfDay();
+            if ($eventStart !== null && $eventStart->greaterThan($start) && $eventStart->lessThanOrEqualTo($end)) {
                 $start = $eventStart;
             }
         }
@@ -616,9 +617,12 @@ final readonly class EventReportViewModel
     {
         $now = CarbonImmutable::now($timezone);
         if ($event->start_at !== null && $event->end_at !== null) {
-            $start = CarbonImmutable::parse($event->start_at)->timezone($timezone)->startOfDay();
-            $end = CarbonImmutable::parse($event->end_at)->timezone($timezone)->endOfDay();
-            if ($start->diffInHours($end) > 72) {
+            $start = EventWallClockDateTime::asEventLocal($event->start_at, $timezone)?->startOfDay();
+            $end = EventWallClockDateTime::asEventLocal($event->end_at, $timezone)?->endOfDay();
+            if ($start === null || $end === null) {
+                $end = $now->endOfHour();
+                $start = $end->subHours(23)->startOfHour();
+            } elseif ($start->diffInHours($end) > 72) {
                 $end = $start->addHours(72)->endOfHour();
             }
         } else {
@@ -700,6 +704,9 @@ final readonly class EventReportViewModel
      */
     private function venueMarkers(string $tenantId, string $eventId): array
     {
+        $event = Event::query()->find($eventId);
+        $timezone = (string) ($event?->timezone ?? 'UTC');
+
         $venues = EventVenue::query()
             ->where('tenant_id', $tenantId)
             ->where('event_id', $eventId)
@@ -732,7 +739,7 @@ final readonly class EventReportViewModel
             '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1',
         ];
 
-        return $venues->values()->map(function (EventVenue $venue, int $index) use ($stats, $palette): array {
+        return $venues->values()->map(function (EventVenue $venue, int $index) use ($stats, $palette, $timezone): array {
             $id = (string) $venue->id;
             $row = $stats->get($id);
             $registered = (int) ($row->registered ?? 0);
@@ -746,8 +753,9 @@ final readonly class EventReportViewModel
                 ],
                 'latitude' => (float) $venue->latitude,
                 'longitude' => (float) $venue->longitude,
-                'start_at' => $venue->start_at?->toIso8601String(),
-                'end_at' => $venue->end_at?->toIso8601String(),
+                'start_at' => EventWallClockDateTime::toIso8601($venue->start_at, $timezone),
+                'end_at' => EventWallClockDateTime::toIso8601($venue->end_at, $timezone),
+                'timezone' => $timezone,
                 'address' => $venue->location_address ? (string) $venue->location_address : null,
                 'registered' => $registered,
                 'checked_in' => $checkedIn,

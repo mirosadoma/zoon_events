@@ -11,6 +11,7 @@ import DashboardLayout from '@/layouts/DashboardLayout'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
 import { ApiFetchError, apiFetch } from '@/lib/apiFetch'
+import { eachWallClockDate, toTimeLocalValue } from '@/lib/dateTimeLocal'
 import type { AgendaItemPayload } from '@/pages/tenant/events/Agenda'
 
 type LocalizedName = { en: string; ar: string }
@@ -56,23 +57,11 @@ type Props = {
 }
 
 function toLocalTime(value: string | null | undefined): string {
-  if (!value) return ''
-  return value.split('T')[1]?.substring(0, 5) || ''
+  return toTimeLocalValue(value)
 }
 
 function generateDates(startDate: string | null, endDate: string | null): string[] {
-  if (!startDate || !endDate) return []
-  const dates: string[] = []
-  const start = new Date(`${startDate}T12:00:00`)
-  const end = new Date(`${endDate}T12:00:00`)
-  const current = new Date(start)
-
-  while (current <= end) {
-    dates.push(current.toISOString().split('T')[0])
-    current.setDate(current.getDate() + 1)
-  }
-
-  return dates
+  return eachWallClockDate(startDate, endDate)
 }
 
 function emptyForm(venues: VenueOption[]): FormState {

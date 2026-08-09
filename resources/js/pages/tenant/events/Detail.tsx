@@ -14,7 +14,7 @@ import ConfirmModal from '@/components/modals/ConfirmModal'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
-import { formatDateOnly } from '@/lib/formatters'
+import { formatWallClockDateOnly } from '@/lib/dateTimeLocal'
 import { splitPublishReadiness, type PublishReadinessContext } from '@/lib/publishReadinessCatalog'
 
 type EventRow = {
@@ -224,10 +224,10 @@ export default function EventDetail({
   function venuePreviewLabel(row: { venue_id: string; name: { en: string; ar: string }; dates: string[] }): string {
     const name = locale === 'ar' ? (row.name.ar || row.name.en) : (row.name.en || row.name.ar)
     const start = row.dates[0]
-      ? formatDateOnly(`${row.dates[0]}T12:00:00`, locale, event.timezone)
+      ? formatWallClockDateOnly(`${row.dates[0]}T12:00`, locale)
       : null
     const end = row.dates[row.dates.length - 1]
-      ? formatDateOnly(`${row.dates[row.dates.length - 1]}T12:00:00`, locale, event.timezone)
+      ? formatWallClockDateOnly(`${row.dates[row.dates.length - 1]}T12:00`, locale)
       : null
 
     if (start && end) {

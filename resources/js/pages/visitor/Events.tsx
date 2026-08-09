@@ -2,6 +2,7 @@ import { CalendarDays, ChevronRight } from 'lucide-react'
 import LocalizedLink from '@/components/routing/LocalizedLink'
 import VisitorShell, { VisitorPageHeader, VisitorPanel } from '@/layouts/VisitorShell'
 import { useLocale } from '@/hooks/useLocale'
+import { formatDateTime } from '@/lib/formatters'
 
 type EventRow = {
   attendee_id: string
@@ -10,6 +11,7 @@ type EventRow = {
   event_slug?: string | null
   starts_at?: string | null
   ends_at?: string | null
+  timezone?: string | null
   registration_status: string
   order_reference?: string | null
   registered_at?: string | null
@@ -53,7 +55,7 @@ export default function VisitorEvents({ events }: Props) {
                     ) : null}
                     {event.starts_at ? (
                       <p className="visitor-event-card__meta">
-                        {new Date(event.starts_at).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-US')}
+                        {formatDateTime(event.starts_at, locale, event.timezone || undefined)}
                       </p>
                     ) : null}
                   </div>

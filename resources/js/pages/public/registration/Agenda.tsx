@@ -4,6 +4,7 @@ import { LocalizedEventContent, type LocalizedText } from '@/components/registra
 import RegistrationEventHero, { type RegistrationHeroEvent } from '@/components/registration/RegistrationEventHero'
 import RegistrationPageControls from '@/components/registration/RegistrationPageControls'
 import { useLocale } from '@/hooks/useLocale'
+import { formatAsWallClock } from '@/lib/dateTimeLocal'
 import { formatTime } from '@/lib/formatters'
 
 type AgendaItem = {
@@ -58,17 +59,12 @@ function formatAgendaRange(item: AgendaItem, locale: 'en' | 'ar', timeZone?: str
 }
 
 function formatDayLabel(date: string, locale: 'en' | 'ar'): string {
-  const parsed = new Date(`${date}T12:00:00`)
-  if (Number.isNaN(parsed.getTime())) {
-    return date
-  }
-
-  return new Intl.DateTimeFormat(locale === 'ar' ? 'ar' : 'en-GB', {
+  return formatAsWallClock(`${date}T12:00`, locale, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-  }).format(parsed)
+  }) || date
 }
 
 export default function PublicEventAgenda({

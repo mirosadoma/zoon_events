@@ -415,7 +415,7 @@ final class EventZonePresenter
     public static function agendaItemForPublic(EventAgendaItem $item, string $timezone, ?string $fallbackVenueId = null): array
     {
         $agendaDate = $item->agenda_date?->toDateString()
-            ?? ($item->start_at?->toDateString());
+            ?? EventWallClockDateTime::toDateString($item->start_at, $timezone);
         $venueId = $item->event_venue_id !== null
             ? (string) $item->event_venue_id
             : $fallbackVenueId;

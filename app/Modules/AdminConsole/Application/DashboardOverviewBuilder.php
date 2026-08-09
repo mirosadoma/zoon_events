@@ -8,6 +8,7 @@ use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\Audit\Infrastructure\Persistence\Models\AuditLog;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
+use App\Modules\Events\Application\Support\EventWallClockDateTime;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Kiosk\Infrastructure\Persistence\Models\Kiosk;
 use App\Modules\Orders\Infrastructure\Persistence\Models\Order;
@@ -297,8 +298,8 @@ final class DashboardOverviewBuilder
                     'ar' => (string) $event->name_ar,
                 ],
                 'status' => (string) $event->status,
-                'start_at' => $event->start_at?->toIso8601String(),
-                'end_at' => $event->end_at?->toIso8601String(),
+                'start_at' => EventWallClockDateTime::toIso8601($event->start_at, (string) $event->timezone),
+                'end_at' => EventWallClockDateTime::toIso8601($event->end_at, (string) $event->timezone),
                 'attendees' => $attendees,
                 'checked_in' => $checkedIn,
                 'checkin_rate' => $attendees > 0 ? round(($checkedIn / $attendees) * 100, 1) : null,
@@ -320,7 +321,7 @@ final class DashboardOverviewBuilder
             ->whereHas('event', function ($query) use ($tenantId): void {
                 $query->where('tenant_id', $tenantId)->where('status', 'published');
             })
-            ->with(['event:id,name_en,name_ar,status,start_at,end_at'])
+            ->with(['event:id,name_en,name_ar,status,timezone,start_at,end_at'])
             ->orderBy('event_id')
             ->orderBy('sort_order')
             ->get();
@@ -337,8 +338,9 @@ final class DashboardOverviewBuilder
                 return null;
             }
 
-            $start = $event->start_at ?? $venue->start_at;
-            $end = $event->end_at ?? $venue->end_at;
+            $timezone = (string) $event->timezone;
+            $start = $venue->start_at ?? $event->start_at;
+            $end = $venue->end_at ?? $event->end_at;
 
             return [
                 'event_id' => (string) $event->id,
@@ -353,8 +355,9 @@ final class DashboardOverviewBuilder
                 ],
                 'latitude' => (float) $lat,
                 'longitude' => (float) $lng,
-                'start_at' => $start?->toIso8601String(),
-                'end_at' => $end?->toIso8601String(),
+                'start_at' => EventWallClockDateTime::toIso8601($start, $timezone),
+                'end_at' => EventWallClockDateTime::toIso8601($end, $timezone),
+                'timezone' => $timezone,
                 'address' => $venue->location_address ? (string) $venue->location_address : null,
                 'color' => $this->colorForKey((string) $event->id),
             ];

@@ -25,6 +25,7 @@ import {
   resolveRegistrationFontFamily,
   type RegistrationThemeConfig,
 } from '@/lib/registrationThemeBackground'
+import { formatDateOnly } from '@/lib/formatters'
 
 type TicketTypeOption = {
   id: string
@@ -535,10 +536,10 @@ export default function PublicRegistrationEvent({
 
               if (field.type === 'event_dates') {
                 const startDate = event.start_at
-                  ? new Date(event.start_at).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US')
+                  ? formatDateOnly(event.start_at, locale, event.timezone || undefined)
                   : null
                 const endDate = event.end_at
-                  ? new Date(event.end_at).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US')
+                  ? formatDateOnly(event.end_at, locale, event.timezone || undefined)
                   : null
                 return (startDate || endDate) ? (
                   <div key={field.key} className={`${slotClass} registration-event-display-block`}>

@@ -59,12 +59,9 @@ final class SyncEventVenuesTest extends TestCase
         ]);
 
         $stored = EventVenue::query()->where('event_id', $event->id)->firstOrFail();
-        // Fixture event timezone is Africa/Cairo (UTC+2/+3). 09:00 local → 06:00 or 07:00 UTC.
+        // Wall-clock digits are stored as-is (09:00 stays 09:00).
         self::assertSame(
-            \App\Modules\Events\Application\Support\EventWallClockDateTime::parseToAppStorage(
-                '2026-08-01 09:00:00',
-                (string) $event->timezone,
-            )?->toDateTimeString(),
+            '2026-08-01 09:00:00',
             $stored->start_at?->timezone('UTC')->format('Y-m-d H:i:s'),
         );
 

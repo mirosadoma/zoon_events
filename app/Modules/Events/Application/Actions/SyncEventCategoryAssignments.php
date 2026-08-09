@@ -4,6 +4,7 @@ namespace App\Modules\Events\Application\Actions;
 
 use App\Exceptions\FoundationException;
 use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
+use App\Modules\Events\Application\Support\EventWallClockDateTime;
 use App\Modules\Events\Infrastructure\Persistence\Models\CategoryTemplate;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventCategory;
@@ -167,8 +168,12 @@ final readonly class SyncEventCategoryAssignments
             return [];
         }
 
-        $start = $event->start_at->timezone($event->timezone)->startOfDay();
-        $end = $event->end_at->timezone($event->timezone)->startOfDay();
+        $start = EventWallClockDateTime::asEventLocal($event->start_at, (string) $event->timezone)?->startOfDay();
+        $end = EventWallClockDateTime::asEventLocal($event->end_at, (string) $event->timezone)?->startOfDay();
+        if ($start === null || $end === null) {
+            return [];
+        }
+
         $dates = [];
 
         for ($cursor = $start; $cursor->lessThanOrEqualTo($end); $cursor = $cursor->addDay()) {

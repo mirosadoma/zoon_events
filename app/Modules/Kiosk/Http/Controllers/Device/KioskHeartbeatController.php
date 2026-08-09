@@ -8,6 +8,7 @@ use App\Modules\Kiosk\Application\Actions\RecordKioskHeartbeatAction;
 use App\Modules\Kiosk\Domain\Context\KioskSessionContextStore;
 use App\Modules\Kiosk\Http\Requests\KioskHeartbeatRequest;
 use App\Modules\Kiosk\Infrastructure\Persistence\Models\Kiosk;
+use App\Modules\Events\Application\Support\EventWallClockDateTime;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
 use Illuminate\Http\JsonResponse;
@@ -74,7 +75,7 @@ final class KioskHeartbeatController extends Controller
             $days = $event->agendaItems
                 ->map(function ($item) use ($timezone): ?array {
                     $date = $item->agenda_date?->toDateString()
-                        ?? $item->start_at?->timezone($timezone)->toDateString();
+                        ?? EventWallClockDateTime::toDateString($item->start_at, $timezone);
 
                     if ($date === null) {
                         return null;
@@ -84,8 +85,8 @@ final class KioskHeartbeatController extends Controller
                         'date' => $date,
                         'title' => (string) ($item->title_en ?: $item->title_ar ?: 'Session'),
                         'title_ar' => (string) ($item->title_ar ?: ''),
-                        'start_at' => $item->start_at?->timezone($timezone)->toIso8601String(),
-                        'end_at' => $item->end_at?->timezone($timezone)->toIso8601String(),
+                        'start_at' => EventWallClockDateTime::toIso8601($item->start_at, $timezone),
+                        'end_at' => EventWallClockDateTime::toIso8601($item->end_at, $timezone),
                         'speaker' => $item->speaker ? (string) $item->speaker : null,
                     ];
                 })
@@ -94,9 +95,9 @@ final class KioskHeartbeatController extends Controller
                 ->all();
 
             if ($days === [] && $event->start_at !== null && $event->end_at !== null) {
-                $cursor = $event->start_at->timezone($timezone)->startOfDay();
-                $end = $event->end_at->timezone($timezone)->startOfDay();
-                while ($cursor->lte($end)) {
+                $cursor = EventWallClockDateTime::asEventLocal($event->start_at, $timezone)?->startOfDay();
+                $end = EventWallClockDateTime::asEventLocal($event->end_at, $timezone)?->startOfDay();
+                while ($cursor !== null && $end !== null && $cursor->lte($end)) {
                     $days[] = [
                         'date' => $cursor->toDateString(),
                         'title' => 'Event day',

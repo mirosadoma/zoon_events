@@ -10,6 +10,7 @@ import DashboardLayout from '@/layouts/DashboardLayout'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
 import { ApiFetchError, apiFetch } from '@/lib/apiFetch'
+import { formatAsWallClock } from '@/lib/dateTimeLocal'
 import { localizedPath } from '@/lib/localePath'
 import { clsx } from 'clsx'
 
@@ -83,12 +84,11 @@ type Props = {
 }
 
 function formatDateLabel(date: string, locale: 'en' | 'ar'): string {
-  const parsed = new Date(`${date}T00:00:00`)
-  return new Intl.DateTimeFormat(locale === 'ar' ? 'ar' : 'en-GB', {
+  return formatAsWallClock(`${date}T12:00`, locale, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-  }).format(parsed)
+  }) || date
 }
 
 function toRows(

@@ -3,6 +3,7 @@ import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api'
 import type { Libraries } from '@react-google-maps/api'
 import { useLocale } from '@/hooks/useLocale'
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
+import { formatDateTime } from '@/lib/formatters'
 import { coloredPinIcon } from '@/lib/mapMarkerColor'
 
 export type PublishedVenueMarker = {
@@ -14,6 +15,7 @@ export type PublishedVenueMarker = {
   longitude: number
   start_at?: string | null
   end_at?: string | null
+  timezone?: string | null
   address?: string | null
   color: string
 }
@@ -22,17 +24,13 @@ const DEFAULT_CENTER = { lat: 30.0444, lng: 31.2357 }
 const MAP_CONTAINER_STYLE = { height: '24rem', width: '100%', minHeight: '24rem' }
 const MAP_LIBRARIES: Libraries = ['geometry']
 
-function formatRange(start: string | null | undefined, end: string | null | undefined, locale: string): string {
-  const fmt = (value: string) => {
-    try {
-      return new Intl.DateTimeFormat(locale === 'ar' ? 'ar' : 'en', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      }).format(new Date(value))
-    } catch {
-      return value
-    }
-  }
+function formatRange(
+  start: string | null | undefined,
+  end: string | null | undefined,
+  locale: 'en' | 'ar',
+  timeZone?: string | null,
+): string {
+  const fmt = (value: string) => formatDateTime(value, locale, timeZone || undefined) || value
 
   if (start && end) return `${fmt(start)} → ${fmt(end)}`
   if (start) return fmt(start)
@@ -231,7 +229,7 @@ export default function PublishedVenuesMap({
                 : active.venue_name.en || active.venue_name.ar}
             </p>
             <p className="mt-2 text-xs text-[var(--muted)]">
-              {formatRange(active.start_at, active.end_at, locale)}
+              {formatRange(active.start_at, active.end_at, locale, active.timezone)}
             </p>
             {active.address ? (
               <p className="mt-1 truncate text-xs text-[var(--muted)]">{active.address}</p>

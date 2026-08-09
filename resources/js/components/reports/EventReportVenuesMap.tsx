@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api'
 import type { Libraries } from '@react-google-maps/api'
 import { useLocale } from '@/hooks/useLocale'
+import { formatDateTime } from '@/lib/formatters'
 import { coloredPinIcon } from '@/lib/mapMarkerColor'
 
 export type EventVenueMarker = {
@@ -11,6 +12,7 @@ export type EventVenueMarker = {
   longitude: number
   start_at?: string | null
   end_at?: string | null
+  timezone?: string | null
   address?: string | null
   registered: number
   checked_in: number
@@ -22,17 +24,14 @@ const DEFAULT_CENTER = { lat: 30.0444, lng: 31.2357 }
 const MAP_CONTAINER_STYLE = { height: '26rem', width: '100%', minHeight: '26rem' }
 const MAP_LIBRARIES: Libraries = ['geometry']
 
-function formatRange(start: string | null | undefined, end: string | null | undefined, locale: string): string {
-  const fmt = (value: string) => {
-    try {
-      return new Intl.DateTimeFormat(locale === 'ar' ? 'ar' : 'en', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      }).format(new Date(value))
-    } catch {
-      return value
-    }
-  }
+function formatRange(
+  start: string | null | undefined,
+  end: string | null | undefined,
+  locale: 'en' | 'ar',
+  timeZone?: string | null,
+): string {
+  const fmt = (value: string) => formatDateTime(value, locale, timeZone || undefined) || value
+
   if (start && end) return `${fmt(start)} → ${fmt(end)}`
   if (start) return fmt(start)
   if (end) return fmt(end)
@@ -220,7 +219,7 @@ export default function EventReportVenuesMap({
               <p className="mt-1 text-xs text-[var(--muted)]">{active.address}</p>
             ) : null}
             <p className="mt-2 text-xs text-[var(--muted)]">
-              {formatRange(active.start_at, active.end_at, locale)}
+              {formatRange(active.start_at, active.end_at, locale, active.timezone)}
             </p>
             <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
               <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-2">

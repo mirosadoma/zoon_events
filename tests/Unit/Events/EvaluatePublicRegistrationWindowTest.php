@@ -29,10 +29,11 @@ final class EvaluatePublicRegistrationWindowTest extends TestCase
 
     public function test_not_open_before_registration_opens_on_same_day(): void
     {
+        // Stored digits are wall-clock in the event timezone (not a UTC instant).
         $event = new Event([
             'timezone' => 'Asia/Riyadh',
-            'registration_opens_at' => CarbonImmutable::parse('2026-07-19 09:00:00', 'Asia/Riyadh')->utc(),
-            'registration_closes_at' => CarbonImmutable::parse('2026-07-19 17:00:00', 'Asia/Riyadh')->utc(),
+            'registration_opens_at' => CarbonImmutable::parse('2026-07-19 09:00:00', 'UTC'),
+            'registration_closes_at' => CarbonImmutable::parse('2026-07-19 17:00:00', 'UTC'),
         ]);
 
         $status = app(EvaluatePublicRegistrationWindow::class)->status(
@@ -47,8 +48,8 @@ final class EvaluatePublicRegistrationWindowTest extends TestCase
     {
         $event = new Event([
             'timezone' => 'Asia/Riyadh',
-            'registration_opens_at' => CarbonImmutable::parse('2026-07-19 09:00:00', 'Asia/Riyadh')->utc(),
-            'registration_closes_at' => CarbonImmutable::parse('2026-07-19 17:00:00', 'Asia/Riyadh')->utc(),
+            'registration_opens_at' => CarbonImmutable::parse('2026-07-19 09:00:00', 'UTC'),
+            'registration_closes_at' => CarbonImmutable::parse('2026-07-19 17:00:00', 'UTC'),
         ]);
 
         $status = app(EvaluatePublicRegistrationWindow::class)->status(
@@ -63,8 +64,8 @@ final class EvaluatePublicRegistrationWindowTest extends TestCase
     {
         $event = new Event([
             'timezone' => 'Asia/Riyadh',
-            'registration_opens_at' => CarbonImmutable::parse('2026-07-19 09:00:00', 'Asia/Riyadh')->utc(),
-            'registration_closes_at' => CarbonImmutable::parse('2026-07-19 17:00:00', 'Asia/Riyadh')->utc(),
+            'registration_opens_at' => CarbonImmutable::parse('2026-07-19 09:00:00', 'UTC'),
+            'registration_closes_at' => CarbonImmutable::parse('2026-07-19 17:00:00', 'UTC'),
         ]);
 
         $status = app(EvaluatePublicRegistrationWindow::class)->status(
@@ -79,8 +80,8 @@ final class EvaluatePublicRegistrationWindowTest extends TestCase
     {
         $event = new Event([
             'timezone' => 'Asia/Riyadh',
-            'registration_opens_at' => CarbonImmutable::parse('2026-07-19 09:00:00', 'Asia/Riyadh')->utc(),
-            'registration_closes_at' => CarbonImmutable::parse('2026-07-19 17:00:00', 'Asia/Riyadh')->utc(),
+            'registration_opens_at' => CarbonImmutable::parse('2026-07-19 09:00:00', 'UTC'),
+            'registration_closes_at' => CarbonImmutable::parse('2026-07-19 17:00:00', 'UTC'),
         ]);
 
         $status = app(EvaluatePublicRegistrationWindow::class)->status(

@@ -4,6 +4,7 @@ import SearchableSelect, { type SearchableOption } from '@/components/forms/Sear
 import TextInput from '@/components/forms/TextInput'
 import { type VenueFormRow } from '@/components/forms/VenueRepeater'
 import { formFieldProps } from '@/lib/formatValidationErrors'
+import { toDateTimeLocalValue } from '@/lib/dateTimeLocal'
 import { useLocale } from '@/hooks/useLocale'
 
 const MapPicker = lazy(() => import('@/components/forms/MapPicker'))
@@ -125,7 +126,7 @@ export default function VenueFormFields({
       <DateTimeInput
         label={t('venueRepeaterEventStarts')}
         name="venue_start"
-        value={venue.start_at}
+        value={toDateTimeLocalValue(venue.start_at)}
         onChange={(event) => onChange({ start_at: event.target.value })}
         required
         error={errorFor('start_at')}
@@ -134,7 +135,7 @@ export default function VenueFormFields({
       <DateTimeInput
         label={t('venueRepeaterEventEnds')}
         name="venue_end"
-        value={venue.end_at}
+        value={toDateTimeLocalValue(venue.end_at)}
         onChange={(event) => onChange({ end_at: event.target.value })}
         required
         error={errorFor('end_at')}
@@ -143,7 +144,7 @@ export default function VenueFormFields({
       <DateTimeInput
         label={t('venueRepeaterRegistrationOpens')}
         name="venue_reg_open"
-        value={venue.registration_opens_at}
+        value={toDateTimeLocalValue(venue.registration_opens_at)}
         onChange={(event) => onChange({ registration_opens_at: event.target.value })}
         required
         error={errorFor('registration_opens_at')}
@@ -152,7 +153,7 @@ export default function VenueFormFields({
       <DateTimeInput
         label={t('venueRepeaterRegistrationCloses')}
         name="venue_reg_close"
-        value={venue.registration_closes_at}
+        value={toDateTimeLocalValue(venue.registration_closes_at)}
         onChange={(event) => onChange({ registration_closes_at: event.target.value })}
         required
         error={errorFor('registration_closes_at')}

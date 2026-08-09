@@ -6,6 +6,7 @@ use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\Audit\Application\AuditWriter;
 use App\Modules\Credentials\Application\Presentation\CredentialPresentationToken;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
+use App\Modules\Events\Application\Support\EventWallClockDateTime;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
 use App\Modules\Shared\Http\Problems\Phase2Problem;
@@ -91,7 +92,7 @@ final readonly class GenerateWalletPassAction
             locale: $locale,
             credentialToken: $this->presentationTokens->resolve($credential),
             eventName: $event->name_en,
-            eventDate: $event->start_at?->toIso8601String() ?? now()->toIso8601String(),
+            eventDate: EventWallClockDateTime::toIso8601($event->start_at, (string) $event->timezone) ?? now()->toIso8601String(),
             eventLocation: $event->location_name_en ?? '',
             attendeeName: $attendeeName,
             ticketTypeLabel: $ticket->name_en,

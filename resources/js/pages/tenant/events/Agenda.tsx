@@ -17,6 +17,7 @@ import DashboardLayout from '@/layouts/DashboardLayout'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
 import { ApiFetchError, apiFetch } from '@/lib/apiFetch'
+import { toTimeLocalValue } from '@/lib/dateTimeLocal'
 
 type LocalizedName = { en: string; ar: string }
 
@@ -60,8 +61,7 @@ type Props = {
 }
 
 function toLocalTime(value: string | null | undefined): string {
-  if (!value) return ''
-  return value.split('T')[1]?.substring(0, 5) || ''
+  return toTimeLocalValue(value)
 }
 
 function formatTimeRange(startAt: string | null, endAt: string | null): string {

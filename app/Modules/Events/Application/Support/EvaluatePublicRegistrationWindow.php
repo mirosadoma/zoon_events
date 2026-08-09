@@ -57,8 +57,8 @@ final class EvaluatePublicRegistrationWindow
      */
     private function resolveWindow(Event $event, string $timezone): array
     {
-        $opens = $event->registration_opens_at?->timezone($timezone);
-        $closes = $event->registration_closes_at?->timezone($timezone);
+        $opens = EventWallClockDateTime::asEventLocal($event->registration_opens_at, $timezone);
+        $closes = EventWallClockDateTime::asEventLocal($event->registration_closes_at, $timezone);
 
         if ($opens !== null || $closes !== null) {
             return [$opens, $closes];
@@ -83,11 +83,19 @@ final class EvaluatePublicRegistrationWindow
         $openTimes = $venues
             ->pluck('registration_opens_at')
             ->filter()
-            ->map(fn ($value): CarbonImmutable => CarbonImmutable::parse($value)->timezone($timezone));
+            ->map(fn ($value): CarbonImmutable => EventWallClockDateTime::asEventLocal(
+                CarbonImmutable::parse($value),
+                $timezone,
+            ))
+            ->filter();
         $closeTimes = $venues
             ->pluck('registration_closes_at')
             ->filter()
-            ->map(fn ($value): CarbonImmutable => CarbonImmutable::parse($value)->timezone($timezone));
+            ->map(fn ($value): CarbonImmutable => EventWallClockDateTime::asEventLocal(
+                CarbonImmutable::parse($value),
+                $timezone,
+            ))
+            ->filter();
 
         return [
             $openTimes->isEmpty() ? null : $openTimes->min(),

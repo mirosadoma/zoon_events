@@ -57,8 +57,9 @@ final class VisitorPortalController extends Controller
                     ? 'Event'
                     : ($locale === 'ar' ? ($event->name_ar ?: $event->name_en) : $event->name_en),
                 'event_slug' => $event?->slug,
-                'starts_at' => $event?->start_at?->toIso8601String(),
-                'ends_at' => $event?->end_at?->toIso8601String(),
+                'starts_at' => EventWallClockDateTime::toIso8601($event?->start_at, (string) ($event?->timezone ?? 'UTC')),
+                'ends_at' => EventWallClockDateTime::toIso8601($event?->end_at, (string) ($event?->timezone ?? 'UTC')),
+                'timezone' => $event?->timezone ? (string) $event->timezone : null,
                 'registration_status' => $attendee->registration_status,
                 'order_reference' => $order?->public_reference,
                 'registered_at' => $attendee->registered_at?->toIso8601String(),

@@ -379,26 +379,31 @@ final class EventDashboardController extends Controller
             ->map(fn ($venue): array => [
                 'id' => (string) $venue->id,
                 'name' => ['en' => $venue->name_en, 'ar' => $venue->name_ar],
-                'start_at' => $venue->start_at?->toIso8601String(),
-                'end_at' => $venue->end_at?->toIso8601String(),
+                'start_at' => EventWallClockDateTime::toIso8601($venue->start_at, $event->timezone),
+                'end_at' => EventWallClockDateTime::toIso8601($venue->end_at, $event->timezone),
             ])
             ->values()
             ->all();
 
         $dates = [];
+        $timezone = (string) $event->timezone;
         if ($event->start_at !== null && $event->end_at !== null) {
-            $start = $event->start_at->timezone($event->timezone)->startOfDay();
-            $end = $event->end_at->timezone($event->timezone)->startOfDay();
-            for ($cursor = $start; $cursor->lessThanOrEqualTo($end); $cursor = $cursor->addDay()) {
-                $dates[] = $cursor->toDateString();
+            $start = EventWallClockDateTime::asEventLocal($event->start_at, $timezone)?->startOfDay();
+            $end = EventWallClockDateTime::asEventLocal($event->end_at, $timezone)?->startOfDay();
+            if ($start !== null && $end !== null) {
+                for ($cursor = $start; $cursor->lessThanOrEqualTo($end); $cursor = $cursor->addDay()) {
+                    $dates[] = $cursor->toDateString();
+                }
             }
         } elseif ($venues !== []) {
             $venueModels = $event->venues()->whereNotNull('start_at')->whereNotNull('end_at')->get(['start_at', 'end_at']);
             if ($venueModels->isNotEmpty()) {
-                $start = $venueModels->min('start_at')->timezone($event->timezone)->startOfDay();
-                $end = $venueModels->max('end_at')->timezone($event->timezone)->startOfDay();
-                for ($cursor = $start; $cursor->lessThanOrEqualTo($end); $cursor = $cursor->addDay()) {
-                    $dates[] = $cursor->toDateString();
+                $start = EventWallClockDateTime::asEventLocal($venueModels->min('start_at'), $timezone)?->startOfDay();
+                $end = EventWallClockDateTime::asEventLocal($venueModels->max('end_at'), $timezone)?->startOfDay();
+                if ($start !== null && $end !== null) {
+                    for ($cursor = $start; $cursor->lessThanOrEqualTo($end); $cursor = $cursor->addDay()) {
+                        $dates[] = $cursor->toDateString();
+                    }
                 }
             }
         }
@@ -637,12 +642,13 @@ final class EventDashboardController extends Controller
             : null;
 
         $items = $event->agendaItems
-            ->filter(function (EventAgendaItem $item) use ($venueId, $zoneId, $date, $fallbackVenueId): bool {
+            ->filter(function (EventAgendaItem $item) use ($venueId, $zoneId, $date, $fallbackVenueId, $event): bool {
                 $itemVenueId = $item->event_venue_id !== null
                     ? (int) $item->event_venue_id
                     : $fallbackVenueId;
+                $timezone = (string) $event->timezone;
                 $itemDate = $item->agenda_date?->toDateString()
-                    ?? $item->start_at?->toDateString();
+                    ?? EventWallClockDateTime::toDateString($item->start_at, $timezone);
 
                 if (is_string($venueId) && $venueId !== '' && (string) $itemVenueId !== $venueId) {
                     return false;
@@ -714,10 +720,12 @@ final class EventDashboardController extends Controller
         /** @var array<int, array<string, true>> $grouped */
         $grouped = [];
 
+        $timezone = (string) $event->timezone;
+
         foreach ($event->agendaItems as $item) {
             $date = $item->agenda_date?->toDateString();
             if ($date === null && $item->start_at !== null) {
-                $date = $item->start_at->toDateString();
+                $date = EventWallClockDateTime::toDateString($item->start_at, $timezone);
             }
 
             if ($date === null) {
@@ -784,6 +792,8 @@ final class EventDashboardController extends Controller
      */
     private function mapAgendaVenues(Event $event, int|string $tenantId): array
     {
+        $timezone = (string) $event->timezone;
+
         return EventVenue::query()
             ->where('tenant_id', $tenantId)
             ->where('event_id', $event->id)
@@ -793,8 +803,8 @@ final class EventDashboardController extends Controller
             ->map(fn ($venue): array => [
                 'id' => (string) $venue->id,
                 'name' => ['en' => $venue->name_en, 'ar' => $venue->name_ar],
-                'start_at' => $venue->start_at?->toDateString(),
-                'end_at' => $venue->end_at?->toDateString(),
+                'start_at' => EventWallClockDateTime::toDateString($venue->start_at, $timezone),
+                'end_at' => EventWallClockDateTime::toDateString($venue->end_at, $timezone),
                 'zones' => $venue->zones
                     ->map(fn ($zone): array => EventZonePresenter::toArray($zone))
                     ->values()
@@ -852,9 +862,11 @@ final class EventDashboardController extends Controller
 
     private function resolveAgendaItemVenueId(Event $event, string $date): ?int
     {
+        $timezone = (string) $event->timezone;
+
         foreach ($event->venues as $venue) {
-            $start = $venue->start_at?->toDateString();
-            $end = $venue->end_at?->toDateString();
+            $start = EventWallClockDateTime::toDateString($venue->start_at, $timezone);
+            $end = EventWallClockDateTime::toDateString($venue->end_at, $timezone);
 
             if ($start !== null && $end !== null && $date >= $start && $date <= $end) {
                 return (int) $venue->id;

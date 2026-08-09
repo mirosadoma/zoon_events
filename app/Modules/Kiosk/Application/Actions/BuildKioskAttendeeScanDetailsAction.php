@@ -5,6 +5,7 @@ namespace App\Modules\Kiosk\Application\Actions;
 use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\Events\Application\Support\EventMediaPresenter;
+use App\Modules\Events\Application\Support\EventWallClockDateTime;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationFormVersion;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationSubmission;
@@ -62,8 +63,8 @@ final readonly class BuildKioskAttendeeScanDetailsAction
             'description' => (string) ($event->description_en ?: ''),
             'description_ar' => (string) ($event->description_ar ?: ''),
             'timezone' => $timezone,
-            'start_at' => $event->start_at?->timezone($timezone)->toIso8601String(),
-            'end_at' => $event->end_at?->timezone($timezone)->toIso8601String(),
+            'start_at' => EventWallClockDateTime::toIso8601($event->start_at, $timezone),
+            'end_at' => EventWallClockDateTime::toIso8601($event->end_at, $timezone),
             'location' => (string) ($event->location_name_en ?: $event->location_name_ar ?: ''),
             'location_ar' => (string) ($event->location_name_ar ?: ''),
             'address' => (string) ($event->location_address_en ?: $event->location_address_ar ?: ''),
@@ -79,8 +80,8 @@ final readonly class BuildKioskAttendeeScanDetailsAction
                     'id' => (string) $venue->id,
                     'name' => (string) ($venue->name_en ?: $venue->name_ar ?: 'Venue'),
                     'name_ar' => (string) ($venue->name_ar ?: ''),
-                    'start_at' => $venue->start_at?->timezone($timezone)->toIso8601String(),
-                    'end_at' => $venue->end_at?->timezone($timezone)->toIso8601String(),
+                    'start_at' => EventWallClockDateTime::toIso8601($venue->start_at, $timezone),
+                    'end_at' => EventWallClockDateTime::toIso8601($venue->end_at, $timezone),
                 ])->values()->all(),
         ];
     }
