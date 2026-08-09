@@ -17,6 +17,7 @@ class TenantFactory extends Factory
             'name' => fake()->company(),
             'slug' => fake()->unique()->slug(2),
             'status' => LifecycleStatus::Active->value,
+            'is_active' => true,
             'organization_type' => 'organizer',
             'default_locale' => 'en',
             'timezone' => 'Africa/Cairo',

@@ -61,8 +61,8 @@ Route::prefix('v1')->group(function (): void {
 
             Route::get('/roles', [PlatformRoleController::class, 'index'])->middleware('permission:platform.role.view,platform');
             Route::post('/roles', [PlatformRoleController::class, 'store'])->middleware(['permission:platform.role.manage,platform', 'idempotency'])->name('api.v1.platform.roles.store');
-            Route::patch('/roles/{role_id}', [PlatformRoleController::class, 'update'])->middleware(['permission:platform.role.manage,platform', 'idempotency'])->name('api.v1.platform.roles.update');
-            Route::delete('/roles/{role_id}', [PlatformRoleController::class, 'destroy'])->middleware(['permission:platform.role.manage,platform', 'idempotency'])->name('api.v1.platform.roles.destroy');
+            Route::patch('/roles/{platform_role_id}', [PlatformRoleController::class, 'update'])->middleware(['permission:platform.role.manage,platform', 'idempotency'])->name('api.v1.platform.roles.update');
+            Route::delete('/roles/{platform_role_id}', [PlatformRoleController::class, 'destroy'])->middleware(['permission:platform.role.manage,platform', 'idempotency'])->name('api.v1.platform.roles.destroy');
 
             Route::get('/tenants', [PlatformTenantController::class, 'index'])->middleware('permission:platform.tenant.view,platform');
             Route::post('/tenants', [PlatformTenantController::class, 'store'])->middleware(['permission:platform.tenant.manage,platform', 'idempotency'])->name('api.v1.platform.tenants.store');

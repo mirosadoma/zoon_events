@@ -4,17 +4,20 @@ namespace App\Modules\AdminConsole\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Modules\AdminConsole\ViewModels\Events\EventSetupReferenceData;
 use App\Modules\Audit\Application\Queries\SearchAuditLogs;
 use App\Modules\Audit\Infrastructure\Persistence\Models\AuditLog;
+use App\Modules\Authorization\Domain\PermissionCatalog;
 use App\Modules\Authorization\Infrastructure\Persistence\Models\PlatformRole;
 use App\Modules\Events\Application\Support\EventWallClockDateTime;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\FeatureFlags\Infrastructure\Persistence\Models\FeatureFlag;
 use App\Modules\Operations\Application\Health\HealthService;
 use App\Modules\Shared\Domain\LifecycleStatus;
+use App\Modules\Tenancy\Application\Queries\ResolveTenantAdminUser;
+use App\Modules\Tenancy\Domain\OrganizationType;
 use App\Modules\Tenancy\Http\Controllers\ConfigurationController;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\Tenant;
-use App\Modules\Tenancy\Infrastructure\Persistence\Models\TenantMembership;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -26,6 +29,8 @@ final class PlatformPageController extends Controller
         private readonly HealthService $health,
         private readonly SearchAuditLogs $searchAuditLogs,
         private readonly ConfigurationController $configurationController,
+        private readonly ResolveTenantAdminUser $resolveTenantAdminUser,
+        private readonly EventSetupReferenceData $eventSetupReferenceData,
     ) {}
 
     public function show(string $locale, string $section): Response
@@ -52,6 +57,15 @@ final class PlatformPageController extends Controller
             'rows' => $this->rowsFor($section),
             'health' => $section === 'health' ? $this->health->readiness()->toArray() : null,
             'platformRoles' => in_array($section, ['users', 'roles']) ? $this->platformRoles() : [],
+            'availablePermissions' => $section === 'roles'
+                ? collect(PermissionCatalog::platform())->map(fn (array $permission): array => [
+                    'key' => $permission['key'],
+                    'module' => $permission['module'],
+                ])->values()->all()
+                : [],
+            'timezones' => $section === 'tenants'
+                ? $this->eventSetupReferenceData->toArray()['timezones']
+                : [],
         ]);
     }
 
@@ -81,29 +95,35 @@ final class PlatformPageController extends Controller
             'all-events' => $this->allEvents(),
             'users' => $this->platformUsers(),
             'roles' => $this->platformRoles(),
-            'tenants' => Tenant::query()->latest()->limit(100)->get()->map(function (Tenant $tenant): array {
-                $membership = TenantMembership::query()
-                    ->where('tenant_id', $tenant->id)
-                    ->where('status', 'active')
-                    ->first();
-                $adminUser = $membership ? User::query()->find($membership->user_id) : null;
+            'tenants' => Tenant::query()
+                ->whereIn('organization_type', [
+                    OrganizationType::Organizer->value,
+                    OrganizationType::Hybrid->value,
+                ])
+                ->latest()
+                ->limit(100)
+                ->get()
+                ->map(function (Tenant $tenant): array {
+                    $adminUser = $this->resolveTenantAdminUser->handle($tenant);
 
-                return [
-                    'id' => (string) $tenant->id,
-                    'name' => $tenant->name,
-                    'slug' => $tenant->slug,
-                    'status' => $tenant->status->value,
-                    'default_locale' => $tenant->default_locale,
-                    'timezone' => $tenant->timezone,
-                    'created_at' => $tenant->created_at?->toIso8601String(),
-                    'admin' => $adminUser ? [
-                        'id' => (string) $adminUser->id,
-                        'name' => $adminUser->name,
-                        'email' => $adminUser->email,
-                        'phone' => $adminUser->phone ?? null,
-                    ] : null,
-                ];
-            })->all(),
+                    return [
+                        'id' => (string) $tenant->id,
+                        'name' => $tenant->name,
+                        'slug' => $tenant->slug,
+                        'status' => $tenant->status->value,
+                        'is_active' => (bool) $tenant->is_active,
+                        'organization_type' => $tenant->organization_type->value,
+                        'default_locale' => $tenant->default_locale,
+                        'timezone' => $tenant->timezone,
+                        'created_at' => $tenant->created_at?->toIso8601String(),
+                        'admin' => $adminUser ? [
+                            'id' => (string) $adminUser->id,
+                            'name' => $adminUser->name,
+                            'email' => $adminUser->email,
+                            'phone' => $adminUser->phone ?? null,
+                        ] : null,
+                    ];
+                })->all(),
             'audit' => collect($this->searchAuditLogs->platform([])->items)->map(fn (AuditLog $log): array => [
                 'id' => (string) $log->id,
                 'action' => $log->action,

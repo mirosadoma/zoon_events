@@ -48,6 +48,7 @@ class ResolveTenantContext
         if (
             $membership->status !== LifecycleStatus::Active
             || $membership->tenant->status !== LifecycleStatus::Active
+            || ! $membership->tenant->is_active
         ) {
             throw FoundationException::forbidden('tenant_context_invalid', 'The tenant context is inactive.');
         }

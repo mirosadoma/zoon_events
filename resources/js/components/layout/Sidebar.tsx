@@ -4,13 +4,13 @@ import { useEffect } from 'react'
 import { clsx } from 'clsx'
 import { useShellLayout } from '@/contexts/ShellLayoutContext'
 import AppBrand from '@/components/layout/AppBrand'
-import { filterNavigationGroups, platformNavigationGroups } from '@/lib/navigation'
+import { consoleHomePath, filterNavigationGroups, navigationGroupsForConsole } from '@/lib/navigation'
 import { eventNavigationGroups, extractEventIdFromPath } from '@/lib/tenant-navigation'
 import { useLocale } from '@/hooks/useLocale'
 import { localizedPath } from '@/lib/localePath'
 import en from '@/locales/en'
 import ar from '@/locales/ar'
-import type { PermissionMap } from '@/types/shell'
+import type { ConsoleMode, PermissionMap, SessionContext } from '@/types/shell'
 import type { EventCapabilities } from '@/lib/eventOptions'
 import SidebarSection from './SidebarSection'
 
@@ -20,14 +20,17 @@ export default function Sidebar() {
   const messages = locale === 'ar' ? ar : en
   const page = usePage()
   const can = (page.props.can ?? {}) as PermissionMap
+  const session = page.props.session as SessionContext | null | undefined
+  const consoleMode = (session?.console ?? 'organizer') as ConsoleMode
+  const homePath = consoleHomePath(consoleMode)
   const sharedNavContext = page.props.eventNavContext as { capabilities?: EventCapabilities } | null | undefined
   const pageEvent = page.props.event as { capabilities?: EventCapabilities } | null | undefined
   const pageCapabilities = (page.props.eventCapabilities ?? pageEvent?.capabilities) as EventCapabilities | undefined
   const eventCapabilities = pageCapabilities ?? sharedNavContext?.capabilities
   const { url } = page
-  const eventId = extractEventIdFromPath(url)
+  const eventId = consoleMode === 'organizer' ? extractEventIdFromPath(url) : null
 
-  const platformGroups = filterNavigationGroups(platformNavigationGroups, can)
+  const platformGroups = filterNavigationGroups(navigationGroupsForConsole(consoleMode), can)
   const eventGroups = eventId ? filterNavigationGroups(eventNavigationGroups(eventId, eventCapabilities), can) : []
 
   useEffect(() => {
@@ -50,7 +53,7 @@ export default function Sidebar() {
   const sidebarContent = (
     <div className="ta-sidebar-scroll">
       <Link
-        href={localizedPath(locale, '/dashboard')}
+        href={localizedPath(locale, homePath)}
         className="ta-sidebar-brand"
         title={messages.overview}
         onClick={closeMobileSidebar}
@@ -98,7 +101,7 @@ export default function Sidebar() {
       >
         <div className="ta-sidebar-mobile-header">
           <Link
-            href={localizedPath(locale, '/dashboard')}
+            href={localizedPath(locale, homePath)}
             className="ta-sidebar-brand !py-1"
             onClick={closeMobileSidebar}
           >

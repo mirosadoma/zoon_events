@@ -18,6 +18,7 @@ class Tenant extends Model
         'name',
         'slug',
         'status',
+        'is_active',
         'organization_type',
         'default_locale',
         'timezone',
@@ -34,9 +35,15 @@ class Tenant extends Model
             'policy_profile' => 'array',
             'status' => LifecycleStatus::class,
             'organization_type' => OrganizationType::class,
+            'is_active' => 'boolean',
             'suspended_at' => 'datetime',
             'deactivated_at' => 'datetime',
         ];
+    }
+
+    public function isActive(): bool
+    {
+        return (bool) $this->is_active && $this->status === LifecycleStatus::Active;
     }
 
     public function memberships(): HasMany

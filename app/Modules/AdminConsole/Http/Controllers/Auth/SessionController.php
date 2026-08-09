@@ -5,6 +5,7 @@ namespace App\Modules\AdminConsole\Http\Controllers\Auth;
 use App\Exceptions\FoundationException;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Modules\AdminConsole\Application\SessionContextBuilder;
 use App\Modules\AdminConsole\Http\Requests\LoginRequest;
 use App\Modules\Audit\Application\AuditWriter;
 use App\Modules\Identity\Application\AuthenticateUser;
@@ -21,6 +22,7 @@ final class SessionController extends Controller
     public function __construct(
         private readonly AuthenticateUser $authenticate,
         private readonly AuditWriter $audit,
+        private readonly SessionContextBuilder $sessionContext,
     ) {}
 
     public function create(Request $request): Response
@@ -56,6 +58,12 @@ final class SessionController extends Controller
         $locale = app()->getLocale() === 'ar' ? 'ar' : 'en';
         if ($user->isVisitor()) {
             return redirect()->intended("/{$locale}/visitor");
+        }
+
+        if ($this->sessionContext->hasActivePlatformRole($user)) {
+            $home = $this->sessionContext->platformHomePath($user);
+
+            return redirect()->intended("/{$locale}{$home}");
         }
 
         return redirect()->intended(route('dashboard'));

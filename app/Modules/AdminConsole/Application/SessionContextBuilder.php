@@ -4,6 +4,7 @@ namespace App\Modules\AdminConsole\Application;
 
 use App\Models\User;
 use App\Modules\Authorization\Application\PermissionEvaluator;
+use App\Modules\Authorization\Domain\PermissionCatalog;
 use App\Modules\Authorization\Infrastructure\Persistence\Models\PlatformRoleAssignment;
 use App\Modules\Authorization\Infrastructure\Persistence\Models\TenantRoleAssignment;
 use App\Modules\Shared\Domain\LifecycleStatus;
@@ -12,7 +13,6 @@ use App\Modules\Tenancy\Domain\Context\TenantContextStore;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\TenantMembership;
 use App\Modules\Tenancy\Infrastructure\Persistence\Scopes\TenantScope;
 use Carbon\CarbonImmutable;
-use App\Modules\Authorization\Domain\PermissionCatalog;
 use Illuminate\Http\Request;
 
 final class SessionContextBuilder
@@ -33,8 +33,9 @@ final class SessionContextBuilder
             return ['session' => null, 'can' => [], 'permissions' => []];
         }
 
-        $context = $this->resolveContext($user);
-        $can = $this->buildPermissionMap($user, $context);
+        $console = $this->resolveConsole($user);
+        $context = $console === 'platform' ? null : $this->resolveContext($user);
+        $can = $this->buildPermissionMap($user, $context, $console);
         $permissions = array_keys(array_filter($can));
 
         return [
@@ -45,7 +46,7 @@ final class SessionContextBuilder
                     'email' => $user->email,
                     'type' => $user->type ?? 'staff',
                     'is_visitor' => $user->isVisitor(),
-                    'role_label' => $this->resolveRoleLabel($user, $context),
+                    'role_label' => $this->resolveRoleLabel($user, $context, $console),
                     'phone' => null,
                     'last_login_at' => $user->last_authenticated_at?->toIso8601String(),
                 ],
@@ -59,9 +60,10 @@ final class SessionContextBuilder
                 ] : null,
                 'locale' => app()->getLocale(),
                 'theme' => $request->cookie('theme', 'system'),
-                'role_label' => $this->resolveRoleLabel($user, $context),
+                'role_label' => $this->resolveRoleLabel($user, $context, $console),
                 'user_type' => $user->type ?? 'staff',
                 'is_visitor' => $user->isVisitor(),
+                'console' => $console,
             ],
             'can' => $can,
             'permissions' => $permissions,
@@ -70,7 +72,57 @@ final class SessionContextBuilder
 
     public function tenantContextFor(User $user): ?TenantContext
     {
+        if ($this->hasActivePlatformRole($user)) {
+            return null;
+        }
+
         return $this->resolveContext($user);
+    }
+
+    /**
+     * @return 'platform'|'organizer'
+     */
+    public function resolveConsole(User $user): string
+    {
+        return $this->hasActivePlatformRole($user) ? 'platform' : 'organizer';
+    }
+
+    public function hasActivePlatformRole(User $user): bool
+    {
+        return PlatformRoleAssignment::query()
+            ->where('user_id', $user->id)
+            ->whereNull('revoked_at')
+            ->where(function ($query): void {
+                $query->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', CarbonImmutable::now());
+            })
+            ->exists();
+    }
+
+    /**
+     * First permitted platform console home path (locale-agnostic).
+     */
+    public function platformHomePath(User $user): string
+    {
+        $candidates = [
+            ['permission' => 'platform.tenant.view', 'href' => '/platform/tenants'],
+            ['permission' => 'platform.user.view', 'href' => '/platform/users'],
+            ['permission' => 'platform.role.view', 'href' => '/platform/roles'],
+            ['permission' => 'platform.event.view', 'href' => '/platform/all-events'],
+            ['permission' => 'platform.subscription.view', 'href' => '/platform/subscriptions'],
+            ['permission' => 'platform.configuration.view', 'href' => '/platform/site-settings'],
+            ['permission' => 'platform.audit.view', 'href' => '/platform/audit'],
+            ['permission' => 'operations.health.view', 'href' => '/platform/health'],
+            ['permission' => 'platform.feature_flag.view', 'href' => '/platform/feature-flags'],
+        ];
+
+        foreach ($candidates as $candidate) {
+            if ($this->evaluator->hasPlatformPermission($user, $candidate['permission'])) {
+                return $candidate['href'];
+            }
+        }
+
+        return '/platform/tenants';
     }
 
     private function resolveContext(User $user): ?TenantContext
@@ -85,7 +137,9 @@ final class SessionContextBuilder
             ->with('tenant')
             ->where('user_id', $user->id)
             ->where('status', LifecycleStatus::Active)
-            ->whereHas('tenant', fn ($query) => $query->where('status', LifecycleStatus::Active))
+            ->whereHas('tenant', fn ($query) => $query
+                ->where('status', LifecycleStatus::Active)
+                ->where('is_active', true))
             ->orderBy('created_at')
             ->first();
 
@@ -97,9 +151,10 @@ final class SessionContextBuilder
     }
 
     /**
+     * @param  'platform'|'organizer'  $console
      * @return array<string, bool>
      */
-    private function buildPermissionMap(User $user, ?TenantContext $context): array
+    private function buildPermissionMap(User $user, ?TenantContext $context, string $console): array
     {
         $can = [];
 
@@ -107,9 +162,11 @@ final class SessionContextBuilder
             $key = $definition['key'];
 
             if ($definition['scope'] === 'platform') {
-                $can[$key] = $this->evaluator->hasPlatformPermission($user, $key);
+                $can[$key] = $console === 'platform'
+                    && $this->evaluator->hasPlatformPermission($user, $key);
             } else {
-                $can[$key] = $context !== null
+                $can[$key] = $console === 'organizer'
+                    && $context !== null
                     && $this->evaluator->hasTenantPermission($context, $key);
             }
         }
@@ -117,8 +174,25 @@ final class SessionContextBuilder
         return $can;
     }
 
-    private function resolveRoleLabel(User $user, ?TenantContext $context): string
+    /**
+     * @param  'platform'|'organizer'  $console
+     */
+    private function resolveRoleLabel(User $user, ?TenantContext $context, string $console): string
     {
+        if ($console === 'platform') {
+            $platformAssignment = PlatformRoleAssignment::query()
+                ->with('role')
+                ->where('user_id', $user->id)
+                ->whereNull('revoked_at')
+                ->where(function ($query): void {
+                    $query->whereNull('expires_at')
+                        ->orWhere('expires_at', '>', CarbonImmutable::now());
+                })
+                ->first();
+
+            return $platformAssignment?->role?->name ?? 'Operator';
+        }
+
         if ($context !== null) {
             $assignment = TenantRoleAssignment::query()
                 ->withoutGlobalScope(TenantScope::class)
@@ -137,16 +211,6 @@ final class SessionContextBuilder
             }
         }
 
-        $platformAssignment = PlatformRoleAssignment::query()
-            ->with('role')
-            ->where('user_id', $user->id)
-            ->whereNull('revoked_at')
-            ->where(function ($query): void {
-                $query->whereNull('expires_at')
-                    ->orWhere('expires_at', '>', CarbonImmutable::now());
-            })
-            ->first();
-
-        return $platformAssignment?->role?->name ?? 'Operator';
+        return 'Operator';
     }
 }

@@ -18,12 +18,15 @@ export type SessionTenant = {
   default_timezone: string
 }
 
+export type ConsoleMode = 'platform' | 'organizer'
+
 export type SessionContext = {
   user: SessionUser
   tenant: SessionTenant | null
   locale: 'en' | 'ar'
   theme: 'light' | 'dark' | 'system'
   role_label: string
+  console?: ConsoleMode
 }
 
 export type PermissionMap = Record<PermissionKey, boolean>

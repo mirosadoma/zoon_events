@@ -5,12 +5,14 @@ namespace App\Modules\Authorization\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Modules\Audit\Application\AuditWriter;
-use App\Modules\Authorization\Infrastructure\Persistence\Models\Permission;
+use App\Modules\Authorization\Application\EnsurePermissionsExist;
+use App\Modules\Authorization\Domain\PermissionCatalog;
 use App\Modules\Authorization\Infrastructure\Persistence\Models\PlatformRole;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class PlatformRoleController extends Controller
 {
@@ -18,6 +20,7 @@ class PlatformRoleController extends Controller
 
     public function __construct(
         private readonly AuditWriter $audit,
+        private readonly EnsurePermissionsExist $ensurePermissions,
     ) {}
 
     public function index(): JsonResponse
@@ -35,7 +38,7 @@ class PlatformRoleController extends Controller
             'name' => ['required', 'string', 'max:160', 'unique:platform_roles,name'],
             'description' => ['nullable', 'string', 'max:500'],
             'permissions' => ['required', 'array', 'min:1'],
-            'permissions.*' => ['string', 'exists:permissions,key'],
+            'permissions.*' => ['string', Rule::in(PermissionCatalog::platformKeys())],
         ]);
 
         /** @var User $actor */
@@ -49,10 +52,7 @@ class PlatformRoleController extends Controller
                 'created_by_user_id' => $actor->id,
             ]);
 
-            $permissionIds = Permission::query()
-                ->where('scope', 'platform')
-                ->whereIn('key', $validated['permissions'])
-                ->pluck('id');
+            $permissionIds = $this->ensurePermissions->forScope('platform', $validated['permissions']);
 
             foreach ($permissionIds as $permissionId) {
                 DB::table('platform_role_permissions')->insert([
@@ -78,9 +78,9 @@ class PlatformRoleController extends Controller
         return $this->success($this->mapRole($role), 201);
     }
 
-    public function update(Request $request, string $roleId): JsonResponse
+    public function update(Request $request, string $platform_role_id): JsonResponse
     {
-        $role = PlatformRole::query()->findOrFail($roleId);
+        $role = PlatformRole::query()->findOrFail($platform_role_id);
 
         abort_if($role->is_system, 403, 'System roles cannot be modified.');
 
@@ -88,7 +88,7 @@ class PlatformRoleController extends Controller
             'name' => ['sometimes', 'string', 'max:160', "unique:platform_roles,name,{$role->id}"],
             'description' => ['nullable', 'string', 'max:500'],
             'permissions' => ['sometimes', 'array', 'min:1'],
-            'permissions.*' => ['string', 'exists:permissions,key'],
+            'permissions.*' => ['string', Rule::in(PermissionCatalog::platformKeys())],
         ]);
 
         /** @var User $actor */
@@ -103,10 +103,7 @@ class PlatformRoleController extends Controller
             if (isset($validated['permissions'])) {
                 DB::table('platform_role_permissions')->where('platform_role_id', $role->id)->delete();
 
-                $permissionIds = Permission::query()
-                    ->where('scope', 'platform')
-                    ->whereIn('key', $validated['permissions'])
-                    ->pluck('id');
+                $permissionIds = $this->ensurePermissions->forScope('platform', $validated['permissions']);
 
                 foreach ($permissionIds as $permissionId) {
                     DB::table('platform_role_permissions')->insert([
@@ -130,9 +127,9 @@ class PlatformRoleController extends Controller
         return $this->success($this->mapRole($role->refresh()));
     }
 
-    public function destroy(Request $request, string $roleId): JsonResponse
+    public function destroy(Request $request, string $platform_role_id): JsonResponse
     {
-        $role = PlatformRole::query()->findOrFail($roleId);
+        $role = PlatformRole::query()->findOrFail($platform_role_id);
 
         abort_if($role->is_system, 403, 'System roles cannot be deleted.');
 

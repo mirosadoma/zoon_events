@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, MouseEvent, useMemo, useState } from 'react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { StatCard } from '@/components/cards'
 import { EmptyState } from '@/components/feedback'
@@ -16,8 +16,6 @@ import DataTable from '@/components/tables/DataTable'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
 import { formatDateOnly } from '@/lib/formatters'
-import en from '@/locales/en'
-import ar from '@/locales/ar'
 
 type HealthCheck = {
   category: string
@@ -44,6 +42,7 @@ type TenantRow = {
   name: string
   slug: string
   status: string
+  is_active: boolean
   default_locale: string
   timezone: string
   created_at: string | null
@@ -83,6 +82,16 @@ type EventRow = {
   created_at: string | null
 }
 
+type TimezoneOption = {
+  identifier: string
+  name_en: string
+  name_ar: string
+  region_en: string
+  country_en: string
+  country_ar: string
+  utc_offset: string
+}
+
 type SectionProps = {
   section: string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -90,6 +99,8 @@ type SectionProps = {
   canManage: boolean
   health?: HealthReport | null
   platformRoles?: PlatformRoleRow[]
+  availablePermissions?: { key: string; module: string }[]
+  timezones?: TimezoneOption[]
 }
 
 const TITLES: Record<string, { en: string; ar: string }> = {
@@ -103,11 +114,33 @@ const TITLES: Record<string, { en: string; ar: string }> = {
   configuration: { en: 'Configuration schemas', ar: 'مخططات التكوين' },
 }
 
-export default function PlatformSection({ section, rows, canManage, health, platformRoles = [] }: SectionProps) {
+export default function PlatformSection({
+  section,
+  rows,
+  canManage,
+  health,
+  platformRoles = [],
+  availablePermissions = [],
+  timezones = [],
+}: SectionProps) {
   const { locale, t } = useLocale()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const title = TITLES[section]?.[locale] ?? section
+
+  const timezoneSelectOptions = useMemo(
+    () => timezones.map((timezone) => {
+      const name = locale === 'ar' ? timezone.name_ar : timezone.name_en
+      const country = locale === 'ar' ? timezone.country_ar : timezone.country_en
+      const meta = [timezone.region_en, country, `UTC${timezone.utc_offset}`].filter(Boolean).join(' · ')
+
+      return {
+        value: timezone.identifier,
+        label: meta ? `${name} (${meta})` : name,
+      }
+    }),
+    [locale, timezones],
+  )
 
   const healthCheckColumns = useMemo(
     () => [
@@ -259,6 +292,18 @@ export default function PlatformSection({ section, rows, canManage, health, plat
       }
     }
 
+    function toggleTenantActive(tenant: TenantRow, event: MouseEvent) {
+      event.stopPropagation()
+      if (!canManage) {
+        return
+      }
+
+      void submitApi(`/api/v1/platform/tenants/${tenant.id}`, 'PATCH', {
+        is_active: !tenant.is_active,
+        reason: tenant.is_active ? 'Disabled by platform admin' : 'Enabled by platform admin',
+      })
+    }
+
     return (
       <>
         {canManage && (
@@ -296,6 +341,7 @@ export default function PlatformSection({ section, rows, canManage, health, plat
                     <th>{t('platformSectionAdmin')}</th>
                     <th>{t('platformSectionEmail')}</th>
                     <th>{t('platformSectionPhone')}</th>
+                    <th>{t('platformSectionActive')}</th>
                     <th>{t('platformSectionStatus')}</th>
                     <th>{t('platformSectionCreated')}</th>
                   </tr>
@@ -311,6 +357,30 @@ export default function PlatformSection({ section, rows, canManage, health, plat
                       <td className="text-[var(--ink)]">{tenant.admin?.name ?? '—'}</td>
                       <td className="text-sm text-[var(--muted)]">{tenant.admin?.email ?? '—'}</td>
                       <td className="text-sm text-[var(--muted)]">{tenant.admin?.phone ?? '—'}</td>
+                      <td onClick={(event) => event.stopPropagation()}>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={tenant.is_active}
+                          aria-label={tenant.is_active ? t('platformSectionDisable') : t('platformSectionEnable')}
+                          disabled={!canManage || loading}
+                          onClick={(event) => toggleTenantActive(tenant, event)}
+                          title={tenant.is_active ? t('platformSectionDisable') : t('platformSectionEnable')}
+                          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)] disabled:cursor-not-allowed disabled:opacity-50 ${
+                            tenant.is_active ? 'bg-emerald-500' : 'bg-[var(--line)]'
+                          }`}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={`pointer-events-none absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-[inset-inline-start] ${
+                              tenant.is_active ? 'start-[1.375rem]' : 'start-0.5'
+                            }`}
+                          />
+                          <span className="sr-only">
+                            {tenant.is_active ? t('platformSectionActive') : t('platformSectionInactive')}
+                          </span>
+                        </button>
+                      </td>
                       <td><StatusBadge status={tenant.status} /></td>
                       <td className="text-sm text-[var(--muted)]">
                         {tenant.created_at ? new Date(tenant.created_at).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB') : '—'}
@@ -349,6 +419,10 @@ export default function PlatformSection({ section, rows, canManage, health, plat
                 { label: t('platformSectionAdmin'), value: selected.admin?.name ?? '—' },
                 { label: t('platformSectionEmail'), value: selected.admin?.email ?? '—' },
                 { label: t('platformSectionPhone'), value: selected.admin?.phone ?? '—' },
+                {
+                  label: t('platformSectionActive'),
+                  value: selected.is_active ? t('platformSectionActive') : t('platformSectionInactive'),
+                },
                 { label: t('platformSectionStatus'), value: <StatusBadge status={selected.status} /> },
                 {
                   label: t('platformSectionCreated'),
@@ -447,11 +521,21 @@ export default function PlatformSection({ section, rows, canManage, health, plat
   function EditTenantForm({ tenant, onCancel }: { tenant: TenantRow; onCancel: () => void }) {
     const [form, setForm] = useState({
       name: tenant.name,
+      phone: tenant.admin?.phone ?? '',
+      is_active: tenant.is_active,
       status: tenant.status,
       default_locale: tenant.default_locale,
       timezone: tenant.timezone,
       reason: '',
     })
+
+    const editTimezoneOptions = useMemo(() => {
+      if (!form.timezone || timezoneSelectOptions.some((option) => option.value === form.timezone)) {
+        return timezoneSelectOptions
+      }
+
+      return [{ value: form.timezone, label: form.timezone }, ...timezoneSelectOptions]
+    }, [form.timezone, timezoneSelectOptions])
 
     return (
       <form
@@ -472,11 +556,38 @@ export default function PlatformSection({ section, rows, canManage, health, plat
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             required
           />
+          <TextInput
+            label={t('phone')}
+            name="phone"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          />
+          <SelectInput
+            label={t('platformSectionActive')}
+            name="is_active"
+            value={form.is_active ? '1' : '0'}
+            onChange={(e) => {
+              const active = e.target.value === '1'
+              setForm({
+                ...form,
+                is_active: active,
+                status: active ? 'active' : 'suspended',
+              })
+            }}
+            options={[
+              { value: '1', label: t('platformSectionActive') },
+              { value: '0', label: t('platformSectionInactive') },
+            ]}
+          />
           <SelectInput
             label={t('platformSectionStatus')}
             name="status"
             value={form.status}
-            onChange={(e) => setForm({ ...form, status: e.target.value })}
+            onChange={(e) => setForm({
+              ...form,
+              status: e.target.value,
+              is_active: e.target.value === 'active',
+            })}
             options={[
               { value: 'active', label: t('platformSectionStatusActive') },
               { value: 'suspended', label: t('platformSectionStatusSuspended') },
@@ -493,11 +604,13 @@ export default function PlatformSection({ section, rows, canManage, health, plat
               { value: 'ar', label: 'العربية' },
             ]}
           />
-          <TextInput
+          <SelectInput
             label={t('platformSectionTimezone')}
             name="timezone"
             value={form.timezone}
             onChange={(e) => setForm({ ...form, timezone: e.target.value })}
+            options={editTimezoneOptions}
+            required
           />
           <div className="sm:col-span-2">
             <TextInput
@@ -778,9 +891,28 @@ export default function PlatformSection({ section, rows, canManage, health, plat
   /* ========== Platform Roles Section ========== */
   function RolesSection() {
     const [showCreate, setShowCreate] = useState(false)
+    const [editId, setEditId] = useState<string | null>(null)
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const roles = rows as unknown as PlatformRoleRow[]
     const selected = roles.find((role) => role.id === selectedId) ?? null
+    const permissionKeys = useMemo(
+      () => (availablePermissions.length > 0
+        ? availablePermissions.map((permission) => permission.key)
+        : [
+            'platform.user.view', 'platform.user.manage',
+            'platform.role.view', 'platform.role.manage',
+            'platform.tenant.view', 'platform.tenant.manage',
+            'platform.access.recover',
+            'platform.audit.view', 'platform.audit.export', 'platform.audit.verify',
+            'operations.health.view',
+            'platform.feature_flag.view', 'platform.feature_flag.manage',
+            'platform.configuration.view',
+            'platform.marketplace.view', 'platform.marketplace.disputes.manage',
+            'platform.subscription.view', 'platform.subscription.manage',
+            'platform.event.view',
+          ]),
+      [availablePermissions],
+    )
 
     function confirmDeleteRole(role: PlatformRoleRow) {
       const msg = t('platformSectionConfirmDelete', { name: role.name })
@@ -793,13 +925,29 @@ export default function PlatformSection({ section, rows, canManage, health, plat
       <>
         {canManage && (
           <div className="mb-4 flex justify-end">
-            <button type="button" onClick={() => setShowCreate(!showCreate)} className="button-primary">
+            <button
+              type="button"
+              onClick={() => { setShowCreate(!showCreate); setEditId(null) }}
+              className="button-primary"
+            >
               {t('platformSectionAddRole')}
             </button>
           </div>
         )}
 
-        {showCreate && canManage && <CreateRoleForm onCancel={() => setShowCreate(false)} />}
+        {showCreate && canManage && (
+          <RoleForm
+            permissionKeys={permissionKeys}
+            onCancel={() => setShowCreate(false)}
+          />
+        )}
+        {editId && canManage && (
+          <RoleForm
+            role={roles.find((role) => role.id === editId)!}
+            permissionKeys={permissionKeys}
+            onCancel={() => setEditId(null)}
+          />
+        )}
 
         {roles.length === 0 ? (
           <EmptyState
@@ -854,7 +1002,21 @@ export default function PlatformSection({ section, rows, canManage, health, plat
           title={selected?.name ?? ''}
           subtitle={selected?.description?.trim() || null}
           onClose={() => setSelectedId(null)}
+          onEdit={canManage && selected && !selected.is_system
+            ? () => { setEditId(selected.id); setShowCreate(false); setSelectedId(null) }
+            : null}
           onDelete={canManage && selected && !selected.is_system ? () => confirmDeleteRole(selected) : null}
+          footer={canManage && selected && !selected.is_system ? (
+            <SideDetailActions>
+              <button
+                type="button"
+                className={sideDetailActionClassName('primary')}
+                onClick={() => { setEditId(selected.id); setShowCreate(false); setSelectedId(null) }}
+              >
+                {t('edit')}
+              </button>
+            </SideDetailActions>
+          ) : null}
         >
           {selected ? (
             <SideDetailInfoGrid
@@ -874,24 +1036,20 @@ export default function PlatformSection({ section, rows, canManage, health, plat
     )
   }
 
-  function CreateRoleForm({ onCancel }: { onCancel: () => void }) {
-    const allPlatformPermissions = [
-      'platform.user.view', 'platform.user.manage',
-      'platform.role.view', 'platform.role.manage',
-      'platform.tenant.view', 'platform.tenant.manage',
-      'platform.access.recover',
-      'platform.audit.view', 'platform.audit.export', 'platform.audit.verify',
-      'operations.health.view',
-      'platform.feature_flag.view', 'platform.feature_flag.manage',
-      'platform.configuration.view',
-      'platform.marketplace.view', 'platform.marketplace.disputes.manage',
-      'platform.subscription.view', 'platform.subscription.manage',
-    ]
-
+  function RoleForm({
+    role,
+    permissionKeys,
+    onCancel,
+  }: {
+    role?: PlatformRoleRow
+    permissionKeys: string[]
+    onCancel: () => void
+  }) {
+    const isEdit = role !== undefined
     const [form, setForm] = useState({
-      name: '',
-      description: '',
-      permissions: [] as string[],
+      name: role?.name ?? '',
+      description: role?.description ?? '',
+      permissions: [...(role?.permissions ?? [])],
     })
 
     const togglePermission = (key: string) => {
@@ -908,11 +1066,18 @@ export default function PlatformSection({ section, rows, canManage, health, plat
         className="ta-card mb-4"
         onSubmit={(event: FormEvent) => {
           event.preventDefault()
+          if (isEdit) {
+            void submitApi(`/api/v1/platform/roles/${role.id}`, 'PATCH', form)
+            return
+          }
+
           void submitApi('/api/v1/platform/roles', 'POST', form)
         }}
       >
         <h3 className="mb-4 text-base font-semibold text-[var(--ink)]">
-          {t('platformSectionAddNewRole')}
+          {isEdit
+            ? t('platformSectionEditRole', { name: role.name })
+            : t('platformSectionAddNewRole')}
         </h3>
         <div className="grid gap-3 sm:grid-cols-2">
           <TextInput
@@ -934,7 +1099,7 @@ export default function PlatformSection({ section, rows, canManage, health, plat
             {t('platformSectionPermissions')}
           </label>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {allPlatformPermissions.map((perm) => (
+            {permissionKeys.map((perm) => (
               <label key={perm} className="flex items-center gap-2 rounded border border-[var(--border)] px-3 py-2 text-sm cursor-pointer hover:bg-[var(--surface)]">
                 <input
                   type="checkbox"
@@ -951,7 +1116,7 @@ export default function PlatformSection({ section, rows, canManage, health, plat
         </div>
         <div className="mt-5 flex gap-3">
           <SubmitButtonWithLoader
-            label={t('platformSectionCreateRole')}
+            label={isEdit ? t('platformSectionSaveRole') : t('platformSectionCreateRole')}
             loading={loading}
           />
           <button type="button" onClick={onCancel} className="button-secondary">

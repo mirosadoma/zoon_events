@@ -3,6 +3,8 @@ import { stripLocalePrefix } from '@/lib/localePath'
 
 export type { NavigationGroup }
 
+export type ConsoleMode = 'platform' | 'organizer'
+
 export function normalizeNavPath(path: string): string {
   return stripLocalePrefix(path.split('?')[0]?.split('#')[0] ?? path)
 }
@@ -38,35 +40,8 @@ export function isNavItemActive(currentPath: string, itemHref: string, currentHa
   return path.startsWith(`${itemPath}/`)
 }
 
-export const platformNavigationGroups: NavigationGroup[] = [
-  {
-    key: 'menu',
-    label: 'navGroupMenu',
-    items: [
-      { key: 'overview', label: 'overview', href: '/dashboard', icon: 'overview', permission: null },
-    ],
-  },
-  {
-    key: 'administration',
-    label: 'navGroupAdministration',
-    items: [
-      { key: 'admin-users', label: 'users', href: '/admin/users', icon: 'admin-users', permission: 'membership.view' },
-      { key: 'admin-roles', label: 'roles', href: '/admin/roles', icon: 'admin-roles', permission: 'role.view' },
-      { key: 'admin-tenant-settings', label: 'tenantSettings', href: '/admin/tenant-settings', icon: 'admin-tenant-settings', permission: 'tenant.view' },
-      { key: 'admin-audit', label: 'audit', href: '/admin/audit-logs', icon: 'admin-audit', permission: 'audit.view' },
-    ],
-  },
-//   {
-//     key: 'marketplace',
-//     label: 'navGroupMarketplace',
-//     items: [
-//       { key: 'venues', label: 'venues', href: '/tenant/venues', icon: 'venues', permission: 'venue.manage' },
-//       { key: 'marketplace', label: 'marketplace', href: '/tenant/marketplace', icon: 'marketplace', permission: 'marketplace.manage' },
-//       { key: 'rentals', label: 'marketplaceRentals', href: '/tenant/marketplace/rentals', icon: 'rentals', permission: null, permissionsAny: ['marketplace.manage', 'rentals.approve', 'reports.view'] },
-//       { key: 'statements', label: 'marketplaceStatements', href: '/tenant/marketplace/statements', icon: 'statements', permission: 'reports.view' },
-//       { key: 'platform-marketplace', label: 'platformMarketplace', href: '/platform/marketplace', icon: 'platform-marketplace', permission: 'platform.marketplace.view' },
-//     ],
-//   },
+/** Platform / super-admin console navigation (`/platform/*` only). */
+export const platformAdminNavigationGroups: NavigationGroup[] = [
   {
     key: 'platform-admin',
     label: 'navGroupAdminControl',
@@ -80,9 +55,6 @@ export const platformNavigationGroups: NavigationGroup[] = [
     key: 'platform',
     label: 'navGroupPlatform',
     items: [
-      { key: 'privileges', label: 'privileges', href: '/tenant/privileges', icon: 'privileges', permission: 'privilege.view' },
-      { key: 'categories', label: 'categories', href: '/tenant/categories', icon: 'categories', permission: 'category.view' },
-      { key: 'events', label: 'events', href: '/tenant/events', icon: 'events', permission: 'event.view' },
       { key: 'all-events', label: 'allEvents', href: '/platform/all-events', icon: 'events', permission: 'platform.event.view' },
       { key: 'tenants', label: 'tenants', href: '/platform/tenants', icon: 'tenants', permission: 'platform.tenant.view' },
       { key: 'site-settings', label: 'siteSettings', href: '/platform/site-settings', icon: 'site-settings', permission: 'platform.configuration.view' },
@@ -95,7 +67,49 @@ export const platformNavigationGroups: NavigationGroup[] = [
   },
 ]
 
-/** @deprecated Use platformNavigationGroups */
+/** Organizer / tenant console navigation. */
+export const organizerNavigationGroups: NavigationGroup[] = [
+  {
+    key: 'menu',
+    label: 'navGroupMenu',
+    items: [
+      { key: 'overview', label: 'overview', href: '/dashboard', icon: 'overview', permission: null },
+    ],
+  },
+  {
+    key: 'administration',
+    label: 'navGroupAdministration',
+    items: [
+      { key: 'admin-users', label: 'users', href: '/admin/users', icon: 'admin-users', permission: 'membership.view' },
+      { key: 'admin-roles', label: 'roles', href: '/admin/roles', icon: 'admin-roles', permission: 'role.view' },
+    ],
+  },
+  {
+    key: 'workspace',
+    label: 'navGroupPlatform',
+    items: [
+      { key: 'privileges', label: 'privileges', href: '/tenant/privileges', icon: 'privileges', permission: 'privilege.view' },
+      { key: 'categories', label: 'categories', href: '/tenant/categories', icon: 'categories', permission: 'category.view' },
+      { key: 'events', label: 'events', href: '/tenant/events', icon: 'events', permission: 'event.view' },
+    ],
+  },
+]
+
+/** @deprecated Prefer console-specific groups via navigationGroupsForConsole */
+export const platformNavigationGroups: NavigationGroup[] = [
+  ...organizerNavigationGroups,
+  ...platformAdminNavigationGroups,
+]
+
+export function navigationGroupsForConsole(console: ConsoleMode | null | undefined): NavigationGroup[] {
+  return console === 'platform' ? platformAdminNavigationGroups : organizerNavigationGroups
+}
+
+export function consoleHomePath(console: ConsoleMode | null | undefined): string {
+  return console === 'platform' ? '/platform/tenants' : '/dashboard'
+}
+
+/** @deprecated Use platformNavigationGroups / navigationGroupsForConsole */
 export const platformNavigation: NavigationItem[] = platformNavigationGroups.flatMap((group) => group.items)
 
 export function filterNavigation(

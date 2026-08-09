@@ -2,15 +2,18 @@
 
 namespace App\Modules\Tenancy\Http\Controllers;
 
+use App\Exceptions\FoundationException;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Modules\Audit\Application\AuditWriter;
 use App\Modules\Authorization\Infrastructure\Persistence\Models\Permission;
 use App\Modules\Authorization\Infrastructure\Persistence\Models\TenantRole;
+use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Shared\Application\Pagination\CursorPaginator;
 use App\Modules\Shared\Domain\LifecycleStatus;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
 use App\Modules\Tenancy\Application\Actions\ChangeTenantStatus;
+use App\Modules\Tenancy\Application\Queries\ResolveTenantAdminUser;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\Tenant;
 use App\Modules\Tenancy\Infrastructure\Persistence\Models\TenantMembership;
 use Illuminate\Http\Request;
@@ -27,6 +30,7 @@ class PlatformTenantController extends Controller
         private readonly ChangeTenantStatus $changeTenantStatus,
         private readonly CursorPaginator $paginator,
         private readonly AuditWriter $audit,
+        private readonly ResolveTenantAdminUser $resolveTenantAdminUser,
     ) {}
 
     public function index(Request $request)
@@ -81,6 +85,7 @@ class PlatformTenantController extends Controller
                 'name' => $validated['organization_name'],
                 'slug' => $slug,
                 'status' => 'active',
+                'is_active' => true,
                 'organization_type' => 'organizer',
                 'default_locale' => 'ar',
                 'timezone' => 'Asia/Riyadh',
@@ -145,28 +150,50 @@ class PlatformTenantController extends Controller
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:160'],
             'status' => ['sometimes', 'in:active,suspended,deactivated'],
+            'is_active' => ['sometimes', 'boolean'],
             'organization_type' => ['sometimes', 'in:organizer,venue_owner,hybrid'],
             'default_locale' => ['sometimes', 'in:en,ar'],
             'timezone' => ['sometimes', 'string', 'max:64'],
             'data_residency_region' => ['sometimes', 'string', 'max:64'],
+            'phone' => ['sometimes', 'nullable', 'string', 'max:30'],
             'reason' => ['required', 'string', 'max:500'],
         ]);
+
+        if (array_key_exists('is_active', $validated)) {
+            $validated['is_active'] = (bool) $validated['is_active'];
+        }
 
         /** @var User $actor */
         $actor = $request->user();
         $tenant = $this->changeTenantStatus->handle(
             $tenant,
-            collect($validated)->except('reason')->all(),
+            collect($validated)->except(['reason', 'phone'])->all(),
             $actor,
             $validated['reason'],
         );
 
-        return $this->success($this->mapTenant($tenant));
+        if (array_key_exists('phone', $validated)) {
+            $adminUser = $this->resolveTenantAdminUser->handle($tenant);
+            if ($adminUser instanceof User) {
+                $adminUser->update([
+                    'phone' => $validated['phone'],
+                ]);
+            }
+        }
+
+        return $this->success($this->mapTenant($tenant->refresh()));
     }
 
     public function destroy(Request $request, string $tenantId)
     {
         $tenant = Tenant::query()->findOrFail($tenantId);
+
+        if ($this->tenantHasBlockingEvents($tenant)) {
+            throw FoundationException::conflict(
+                'tenant_has_active_events',
+                'You cannot delete this tenant because it has events that are published or scheduled to start.',
+            );
+        }
 
         /** @var User $actor */
         $actor = $request->user();
@@ -191,20 +218,37 @@ class PlatformTenantController extends Controller
         return $this->success(null, 204);
     }
 
+    private function tenantHasBlockingEvents(Tenant $tenant): bool
+    {
+        return Event::query()
+            ->withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->where(function ($query): void {
+                $query->whereIn('status', [
+                    'published',
+                    'registration_open',
+                    'registration_closed',
+                    'live',
+                ])->orWhere(function ($upcoming): void {
+                    $upcoming
+                        ->whereNotNull('start_at')
+                        ->where('start_at', '>', now())
+                        ->whereNotIn('status', ['cancelled', 'archived', 'completed']);
+                });
+            })
+            ->exists();
+    }
+
     private function mapTenant(Tenant $tenant): array
     {
-        $admin = TenantMembership::query()
-            ->where('tenant_id', $tenant->id)
-            ->where('status', 'active')
-            ->first();
-
-        $adminUser = $admin ? User::query()->find($admin->user_id) : null;
+        $adminUser = $this->resolveTenantAdminUser->handle($tenant);
 
         return [
             'id' => (string) $tenant->id,
             'name' => $tenant->name,
             'slug' => $tenant->slug,
             'status' => $tenant->status->value,
+            'is_active' => (bool) $tenant->is_active,
             'organization_type' => $tenant->organization_type->value,
             'default_locale' => $tenant->default_locale,
             'timezone' => $tenant->timezone,

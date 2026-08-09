@@ -183,6 +183,7 @@ Route::prefix('{locale}')
             Route::get('/dashboard/search', SearchController::class)->name('dashboard.search');
             Route::get('/profile', [DashboardController::class, 'profile'])->name('profile');
             Route::patch('/profile', [DashboardController::class, 'updateProfile'])->name('profile.update');
+            Route::put('/profile/password', [DashboardController::class, 'updatePassword'])->name('profile.password.update');
             Route::get('/platform/site-settings', [SiteSettingsController::class, 'edit'])->name('platform.site-settings');
             Route::patch('/platform/site-settings', [SiteSettingsController::class, 'update'])->name('platform.site-settings.update');
             Route::get('/platform/geography', [GeographyAdminController::class, 'index'])->name('platform.geography');

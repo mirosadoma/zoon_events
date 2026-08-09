@@ -5,7 +5,8 @@ namespace App\Modules\Authorization\Http\Controllers;
 use App\Exceptions\FoundationException;
 use App\Http\Controllers\Controller;
 use App\Modules\Audit\Application\AuditWriter;
-use App\Modules\Authorization\Infrastructure\Persistence\Models\Permission;
+use App\Modules\Authorization\Application\EnsurePermissionsExist;
+use App\Modules\Authorization\Domain\PermissionCatalog;
 use App\Modules\Authorization\Infrastructure\Persistence\Models\TenantRole;
 use App\Modules\Shared\Application\Pagination\CursorPaginator;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
@@ -23,6 +24,7 @@ class TenantRoleController extends Controller
         private readonly TenantContextStore $contextStore,
         private readonly AuditWriter $audit,
         private readonly CursorPaginator $paginator,
+        private readonly EnsurePermissionsExist $ensurePermissions,
     ) {}
 
     public function index(Request $request)
@@ -104,20 +106,16 @@ class TenantRoleController extends Controller
         $context = $this->contextStore->current();
         $validated = $request->validate([
             'permissions' => ['required', 'array', 'max:100'],
-            'permissions.*' => ['string', Rule::exists('permissions', 'key')->where('scope', 'tenant')],
+            'permissions.*' => ['string', Rule::in(PermissionCatalog::tenantKeys())],
         ]);
-
-        $permissionIds = Permission::query()
-            ->where('scope', 'tenant')
-            ->whereIn('key', $validated['permissions'])
-            ->pluck('id')
-            ->all();
 
         if ($role_id->is_system) {
             abort(409, 'System roles cannot be modified.');
         }
 
-        DB::transaction(function () use ($role_id, $permissionIds, $context): void {
+        DB::transaction(function () use ($role_id, $validated, $context): void {
+            $permissionIds = $this->ensurePermissions->forScope('tenant', $validated['permissions']);
+
             DB::table('tenant_role_permissions')->where('tenant_role_id', $role_id->id)->delete();
             foreach ($permissionIds as $permissionId) {
                 DB::table('tenant_role_permissions')->insert([

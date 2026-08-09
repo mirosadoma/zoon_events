@@ -10,6 +10,9 @@ use App\Modules\AdminConsole\ViewModels\FoundationDashboardViewModel;
 use App\Modules\Tenancy\Domain\Context\TenantContextStore;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -56,6 +59,7 @@ final class DashboardController extends Controller
 
         $validated = request()->validate([
             'name' => ['required', 'string', 'max:160'],
+            'phone' => ['nullable', 'string', 'max:30'],
             'preferred_locale' => ['required', 'in:en,ar'],
         ]);
 
@@ -63,5 +67,28 @@ final class DashboardController extends Controller
         Cookie::queue('locale', $validated['preferred_locale'], 60 * 24 * 365);
 
         return back()->with('status', 'profile-updated');
+    }
+
+    public function updatePassword(): RedirectResponse
+    {
+        $user = request()->user();
+        abort_if($user === null, 403);
+
+        $validated = request()->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'confirmed', Password::defaults()],
+        ]);
+
+        if (! Hash::check($validated['current_password'], $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['The current password is incorrect.'],
+            ]);
+        }
+
+        $user->forceFill([
+            'password' => Hash::make($validated['password']),
+        ])->save();
+
+        return back()->with('status', 'profile-password-updated');
     }
 }
