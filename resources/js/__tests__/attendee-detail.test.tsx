@@ -29,6 +29,8 @@ vi.mock('@/hooks/useLocale', () => ({
     t: (key: string) => ({
       attendeeDetail: 'Attendee profile',
       attendeeActions: 'Attendee actions',
+      attendeePaneRegistrationForm: 'Registration form',
+      attendeePaneNoRegistrationData: 'No registration answers for this attendee.',
       viewEntryCard: 'View entry card',
       viewEntryCardHelp: 'Open the public confirmation page with QR code and wallet pass links.',
       printBadge: 'Print badge',
@@ -71,6 +73,18 @@ describe('attendee detail', () => {
           order_id: 'order_1',
           entry_card_url: 'https://zoon.test/en/public/orders/ord_test?signature=abc',
           registered_at: '2026-07-01T10:00:00Z',
+          registration_fields: [
+            {
+              key: 'company',
+              label: { en: 'Company', ar: 'الشركة' },
+              value: { en: 'Aictec', ar: 'Aictec' },
+            },
+            {
+              key: 'job_title',
+              label: { en: 'Job title', ar: 'المسمى الوظيفي' },
+              value: { en: 'Engineer', ar: 'مهندس' },
+            },
+          ],
           credential: {
             id: '42',
             status: 'active',
@@ -82,6 +96,11 @@ describe('attendee detail', () => {
 
     expect(screen.getByRole('heading', { name: 'ndee_1' })).toBeInTheDocument()
     expect(screen.getByText('Attendee profile')).toBeInTheDocument()
+    expect(screen.getByText('Registration form')).toBeInTheDocument()
+    expect(screen.getByText('Company')).toBeInTheDocument()
+    expect(screen.getByText('Aictec')).toBeInTheDocument()
+    expect(screen.getByText('Job title')).toBeInTheDocument()
+    expect(screen.getByText('Engineer')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'View entry card' })).toHaveAttribute(
       'href',
       'https://zoon.test/en/public/orders/ord_test?signature=abc',
@@ -89,5 +108,24 @@ describe('attendee detail', () => {
     expect(screen.getByRole('button', { name: 'Print badge' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Manual check-in' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument()
+  })
+
+  it('shows empty registration state when answers are missing', () => {
+    render(
+      <AttendeeDetailPage
+        tenantId="ten_1"
+        event={{ id: 'evt_1', name: { en: 'Summit', ar: 'القمة' } }}
+        attendee={{
+          id: 'attendee_2',
+          label: 'ndee_2',
+          status: 'not_checked_in',
+          locale: 'en',
+          registration_fields: [],
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Registration form')).toBeInTheDocument()
+    expect(screen.getByText('No registration answers for this attendee.')).toBeInTheDocument()
   })
 })

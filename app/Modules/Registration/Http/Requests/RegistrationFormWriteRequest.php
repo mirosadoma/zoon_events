@@ -31,6 +31,7 @@ final class RegistrationFormWriteRequest extends FormRequest
             'fields.*.options.*.value' => ['sometimes', 'nullable', 'string', 'max:64'],
             'fields.*.options.*.label_en' => ['sometimes', 'nullable', 'string', 'max:160'],
             'fields.*.options.*.label_ar' => ['sometimes', 'nullable', 'string', 'max:160'],
+            'fields.*.options.*.linked_text' => ['sometimes', 'boolean'],
             'fields.*.default' => ['sometimes', 'nullable'],
             'fields.*.validation' => ['sometimes', 'array'],
             'privacy_notice_version' => ['required', 'string', 'max:80'],

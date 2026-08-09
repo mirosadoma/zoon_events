@@ -4,6 +4,7 @@ namespace App\Modules\AdminConsole\Application\Support;
 
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
+use App\Modules\Registration\Domain\Fields\FormFieldChoiceOptions;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationFormVersion;
 use App\Modules\Registration\Infrastructure\Persistence\Models\RegistrationSubmission;
 use App\Modules\Shared\Application\DataProtection\PersonalDataCipher;
@@ -57,12 +58,12 @@ final readonly class AttendeeRegistrationAnswersPresenter
 
             $answers = $this->answersFor($event, $attendee, $submissions);
             foreach ($answers as $key => $raw) {
-                if (! is_string($key) || $key === '') {
+                if (! is_string($key) || $key === '' || FormFieldChoiceOptions::isLinkedTextAnswerKey($key)) {
                     continue;
                 }
 
                 $meta = $fields[$key] ?? null;
-                $value = $this->displayAnswer($raw, $meta['options'] ?? []);
+                $value = $this->displayAnswer($raw, $meta['options'] ?? [], $key, $answers);
                 if ($value['en'] === '' && $value['ar'] === '') {
                     continue;
                 }
@@ -205,9 +206,10 @@ final readonly class AttendeeRegistrationAnswersPresenter
 
     /**
      * @param  array<string, array{en: string, ar: string}>  $options
+     * @param  array<string, mixed>  $answers
      * @return array{en: string, ar: string}
      */
-    private function displayAnswer(mixed $raw, array $options): array
+    private function displayAnswer(mixed $raw, array $options, string $fieldKey = '', array $answers = []): array
     {
         if ($raw === null) {
             return ['en' => '', 'ar' => ''];
@@ -220,7 +222,7 @@ final readonly class AttendeeRegistrationAnswersPresenter
         }
 
         if (is_scalar($raw)) {
-            return $this->resolveOptionLabel(trim((string) $raw), $options);
+            return $this->resolveOptionLabelWithLinkedText(trim((string) $raw), $options, $fieldKey, $answers);
         }
 
         if (is_array($raw)) {
@@ -231,7 +233,7 @@ final readonly class AttendeeRegistrationAnswersPresenter
                     continue;
                 }
 
-                $resolved = $this->resolveOptionLabel(trim((string) $item), $options);
+                $resolved = $this->resolveOptionLabelWithLinkedText(trim((string) $item), $options, $fieldKey, $answers);
                 if ($resolved['en'] !== '') {
                     $enParts[] = $resolved['en'];
                 }
@@ -247,6 +249,39 @@ final readonly class AttendeeRegistrationAnswersPresenter
         }
 
         return ['en' => '', 'ar' => ''];
+    }
+
+    /**
+     * @param  array<string, array{en: string, ar: string}>  $options
+     * @param  array<string, mixed>  $answers
+     * @return array{en: string, ar: string}
+     */
+    private function resolveOptionLabelWithLinkedText(
+        string $value,
+        array $options,
+        string $fieldKey,
+        array $answers,
+    ): array {
+        $resolved = $this->resolveOptionLabel($value, $options);
+        if ($resolved['en'] === '' && $resolved['ar'] === '') {
+            return $resolved;
+        }
+
+        if ($fieldKey === '' || $value === '') {
+            return $resolved;
+        }
+
+        $linkedKey = FormFieldChoiceOptions::linkedTextAnswerKey($fieldKey, $value);
+        $linkedRaw = $answers[$linkedKey] ?? null;
+        $linkedText = is_string($linkedRaw) ? trim($linkedRaw) : '';
+        if ($linkedText === '') {
+            return $resolved;
+        }
+
+        return [
+            'en' => $resolved['en'].' ('.$linkedText.')',
+            'ar' => $resolved['ar'].' ('.$linkedText.')',
+        ];
     }
 
     /**

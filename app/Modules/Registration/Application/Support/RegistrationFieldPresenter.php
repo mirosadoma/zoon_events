@@ -72,21 +72,28 @@ final class RegistrationFieldPresenter
         return $mapped;
     }
 
-    /** @return list<array{value:string,label_en:string,label_ar:string}> */
+    /** @return list<array{value:string,label_en:string,label_ar:string,linked_text?:bool}> */
     private function publicOptions(mixed $options): array
     {
         return FormFieldChoiceOptions::normalizeForStorage(is_array($options) ? $options : []);
     }
 
-    /** @return list<array{id:string,label_en:string,label_ar:string}> */
+    /** @return list<array{id:string,label_en:string,label_ar:string,linked_text?:bool}> */
     private function builderOptions(mixed $options): array
     {
         return array_map(
-            static fn (array $option): array => [
-                'id' => $option['value'],
-                'label_en' => $option['label_en'],
-                'label_ar' => $option['label_ar'],
-            ],
+            static function (array $option): array {
+                $row = [
+                    'id' => $option['value'],
+                    'label_en' => $option['label_en'],
+                    'label_ar' => $option['label_ar'],
+                ];
+                if (! empty($option['linked_text'])) {
+                    $row['linked_text'] = true;
+                }
+
+                return $row;
+            },
             $this->publicOptions($options),
         );
     }

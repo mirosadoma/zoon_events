@@ -3598,6 +3598,32 @@ html:not(.dark) .event-detail-metric {
   gap: 0.5rem;
 }
 
+.registration-choice-option-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.registration-choice-linked-text {
+  width: 100%;
+}
+
+.registration-choice-linked-text input[type='text'] {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--choice-accent, var(--reg-primary, #2563eb)) 35%, var(--border));
+  border-radius: 0.55rem;
+  background: var(--surface-elevated, #fff);
+  color: inherit;
+  padding: 0.55rem 0.75rem;
+  font: inherit;
+}
+
+.registration-choice-linked-text input[type='text']:focus {
+  outline: 2px solid color-mix(in srgb, var(--choice-accent, var(--reg-primary, #2563eb)) 45%, transparent);
+  outline-offset: 1px;
+}
+
 .registration-choice-option {
   position: relative;
   display: flex;

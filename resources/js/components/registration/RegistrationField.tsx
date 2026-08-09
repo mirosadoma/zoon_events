@@ -1,6 +1,7 @@
-import type { CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { ValidationError } from '@/components/forms/TextInput'
 import { FORM_FIELD_INVALID_CLASS } from '@/lib/formFieldStyles'
+import { linkedTextAnswerKey } from '@/lib/linkedTextAnswerKey'
 import en from '@/locales/en'
 import ar from '@/locales/ar'
 
@@ -8,6 +9,7 @@ export type FieldOption = {
   value: string
   label_en: string
   label_ar: string
+  linked_text?: boolean
 }
 
 export type PublicFormField = {
@@ -66,6 +68,45 @@ function fieldPlaceholder(field: PublicFormField, messages: typeof en): string |
   return undefined
 }
 
+function LinkedTextInput({
+  fieldKey,
+  option,
+  locale,
+  messages,
+  disabled,
+  error,
+}: {
+  fieldKey: string
+  option: FieldOption
+  locale: 'en' | 'ar'
+  messages: typeof en
+  disabled?: boolean
+  error?: string
+}) {
+  const name = linkedTextAnswerKey(fieldKey, option.value)
+  const inputId = `registration-field-${name}`
+
+  return (
+    <div className={`registration-choice-linked-text${error ? ` ${FORM_FIELD_INVALID_CLASS}` : ''}`}>
+      <label htmlFor={inputId} className="sr-only">
+        {messages.publicRegistrationLinkedTextLabel.replace(':option', optionLabel(option, locale))}
+      </label>
+      <input
+        id={inputId}
+        type="text"
+        name={name}
+        required
+        disabled={disabled}
+        placeholder={messages.publicRegistrationLinkedTextPlaceholder}
+        data-form-field={name}
+        aria-invalid={error ? 'true' : undefined}
+        className={error ? FORM_FIELD_INVALID_CLASS : undefined}
+      />
+      {error ? <ValidationError message={error} /> : null}
+    </div>
+  )
+}
+
 export function RegistrationField({
   field,
   locale,
@@ -74,6 +115,7 @@ export function RegistrationField({
   defaultValue,
   value,
   error,
+  linkedTextErrors,
   'data-form-field': dataFormField,
 }: {
   field: PublicFormField
@@ -84,6 +126,7 @@ export function RegistrationField({
   /** When set, the input is controlled (used to lock invite emails). */
   value?: string
   error?: string
+  linkedTextErrors?: Record<string, string>
   'data-form-field'?: string
 }) {
   const label = locale === 'ar' ? field.label_ar : field.label_en
@@ -94,6 +137,8 @@ export function RegistrationField({
   const required = Boolean(field.required && !readOnly)
   const fieldError = error ? <ValidationError message={error} /> : null
   const invalidClass = error ? FORM_FIELD_INVALID_CLASS : ''
+  const [radioValue, setRadioValue] = useState('')
+  const [checkboxValues, setCheckboxValues] = useState<string[]>([])
 
   if (field.type === 'radio') {
     if (options.length === 0) {
@@ -113,20 +158,39 @@ export function RegistrationField({
           {showRequiredMark ? <span className="registration-field-required" aria-hidden="true">*</span> : null}
         </legend>
         <div className={`registration-choice-options registration-choice-options--${style}`}>
-          {options.map((option) => (
-            <label key={option.value} className={`registration-choice-option registration-choice-option--${style}`}>
-              <input
-                type="radio"
-                name={field.key}
-                value={option.value}
-                required={required}
-                aria-required={required}
-                disabled={disabled}
-              />
-              <span className="registration-choice-control" aria-hidden="true" />
-              <span className="registration-choice-label">{optionLabel(option, locale)}</span>
-            </label>
-          ))}
+          {options.map((option) => {
+            const selected = radioValue === option.value
+            const linkedKey = linkedTextAnswerKey(field.key, option.value)
+
+            return (
+              <div key={option.value} className="registration-choice-option-wrap">
+                <label className={`registration-choice-option registration-choice-option--${style}`}>
+                  <input
+                    type="radio"
+                    name={field.key}
+                    value={option.value}
+                    required={required}
+                    aria-required={required}
+                    disabled={disabled}
+                    checked={selected}
+                    onChange={() => setRadioValue(option.value)}
+                  />
+                  <span className="registration-choice-control" aria-hidden="true" />
+                  <span className="registration-choice-label">{optionLabel(option, locale)}</span>
+                </label>
+                {option.linked_text && selected ? (
+                  <LinkedTextInput
+                    fieldKey={field.key}
+                    option={option}
+                    locale={locale}
+                    messages={messages}
+                    disabled={disabled}
+                    error={linkedTextErrors?.[linkedKey]}
+                  />
+                ) : null}
+              </div>
+            )
+          })}
         </div>
         {fieldError}
       </fieldset>
@@ -215,13 +279,43 @@ export function RegistrationField({
           {showRequiredMark ? <span className="registration-field-required" aria-hidden="true">*</span> : null}
         </legend>
         <div className={`registration-choice-options registration-choice-options--${style}`}>
-          {options.map((option) => (
-            <label key={option.value} className={`registration-choice-option registration-choice-option--${style}`}>
-              <input type="checkbox" name={field.key} value={option.value} disabled={disabled} />
-              <span className="registration-choice-control" aria-hidden="true" />
-              <span className="registration-choice-label">{optionLabel(option, locale)}</span>
-            </label>
-          ))}
+          {options.map((option) => {
+            const selected = checkboxValues.includes(option.value)
+            const linkedKey = linkedTextAnswerKey(field.key, option.value)
+
+            return (
+              <div key={option.value} className="registration-choice-option-wrap">
+                <label className={`registration-choice-option registration-choice-option--${style}`}>
+                  <input
+                    type="checkbox"
+                    name={field.key}
+                    value={option.value}
+                    disabled={disabled}
+                    checked={selected}
+                    onChange={(event) => {
+                      setCheckboxValues((prev) => (
+                        event.target.checked
+                          ? [...prev, option.value]
+                          : prev.filter((item) => item !== option.value)
+                      ))
+                    }}
+                  />
+                  <span className="registration-choice-control" aria-hidden="true" />
+                  <span className="registration-choice-label">{optionLabel(option, locale)}</span>
+                </label>
+                {option.linked_text && selected ? (
+                  <LinkedTextInput
+                    fieldKey={field.key}
+                    option={option}
+                    locale={locale}
+                    messages={messages}
+                    disabled={disabled}
+                    error={linkedTextErrors?.[linkedKey]}
+                  />
+                ) : null}
+              </div>
+            )
+          })}
         </div>
         {fieldError}
       </fieldset>

@@ -57,11 +57,27 @@ final readonly class EncryptedSubmissionCreator implements SubmissionCreator
             }
             if ($type === FormFieldType::Consent) {
                 $storedAnswers[$key] = true;
+
                 continue;
             }
             $storedAnswers[$key] = in_array($key, $activeKeys, true)
                 ? $answers[$key]
                 : ($field['default'] ?? null);
+
+            if (! in_array($key, $activeKeys, true)) {
+                continue;
+            }
+
+            foreach (FormFieldChoiceOptions::linkedTextValues((array) ($field['options'] ?? [])) as $optionValue) {
+                $linkedKey = FormFieldChoiceOptions::linkedTextAnswerKey((string) $key, $optionValue);
+                if (! FormFieldChoiceOptions::optionIsSelected($answers[$key] ?? null, $optionValue)) {
+                    continue;
+                }
+                if (! array_key_exists($linkedKey, $answers)) {
+                    continue;
+                }
+                $storedAnswers[$linkedKey] = $answers[$linkedKey];
+            }
         }
         $consent = [
             'privacy_notice_version' => $form->privacy_notice_version,
@@ -109,6 +125,13 @@ final readonly class EncryptedSubmissionCreator implements SubmissionCreator
     private function validateAnswers(Collection $fields, array $answers): array
     {
         $allowedKeys = $fields->pluck('key')->all();
+        foreach ($fields as $field) {
+            $fieldKey = (string) ($field['key'] ?? '');
+            foreach (FormFieldChoiceOptions::linkedTextValues((array) ($field['options'] ?? [])) as $optionValue) {
+                $allowedKeys[] = FormFieldChoiceOptions::linkedTextAnswerKey($fieldKey, $optionValue);
+            }
+        }
+
         $unknownKeys = array_diff(array_keys($answers), $allowedKeys);
         $errors = [];
 
@@ -128,6 +151,7 @@ final readonly class EncryptedSubmissionCreator implements SubmissionCreator
 
             if ($message !== null) {
                 $errors["answers.{$key}"] = [$message];
+
                 continue;
             }
 
@@ -139,6 +163,14 @@ final readonly class EncryptedSubmissionCreator implements SubmissionCreator
             } elseif (($field['required'] ?? false) === false) {
                 $normalized[$key] = $value;
             }
+
+            [$linkedErrors, $linkedValues] = $this->validateLinkedTexts($field, $value, $answers);
+            foreach ($linkedErrors as $linkedKey => $linkedMessage) {
+                $errors["answers.{$linkedKey}"] = [$linkedMessage];
+            }
+            foreach ($linkedValues as $linkedKey => $linkedValue) {
+                $normalized[$linkedKey] = $linkedValue;
+            }
         }
 
         if ($errors !== []) {
@@ -146,6 +178,50 @@ final readonly class EncryptedSubmissionCreator implements SubmissionCreator
         }
 
         return $normalized;
+    }
+
+    /**
+     * @param  array<string, mixed>  $field
+     * @param  array<string, mixed>  $answers
+     * @return array{0: array<string, string>, 1: array<string, string>}
+     */
+    private function validateLinkedTexts(array $field, mixed $selectedValue, array $answers): array
+    {
+        $type = FormFieldType::tryFrom((string) ($field['type'] ?? ''));
+        if ($type !== FormFieldType::Radio && $type !== FormFieldType::Checkbox) {
+            return [[], []];
+        }
+
+        $fieldKey = (string) ($field['key'] ?? '');
+        $errors = [];
+        $values = [];
+
+        foreach (FormFieldChoiceOptions::linkedTextValues((array) ($field['options'] ?? [])) as $optionValue) {
+            $linkedKey = FormFieldChoiceOptions::linkedTextAnswerKey($fieldKey, $optionValue);
+            $raw = $answers[$linkedKey] ?? null;
+            $text = is_string($raw) ? trim($raw) : '';
+
+            if (! FormFieldChoiceOptions::optionIsSelected($selectedValue, $optionValue)) {
+                continue;
+            }
+
+            if ($text === '') {
+                $errors[$linkedKey] = 'is required.';
+
+                continue;
+            }
+
+            $maxLength = (int) (((array) ($field['validation'] ?? []))['max_length'] ?? 5000);
+            if (mb_strlen($text) > $maxLength) {
+                $errors[$linkedKey] = 'exceeds its maximum length.';
+
+                continue;
+            }
+
+            $values[$linkedKey] = $text;
+        }
+
+        return [$errors, $values];
     }
 
     /** @param array<string,mixed> $field */
@@ -194,7 +270,7 @@ final readonly class EncryptedSubmissionCreator implements SubmissionCreator
         if (! $valid) {
             return match ($type) {
                 FormFieldType::Email => 'must be a valid email address.',
-            FormFieldType::Phone => 'must be a 10-digit phone number starting with 05.',
+                FormFieldType::Phone => 'must be a 10-digit phone number starting with 05.',
                 default => 'is invalid.',
             };
         }

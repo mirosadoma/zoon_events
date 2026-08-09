@@ -138,7 +138,7 @@ final readonly class AttendeeDetailViewModel
 
     /**
      * @param  array{id: string, name: array{en: string, ar: string}}|null  $currentZone
-     * @param  list<array{key: string, label: array{en: string, ar: string}, value: string}>  $registrationFields
+     * @param  list<array{key: string, label: array{en: string, ar: string}, value: array{en: string, ar: string}|string}>  $registrationFields
      * @return array<string, mixed>
      */
     private function attendeeRow(

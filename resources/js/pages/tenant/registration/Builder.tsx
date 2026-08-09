@@ -49,7 +49,7 @@ import {
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-type FieldOptionRow = { id: string; label_en: string; label_ar: string; value?: string }
+type FieldOptionRow = { id: string; label_en: string; label_ar: string; value?: string; linked_text?: boolean }
 
 function normalizeFieldOptions(options: Array<Partial<FieldOptionRow> & { value?: string }> | undefined): FieldOptionRow[] | undefined {
   if (!options) {
@@ -64,6 +64,7 @@ function normalizeFieldOptions(options: Array<Partial<FieldOptionRow> & { value?
       value: String(option.value ?? id),
       label_en: option.label_en ?? '',
       label_ar: option.label_ar ?? '',
+      linked_text: Boolean(option.linked_text),
     }
   })
 }
@@ -755,12 +756,16 @@ export default function RegistrationBuilder({
         if (CHOICE_TYPES.has(f.type) && f.options) {
           row.options = f.options.map((o, index) => {
             const value = String(o.id || o.value || `opt_${index + 1}`)
-
-            return {
+            const option: Record<string, unknown> = {
               value,
               label_en: o.label_en,
               label_ar: o.label_ar,
             }
+            if ((f.type === 'radio' || f.type === 'checkbox') && o.linked_text) {
+              option.linked_text = true
+            }
+
+            return option
           })
         }
         return row
@@ -1217,44 +1222,61 @@ export default function RegistrationBuilder({
                         </label>
                         <div className="space-y-2">
                           {(selected.options ?? []).map((opt, i) => (
-                            <div key={opt.id} className="flex gap-1.5 items-center">
-                              <input
-                                value={opt.label_en}
-                                onChange={(e) => {
-                                  const opts = [...(selected.options ?? [])]
-                                  opts[i] = { ...opts[i], label_en: e.target.value }
-                                  updateField(selected.id, { options: opts })
-                                }}
-                                placeholder="EN"
-                                className="flex-1 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--ink)] focus:border-[var(--brand)] focus:outline-none"
-                              />
-                              <input
-                                value={opt.label_ar}
-                                onChange={(e) => {
-                                  const opts = [...(selected.options ?? [])]
-                                  opts[i] = { ...opts[i], label_ar: e.target.value }
-                                  updateField(selected.id, { options: opts })
-                                }}
-                                placeholder="AR"
-                                dir="rtl"
-                                className="flex-1 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--ink)] focus:border-[var(--brand)] focus:outline-none"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const opts = (selected.options ?? []).filter((_, idx) => idx !== i)
-                                  updateField(selected.id, { options: opts })
-                                }}
-                                className="rounded p-0.5 text-[var(--danger,#ef4444)] opacity-60 hover:opacity-100"
-                              >
-                                <X size={12} />
-                              </button>
+                            <div key={opt.id} className="space-y-1 rounded-md border border-[var(--border)] bg-[var(--surface)] p-2">
+                              <div className="flex gap-1.5 items-center">
+                                <input
+                                  value={opt.label_en}
+                                  onChange={(e) => {
+                                    const opts = [...(selected.options ?? [])]
+                                    opts[i] = { ...opts[i], label_en: e.target.value }
+                                    updateField(selected.id, { options: opts })
+                                  }}
+                                  placeholder="EN"
+                                  className="flex-1 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] px-2 py-1 text-xs text-[var(--ink)] focus:border-[var(--brand)] focus:outline-none"
+                                />
+                                <input
+                                  value={opt.label_ar}
+                                  onChange={(e) => {
+                                    const opts = [...(selected.options ?? [])]
+                                    opts[i] = { ...opts[i], label_ar: e.target.value }
+                                    updateField(selected.id, { options: opts })
+                                  }}
+                                  placeholder="AR"
+                                  dir="rtl"
+                                  className="flex-1 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] px-2 py-1 text-xs text-[var(--ink)] focus:border-[var(--brand)] focus:outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const opts = (selected.options ?? []).filter((_, idx) => idx !== i)
+                                    updateField(selected.id, { options: opts })
+                                  }}
+                                  className="rounded p-0.5 text-[var(--danger,#ef4444)] opacity-60 hover:opacity-100"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </div>
+                              {(selected.type === 'radio' || selected.type === 'checkbox') ? (
+                                <label className="flex items-center gap-2 text-[11px] text-[var(--muted)]">
+                                  <input
+                                    type="checkbox"
+                                    checked={Boolean(opt.linked_text)}
+                                    onChange={(e) => {
+                                      const opts = [...(selected.options ?? [])]
+                                      opts[i] = { ...opts[i], linked_text: e.target.checked }
+                                      updateField(selected.id, { options: opts })
+                                    }}
+                                    className="rounded border-[var(--border)]"
+                                  />
+                                  <span>{t('registrationBuilderOptionLinkedText')}</span>
+                                </label>
+                              ) : null}
                             </div>
                           ))}
                           <button
                             type="button"
                             onClick={() => {
-                              const opts = [...(selected.options ?? []), { id: `opt_${Date.now()}`, label_en: '', label_ar: '' }]
+                              const opts = [...(selected.options ?? []), { id: `opt_${Date.now()}`, label_en: '', label_ar: '', linked_text: false }]
                               updateField(selected.id, { options: opts })
                             }}
                             className="flex items-center gap-1 text-xs font-medium text-[var(--brand)] hover:underline"

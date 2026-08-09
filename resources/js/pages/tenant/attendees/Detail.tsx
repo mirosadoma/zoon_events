@@ -30,6 +30,12 @@ type CredentialSummary = {
   revocation_reason?: string | null
 }
 
+type RegistrationFieldRow = {
+  key: string
+  label: { en: string; ar: string }
+  value: string | { en: string; ar: string }
+}
+
 type AttendeeDetail = {
   id: string
   label: string
@@ -45,6 +51,7 @@ type AttendeeDetail = {
   origin?: string | null
   entry_card_url?: string | null
   credential?: CredentialSummary | null
+  registration_fields?: RegistrationFieldRow[]
 }
 
 type IdentityState = {
@@ -222,6 +229,18 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
     return value?.trim() ? value.trim() : notAvailable
   }
 
+  function registrationFieldValue(value: RegistrationFieldRow['value']): string {
+    if (typeof value === 'string') {
+      return value.trim() ? value.trim() : notAvailable
+    }
+
+    const localized = value[locale] || value.en || value.ar
+
+    return localized.trim() ? localized.trim() : notAvailable
+  }
+
+  const registrationFields = attendee.registration_fields ?? []
+
   return (
     <DashboardLayout title={attendee.label}>
       <PageHeader
@@ -289,6 +308,23 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
             // },
           ]}
         />
+
+        <div className="mt-6">
+          {registrationFields.length > 0 ? (
+            <DetailsCard
+              title={t('attendeePaneRegistrationForm')}
+              items={registrationFields.map((field) => ({
+                label: field.label[locale] || field.label.en || field.label.ar || field.key,
+                value: registrationFieldValue(field.value),
+              }))}
+            />
+          ) : (
+            <section className="state-panel">
+              <h2 className="text-lg font-semibold">{t('attendeePaneRegistrationForm')}</h2>
+              <p className="mt-4 text-sm text-[var(--muted)]">{t('attendeePaneNoRegistrationData')}</p>
+            </section>
+          )}
+        </div>
 
         {/* {attendee.credential && (
           <section className="state-panel mt-6">

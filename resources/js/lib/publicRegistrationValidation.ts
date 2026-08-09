@@ -1,6 +1,7 @@
 import type { PublicFormField } from '@/components/registration/RegistrationField'
 import type { FieldLabelMap } from '@/lib/formatValidationErrors'
 import { formFieldProps, formFieldSelector } from '@/lib/formatValidationErrors'
+import { linkedTextAnswerKey } from '@/lib/linkedTextAnswerKey'
 import { isValidRegistrationPhone } from '@/lib/normalizeRegistrationPhone'
 
 export function buildPublicRegistrationFieldLabels(
@@ -17,6 +18,15 @@ export function buildPublicRegistrationFieldLabels(
 
   for (const field of fields) {
     labels[field.key] = { en: field.label_en, ar: field.label_ar }
+    for (const option of field.options ?? []) {
+      if (!option.linked_text) continue
+      const linkedKey = linkedTextAnswerKey(field.key, option.value)
+      const optionName = { en: option.label_en, ar: option.label_ar }
+      labels[linkedKey] = {
+        en: `${field.label_en} (${optionName.en})`,
+        ar: `${field.label_ar} (${optionName.ar})`,
+      }
+    }
   }
 
   return labels
@@ -128,6 +138,23 @@ export function collectPublicRegistrationClientErrors(
     if (field.type === 'phone' && typeof value === 'string' && value.trim() !== '') {
       if (!isValidRegistrationPhone(value)) {
         errors[field.key] = 'must be a 10-digit phone number starting with 05.'
+      }
+    }
+
+    if (field.type === 'radio' || field.type === 'checkbox') {
+      for (const option of field.options ?? []) {
+        if (!option.linked_text) continue
+
+        const selected = field.type === 'radio'
+          ? value === option.value
+          : Array.isArray(value) && value.includes(option.value)
+
+        if (!selected) continue
+
+        const linkedKey = linkedTextAnswerKey(field.key, option.value)
+        if (answerIsEmpty(answers[linkedKey])) {
+          errors[linkedKey] = 'is required.'
+        }
       }
     }
   }

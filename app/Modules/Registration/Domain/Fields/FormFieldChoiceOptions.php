@@ -7,7 +7,12 @@ use InvalidArgumentException;
 
 final class FormFieldChoiceOptions
 {
-    /** @param list<mixed> $options @return list<array{value:string,label_en:string,label_ar:string}> */
+    public const LINKED_TEXT_SUFFIX = '__linked_text';
+
+    /**
+     * @param  list<mixed>  $options
+     * @return list<array{value:string,label_en:string,label_ar:string,linked_text?:bool}>
+     */
     public static function normalizeForStorage(array $options): array
     {
         $normalized = [];
@@ -35,11 +40,17 @@ final class FormFieldChoiceOptions
                 $value = (string) Str::uuid();
             }
 
-            $normalized[] = [
+            $row = [
                 'value' => $value,
                 'label_en' => $labelEn,
                 'label_ar' => $labelAr,
             ];
+
+            if (filter_var($option['linked_text'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+                $row['linked_text'] = true;
+            }
+
+            $normalized[] = $row;
         }
 
         return $normalized;
@@ -74,6 +85,9 @@ final class FormFieldChoiceOptions
             if (trim((string) ($option['label_en'] ?? '')) === '' || trim((string) ($option['label_ar'] ?? '')) === '') {
                 throw new InvalidArgumentException('Choice field options require Arabic and English labels.');
             }
+            if (str_contains($value, self::LINKED_TEXT_SUFFIX)) {
+                throw new InvalidArgumentException('Choice field option values are invalid.');
+            }
 
             $seen[$value] = true;
         }
@@ -95,5 +109,53 @@ final class FormFieldChoiceOptions
         }
 
         return $values;
+    }
+
+    /**
+     * Option values that should reveal a free-text input when selected.
+     *
+     * @param  list<mixed>  $options
+     * @return list<string>
+     */
+    public static function linkedTextValues(array $options): array
+    {
+        $values = [];
+        foreach ($options as $option) {
+            if (! is_array($option)) {
+                continue;
+            }
+            if (! filter_var($option['linked_text'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+                continue;
+            }
+            $value = trim((string) ($option['value'] ?? $option['id'] ?? ''));
+            if ($value !== '') {
+                $values[] = $value;
+            }
+        }
+
+        return $values;
+    }
+
+    public static function linkedTextAnswerKey(string $fieldKey, string $optionValue): string
+    {
+        return $fieldKey.'__'.$optionValue.self::LINKED_TEXT_SUFFIX;
+    }
+
+    public static function isLinkedTextAnswerKey(string $key): bool
+    {
+        return str_ends_with($key, self::LINKED_TEXT_SUFFIX);
+    }
+
+    public static function optionIsSelected(mixed $answer, string $optionValue): bool
+    {
+        if (is_string($answer)) {
+            return $answer === $optionValue;
+        }
+
+        if (is_array($answer)) {
+            return in_array($optionValue, array_map(static fn ($item): string => (string) $item, $answer), true);
+        }
+
+        return false;
     }
 }

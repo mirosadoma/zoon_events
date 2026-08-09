@@ -105,4 +105,78 @@ final class SubmissionValidationTest extends Phase1MySqlTestCase
             'en',
         );
     }
+
+    public function test_linked_text_option_is_required_and_stored_with_choice_answer(): void
+    {
+        $fixture = $this->createRegistrationFixture();
+        $fields = [
+            ...RegistrationSystemFields::definitions(),
+            [
+                'key' => 'heard_about',
+                'type' => 'radio',
+                'label_en' => 'How did you hear about us?',
+                'label_ar' => 'كيف سمعت عنا؟',
+                'required' => true,
+                'visibility' => 'public',
+                'options' => [
+                    ['value' => 'friend', 'label_en' => 'Friend', 'label_ar' => 'صديق'],
+                    ['value' => 'other', 'label_en' => 'Other', 'label_ar' => 'أخرى', 'linked_text' => true],
+                ],
+            ],
+        ];
+        DB::table('registration_form_versions')->where('id', $fixture['form']->id)->update([
+            'fields' => json_encode($fields, JSON_THROW_ON_ERROR),
+            'schema_hash' => app(FormSchemaValidator::class)->canonicalHash($fields),
+        ]);
+
+        try {
+            app(SubmissionCreator::class)->create(
+                $fixture['tenant']->id,
+                $fixture['event']->id,
+                $fixture['form']->id,
+                'linked-text-missing',
+                [
+                    'full_name' => 'Synthetic Attendee',
+                    'email' => 'attendee@example.test',
+                    'phone' => '0501234567',
+                    'heard_about' => 'other',
+                ],
+                ['terms' => true, 'privacy' => true, 'marketing' => false],
+                'en',
+            );
+            self::fail('Expected ValidationException when linked text is missing.');
+        } catch (ValidationException $exception) {
+            self::assertArrayHasKey('answers.heard_about__other__linked_text', $exception->errors());
+        }
+
+        $record = app(SubmissionCreator::class)->create(
+            $fixture['tenant']->id,
+            $fixture['event']->id,
+            $fixture['form']->id,
+            'linked-text-ok',
+            [
+                'full_name' => 'Synthetic Attendee',
+                'email' => 'attendee@example.test',
+                'phone' => '0501234567',
+                'heard_about' => 'other',
+                'heard_about__other__linked_text' => 'Conference booth',
+            ],
+            ['terms' => true, 'privacy' => true, 'marketing' => false],
+            'en',
+        );
+
+        $submission = RegistrationSubmission::query()->findOrFail($record->id);
+        $plaintext = app(PersonalDataCipher::class)->decrypt(
+            ['key_id' => $submission->encryption_key_id, 'ciphertext' => $submission->answers_ciphertext],
+            "{$fixture['tenant']->id}:{$fixture['event']->id}:submission",
+        );
+
+        self::assertSame([
+            'email' => 'attendee@example.test',
+            'full_name' => 'Synthetic Attendee',
+            'heard_about' => 'other',
+            'heard_about__other__linked_text' => 'Conference booth',
+            'phone' => '0501234567',
+        ], json_decode($plaintext, true));
+    }
 }

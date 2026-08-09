@@ -55,4 +55,47 @@ describe('public registration validation', () => {
       email: 'is required.',
     })
   })
+
+  it('requires linked text when a linked radio or checkbox option is selected', () => {
+    const errors = collectPublicRegistrationClientErrors(
+      [
+        {
+          key: 'source',
+          type: 'radio',
+          label_en: 'Source',
+          label_ar: 'المصدر',
+          required: true,
+          options: [
+            { value: 'web', label_en: 'Web', label_ar: 'ويب' },
+            { value: 'other', label_en: 'Other', label_ar: 'أخرى', linked_text: true },
+          ],
+        },
+        {
+          key: 'topics',
+          type: 'checkbox',
+          label_en: 'Topics',
+          label_ar: 'المواضيع',
+          options: [
+            { value: 'ai', label_en: 'AI', label_ar: 'ذكاء' },
+            { value: 'other', label_en: 'Other', label_ar: 'أخرى', linked_text: true },
+          ],
+        },
+      ],
+      {
+        source: 'other',
+        topics: ['other'],
+      },
+      {
+        ticketTypeId: '1',
+        venueRequired: false,
+        venueId: '',
+        acceptedTerms: true,
+      },
+    )
+
+    expect(errors).toMatchObject({
+      'source__other__linked_text': 'is required.',
+      'topics__other__linked_text': 'is required.',
+    })
+  })
 })

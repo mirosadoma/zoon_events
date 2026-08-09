@@ -10,6 +10,7 @@ import { useFormValidation } from '@/hooks/useFormValidation'
 import { useLocale } from '@/hooks/useLocale'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
 import { normalizeRegistrationPhone } from '@/lib/normalizeRegistrationPhone'
+import { linkedTextAnswerKey } from '@/lib/linkedTextAnswerKey'
 import {
   buildPublicRegistrationFieldLabels,
   collectPublicRegistrationClientErrors,
@@ -332,12 +333,22 @@ export default function PublicRegistrationEvent({
         if (values.length > 0) {
           answers[field.key] = values
         }
-        return
+      } else {
+        const value = String(formData.get(field.key) ?? '').trim()
+        if (value !== '') {
+          answers[field.key] = value
+        }
       }
 
-      const value = String(formData.get(field.key) ?? '').trim()
-      if (value !== '') {
-        answers[field.key] = value
+      if (field.type === 'radio' || field.type === 'checkbox') {
+        for (const option of field.options ?? []) {
+          if (!option.linked_text) continue
+          const linkedKey = linkedTextAnswerKey(field.key, option.value)
+          const text = String(formData.get(linkedKey) ?? '').trim()
+          if (text !== '') {
+            answers[linkedKey] = text
+          }
+        }
       }
     })
 
@@ -672,6 +683,15 @@ export default function PublicRegistrationEvent({
                     value={isLockedEmail ? (lockedEmail ?? '') : undefined}
                     defaultValue={isPrefillName ? (prefillName ?? undefined) : undefined}
                     error={validation.fieldError(field.key)}
+                    linkedTextErrors={Object.fromEntries(
+                      (field.options ?? [])
+                        .filter((option) => option.linked_text)
+                        .map((option) => {
+                          const key = linkedTextAnswerKey(field.key, option.value)
+                          return [key, validation.fieldError(key)] as const
+                        })
+                        .filter((entry): entry is [string, string] => Boolean(entry[1])),
+                    )}
                     data-form-field={field.key}
                   />
                 </div>
