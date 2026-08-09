@@ -1,5 +1,14 @@
-import type { RegistrationHeroVenue } from '@/components/registration/RegistrationEventHero'
-import { formatDateOnly, formatDateTime } from '@/lib/formatters'
+import type { LocalizedText } from '@/components/registration/LocalizedEventContent'
+import { formatDateOnly } from '@/lib/formatters'
+
+/** Minimal venue shape needed for select/pill labels (country unused). */
+export type VenueLabelSource = {
+  id?: string
+  name: LocalizedText
+  city: LocalizedText
+  location_address?: string
+  start_at?: string | null
+}
 
 function ordinalSuffix(day: number): string {
   if (day >= 11 && day <= 13) {
@@ -10,7 +19,7 @@ function ordinalSuffix(day: number): string {
 }
 
 export function formatVenuePillLabel(
-  venue: RegistrationHeroVenue,
+  venue: VenueLabelSource,
   locale: 'en' | 'ar',
   timeZone?: string,
 ): string {
@@ -26,7 +35,7 @@ export function formatVenuePillLabel(
 }
 
 export function formatVenueSelectLabel(
-  venue: RegistrationHeroVenue,
+  venue: VenueLabelSource,
   locale: 'en' | 'ar',
   timeZone?: string,
 ): string {
@@ -39,19 +48,13 @@ export function formatVenueSelectLabel(
   }
 
   if (locale === 'ar') {
-    return `${city} - ${venueLabel} - ${formatDateTime(venue.start_at, locale, timeZone)}`
+    return `${city} - ${venueLabel} - ${formatDateOnly(venue.start_at, locale, timeZone)}`
   }
 
   const date = new Date(venue.start_at)
   const weekday = date.toLocaleDateString('en-GB', { weekday: 'long', ...(timeZone ? { timeZone } : {}) })
   const day = Number(date.toLocaleDateString('en-GB', { day: 'numeric', ...(timeZone ? { timeZone } : {}) }))
   const monthYear = date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric', ...(timeZone ? { timeZone } : {}) })
-  const time = date.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-    ...(timeZone ? { timeZone } : {}),
-  })
 
-  return `${city} - ${venueLabel} - ${weekday}, ${day}${ordinalSuffix(day)} ${monthYear} at ${time}`
+  return `${city} - ${venueLabel} - ${weekday}, ${day}${ordinalSuffix(day)} ${monthYear}`
 }

@@ -116,4 +116,49 @@ final class ListEventAttendeesQueryTest extends Phase1MySqlTestCase
         self::assertSame(0, $result['total']);
         self::assertCount(0, $result['attendees']);
     }
+
+    public function test_filters_attendees_by_event_venue_id(): void
+    {
+        $fixture = $this->createRegistrationFixture();
+        $event = $fixture['event'];
+
+        $this->withHeader('Idempotency-Key', 'venue-a-'.Str::lower((string) Str::ulid()))
+            ->postJson(
+                "http://register.example.test/api/v1/public/events/{$event->slug}/registrations",
+                $this->registrationPayload($fixture),
+            )->assertCreated();
+
+        $second = $this->registrationPayload($fixture);
+        $second['attendee']['email'] = 'second@example.test';
+        $second['attendee']['first_name'] = 'Second';
+        $second['answers']['email'] = 'second@example.test';
+        $second['answers']['full_name'] = 'Second Attendee';
+        $second['buyer']['email'] = 'second.buyer@example.test';
+
+        $this->withHeader('Idempotency-Key', 'venue-b-'.Str::lower((string) Str::ulid()))
+            ->postJson(
+                "http://register.example.test/api/v1/public/events/{$event->slug}/registrations",
+                $second,
+            )->assertCreated();
+
+        $attendees = Attendee::query()->where('event_id', $event->id)->orderBy('id')->get();
+        self::assertCount(2, $attendees);
+
+        $attendees[0]->forceFill(['event_venue_id' => 101])->save();
+        $attendees[1]->forceFill(['event_venue_id' => 202])->save();
+
+        $filtered = app(ListEventAttendeesQuery::class)->paginate(
+            (string) $fixture['tenant']->id,
+            (string) $event->id,
+            null,
+            null,
+            1,
+            'public',
+            '101',
+        );
+
+        self::assertSame(1, $filtered['total']);
+        self::assertCount(1, $filtered['attendees']);
+        self::assertSame(101, (int) $filtered['attendees']->first()->event_venue_id);
+    }
 }

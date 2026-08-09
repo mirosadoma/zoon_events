@@ -9,6 +9,7 @@ import SideDetailPane, {
   SideDetailInfoGrid,
   sideDetailActionClassName,
 } from '@/components/layout/SideDetailPane'
+import ConfirmModal from '@/components/modals/ConfirmModal'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
@@ -37,7 +38,8 @@ export default function PrivilegeIndex({ tenantId, privileges: initialPrivileges
   const { toast } = useToast()
   const [privileges, setPrivileges] = useState(initialPrivileges)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     setPrivileges(initialPrivileges)
@@ -48,6 +50,7 @@ export default function PrivilegeIndex({ tenantId, privileges: initialPrivileges
 
   function closePane() {
     setSelectedId(null)
+    setDeleteOpen(false)
   }
 
   function goToEdit() {
@@ -55,25 +58,23 @@ export default function PrivilegeIndex({ tenantId, privileges: initialPrivileges
     router.visit(localizedPath(`/tenant/privileges/${selectedId}/edit`))
   }
 
-  async function handleDelete(privilege: Privilege) {
-    if (privilege.in_use || deletingId) {
+  async function confirmDelete() {
+    if (!selected || deleting || !canManage) {
       return
     }
 
-    if (!confirm(t('privilegeDeleteConfirm').replace(':name', privilege.label))) {
-      return
-    }
-
-    setDeletingId(privilege.id)
+    setDeleting(true)
 
     try {
-      await apiFetch(`/api/v1/tenant/privileges/${privilege.id}`, {
+      await apiFetch(`/api/v1/tenant/privileges/${selected.id}`, {
         method: 'DELETE',
         tenantId,
         idempotency: true,
       })
       toast(t('deleted'), 'success')
-      setPrivileges((current) => current.filter((item) => item.id !== privilege.id))
+      setPrivileges((current) => current.filter((item) => item.id !== selected.id))
+      setDeleteOpen(false)
+      setSelectedId(null)
       router.reload({ only: ['privileges'] })
     } catch (caught) {
       const message = caught instanceof ApiFetchError
@@ -81,7 +82,7 @@ export default function PrivilegeIndex({ tenantId, privileges: initialPrivileges
         : t('privilegeCouldNotDelete')
       toast(message, 'error')
     } finally {
-      setDeletingId(null)
+      setDeleting(false)
     }
   }
 
@@ -164,11 +165,18 @@ export default function PrivilegeIndex({ tenantId, privileges: initialPrivileges
         subtitle={selected?.key || null}
         onClose={closePane}
         onEdit={canManage ? goToEdit : null}
-        onDelete={!selected?.in_use && canManage ? () => handleDelete(selected) : null}
+        onDelete={canManage ? () => setDeleteOpen(true) : null}
         footer={selected && canManage ? (
           <SideDetailActions>
             <button type="button" className={sideDetailActionClassName('primary')} onClick={goToEdit}>
               {t('edit')}
+            </button>
+            <button
+              type="button"
+              className={sideDetailActionClassName('danger')}
+              onClick={() => setDeleteOpen(true)}
+            >
+              {t('delete')}
             </button>
           </SideDetailActions>
         ) : null}
@@ -204,6 +212,21 @@ export default function PrivilegeIndex({ tenantId, privileges: initialPrivileges
           />
         ) : null}
       </SideDetailPane>
+
+      <ConfirmModal
+        open={deleteOpen && selected !== null}
+        title={t('privilegeDeleteTitle')}
+        message={t('privilegeDeleteConfirm', {
+          name: selected
+            ? (locale === 'ar' ? (selected.label_ar || selected.label) : selected.label)
+            : '',
+        })}
+        confirmLabel={t('delete')}
+        cancelLabel={t('cancel')}
+        loading={deleting}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setDeleteOpen(false)}
+      />
     </DashboardLayout>
   )
 }

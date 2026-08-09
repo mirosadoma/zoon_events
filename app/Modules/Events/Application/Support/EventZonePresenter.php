@@ -400,6 +400,7 @@ final class EventZonePresenter
      * @return array{
      *   id: string,
      *   title: array{en: string, ar: string},
+     *   description: array{en: string, ar: string},
      *   start_at: ?string,
      *   end_at: ?string,
      *   agenda_date: ?string,
@@ -422,6 +423,10 @@ final class EventZonePresenter
         return [
             'id' => (string) $item->id,
             'title' => ['en' => $item->title_en, 'ar' => $item->title_ar],
+            'description' => [
+                'en' => (string) ($item->description_en ?? ''),
+                'ar' => (string) ($item->description_ar ?? ''),
+            ],
             'start_at' => EventWallClockDateTime::toIso8601($item->start_at, $timezone),
             'end_at' => EventWallClockDateTime::toIso8601($item->end_at, $timezone),
             'agenda_date' => $agendaDate,

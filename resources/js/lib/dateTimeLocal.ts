@@ -28,6 +28,28 @@ export function toTimeLocalValue(value: string | null | undefined): string {
 }
 
 /**
+ * Format a wall-clock datetime (`YYYY-MM-DDTHH:mm`) for display without browser TZ shift.
+ */
+export function formatWallClockDateTime(value: string | null | undefined, locale: 'en' | 'ar'): string {
+  const local = toDateTimeLocalValue(value)
+  if (!local) {
+    return ''
+  }
+
+  const [datePart, timePart] = local.split('T')
+  const [year, month, day] = datePart.split('-').map(Number)
+  const [hours, minutes] = timePart.split(':').map(Number)
+  const asUtc = new Date(Date.UTC(year, month - 1, day, hours, minutes))
+
+  return new Intl.DateTimeFormat(locale === 'ar' ? 'ar-EG' : 'en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'UTC',
+    numberingSystem: 'latn',
+  }).format(asUtc)
+}
+
+/**
  * Build a naive wall-clock datetime (`YYYY-MM-DDTHH:mm`) from a date source + HH:mm.
  * Does not apply browser timezone conversion.
  */

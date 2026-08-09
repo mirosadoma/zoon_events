@@ -22,12 +22,12 @@ final readonly class AttendeeDetailViewModel
      * @param  Collection<int, Attendee>  $attendees
      * @param  array<string, string>  $credentialStatuses
      * @param  array<string, array{id: string, name: array{en: string, ar: string}}>  $currentZones
-     * @param  array{search?: string|null, status?: string|null, registration_type?: string|null}  $filters
+     * @param  array{search?: string|null, status?: string|null, registration_type?: string|null, event_venue_id?: string|null}  $filters
      * @param  array{page: int, per_page: int, total: int, last_page: int}  $pagination
      * @return array{
      *     event: array<string, mixed>,
      *     attendees: list<array<string, mixed>>,
-     *     filters: array{search: string, status: string, registration_type: string},
+     *     filters: array{search: string, status: string, registration_type: string, event_venue_id: string},
      *     pagination: array{page: int, per_page: int, total: int, last_page: int}
      * }
      */
@@ -50,6 +50,7 @@ final readonly class AttendeeDetailViewModel
                 'search' => (string) ($filters['search'] ?? ''),
                 'status' => (string) ($filters['status'] ?? ''),
                 'registration_type' => (string) ($filters['registration_type'] ?? 'public'),
+                'event_venue_id' => (string) ($filters['event_venue_id'] ?? ''),
             ],
             'pagination' => [
                 'page' => (int) $pagination['page'],
@@ -145,6 +146,7 @@ final readonly class AttendeeDetailViewModel
             'display_name' => $displayName,
             'email' => $email,
             'phone' => $phone,
+            'event_venue_id' => $attendee->event_venue_id !== null ? (string) $attendee->event_venue_id : null,
             'current_zone' => $currentZone,
         ];
     }

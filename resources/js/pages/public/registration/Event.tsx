@@ -1,4 +1,4 @@
-import { FormEvent, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { LocalizedEventContent, type LocalizedText } from '@/components/registration/LocalizedEventContent'
 import RegistrationEventHero, { type RegistrationHeroEvent } from '@/components/registration/RegistrationEventHero'
 import RegistrationPageControls from '@/components/registration/RegistrationPageControls'
@@ -18,10 +18,12 @@ import {
 } from '@/lib/publicRegistrationValidation'
 import {
   hasRegistrationCardBackground,
+  isDocumentDark,
+  normalizeRegistrationTheme,
   registrationCardBackgroundStyle,
-  registrationFontFamily,
   registrationThemeCssVars,
-  type RegistrationThemeBackground,
+  resolveRegistrationFontFamily,
+  type RegistrationThemeConfig,
 } from '@/lib/registrationThemeBackground'
 
 type TicketTypeOption = {
@@ -44,7 +46,7 @@ type CategoryOption = {
   is_full?: boolean
 }
 
-type ThemeConfig = RegistrationThemeBackground
+type ThemeConfig = RegistrationThemeConfig
 
 type Props = {
   locale: 'en' | 'ar'
@@ -195,17 +197,40 @@ export default function PublicRegistrationEvent({
 }: Props) {
   const { t } = useLocale()
   const direction = locale === 'ar' ? 'rtl' : 'ltr'
-  const themeVars = useMemo(() => registrationThemeCssVars(theme), [theme])
+  const [isDark, setIsDark] = useState(() => isDocumentDark())
+  const normalizedTheme = useMemo(() => normalizeRegistrationTheme(theme), [theme])
+
+  useEffect(() => {
+    const syncDark = () => setIsDark(isDocumentDark())
+    syncDark()
+
+    const observer = new MutationObserver(syncDark)
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const onMedia = () => syncDark()
+    media.addEventListener?.('change', onMedia)
+
+    return () => {
+      observer.disconnect()
+      media.removeEventListener?.('change', onMedia)
+    }
+  }, [])
+
+  const themeVars = useMemo(
+    () => registrationThemeCssVars(normalizedTheme, { isDark, locale }),
+    [normalizedTheme, isDark, locale],
+  )
   const cardBackgroundStyle = useMemo(() => {
-    const background = registrationCardBackgroundStyle(theme)
-    const fontFamily = registrationFontFamily(theme?.font_family)
+    const background = registrationCardBackgroundStyle(normalizedTheme, { isDark })
+    const fontFamily = resolveRegistrationFontFamily(normalizedTheme, locale)
     if (!background && !fontFamily) return undefined
     return {
       ...(background ?? {}),
       ...(fontFamily ? { fontFamily } : {}),
     }
-  }, [theme])
-  const hasCustomCardBackground = hasRegistrationCardBackground(theme)
+  }, [normalizedTheme, isDark, locale])
+  const hasCustomCardBackground = hasRegistrationCardBackground(normalizedTheme, { isDark })
   const registrationFields = useMemo(
     () => form.fields.filter((field) => field.type !== 'consent' && field.type !== 'hidden'),
     [form.fields],

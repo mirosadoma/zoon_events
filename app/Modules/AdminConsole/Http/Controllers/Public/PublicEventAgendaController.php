@@ -146,6 +146,7 @@ final class PublicEventAgendaController extends Controller
             ->map(fn (array $item): array => [
                 'id' => $item['id'],
                 'title' => $item['title'],
+                'description' => $item['description'],
                 'start_at' => $item['start_at'],
                 'end_at' => $item['end_at'],
                 'agenda_date' => $item['agenda_date'],

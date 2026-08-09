@@ -39,6 +39,7 @@ describe('public event agenda page', () => {
         items={[{
           id: '1',
           title: { en: 'Opening speech', ar: 'كلمة افتتاحية' },
+          description: { en: 'Welcome remarks from the organizers', ar: 'كلمة ترحيب من المنظمين' },
           start_at: '2026-07-12T10:00:00.000Z',
           end_at: '2026-07-12T10:15:00.000Z',
         }]}
@@ -47,6 +48,7 @@ describe('public event agenda page', () => {
 
     expect(screen.getByRole('heading', { name: 'Agenda' })).toBeInTheDocument()
     expect(screen.getByText('Opening speech')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Register Now' })).toHaveAttribute('href', '/en/events/synthetic-summit/register')
+    expect(screen.getByText('Welcome remarks from the organizers')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Register now' })).toHaveAttribute('href', '/en/events/synthetic-summit/register')
   })
 })

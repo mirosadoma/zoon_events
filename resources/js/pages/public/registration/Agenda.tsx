@@ -9,6 +9,7 @@ import { formatTime } from '@/lib/formatters'
 type AgendaItem = {
   id: string
   title: LocalizedText
+  description?: LocalizedText | null
   start_at: string
   end_at?: string | null
   agenda_date?: string | null
@@ -252,22 +253,10 @@ export default function PublicEventAgenda({
                           {item.speaker}
                         </span>
                       ) : null}
-                      {item.zone_name || item.venue_name ? (
-                        <span className="mt-1 block text-xs text-[var(--muted)]">
-                          {[
-                            item.zone_name ? (
-                              <LocalizedEventContent key="zone" value={item.zone_name} locale={locale} />
-                            ) : null,
-                            item.venue_name ? (
-                              <LocalizedEventContent key="venue" value={item.venue_name} locale={locale} />
-                            ) : null,
-                          ].filter(Boolean).map((part, index) => (
-                            <span key={index}>
-                              {index > 0 ? ' · ' : null}
-                              {part}
-                            </span>
-                          ))}
-                        </span>
+                      {item.description?.[locale] || item.description?.en || item.description?.ar ? (
+                        <p className="mt-1 block text-xs text-[var(--muted)]">
+                          <LocalizedEventContent value={item.description} locale={locale} />
+                        </p>
                       ) : null}
                     </div>
                   </li>

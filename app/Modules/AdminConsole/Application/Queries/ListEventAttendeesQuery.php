@@ -42,6 +42,7 @@ final readonly class ListEventAttendeesQuery
         ?string $checkinStatus,
         int $page = 1,
         ?string $registrationType = null,
+        ?string $eventVenueId = null,
     ): array {
         $perPage = self::PER_PAGE;
         $perPage = max(1, min(100, $perPage));
@@ -49,7 +50,7 @@ final readonly class ListEventAttendeesQuery
         $needle = trim((string) $search);
         $status = $this->normalizeStatus($checkinStatus);
 
-        $base = $this->baseQuery($tenantId, $eventId, $status, $registrationType);
+        $base = $this->baseQuery($tenantId, $eventId, $status, $registrationType, $eventVenueId);
 
         if ($needle === '') {
             $paginator = $base
@@ -105,10 +106,12 @@ final readonly class ListEventAttendeesQuery
         string $eventId,
         ?string $search,
         ?string $checkinStatus,
+        ?string $eventVenueId = null,
+        ?string $registrationType = null,
     ): Collection {
         $needle = trim((string) $search);
         $status = $this->normalizeStatus($checkinStatus);
-        $base = $this->baseQuery($tenantId, $eventId, $status);
+        $base = $this->baseQuery($tenantId, $eventId, $status, $registrationType, $eventVenueId);
 
         if ($needle === '') {
             return $base
@@ -132,15 +135,54 @@ final readonly class ListEventAttendeesQuery
         )->values();
     }
 
+    /**
+     * @return array{not_registered: int, registered: int, attended: int, not_attended: int}
+     */
+    public function statusCounts(
+        string $tenantId,
+        string $eventId,
+        ?string $registrationType = null,
+        ?string $eventVenueId = null,
+    ): array {
+        $counts = [
+            'not_registered' => 0,
+            'registered' => 0,
+            'attended' => 0,
+            'not_attended' => 0,
+        ];
+
+        $rows = $this->baseQuery($tenantId, $eventId, null, $registrationType, $eventVenueId)
+            ->selectRaw("COALESCE(NULLIF(invite_status, ''), 'registered') as status_key, COUNT(*) as aggregate")
+            ->groupByRaw("COALESCE(NULLIF(invite_status, ''), 'registered')")
+            ->pluck('aggregate', 'status_key');
+
+        foreach ($rows as $status => $count) {
+            $key = (string) $status;
+            if (array_key_exists($key, $counts)) {
+                $counts[$key] = (int) $count;
+            }
+        }
+
+        return $counts;
+    }
+
     /** @return Builder<Attendee> */
-    private function baseQuery(string $tenantId, string $eventId, ?string $status, ?string $registrationType = null): Builder
-    {
+    private function baseQuery(
+        string $tenantId,
+        string $eventId,
+        ?string $status,
+        ?string $registrationType = null,
+        ?string $eventVenueId = null,
+    ): Builder {
+        $venueId = is_string($eventVenueId) && ctype_digit($eventVenueId) ? (int) $eventVenueId : null;
+
         $query = Attendee::query()
             ->where('tenant_id', $tenantId)
             ->where('event_id', $eventId)
             ->where('registration_status', '!=', 'cancelled')
             ->where('registration_status', '!=', 'anonymized')
-            ->when($status !== null, fn (Builder $q) => $q->where('invite_status', $status));
+            ->when($status !== null, fn (Builder $q) => $q->where('invite_status', $status))
+            ->when($venueId !== null, fn (Builder $q) => $q->where('event_venue_id', $venueId));
 
         // Public tab: exclude attendees who completed registration through a private invite.
         if ($registrationType === 'public') {
@@ -148,6 +190,17 @@ final readonly class ListEventAttendeesQuery
 
             if ($privateEmailIndexes !== []) {
                 $query->whereNotIn('email_index', $privateEmailIndexes);
+            }
+        }
+
+        // Private tab: only attendees who registered through a private invite.
+        if ($registrationType === 'private') {
+            $privateEmailIndexes = $this->privateRegistrationEmailIndexes($eventId);
+
+            if ($privateEmailIndexes === []) {
+                $query->whereRaw('1 = 0');
+            } else {
+                $query->whereIn('email_index', $privateEmailIndexes);
             }
         }
 

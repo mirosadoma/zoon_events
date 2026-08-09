@@ -16,6 +16,7 @@ use App\Modules\AdminConsole\ViewModels\Orders\OrderDetailViewModel;
 use App\Modules\Attendees\Infrastructure\Persistence\Models\Attendee;
 use App\Modules\Authorization\Application\PermissionEvaluator;
 use App\Modules\Credentials\Infrastructure\Persistence\Models\Credential;
+use App\Modules\Events\Application\Support\EventVenuePresenter;
 use App\Modules\Events\Application\Support\PublicRegistrationUrlBuilder;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use App\Modules\Events\Infrastructure\Persistence\Models\EventRegistrationInvite;
@@ -45,6 +46,7 @@ final class EventOperationsController extends Controller
         private readonly ListEventAttendeesQuery $listAttendees,
         private readonly AttendeesExcelExport $attendeesExcelExport,
         private readonly PublicRegistrationUrlBuilder $registrationUrls,
+        private readonly EventVenuePresenter $eventVenues,
         private readonly PersonalDataGuard $guard,
         private readonly GetAttendeeCurrentZonesQuery $attendeeCurrentZones,
     ) {}
@@ -134,6 +136,7 @@ final class EventOperationsController extends Controller
             $filters['status'] !== '' ? $filters['status'] : null,
             (int) $request->integer('page', 1),
             'public',
+            $filters['event_venue_id'] !== '' ? $filters['event_venue_id'] : null,
         );
         $attendeeIds = $result['attendees']->pluck('id')->all();
         $credentialStatuses = $this->credentialStatusesForAttendees(
@@ -164,12 +167,20 @@ final class EventOperationsController extends Controller
         $canSendPrivateInvites = in_array($event->tier, ['private', 'both'], true);
         $payload['tenantId'] = (string) $context->tenant->id;
         $payload['canSendPrivateInvites'] = $canSendPrivateInvites;
+        $payload['venues'] = $this->eventVenues->forEvent($event);
+        $payload['eventTimezone'] = (string) $event->timezone;
+        $payload['statusCounts'] = $this->listAttendees->statusCounts(
+            (string) $context->tenant->id,
+            (string) $event->id,
+            'public',
+            $filters['event_venue_id'] !== '' ? $filters['event_venue_id'] : null,
+        );
 
         return Inertia::render('tenant/events/Attendees', $payload);
     }
 
     /**
-     * @param  array{search: string, status: string, registration_type?: string}  $filters
+     * @param  array{search: string, status: string, registration_type?: string, event_venue_id?: string}  $filters
      */
     private function attendeesFromInvites(Request $request, TenantContext $context, Event $event, array $filters): Response
     {
@@ -177,6 +188,8 @@ final class EventOperationsController extends Controller
         $page = max(1, (int) $request->integer('page', 1));
         $search = mb_strtolower($filters['search']);
         $statusFilter = $filters['status'] ?? '';
+        $eventVenueId = $filters['event_venue_id'] ?? '';
+        $venueId = $eventVenueId !== '' && ctype_digit($eventVenueId) ? (int) $eventVenueId : null;
 
         $query = EventRegistrationInvite::query()
             ->where('event_id', $event->id)
@@ -195,6 +208,14 @@ final class EventOperationsController extends Controller
                 } elseif (in_array($statusFilter, ['attended', 'not_attended'], true)) {
                     $builder->where('invite_status', $statusFilter);
                 }
+            })
+            ->when($venueId !== null, function ($builder) use ($event, $venueId): void {
+                $builder->whereIn('email_index', Attendee::query()
+                    ->where('tenant_id', $event->tenant_id)
+                    ->where('event_id', $event->id)
+                    ->where('event_venue_id', $venueId)
+                    ->whereNotNull('email_index')
+                    ->select('email_index'));
             })
             ->when($search !== '', function ($builder) use ($search): void {
                 $builder->where(function ($inner) use ($search): void {
@@ -278,6 +299,7 @@ final class EventOperationsController extends Controller
                 'display_name' => $displayName,
                 'email' => $email !== '' ? $email : null,
                 'phone' => $phone,
+                'event_venue_id' => $attendee?->event_venue_id !== null ? (string) $attendee->event_venue_id : null,
                 'current_zone' => $attendeeId !== null ? ($currentZones[$attendeeId] ?? null) : null,
             ];
         })->values()->all();
@@ -302,7 +324,54 @@ final class EventOperationsController extends Controller
             ],
             'tenantId' => (string) $event->tenant_id,
             'canSendPrivateInvites' => $canSendPrivateInvites,
+            'venues' => $this->eventVenues->forEvent($event),
+            'eventTimezone' => (string) $event->timezone,
+            'statusCounts' => $this->inviteStatusCounts($event, $filters),
         ]);
+    }
+
+    /**
+     * @param  array{search: string, status: string, registration_type?: string, event_venue_id?: string}  $filters
+     * @return array{not_registered: int, registered: int, attended: int, not_attended: int}
+     */
+    private function inviteStatusCounts(Event $event, array $filters): array
+    {
+        $counts = [
+            'not_registered' => 0,
+            'registered' => 0,
+            'attended' => 0,
+            'not_attended' => 0,
+        ];
+
+        $eventVenueId = $filters['event_venue_id'] ?? '';
+        $venueId = $eventVenueId !== '' && ctype_digit($eventVenueId) ? (int) $eventVenueId : null;
+
+        $rows = EventRegistrationInvite::query()
+            ->where('event_id', $event->id)
+            ->where(function ($builder): void {
+                $builder->where('is_active', true)
+                    ->orWhereNotNull('used_at');
+            })
+            ->when($venueId !== null, function ($builder) use ($event, $venueId): void {
+                $builder->whereIn('email_index', Attendee::query()
+                    ->where('tenant_id', $event->tenant_id)
+                    ->where('event_id', $event->id)
+                    ->where('event_venue_id', $venueId)
+                    ->whereNotNull('email_index')
+                    ->select('email_index'));
+            })
+            ->selectRaw("COALESCE(NULLIF(invite_status, ''), 'not_registered') as status_key, COUNT(*) as aggregate")
+            ->groupByRaw("COALESCE(NULLIF(invite_status, ''), 'not_registered')")
+            ->pluck('aggregate', 'status_key');
+
+        foreach ($rows as $status => $count) {
+            $key = (string) $status;
+            if (array_key_exists($key, $counts)) {
+                $counts[$key] = (int) $count;
+            }
+        }
+
+        return $counts;
     }
 
     public function attendeesExport(Request $request, string $eventId): StreamedResponse
@@ -315,6 +384,8 @@ final class EventOperationsController extends Controller
             (string) $event->id,
             $filters['search'] !== '' ? $filters['search'] : null,
             $filters['status'] !== '' ? $filters['status'] : null,
+            $filters['event_venue_id'] !== '' ? $filters['event_venue_id'] : null,
+            $filters['registration_type'] !== '' ? $filters['registration_type'] : 'public',
         );
         $credentialStatuses = $this->credentialStatusesForAttendees(
             $context,
@@ -464,7 +535,7 @@ final class EventOperationsController extends Controller
     }
 
     /**
-     * @return array{search: string, status: string, registration_type: string}
+     * @return array{search: string, status: string, registration_type: string, event_venue_id: string}
      */
     private function attendeeFilters(Request $request): array
     {
@@ -485,10 +556,16 @@ final class EventOperationsController extends Controller
             $registrationType = 'public';
         }
 
+        $eventVenueId = trim((string) $request->query('event_venue_id', ''));
+        if ($eventVenueId !== '' && ! ctype_digit($eventVenueId)) {
+            $eventVenueId = '';
+        }
+
         return [
             'search' => trim((string) $request->query('search', '')),
             'status' => $status,
             'registration_type' => $registrationType,
+            'event_venue_id' => $eventVenueId,
         ];
     }
 

@@ -495,20 +495,40 @@ final class PublicEventRegistrationController extends Controller
             return null;
         }
 
-        $path = is_string($theme['background_image_path'] ?? null) ? $theme['background_image_path'] : null;
-        if ($path !== null && $path !== '') {
+        $resolveUrl = function (?string $path): ?string {
+            if ($path === null || $path === '') {
+                return null;
+            }
             $url = Storage::disk('public')->url($path);
-            $theme['background_image_url'] = str_starts_with($url, 'http://') || str_starts_with($url, 'https://')
+
+            return str_starts_with($url, 'http://') || str_starts_with($url, 'https://')
                 ? $url
                 : url($url);
+        };
+
+        foreach (['light', 'dark'] as $mode) {
+            if (! is_array($theme[$mode] ?? null)) {
+                continue;
+            }
+            $modePath = is_string($theme[$mode]['background_image_path'] ?? null)
+                ? $theme[$mode]['background_image_path']
+                : null;
+            $modeUrl = $resolveUrl($modePath);
+            if ($modeUrl !== null) {
+                $theme[$mode]['background_image_url'] = $modeUrl;
+            }
+        }
+
+        $path = is_string($theme['background_image_path'] ?? null) ? $theme['background_image_path'] : null;
+        $flatUrl = $resolveUrl($path);
+        if ($flatUrl !== null) {
+            $theme['background_image_url'] = $flatUrl;
         }
 
         $logoPath = is_string($theme['logo_path'] ?? null) ? $theme['logo_path'] : null;
-        if ($logoPath !== null && $logoPath !== '') {
-            $logoUrl = Storage::disk('public')->url($logoPath);
-            $theme['logo_url'] = str_starts_with($logoUrl, 'http://') || str_starts_with($logoUrl, 'https://')
-                ? $logoUrl
-                : url($logoUrl);
+        $logoUrl = $resolveUrl($logoPath);
+        if ($logoUrl !== null) {
+            $theme['logo_url'] = $logoUrl;
         }
 
         return $theme;

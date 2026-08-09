@@ -7,8 +7,10 @@ import { DetailsCard } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
 import { CredentialDialog } from '@/components/credentials/CredentialDialog'
 import PermissionGate from '@/components/layout/PermissionGate'
+import ConfirmModal from '@/components/modals/ConfirmModal'
 import StatusBadge from '@/components/status/StatusBadge'
 import { useLocale } from '@/hooks/useLocale'
+import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
 import { useTenantId } from '@/hooks/useTenantId'
 import { useToast } from '@/hooks/useToast'
 import { apiFetch, ApiFetchError } from '@/lib/apiFetch'
@@ -61,10 +63,12 @@ type Props = {
 
 export default function AttendeeDetailPage({ event, attendee, tenantId: pageTenantId, identity }: Props) {
   const { locale, t } = useLocale()
+  const localizedRouter = useLocalizedRouter()
   const { toast } = useToast()
   const tenantId = useTenantId(pageTenantId)
-  const [busyAction, setBusyAction] = useState<'revoke' | 'reissue' | 'print' | 'checkin' | null>(null)
+  const [busyAction, setBusyAction] = useState<'revoke' | 'reissue' | 'print' | 'checkin' | 'delete' | null>(null)
   const [printPreviewOpen, setPrintPreviewOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   function extractError(error: unknown, fallback: string): string {
     if (error instanceof ApiFetchError) {
@@ -192,6 +196,26 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
     }
   }
 
+  async function confirmDelete() {
+    if (!ensureTenantId()) return
+
+    setBusyAction('delete')
+    try {
+      await apiFetch(`/api/v1/tenant/events/${event.id}/attendees/${attendee.id}`, {
+        method: 'DELETE',
+        tenantId,
+        idempotency: true,
+      })
+      toast(t('attendeePaneDeleted'), 'success')
+      setDeleteOpen(false)
+      localizedRouter.visit(`/tenant/events/${event.id}/attendees`)
+    } catch (error) {
+      toast(extractError(error, t('requestFailed')), 'error')
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
   const notAvailable = t('notAvailable')
 
   function displayValue(value: string | null | undefined): string {
@@ -210,6 +234,18 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
           { label: t('attendees'), href: `/tenant/events/${event.id}/attendees` },
           { label: attendee.label },
         ]}
+        actions={(
+          <PermissionGate permission="attendee.manage">
+            <button
+              type="button"
+              className="button-secondary text-[var(--danger)]"
+              onClick={() => setDeleteOpen(true)}
+              disabled={busyAction !== null}
+            >
+              {t('delete')}
+            </button>
+          </PermissionGate>
+        )}
       />
       <PageContent>
         {identity?.pending ? (
@@ -361,6 +397,19 @@ export default function AttendeeDetailPage({ event, attendee, tenantId: pageTena
           />
         ) : null}
       </PageContent>
+
+      <ConfirmModal
+        open={deleteOpen}
+        title={t('attendeePaneDeleteTitle')}
+        message={t('attendeePaneDeleteMessage', {
+          name: attendee.display_name?.trim() || attendee.label,
+        })}
+        confirmLabel={t('delete')}
+        cancelLabel={t('cancel')}
+        loading={busyAction === 'delete'}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setDeleteOpen(false)}
+      />
     </DashboardLayout>
   )
 }

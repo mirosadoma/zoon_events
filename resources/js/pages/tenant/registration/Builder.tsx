@@ -30,7 +30,19 @@ import {
   isRegistrationSystemFieldKey,
   mergeRegistrationFieldsWithSystemOrder,
 } from '@/lib/registrationSystemFields'
-import { registrationFontFamily, REGISTRATION_FONT_OPTIONS } from '@/lib/registrationThemeBackground'
+import {
+  normalizeRegistrationTheme,
+  toPersistedRegistrationTheme,
+  resolveRegistrationThemeMode,
+  resolveRegistrationFontFamily,
+  registrationThemeCssVars,
+  registrationCardBackgroundStyle,
+  registrationFontFamily,
+  REGISTRATION_FONT_OPTIONS_EN,
+  REGISTRATION_FONT_OPTIONS_AR,
+  type RegistrationThemeConfig,
+  type RegistrationThemeModeColors,
+} from '@/lib/registrationThemeBackground'
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -72,23 +84,6 @@ type FormField = {
   choice_color?: string | null
 }
 
-type BackgroundGradient = {
-  type: 'linear'
-  angle: number
-  stops: Array<{ color: string; position: number }>
-}
-
-type ThemeConfig = {
-  primary_color: string
-  accent_color: string
-  background_color: string
-  background_mode: 'solid' | 'gradient' | 'image'
-  background_gradient: BackgroundGradient | null
-  background_image_path: string | null
-  background_image_url?: string | null
-  font_family: string
-}
-
 type EventRow = { id: string; name: { en: string; ar: string }; slug?: string }
 
 type EventPreview = {
@@ -125,11 +120,7 @@ type Props = {
     choice_color?: string | null
   }>
   hasUnpublishedChanges?: boolean
-  theme?: (Partial<ThemeConfig> & {
-    background_gradient?: BackgroundGradient | null
-    background_image_path?: string | null
-    background_image_url?: string | null
-  }) | null
+  theme?: Partial<RegistrationThemeConfig> | null
 }
 
 /* ------------------------------------------------------------------ */
@@ -592,27 +583,23 @@ export default function RegistrationBuilder({
   const [submitting, setSubmitting] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  const [theme, setTheme] = useState<ThemeConfig>(() => ({
-    primary_color: initialTheme?.primary_color || '#3b82f6',
-    accent_color: initialTheme?.accent_color || '#8b5cf6',
-    background_color: initialTheme?.background_color || '#ffffff',
-    background_mode: initialTheme?.background_mode
-      ?? (initialTheme?.background_image_path ? 'image' : 'solid'),
-    background_gradient: initialTheme?.background_gradient ?? {
-      type: 'linear',
-      angle: 160,
-      stops: [
-        { color: initialTheme?.background_color || '#ffffff', position: 0 },
-        { color: initialTheme?.accent_color || '#e2e8f0', position: 100 },
-      ],
-    },
-    background_image_path: initialTheme?.background_image_path ?? null,
-    background_image_url: initialTheme?.background_image_url ?? null,
-    font_family: initialTheme?.font_family || 'Inter',
-  }))
+  const [theme, setTheme] = useState(() => normalizeRegistrationTheme(initialTheme))
+  const [themePanelMode, setThemePanelMode] = useState<'light' | 'dark'>('light')
   const [showThemePanel, setShowThemePanel] = useState(false)
   const [showEmbedModal, setShowEmbedModal] = useState(false)
   const [uploadingBackground, setUploadingBackground] = useState(false)
+
+  const patchMode = useCallback((mode: 'light' | 'dark', patch: Partial<RegistrationThemeModeColors>) => {
+    setTheme((current) => {
+      const normalized = normalizeRegistrationTheme(current)
+      return normalizeRegistrationTheme({
+        ...normalized,
+        [mode]: { ...normalized[mode], ...patch },
+      })
+    })
+  }, [])
+
+  const activeModeColors = theme[themePanelMode]
 
   const [fields, setFields] = useState<FormField[]>(() => {
     const merged = mergeRegistrationFieldsWithSystemOrder(
@@ -658,35 +645,26 @@ export default function RegistrationBuilder({
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   )
 
-  const pageBackgroundStyle = useMemo((): CSSProperties => {
-    if (theme.background_mode === 'image' && theme.background_image_url) {
-      return {
-        backgroundImage: `url(${theme.background_image_url})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-      }
-    }
-    if (theme.background_mode === 'gradient' && theme.background_gradient) {
-      const stops = [...theme.background_gradient.stops]
-        .sort((a, b) => a.position - b.position)
-        .map((stop) => `${stop.color} ${stop.position}%`)
-        .join(', ')
-      return {
-        backgroundImage: `linear-gradient(${theme.background_gradient.angle}deg, ${stops})`,
-      }
-    }
-    return {
-      backgroundColor: theme.background_color || 'var(--surface)',
-    }
-  }, [theme])
+  const previewIsDark = themePanelMode === 'dark'
 
-  const canvasStyle = useMemo(() => ({
-    fontFamily: registrationFontFamily(theme.font_family) || 'Inter, system-ui, sans-serif',
-    '--reg-font': registrationFontFamily(theme.font_family) || 'Inter, system-ui, sans-serif',
-    '--reg-primary': theme.primary_color || 'var(--brand)',
-    '--reg-accent': theme.accent_color || 'var(--brand)',
-  } as CSSProperties), [theme])
+  const pageBackgroundStyle = useMemo((): CSSProperties => {
+    return registrationCardBackgroundStyle(theme, { isDark: previewIsDark })
+      ?? { backgroundColor: 'var(--surface)' }
+  }, [theme, previewIsDark])
+
+  const canvasStyle = useMemo((): CSSProperties => {
+    const modeColors = resolveRegistrationThemeMode(theme, previewIsDark)
+    const fontStack = resolveRegistrationFontFamily(theme, locale) || 'Inter, system-ui, sans-serif'
+    const cssVars = registrationThemeCssVars(theme, { isDark: previewIsDark, locale }) ?? {}
+
+    return {
+      ...cssVars,
+      fontFamily: fontStack,
+      '--reg-font': fontStack,
+      '--reg-primary': modeColors.primary_color || 'var(--brand)',
+      '--reg-accent': modeColors.accent_color || 'var(--brand)',
+    } as CSSProperties
+  }, [theme, previewIsDark, locale])
 
   /* ---- DnD handlers ---- */
 
@@ -794,15 +772,19 @@ export default function RegistrationBuilder({
       privacy_notice_version: privacyNoticeVersion,
       terms_version: termsVersion,
       theme: {
-        primary_color: theme.primary_color,
-        accent_color: theme.accent_color,
-        background_color: theme.background_color,
-        background_mode: theme.background_mode,
-        background_gradient: theme.background_mode === 'gradient' ? theme.background_gradient : null,
-        background_image_path: theme.background_image_path,
-        font_family: theme.font_family,
+        primary_color: theme.light.primary_color,
+        accent_color: theme.light.accent_color,
+        background_color: theme.light.background_color,
+        background_mode: theme.light.background_mode,
+        background_gradient: theme.light.background_mode === 'gradient' ? theme.light.background_gradient : null,
+        background_image_path: theme.light.background_image_path,
+        font_family: theme.font_family_en,
       },
     }
+
+    const persisted = toPersistedRegistrationTheme(theme)
+    const persistedLight = (persisted.light ?? {}) as Record<string, unknown>
+    const persistedDark = (persisted.dark ?? {}) as Record<string, unknown>
 
     try {
       await apiFetch(`/api/v1/tenant/events/${event.id}/registration-form`, {
@@ -812,14 +794,17 @@ export default function RegistrationBuilder({
         method: 'PUT', tenantId, idempotency: true,
         body: {
           theme_config: {
-            primary_color: theme.primary_color,
-            accent_color: theme.accent_color,
-            background_color: theme.background_color,
-            background_mode: theme.background_mode,
-            background_gradient: theme.background_mode === 'gradient' ? theme.background_gradient : null,
-            background_image_path: theme.background_image_path,
-            clear_background_image: theme.background_mode !== 'image' || !theme.background_image_path,
-            font_family: theme.font_family,
+            ...persisted,
+            light: {
+              ...persistedLight,
+              clear_background_image:
+                persistedLight.background_mode !== 'image' || !persistedLight.background_image_path,
+            },
+            dark: {
+              ...persistedDark,
+              clear_background_image:
+                persistedDark.background_mode !== 'image' || !persistedDark.background_image_path,
+            },
           },
         },
       })
@@ -843,17 +828,12 @@ export default function RegistrationBuilder({
     try {
       const body = new FormData()
       body.append('background_image', file)
-      const result = await apiFetch<{ theme_config: ThemeConfig }>(
+      body.append('theme_mode', themePanelMode)
+      const result = await apiFetch<{ theme_config: Partial<RegistrationThemeConfig> }>(
         `/api/v1/tenant/events/${event.id}/branding/background`,
         { method: 'POST', tenantId, idempotency: true, body },
       )
-      const next = result.theme_config
-      setTheme((current) => ({
-        ...current,
-        background_mode: 'image',
-        background_image_path: next.background_image_path ?? current.background_image_path,
-        background_image_url: next.background_image_url ?? current.background_image_url,
-      }))
+      setTheme(normalizeRegistrationTheme(result.theme_config))
       toast(t('saved'), 'success')
     } catch (caught) {
       toast(caught instanceof ApiFetchError ? caught.message : t('requestFailed'), 'error')
@@ -1330,6 +1310,26 @@ export default function RegistrationBuilder({
               </button>
             </div>
 
+            <div className="mb-5 flex gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1">
+              {([
+                { id: 'light' as const, label: t('registrationBuilderThemeLight') },
+                { id: 'dark' as const, label: t('registrationBuilderThemeDark') },
+              ]).map((mode) => (
+                <button
+                  key={mode.id}
+                  type="button"
+                  onClick={() => setThemePanelMode(mode.id)}
+                  className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition ${
+                    themePanelMode === mode.id
+                      ? 'bg-[var(--surface-elevated)] text-[var(--ink)] shadow-sm'
+                      : 'text-[var(--muted)] hover:text-[var(--ink)]'
+                  }`}
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </div>
+
             <div className="space-y-5">
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-[var(--muted)]">
@@ -1338,13 +1338,13 @@ export default function RegistrationBuilder({
                 <div className="flex gap-2 items-center">
                   <input
                     type="color"
-                    value={theme.primary_color}
-                    onChange={(e) => setTheme((current) => ({ ...current, primary_color: e.target.value }))}
+                    value={activeModeColors.primary_color}
+                    onChange={(e) => patchMode(themePanelMode, { primary_color: e.target.value })}
                     className="h-9 w-9 cursor-pointer rounded-lg border border-[var(--border)] bg-transparent p-0.5"
                   />
                   <input
-                    value={theme.primary_color}
-                    onChange={(e) => setTheme((current) => ({ ...current, primary_color: e.target.value }))}
+                    value={activeModeColors.primary_color}
+                    onChange={(e) => patchMode(themePanelMode, { primary_color: e.target.value })}
                     className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-sm text-[var(--ink)] focus:border-[var(--brand)] focus:outline-none"
                   />
                 </div>
@@ -1357,13 +1357,13 @@ export default function RegistrationBuilder({
                 <div className="flex gap-2 items-center">
                   <input
                     type="color"
-                    value={theme.accent_color}
-                    onChange={(e) => setTheme((current) => ({ ...current, accent_color: e.target.value }))}
+                    value={activeModeColors.accent_color}
+                    onChange={(e) => patchMode(themePanelMode, { accent_color: e.target.value })}
                     className="h-9 w-9 cursor-pointer rounded-lg border border-[var(--border)] bg-transparent p-0.5"
                   />
                   <input
-                    value={theme.accent_color}
-                    onChange={(e) => setTheme((current) => ({ ...current, accent_color: e.target.value }))}
+                    value={activeModeColors.accent_color}
+                    onChange={(e) => patchMode(themePanelMode, { accent_color: e.target.value })}
                     className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-sm text-[var(--ink)] focus:border-[var(--brand)] focus:outline-none"
                   />
                 </div>
@@ -1382,9 +1382,9 @@ export default function RegistrationBuilder({
                     <button
                       key={mode.id}
                       type="button"
-                      onClick={() => setTheme((current) => ({ ...current, background_mode: mode.id }))}
+                      onClick={() => patchMode(themePanelMode, { background_mode: mode.id })}
                       className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition ${
-                        theme.background_mode === mode.id
+                        activeModeColors.background_mode === mode.id
                           ? 'bg-[var(--surface-elevated)] text-[var(--ink)] shadow-sm'
                           : 'text-[var(--muted)] hover:text-[var(--ink)]'
                       }`}
@@ -1394,40 +1394,39 @@ export default function RegistrationBuilder({
                   ))}
                 </div>
 
-                {theme.background_mode === 'solid' ? (
+                {activeModeColors.background_mode === 'solid' ? (
                   <div className="flex gap-2 items-center">
                     <input
                       type="color"
-                      value={theme.background_color}
-                      onChange={(e) => setTheme((current) => ({ ...current, background_color: e.target.value }))}
+                      value={activeModeColors.background_color}
+                      onChange={(e) => patchMode(themePanelMode, { background_color: e.target.value })}
                       className="h-9 w-9 cursor-pointer rounded-lg border border-[var(--border)] bg-transparent p-0.5"
                     />
                     <input
-                      value={theme.background_color}
-                      onChange={(e) => setTheme((current) => ({ ...current, background_color: e.target.value }))}
+                      value={activeModeColors.background_color}
+                      onChange={(e) => patchMode(themePanelMode, { background_color: e.target.value })}
                       className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-sm text-[var(--ink)] focus:border-[var(--brand)] focus:outline-none"
                     />
                   </div>
                 ) : null}
 
-                {theme.background_mode === 'gradient' && theme.background_gradient ? (
+                {activeModeColors.background_mode === 'gradient' && activeModeColors.background_gradient ? (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-xs text-[var(--muted)]">{t('registrationBuilderBgFrom')}</span>
                       <input
                         type="color"
-                        value={theme.background_gradient.stops[0]?.color ?? theme.background_color}
-                        onChange={(e) => setTheme((current) => ({
-                          ...current,
+                        value={activeModeColors.background_gradient.stops?.[0]?.color ?? activeModeColors.background_color}
+                        onChange={(e) => patchMode(themePanelMode, {
                           background_gradient: {
                             type: 'linear',
-                            angle: current.background_gradient?.angle ?? 160,
+                            angle: activeModeColors.background_gradient?.angle ?? 160,
                             stops: [
                               { color: e.target.value, position: 0 },
-                              current.background_gradient?.stops[1] ?? { color: '#e2e8f0', position: 100 },
+                              activeModeColors.background_gradient?.stops?.[1] ?? { color: '#e2e8f0', position: 100 },
                             ],
                           },
-                        }))}
+                        })}
                         className="h-8 w-12 cursor-pointer rounded border border-[var(--border)] bg-transparent"
                       />
                     </div>
@@ -1435,18 +1434,17 @@ export default function RegistrationBuilder({
                       <span className="text-xs text-[var(--muted)]">{t('registrationBuilderBgTo')}</span>
                       <input
                         type="color"
-                        value={theme.background_gradient.stops[1]?.color ?? '#e2e8f0'}
-                        onChange={(e) => setTheme((current) => ({
-                          ...current,
+                        value={activeModeColors.background_gradient.stops?.[1]?.color ?? '#e2e8f0'}
+                        onChange={(e) => patchMode(themePanelMode, {
                           background_gradient: {
                             type: 'linear',
-                            angle: current.background_gradient?.angle ?? 160,
+                            angle: activeModeColors.background_gradient?.angle ?? 160,
                             stops: [
-                              current.background_gradient?.stops[0] ?? { color: current.background_color, position: 0 },
+                              activeModeColors.background_gradient?.stops?.[0] ?? { color: activeModeColors.background_color, position: 0 },
                               { color: e.target.value, position: 100 },
                             ],
                           },
-                        }))}
+                        })}
                         className="h-8 w-12 cursor-pointer rounded border border-[var(--border)] bg-transparent"
                       />
                     </div>
@@ -1456,21 +1454,17 @@ export default function RegistrationBuilder({
                         type="number"
                         min={0}
                         max={360}
-                        value={Math.round(theme.background_gradient.angle)}
-                        onChange={(e) => setTheme((current) => ({
-                          ...current,
+                        value={Math.round(activeModeColors.background_gradient.angle ?? 160)}
+                        onChange={(e) => patchMode(themePanelMode, {
                           background_gradient: {
-                            ...(current.background_gradient ?? {
-                              type: 'linear',
-                              angle: 160,
-                              stops: [
-                                { color: current.background_color, position: 0 },
-                                { color: '#e2e8f0', position: 100 },
-                              ],
-                            }),
+                            type: 'linear',
                             angle: Number(e.target.value) || 0,
+                            stops: activeModeColors.background_gradient?.stops ?? [
+                              { color: activeModeColors.background_color, position: 0 },
+                              { color: '#e2e8f0', position: 100 },
+                            ],
                           },
-                        }))}
+                        })}
                         className="w-20 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-sm text-[var(--ink)]"
                       />
                     </label>
@@ -1478,12 +1472,12 @@ export default function RegistrationBuilder({
                   </div>
                 ) : null}
 
-                {theme.background_mode === 'image' ? (
+                {activeModeColors.background_mode === 'image' ? (
                   <div className="space-y-3">
-                    {theme.background_image_url ? (
+                    {activeModeColors.background_image_url ? (
                       <div
                         className="h-24 w-full rounded-lg border border-[var(--border)] bg-cover bg-center"
-                        style={{ backgroundImage: `url(${theme.background_image_url})` }}
+                        style={{ backgroundImage: `url(${activeModeColors.background_image_url})` }}
                       />
                     ) : (
                       <div className="flex h-24 items-center justify-center rounded-lg border border-dashed border-[var(--border)] text-xs text-[var(--muted)]">
@@ -1500,16 +1494,15 @@ export default function RegistrationBuilder({
                         onChange={(e) => void handleBackgroundUpload(e.target.files?.[0] ?? null)}
                       />
                     </label>
-                    {theme.background_image_path ? (
+                    {activeModeColors.background_image_path ? (
                       <button
                         type="button"
                         className="w-full rounded-lg border border-[var(--danger)]/20 px-3 py-2 text-xs font-medium text-[var(--danger)]"
-                        onClick={() => setTheme((current) => ({
-                          ...current,
+                        onClick={() => patchMode(themePanelMode, {
                           background_mode: 'solid',
                           background_image_path: null,
                           background_image_url: null,
-                        }))}
+                        })}
                       >
                         {t('registrationBuilderClearBackground')}
                       </button>
@@ -1520,15 +1513,39 @@ export default function RegistrationBuilder({
 
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-[var(--muted)]">
-                  {t('registrationBuilderFontFamily')}
+                  {t('registrationBuilderFontFamilyEn')}
                 </label>
                 <select
-                  value={theme.font_family}
-                  onChange={(e) => setTheme((current) => ({ ...current, font_family: e.target.value }))}
+                  value={theme.font_family_en}
+                  onChange={(e) => setTheme((current) => normalizeRegistrationTheme({
+                    ...current,
+                    font_family_en: e.target.value,
+                  }))}
                   className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-2 text-sm text-[var(--ink)] focus:border-[var(--brand)] focus:outline-none"
-                  style={{ fontFamily: registrationFontFamily(theme.font_family) }}
+                  style={{ fontFamily: registrationFontFamily(theme.font_family_en) }}
                 >
-                  {REGISTRATION_FONT_OPTIONS.map((font) => (
+                  {REGISTRATION_FONT_OPTIONS_EN.map((font) => (
+                    <option key={font} value={font} style={{ fontFamily: registrationFontFamily(font) }}>
+                      {font}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-[var(--muted)]">
+                  {t('registrationBuilderFontFamilyAr')}
+                </label>
+                <select
+                  value={theme.font_family_ar}
+                  onChange={(e) => setTheme((current) => normalizeRegistrationTheme({
+                    ...current,
+                    font_family_ar: e.target.value,
+                  }))}
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-2 text-sm text-[var(--ink)] focus:border-[var(--brand)] focus:outline-none"
+                  style={{ fontFamily: registrationFontFamily(theme.font_family_ar) }}
+                >
+                  {REGISTRATION_FONT_OPTIONS_AR.map((font) => (
                     <option key={font} value={font} style={{ fontFamily: registrationFontFamily(font) }}>
                       {font}
                     </option>
@@ -1536,7 +1553,7 @@ export default function RegistrationBuilder({
                 </select>
                 <p
                   className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-2 text-sm text-[var(--ink)]"
-                  style={{ fontFamily: registrationFontFamily(theme.font_family) }}
+                  style={{ fontFamily: resolveRegistrationFontFamily(theme, locale) }}
                 >
                   {t('registrationBuilderFontPreview')}
                 </p>

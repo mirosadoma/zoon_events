@@ -19,6 +19,7 @@ import DashboardLayout from '@/layouts/DashboardLayout'
 import { useLocale } from '@/hooks/useLocale'
 import { useToast } from '@/hooks/useToast'
 import { ApiFetchError, apiFetch } from '@/lib/apiFetch'
+import { formatWallClockDateTime } from '@/lib/dateTimeLocal'
 import { buildVenuePayload } from '@/lib/venuePayload'
 
 export type EventZoneRow = {
@@ -114,10 +115,10 @@ export default function EventVenuesPage({
       zones_count: venue.zones?.length ?? 0,
       address: venue.location_address?.trim() || t('notAvailable'),
       start: venue.start_at
-        ? new Date(venue.start_at).toLocaleString(locale === 'ar' ? 'ar' : 'en')
+        ? formatWallClockDateTime(venue.start_at, locale)
         : t('notAvailable'),
       end: venue.end_at
-        ? new Date(venue.end_at).toLocaleString(locale === 'ar' ? 'ar' : 'en')
+        ? formatWallClockDateTime(venue.end_at, locale)
         : t('notAvailable'),
     })),
     [venues, locale, t],
@@ -259,13 +260,13 @@ export default function EventVenuesPage({
               {
                 label: t('startAt'),
                 value: selected.start_at
-                  ? new Date(selected.start_at).toLocaleString(locale === 'ar' ? 'ar' : 'en')
+                  ? formatWallClockDateTime(selected.start_at, locale)
                   : notAvailable,
               },
               {
                 label: t('endAt'),
                 value: selected.end_at
-                  ? new Date(selected.end_at).toLocaleString(locale === 'ar' ? 'ar' : 'en')
+                  ? formatWallClockDateTime(selected.end_at, locale)
                   : notAvailable,
               },
             ]}

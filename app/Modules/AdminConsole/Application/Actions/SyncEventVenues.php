@@ -3,6 +3,7 @@
 namespace App\Modules\AdminConsole\Application\Actions;
 
 use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
+use App\Modules\Events\Application\Support\EventWallClockDateTime;
 use App\Modules\Events\Infrastructure\Persistence\Models\Event;
 use InvalidArgumentException;
 
@@ -15,6 +16,7 @@ final class SyncEventVenues
     {
         $keepIds = [];
         $normalized = [];
+        $timezone = (string) $event->timezone;
 
         foreach (array_values($venues) as $index => $venue) {
             if (! is_array($venue)) {
@@ -37,10 +39,22 @@ final class SyncEventVenues
                 'location_address' => $venue['location_address'] ?? null,
                 'latitude' => $venue['latitude'] ?? null,
                 'longitude' => $venue['longitude'] ?? null,
-                'start_at' => $venue['start_at'] ?? null,
-                'end_at' => $venue['end_at'] ?? null,
-                'registration_opens_at' => $venue['registration_opens_at'] ?? null,
-                'registration_closes_at' => $venue['registration_closes_at'] ?? null,
+                'start_at' => EventWallClockDateTime::parseToAppStorage(
+                    isset($venue['start_at']) ? (string) $venue['start_at'] : null,
+                    $timezone,
+                )?->toDateTimeString(),
+                'end_at' => EventWallClockDateTime::parseToAppStorage(
+                    isset($venue['end_at']) ? (string) $venue['end_at'] : null,
+                    $timezone,
+                )?->toDateTimeString(),
+                'registration_opens_at' => EventWallClockDateTime::parseToAppStorage(
+                    isset($venue['registration_opens_at']) ? (string) $venue['registration_opens_at'] : null,
+                    $timezone,
+                )?->toDateTimeString(),
+                'registration_closes_at' => EventWallClockDateTime::parseToAppStorage(
+                    isset($venue['registration_closes_at']) ? (string) $venue['registration_closes_at'] : null,
+                    $timezone,
+                )?->toDateTimeString(),
                 'sort_order' => $index,
             ];
         }

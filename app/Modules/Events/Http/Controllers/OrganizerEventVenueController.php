@@ -5,6 +5,7 @@ namespace App\Modules\Events\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\AdminConsole\Application\Actions\SyncEventVenues;
 use App\Modules\AdminConsole\Infrastructure\Persistence\Models\EventVenue;
+use App\Modules\Events\Application\Support\EventWallClockDateTime;
 use App\Modules\Events\Application\Support\EventZonePresenter;
 use App\Modules\Events\Contracts\EventScope;
 use App\Modules\Events\Http\Requests\EventVenuesSyncRequest;
@@ -49,14 +50,14 @@ final class OrganizerEventVenueController extends Controller
             ->orderBy('sort_order')
             ->with(['country', 'city', 'zones'])
             ->get()
-            ->map(fn (EventVenue $venue): array => $this->mapVenue($venue))
+            ->map(fn (EventVenue $venue): array => $this->mapVenue($venue, (string) $event->timezone))
             ->values()
             ->all();
 
         return $this->success(['venues' => $saved]);
     }
 
-    private function mapVenue(EventVenue $venue): array
+    private function mapVenue(EventVenue $venue, string $timezone): array
     {
         return [
             'id' => (string) $venue->id,
@@ -66,10 +67,10 @@ final class OrganizerEventVenueController extends Controller
             'location_address' => $venue->location_address,
             'latitude' => $venue->latitude !== null ? (string) $venue->latitude : null,
             'longitude' => $venue->longitude !== null ? (string) $venue->longitude : null,
-            'start_at' => $venue->start_at?->toIso8601String(),
-            'end_at' => $venue->end_at?->toIso8601String(),
-            'registration_opens_at' => $venue->registration_opens_at?->toIso8601String(),
-            'registration_closes_at' => $venue->registration_closes_at?->toIso8601String(),
+            'start_at' => EventWallClockDateTime::toInput($venue->start_at, $timezone),
+            'end_at' => EventWallClockDateTime::toInput($venue->end_at, $timezone),
+            'registration_opens_at' => EventWallClockDateTime::toInput($venue->registration_opens_at, $timezone),
+            'registration_closes_at' => EventWallClockDateTime::toInput($venue->registration_closes_at, $timezone),
             'zones' => $venue->zones
                 ->map(fn ($zone): array => EventZonePresenter::toArray($zone))
                 ->values()

@@ -1,6 +1,6 @@
 import LocalizedLink from '@/components/routing/LocalizedLink'
-import { FormEvent, useState } from 'react'
-import { router } from '@inertiajs/react'
+import { FormEvent, useEffect, useState } from 'react'
+import { router, usePage } from '@inertiajs/react'
 import DashboardLayout from '@/layouts/DashboardLayout'
 import { EmptyState } from '@/components/feedback'
 import { PageContent, PageHeader } from '@/components/layout'
@@ -10,6 +10,7 @@ import SideDetailPane, {
   sideDetailActionClassName,
 } from '@/components/layout/SideDetailPane'
 import PermissionGate from '@/components/layout/PermissionGate'
+import StatCard from '@/components/cards/StatCard'
 import StatusBadge from '@/components/status/StatusBadge'
 import DataTable from '@/components/tables/DataTable'
 import FiltersBar from '@/components/tables/FiltersBar'
@@ -21,8 +22,11 @@ import CopyRegistrationLinkButton from '@/components/events/CopyRegistrationLink
 import SendPrivateInviteModal from '@/components/events/SendPrivateInviteModal'
 import { useLocale } from '@/hooks/useLocale'
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
+import { useTenantId } from '@/hooks/useTenantId'
 import { useToast } from '@/hooks/useToast'
 import { ApiFetchError, apiFetch } from '@/lib/apiFetch'
+import { formatVenueSelectLabel } from '@/lib/venueLabels'
+import type { PermissionMap } from '@/types/shell'
 import { ArrowUpRight, Mail, UserRound } from 'lucide-react'
 
 type EventRow = {
@@ -30,6 +34,14 @@ type EventRow = {
   name: { en: string; ar: string }
   tier?: string
   registration_url?: string | null
+}
+
+type VenueOption = {
+  id: string
+  name: { en: string; ar: string }
+  city?: { en: string; ar: string }
+  start_at?: string | null
+  location_address?: string
 }
 
 type AttendeeRow = {
@@ -42,6 +54,7 @@ type AttendeeRow = {
   invite_status?: string
   row_type?: 'attendee' | 'invite'
   attendee_id?: string | null
+  event_venue_id?: string | null
   locale: string
   credential_status?: string | null
   current_zone?: {
@@ -54,6 +67,7 @@ type Filters = {
   search: string
   status: string
   registration_type?: string
+  event_venue_id?: string
 }
 
 type PaginationMeta = {
@@ -63,6 +77,13 @@ type PaginationMeta = {
   last_page: number
 }
 
+type StatusCounts = {
+  not_registered: number
+  registered: number
+  attended: number
+  not_attended: number
+}
+
 type Props = {
   event: EventRow
   attendees: AttendeeRow[]
@@ -70,6 +91,9 @@ type Props = {
   pagination?: PaginationMeta
   tenantId?: string
   canSendPrivateInvites?: boolean
+  venues?: VenueOption[]
+  eventTimezone?: string | null
+  statusCounts?: StatusCounts
 }
 
 function displayValue(value: string | null | undefined, fallback: string): string {
@@ -109,16 +133,29 @@ function resolveInviteId(attendee: AttendeeRow): string | null {
 export default function Attendees({
   event,
   attendees,
-  filters = { search: '', status: '', registration_type: 'public' },
+  filters = { search: '', status: '', registration_type: 'public', event_venue_id: '' },
   pagination = { page: 1, per_page: 25, total: 0, last_page: 1 },
-  tenantId = '',
+  tenantId: pageTenantId = '',
   canSendPrivateInvites = false,
+  venues = [],
+  eventTimezone = null,
+  statusCounts = {
+    not_registered: 0,
+    registered: 0,
+    attended: 0,
+    not_attended: 0,
+  },
 }: Props) {
   const { locale, t, localizedPath } = useLocale()
   const localizedRouter = useLocalizedRouter()
   const { toast } = useToast()
+  const tenantId = useTenantId(pageTenantId)
+  const can = (usePage<{ can?: PermissionMap }>().props.can ?? {}) as PermissionMap
+  const canManageAttendees = can['attendee.manage'] === true
+  const canManageInvites = can['event.invite.manage'] === true
   const [search, setSearch] = useState(filters.search)
   const [statusFilter, setStatusFilter] = useState(filters.status)
+  const [venueFilter, setVenueFilter] = useState(filters.event_venue_id ?? '')
   const [registrationType, setRegistrationType] = useState(filters.registration_type ?? 'public')
   const [inviteOpen, setInviteOpen] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -126,9 +163,61 @@ export default function Attendees({
   const [deleting, setDeleting] = useState(false)
   const notAvailable = t('notAvailable')
 
+  useEffect(() => {
+    setSearch(filters.search)
+    setStatusFilter(filters.status)
+    setVenueFilter(filters.event_venue_id ?? '')
+    setRegistrationType(filters.registration_type ?? 'public')
+  }, [filters.search, filters.status, filters.event_venue_id, filters.registration_type])
+
   const selected = attendees.find((row) => row.id === selectedId) ?? null
   const selectedDetailId = selected ? resolveDetailId(selected) : null
   const selectedInviteId = selected ? resolveInviteId(selected) : null
+  const canDeleteSelected = Boolean(
+    (selectedDetailId && canManageAttendees)
+    || (selectedInviteId && canManageInvites),
+  )
+
+  const venueOptions = [
+    { value: '', label: t('attendeesAllVenues') },
+    ...venues.map((venue) => ({
+      value: venue.id,
+      label: formatVenueSelectLabel(
+        {
+          id: venue.id,
+          name: venue.name,
+          city: venue.city ?? { en: '', ar: '' },
+          start_at: venue.start_at ?? null,
+          location_address: venue.location_address,
+        },
+        locale,
+        eventTimezone || undefined,
+      ),
+    })),
+  ]
+
+  function venueLabelFor(attendee: AttendeeRow): string {
+    if (!attendee.event_venue_id) {
+      return notAvailable
+    }
+
+    const venue = venues.find((row) => row.id === attendee.event_venue_id)
+    if (!venue) {
+      return notAvailable
+    }
+
+    return formatVenueSelectLabel(
+      {
+        id: venue.id,
+        name: venue.name,
+        city: venue.city ?? { en: '', ar: '' },
+        start_at: venue.start_at ?? null,
+        location_address: venue.location_address,
+      },
+      locale,
+      eventTimezone || undefined,
+    )
+  }
 
   async function copyRegistrationLink(url: string) {
     try {
@@ -140,9 +229,13 @@ export default function Attendees({
   }
 
   function queryParams(overrides: Partial<Filters & { page?: number }> = {}): Record<string, string> {
-    const nextSearch = overrides.search ?? search
-    const nextStatus = overrides.status ?? statusFilter
-    const nextRegistrationType = overrides.registration_type ?? registrationType
+    // Draft filter inputs apply only when submit explicitly passes them.
+    const nextSearch = overrides.search !== undefined ? overrides.search : (filters.search ?? '')
+    const nextStatus = overrides.status !== undefined ? overrides.status : (filters.status ?? '')
+    const nextVenueId = overrides.event_venue_id !== undefined
+      ? overrides.event_venue_id
+      : (filters.event_venue_id ?? '')
+    const nextRegistrationType = overrides.registration_type ?? (filters.registration_type ?? registrationType)
     const nextPage = overrides.page ?? pagination.page
     const query: Record<string, string> = {}
 
@@ -152,7 +245,10 @@ export default function Attendees({
     if (nextStatus !== '') {
       query.status = nextStatus
     }
-    if (nextRegistrationType && nextRegistrationType !== 'public') {
+    if (nextVenueId !== '') {
+      query.event_venue_id = nextVenueId
+    }
+    if (nextRegistrationType === 'private' || nextRegistrationType === 'public') {
       query.registration_type = nextRegistrationType
     }
     if (nextPage > 1) {
@@ -171,11 +267,37 @@ export default function Attendees({
 
   function submitFilters(eventForm: FormEvent) {
     eventForm.preventDefault()
-    applyFilters({ page: 1 })
+    applyFilters({
+      search,
+      status: statusFilter,
+      event_venue_id: venueFilter,
+      registration_type: registrationType,
+      page: 1,
+    })
+  }
+
+  function resetFilters() {
+    setSearch('')
+    setStatusFilter('')
+    setVenueFilter('')
+    closePane()
+    applyFilters({
+      search: '',
+      status: '',
+      event_venue_id: '',
+      registration_type: registrationType,
+      page: 1,
+    })
   }
 
   function exportHref(): string {
-    const params = new URLSearchParams(queryParams({ page: 1 }))
+    const params = new URLSearchParams(queryParams({
+      search: filters.search ?? '',
+      status: filters.status ?? '',
+      event_venue_id: filters.event_venue_id ?? '',
+      registration_type: filters.registration_type ?? registrationType,
+      page: 1,
+    }))
     const query = params.toString()
 
     return localizedPath(`/tenant/events/${event.id}/attendees/export${query ? `?${query}` : ''}`)
@@ -200,12 +322,20 @@ export default function Attendees({
   }
 
   async function confirmDelete() {
-    if (!selected) return
+    if (!selected || !canDeleteSelected) {
+      toast(t('attendeePaneDeleteUnavailable'), 'error')
+      return
+    }
+
+    if (!tenantId) {
+      toast(t('attendeeDetailTenantUnavailable'), 'error')
+      return
+    }
 
     setDeleting(true)
     try {
       if (selectedInviteId) {
-        if (selectedDetailId) {
+        if (selectedDetailId && canManageAttendees) {
           await apiFetch(`/api/v1/tenant/events/${event.id}/attendees/${selectedDetailId}`, {
             method: 'DELETE',
             tenantId,
@@ -213,12 +343,14 @@ export default function Attendees({
           })
         }
 
-        await apiFetch(`/api/v1/tenant/events/${event.id}/invites/${selectedInviteId}`, {
-          method: 'DELETE',
-          tenantId,
-          idempotency: true,
-        })
-      } else if (selectedDetailId) {
+        if (canManageInvites) {
+          await apiFetch(`/api/v1/tenant/events/${event.id}/invites/${selectedInviteId}`, {
+            method: 'DELETE',
+            tenantId,
+            idempotency: true,
+          })
+        }
+      } else if (selectedDetailId && canManageAttendees) {
         await apiFetch(`/api/v1/tenant/events/${event.id}/attendees/${selectedDetailId}`, {
           method: 'DELETE',
           tenantId,
@@ -232,7 +364,7 @@ export default function Attendees({
       toast(t('attendeePaneDeleted'), 'success')
       setDeleteOpen(false)
       setSelectedId(null)
-      router.reload({ only: ['attendees', 'pagination'] })
+      router.reload({ only: ['attendees', 'pagination', 'filters', 'statusCounts'] })
     } catch (caught) {
       toast(caught instanceof ApiFetchError ? caught.message : t('requestFailed'), 'error')
     } finally {
@@ -246,6 +378,17 @@ export default function Attendees({
     { value: 'registered', label: t('inviteStatusRegistered') },
     { value: 'attended', label: t('inviteStatusAttended') },
     { value: 'not_attended', label: t('inviteStatusNotAttended') },
+  ]
+
+  const statusBoxes: Array<{
+    key: keyof StatusCounts
+    label: string
+    accent: 'amber' | 'sky' | 'emerald' | 'rose'
+  }> = [
+    { key: 'not_registered', label: t('inviteStatusNotRegistered'), accent: 'amber' },
+    { key: 'registered', label: t('inviteStatusRegistered'), accent: 'sky' },
+    { key: 'attended', label: t('inviteStatusAttended'), accent: 'emerald' },
+    { key: 'not_attended', label: t('inviteStatusNotAttended'), accent: 'rose' },
   ]
 
   const inviteStatus = selected
@@ -270,6 +413,36 @@ export default function Attendees({
         )}
       />
       <PageContent>
+        <section
+          aria-label={t('attendeesStatusSummary')}
+          className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+        >
+          {statusBoxes.map((box) => {
+            const active = statusFilter === box.key
+            const applied = (filters.status ?? '') === box.key
+
+            return (
+              <button
+                key={box.key}
+                type="button"
+                className={`text-start transition ${active ? 'ring-2 ring-[var(--brand)] rounded-[var(--radius-card)]' : ''}`}
+                onClick={() => {
+                  setStatusFilter(active ? '' : box.key)
+                  closePane()
+                }}
+              >
+                <StatCard
+                  label={box.label}
+                  value={statusCounts[box.key]}
+                  status={box.key}
+                  accent={box.accent}
+                  featured={applied}
+                />
+              </button>
+            )
+          })}
+        </section>
+
         <div className="mb-4 border-b border-[var(--border)]">
           <div className="flex gap-4">
             <button
@@ -342,13 +515,25 @@ export default function Attendees({
               name="status"
               value={statusFilter}
               onChange={(changeEvent) => {
-                const nextStatus = changeEvent.target.value
-                setStatusFilter(nextStatus)
-                applyFilters({ status: nextStatus, page: 1 })
+                setStatusFilter(changeEvent.target.value)
               }}
               options={statusOptions}
             />
+            {venues.length > 0 ? (
+              <SelectInput
+                label={t('attendeesVenueDateFilter')}
+                name="event_venue_id"
+                value={venueFilter}
+                onChange={(changeEvent) => {
+                  setVenueFilter(changeEvent.target.value)
+                }}
+                options={venueOptions}
+              />
+            ) : null}
             <button type="submit" className="button-primary">{t('search')}</button>
+            <button type="button" className="button-secondary" onClick={resetFilters}>
+              {t('clearFilters')}
+            </button>
           </FiltersBar>
         </form>
 
@@ -386,6 +571,11 @@ export default function Attendees({
                   key: 'phone',
                   header: t('attendeePhone'),
                   render: (row) => displayValue((row as unknown as AttendeeRow).phone, notAvailable),
+                },
+                {
+                  key: 'event_venue_id',
+                  header: t('attendeesVenueDateFilter'),
+                  render: (row) => venueLabelFor(row as unknown as AttendeeRow),
                 },
                 {
                   key: 'invite_status',
@@ -438,8 +628,8 @@ export default function Attendees({
         title={selected ? displayValue(selected.display_name, selected.label) : ''}
         subtitle={selected?.email?.trim() || null}
         onClose={closePane}
-        onEdit={goToEdit}
-        onDelete={selectedDetailId || selectedInviteId ? () => setDeleteOpen(true) : null}
+        onEdit={selectedDetailId ? goToEdit : null}
+        onDelete={canDeleteSelected ? () => setDeleteOpen(true) : null}
         hero={selected ? (
           <div className="flex items-center gap-4">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[var(--brand-soft)] text-lg font-bold tracking-wide text-[var(--brand)] ring-1 ring-[color-mix(in_srgb,var(--brand)_18%,transparent)]">
@@ -456,25 +646,38 @@ export default function Attendees({
             </div>
           </div>
         ) : null}
-        footer={selectedDetailId ? (
+        footer={selected ? (
           <SideDetailActions>
-            <LocalizedLink
-              href={`/tenant/events/${event.id}/attendees/${selectedDetailId}`}
-              className={sideDetailActionClassName('primary')}
-            >
-              {t('showAttendeeDetails')}
-              <ArrowUpRight className="h-4 w-4" aria-hidden />
-            </LocalizedLink>
-            <button type="button" className={sideDetailActionClassName()} onClick={goToEdit}>
-              {t('edit')}
-            </button>
+            {selectedDetailId ? (
+              <>
+                <LocalizedLink
+                  href={`/tenant/events/${event.id}/attendees/${selectedDetailId}`}
+                  className={sideDetailActionClassName('primary')}
+                >
+                  {t('showAttendeeDetails')}
+                  <ArrowUpRight className="h-4 w-4" aria-hidden />
+                </LocalizedLink>
+                <button type="button" className={sideDetailActionClassName()} onClick={goToEdit}>
+                  {t('edit')}
+                </button>
+              </>
+            ) : (
+              <div className="flex items-start gap-2 rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)]/60 px-3 py-3 text-sm text-[var(--muted)]">
+                <UserRound className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                <span>{t('attendeePaneEditUnavailable')}</span>
+              </div>
+            )}
+            {canDeleteSelected ? (
+              <button
+                type="button"
+                className={sideDetailActionClassName('danger')}
+                onClick={() => setDeleteOpen(true)}
+              >
+                {t('delete')}
+              </button>
+            ) : null}
           </SideDetailActions>
-        ) : (
-          <div className="flex items-start gap-2 rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)]/60 px-3 py-3 text-sm text-[var(--muted)]">
-            <UserRound className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-            <span>{t('attendeePaneEditUnavailable')}</span>
-          </div>
-        )}
+        ) : null}
       >
         {selected ? (
           <SideDetailInfoGrid
@@ -491,6 +694,10 @@ export default function Attendees({
               {
                 label: t('attendeePhone'),
                 value: displayValue(selected.phone, notAvailable),
+              },
+              {
+                label: t('attendeesVenueDateFilter'),
+                value: venueLabelFor(selected),
               },
               {
                 label: t('inviteStatus'),

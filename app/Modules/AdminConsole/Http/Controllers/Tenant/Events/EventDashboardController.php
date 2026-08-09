@@ -822,6 +822,8 @@ final class EventDashboardController extends Controller
 
     private function mapEventVenues(Event $event): array
     {
+        $timezone = (string) $event->timezone;
+
         return $event->venues()
             ->orderBy('sort_order')
             ->with(['country', 'city', 'zones', 'map'])
@@ -834,10 +836,10 @@ final class EventDashboardController extends Controller
                 'location_address' => $venue->location_address,
                 'latitude' => $venue->latitude !== null ? (string) $venue->latitude : null,
                 'longitude' => $venue->longitude !== null ? (string) $venue->longitude : null,
-                'start_at' => $venue->start_at?->toIso8601String(),
-                'end_at' => $venue->end_at?->toIso8601String(),
-                'registration_opens_at' => $venue->registration_opens_at?->toIso8601String(),
-                'registration_closes_at' => $venue->registration_closes_at?->toIso8601String(),
+                'start_at' => EventWallClockDateTime::toInput($venue->start_at, $timezone),
+                'end_at' => EventWallClockDateTime::toInput($venue->end_at, $timezone),
+                'registration_opens_at' => EventWallClockDateTime::toInput($venue->registration_opens_at, $timezone),
+                'registration_closes_at' => EventWallClockDateTime::toInput($venue->registration_closes_at, $timezone),
                 'has_map' => $venue->map !== null,
                 'zones' => $venue->zones
                     ->map(fn ($zone): array => EventZonePresenter::toArray($zone))
@@ -994,20 +996,41 @@ final class EventDashboardController extends Controller
 
         $theme = is_array($branding?->theme_config) ? $branding->theme_config : null;
         if (is_array($theme)) {
-            $path = is_string($theme['background_image_path'] ?? null) ? $theme['background_image_path'] : null;
-            if ($path !== null && $path !== '') {
+            $resolveUrl = function (?string $path): ?string {
+                if ($path === null || $path === '') {
+                    return null;
+                }
                 $url = Storage::disk('public')->url($path);
-                $theme['background_image_url'] = str_starts_with($url, 'http://') || str_starts_with($url, 'https://')
+
+                return str_starts_with($url, 'http://') || str_starts_with($url, 'https://')
                     ? $url
                     : url($url);
+            };
+
+            foreach (['light', 'dark'] as $mode) {
+                if (! is_array($theme[$mode] ?? null)) {
+                    continue;
+                }
+                $modeUrl = $resolveUrl(
+                    is_string($theme[$mode]['background_image_path'] ?? null)
+                        ? $theme[$mode]['background_image_path']
+                        : null
+                );
+                if ($modeUrl !== null) {
+                    $theme[$mode]['background_image_url'] = $modeUrl;
+                }
+            }
+
+            $path = is_string($theme['background_image_path'] ?? null) ? $theme['background_image_path'] : null;
+            $flatUrl = $resolveUrl($path);
+            if ($flatUrl !== null) {
+                $theme['background_image_url'] = $flatUrl;
             }
 
             $logoPath = is_string($theme['logo_path'] ?? null) ? $theme['logo_path'] : null;
-            if ($logoPath !== null && $logoPath !== '') {
-                $logoUrl = Storage::disk('public')->url($logoPath);
-                $theme['logo_url'] = str_starts_with($logoUrl, 'http://') || str_starts_with($logoUrl, 'https://')
-                    ? $logoUrl
-                    : url($logoUrl);
+            $logoUrl = $resolveUrl($logoPath);
+            if ($logoUrl !== null) {
+                $theme['logo_url'] = $logoUrl;
             }
         }
 

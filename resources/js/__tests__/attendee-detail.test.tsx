@@ -35,7 +35,17 @@ vi.mock('@/hooks/useLocale', () => ({
       manualCheckIn: 'Manual check-in',
       notAvailable: 'Not available',
       attendees: 'Attendees',
+      delete: 'Delete',
+      cancel: 'Cancel',
+      attendeePaneDeleteTitle: 'Remove attendee',
+      attendeePaneDeleteMessage: 'Remove this attendee?',
     }[key] ?? key),
+  }),
+}))
+
+vi.mock('@/hooks/useLocalizedRouter', () => ({
+  useLocalizedRouter: () => ({
+    visit: vi.fn(),
   }),
 }))
 
@@ -78,5 +88,6 @@ describe('attendee detail', () => {
     )
     expect(screen.getByRole('button', { name: 'Print badge' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Manual check-in' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument()
   })
 })

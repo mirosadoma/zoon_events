@@ -29,14 +29,17 @@ class AttendeesPaginationExportTest extends TestCase
 
         $this->post('/login', ['email' => $user->email, 'password' => $password])->assertRedirect('/dashboard');
 
-        $this->get("/tenant/events/{$event->id}/attendees?status=checked_in&search=Ada&page=1")
+        $this->get("/tenant/events/{$event->id}/attendees?status=checked_in&search=Ada&page=1&event_venue_id=42")
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->component('tenant/events/Attendees')
                 ->has('attendees')
                 ->has('event.registration_url')
+                ->has('venues')
+                ->has('eventTimezone')
                 ->where('filters.search', 'Ada')
                 ->where('filters.status', 'checked_in')
+                ->where('filters.event_venue_id', '42')
                 ->where('pagination.page', 1)
                 ->where('pagination.per_page', 25)
                 ->has('pagination.total')

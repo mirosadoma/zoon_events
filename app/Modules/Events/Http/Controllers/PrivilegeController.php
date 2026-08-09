@@ -2,13 +2,13 @@
 
 namespace App\Modules\Events\Http\Controllers;
 
-use App\Exceptions\FoundationException;
 use App\Http\Controllers\Controller;
 use App\Modules\Events\Infrastructure\Persistence\Models\CategoryTemplatePrivilege;
 use App\Modules\Events\Infrastructure\Persistence\Models\Privilege;
 use App\Modules\Shared\Http\Responses\RespondsWithApi;
 use App\Modules\Tenancy\Domain\Context\TenantContextStore;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -83,18 +83,13 @@ class PrivilegeController extends Controller
             ->where('tenant_id', $context->tenant->id)
             ->findOrFail($privilege_id);
 
-        $inUse = CategoryTemplatePrivilege::query()
-            ->where('privilege_id', $privilege->id)
-            ->exists();
+        DB::transaction(function () use ($privilege): void {
+            CategoryTemplatePrivilege::query()
+                ->where('privilege_id', $privilege->id)
+                ->delete();
 
-        if ($inUse) {
-            throw FoundationException::conflict(
-                'privilege_in_use',
-                'This privilege is assigned to one or more categories and cannot be deleted.',
-            );
-        }
-
-        $privilege->delete();
+            $privilege->delete();
+        });
 
         return $this->empty();
     }
