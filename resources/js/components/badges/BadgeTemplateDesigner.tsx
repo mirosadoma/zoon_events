@@ -1006,7 +1006,11 @@ export default function BadgeTemplateDesigner({
             background_image_path: bgImagePath,
             canvas_width: canvasW,
             canvas_height: canvasH,
-            field_values: previewTestValues,
+            field_values: {
+              ...previewTestValues,
+              ...(organizerLogoUrl ? { organizer_logo_ref: organizerLogoUrl } : {}),
+              ...(sponsorLogoUrl ? { sponsor_logo_ref: sponsorLogoUrl } : {}),
+            },
             qr_payload: 'PREVIEW-QR',
           },
         },
