@@ -58,7 +58,8 @@ final class SecurityHeaders
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('X-Frame-Options', $isEmbeddable ? 'ALLOWALL' : 'DENY');
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
-        $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+        $cameraPolicy = $this->isCameraRoute($request) ? 'camera=(self)' : 'camera=()';
+        $response->headers->set('Permissions-Policy', "{$cameraPolicy}, microphone=(), geolocation=()");
         $response->headers->set('Content-Security-Policy', $csp);
 
         if (app()->environment('production')) {
@@ -73,5 +74,13 @@ final class SecurityHeaders
         $path = $request->path();
 
         return str_contains($path, '/register/') || preg_match('#^(en|ar)/register/#', $path);
+    }
+
+    private function isCameraRoute(Request $request): bool
+    {
+        $path = $request->path();
+
+        return preg_match('#^(?:(?:en|ar)/)?tenant/events/\d+/scanner$#', $path) === 1
+            || preg_match('#^(?:(?:en|ar)/)?kiosk/#', $path) === 1;
     }
 }
