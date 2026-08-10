@@ -33,10 +33,14 @@ final class SearchController extends Controller
         $user = $request->user();
 
         if ($user === null || mb_strlen($query) < 1) {
-            return response()->json(['results' => []]);
+            return response()->json([
+                'results' => [],
+                'accessible_events' => [],
+            ]);
         }
 
         $results = [];
+        $accessibleEvents = [];
         $context = $this->resolveTenantContext($request, $user);
         $platformWide = $this->canSearchEventsPlatformWide($user);
         $searchableTenantIds = $this->searchableTenantIds($user, $context, $platformWide);
@@ -74,6 +78,26 @@ final class SearchController extends Controller
 
                 $results[] = $result;
             }
+
+            $accessible = Event::query()
+                ->whereIn('tenant_id', $searchableTenantIds)
+                ->orderBy('name_en')
+                ->limit(24)
+                ->get(['id', 'tenant_id', 'name_en', 'name_ar']);
+
+            foreach ($accessible as $event) {
+                $row = [
+                    'id' => (string) $event->id,
+                    'label' => $event->name_en,
+                    'label_ar' => $event->name_ar,
+                ];
+
+                if ($platformWide) {
+                    $row['tenant_name'] = (string) ($tenantNames[$event->tenant_id] ?? '');
+                }
+
+                $accessibleEvents[] = $row;
+            }
         }
 
         if ($context !== null && $this->permissions->hasTenantPermission($context, 'membership.view')) {
@@ -103,7 +127,10 @@ final class SearchController extends Controller
             }
         }
 
-        return response()->json(['results' => $results]);
+        return response()->json([
+            'results' => $results,
+            'accessible_events' => $accessibleEvents,
+        ]);
     }
 
     private function resolveTenantContext(Request $request, User $user): ?TenantContext

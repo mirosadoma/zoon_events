@@ -30,7 +30,13 @@ final class DashboardSearchTest extends Phase1MySqlTestCase
         $response->assertOk()
             ->assertJsonPath('results.0.type', 'event')
             ->assertJsonPath('results.0.label', 'Zonetec Summit 2026')
-            ->assertJsonPath('results.0.href', fn (string $href): bool => str_contains($href, '/tenant/events/'));
+            ->assertJsonPath('results.0.href', fn (string $href): bool => str_contains($href, '/tenant/events/'))
+            ->assertJsonStructure([
+                'results',
+                'accessible_events' => [
+                    ['id', 'label', 'label_ar'],
+                ],
+            ]);
     }
 
     public function test_tenant_member_can_search_events_by_partial_prefix(): void

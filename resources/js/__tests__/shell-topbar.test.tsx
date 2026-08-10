@@ -81,6 +81,10 @@ describe('shell topbar and nav', () => {
           label: 'Zonetec Summit 2026',
           href: '/tenant/events/1',
         }],
+        accessible_events: [
+          { id: '1', label: 'Zonetec Summit 2026' },
+          { id: '2', label: 'Expo Night' },
+        ],
       }),
     })
 
@@ -93,6 +97,10 @@ describe('shell topbar and nav', () => {
         },
         session: {
           tenant: { id: '1' },
+        },
+        can: {
+          'checkin.scan.submit': true,
+          'event.view': true,
         },
       },
       url: '/en/dashboard',
@@ -116,6 +124,52 @@ describe('shell topbar and nav', () => {
     await waitFor(() => {
       expect(screen.getByText('Zonetec Summit 2026')).toBeInTheDocument()
     })
+
+    vi.unstubAllGlobals()
+  })
+
+  it('groups matching pages under accessible events', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        results: [],
+        accessible_events: [
+          { id: '10', label: 'Summit One' },
+          { id: '20', label: 'Summit Two' },
+        ],
+      }),
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    vi.mocked(usePage).mockReturnValue({
+      props: {
+        auth: {
+          user: { id: '1', name: 'Demo User' },
+        },
+        session: {
+          tenant: { id: '1' },
+        },
+        can: {
+          'checkin.scan.submit': true,
+        },
+      },
+      url: '/en/dashboard',
+    } as unknown as ReturnType<typeof usePage>)
+
+    render(<SearchCommand />)
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'searchPlaceholder' }), {
+      target: { value: 'scanner' },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Summit One')).toBeInTheDocument()
+      expect(screen.getByText('Summit Two')).toBeInTheDocument()
+    })
+
+    const scannerButtons = screen.getAllByRole('button', { name: 'scanner' })
+    expect(scannerButtons).toHaveLength(2)
 
     vi.unstubAllGlobals()
   })

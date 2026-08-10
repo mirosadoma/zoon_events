@@ -115,3 +115,22 @@ export function extractEventIdFromPath(pathname: string): string | null {
 
   return match[1]
 }
+
+export type SearchableEventPage = {
+  key: string
+  labelKey: string
+  pathSuffix: string
+  permission: string | null
+}
+
+/** Flat catalog of event-scoped nav pages for global search (path without event id). */
+export function searchableEventPages(capabilities?: EventCapabilities): SearchableEventPage[] {
+  return eventNavigationGroups('__EVENT_ID__', capabilities)
+    .flatMap((group) => group.items)
+    .map((item) => ({
+      key: item.key,
+      labelKey: item.label,
+      pathSuffix: item.href.replace('/tenant/events/__EVENT_ID__', ''),
+      permission: item.permission ?? null,
+    }))
+}
