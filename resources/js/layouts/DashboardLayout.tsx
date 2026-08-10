@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type PropsWithChildren } from 'react'
-import { Head } from '@inertiajs/react'
+import { Head, usePage } from '@inertiajs/react'
 import { Sidebar, Topbar } from '@/components/layout'
 import ProductTour from '@/components/tour/ProductTour'
 import { ShellLayoutProvider, useShellLayout } from '@/contexts/ShellLayoutContext'
@@ -47,6 +47,7 @@ type DashboardLayoutProps = PropsWithChildren<{
 }>
 
 function DashboardShell({ children, title }: DashboardLayoutProps) {
+  const { url } = usePage()
   const { locale, direction, t } = useLocale()
   const { sidebarCollapsed } = useShellLayout()
   const { appName } = useSiteBranding()
@@ -65,7 +66,7 @@ function DashboardShell({ children, title }: DashboardLayoutProps) {
       <div className="ta-main-column">
         <Topbar />
         <main id="main-content" tabIndex={-1} className="p-4 sm:p-6 lg:p-8">
-          <RouteErrorBoundary title={t('somethingWentWrong')} detail={t('pageRenderError')}>
+          <RouteErrorBoundary key={url} title={t('somethingWentWrong')} detail={t('pageRenderError')}>
             {children}
           </RouteErrorBoundary>
         </main>

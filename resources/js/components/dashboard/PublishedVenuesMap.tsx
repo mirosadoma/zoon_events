@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api'
-import type { Libraries } from '@react-google-maps/api'
+import { GoogleMap, Marker } from '@react-google-maps/api'
 import { useLocale } from '@/hooks/useLocale'
+import { useGoogleMapsLoader } from '@/hooks/useGoogleMapsLoader'
 import { useLocalizedRouter } from '@/hooks/useLocalizedRouter'
 import { formatDateTime } from '@/lib/formatters'
 import { coloredPinIcon } from '@/lib/mapMarkerColor'
@@ -22,8 +22,6 @@ export type PublishedVenueMarker = {
 
 const DEFAULT_CENTER = { lat: 30.0444, lng: 31.2357 }
 const MAP_CONTAINER_STYLE = { height: '24rem', width: '100%', minHeight: '24rem' }
-const MAP_LIBRARIES: Libraries = ['geometry']
-
 function formatRange(
   start: string | null | undefined,
   end: string | null | undefined,
@@ -49,17 +47,10 @@ export default function PublishedVenuesMap({
 }) {
   const { locale, t } = useLocale()
   const localized = useLocalizedRouter()
-  const apiKey = ((import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) ?? '').trim()
+  const { apiKey, isLoaded, loadError } = useGoogleMapsLoader()
   const [map, setMap] = useState<google.maps.Map | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
-
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'zoon-google-maps',
-    googleMapsApiKey: apiKey,
-    libraries: MAP_LIBRARIES,
-    language: locale,
-  })
 
   const legend = useMemo(() => {
     const seen = new Map<string, { event_id: string; name: string; color: string }>()
